@@ -1,0 +1,111 @@
+# Scheda del componente secondo lo standard publiccode.yml.
+# Validata con il validatore ufficiale di Developers Italia
+# (italia/publiccode-parser-go).
+publiccodeYmlVersion: "0"
+
+name: Albo Pretorio
+url: "https://github.com/sitoalpasso/wp-albo-pretorio"
+softwareVersion: "0.1.0-alpha"
+releaseDate: "2026-08-16"
+
+organisation:
+  name: sitoalpasso
+  uri: "https://github.com/sitoalpasso"
+
+platforms:
+  - web
+  - wordpress
+
+categories:
+  - document-management
+  - content-management
+
+developmentStatus: development
+softwareType: addon
+
+intendedAudience:
+  countries:
+    - IT
+  scope:
+    - government
+    - local-authorities
+
+description:
+  it:
+    localisedName: Albo Pretorio
+    shortDescription: >-
+      Pubblicazione con effetto di pubblicità legale su WordPress, con scadenza
+      applicata in lettura.
+    longDescription: >
+      Componente per la gestione dell'albo pretorio online su WordPress. Attua
+      requisiti derivati dalla normativa applicabile ai soggetti dell'art.
+      2-bis del d.lgs. 33/2013, indipendentemente dallo specifico ente.
+
+      L'albo pretorio è trattato come un sistema a scadenza: la data di fine
+      pubblicazione è obbligatoria per ogni atto, la durata è configurabile per
+      tipo di atto senza valori cablati nel codice e senza default silenziosi,
+      e la scadenza è applicata come proprietà del dato in interrogazione su
+      ogni percorso di lettura pubblico, allegati compresi. Un atto scaduto non
+      è quindi raggiungibile anche quando il compito pianificato non è mai
+      stato eseguito.
+
+      Il componente aggiunge il repertorio con numerazione progressiva annuale
+      assegnata dal sistema, l'immodificabilità dell'atto pubblicato, il referto
+      di pubblicazione, il registro delle operazioni, il battito di controllo
+      sul pianificatore e l'esclusione dall'indicizzazione dei motori di
+      ricerca. Richiede il componente Conformita Core, che fornisce i meccanismi
+      comuni e riceve da qui la politica come parametro esplicito.
+
+      Riferimenti normativi principali: legge 18 giugno 2009, n. 69, art. 32;
+      d.lgs. 18 agosto 2000, n. 267, art. 124; deliberazione del Garante per la
+      protezione dei dati personali 15 maggio 2014, n. 243; regolamento (UE)
+      2016/679, artt. 5 e 6; d.lgs. 30 giugno 2003, n. 196, artt. 2-ter e
+      2-septies; linee guida AgID sul documento informatico adottate con
+      determinazione n. 407/2020; legge 9 gennaio 2004, n. 4, art. 11.
+    features:
+      - Tipo di contenuto atto con metadati obbligatori e data di fine pubblicazione
+      - Durata di pubblicazione configurabile per tipo di atto, senza default silenziosi
+      - Scadenza applicata in lettura su ogni percorso pubblico, allegati compresi
+      - Repertorio con numerazione progressiva annuale assegnata dal sistema
+      - Immodificabilità dell'atto pubblicato e divieto di cancellazione
+      - Referto di pubblicazione congelato alla defissione
+      - Registro delle operazioni e battito di controllo sul pianificatore
+      - Esclusione dall'indicizzazione e dalla sitemap
+      - Versione oscurata pubblicabile accanto all'originale non pubblico
+      - Esportazione degli atti e dei metadati in formato aperto
+
+legal:
+  license: GPL-3.0-or-later
+  mainCopyrightOwner: sitoalpasso
+
+maintenance:
+  type: internal
+  contacts:
+    - name: sitoalpasso
+
+localisation:
+  localisationReady: true
+  availableLanguages:
+    - it
+
+dependsOn:
+  open:
+    - name: WordPress
+      versionMin: "6.5"
+    - name: PHP
+      versionMin: "8.1"
+    - name: Conformita Core
+
+IT:
+  countryExtensionVersion: "0.2"
+  riuso:
+    # Volutamente vuoto. Il campo dichiara la pubblica amministrazione titolare
+    # del software: qui il titolare è un soggetto privato che pubblica il
+    # componente in licenza aperta, quindi non esiste un codice IPA da indicare.
+    codiceIPA: ""
+  piattaforme:
+    spid: false
+    cie: false
+    anpr: false
+    pagopa: false
+    io: false
