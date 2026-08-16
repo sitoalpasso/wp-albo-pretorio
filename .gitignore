@@ -1,0 +1,6 @@
+/vendor/
+/node_modules/
+/languages/*.mo
+.phpunit.result.cache
+.phpcs-cache
+*.log
