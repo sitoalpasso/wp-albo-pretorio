@@ -29,6 +29,20 @@ supportato.
   in ingresso, escaping in uscita, capability dedicate.
 - Documentazione e messaggi di commit in italiano, descrittivi e senza riferimenti a
   installazioni specifiche.
+- La cartella `docs/` descrive il plugin in linguaggio semplice: `requisiti.md`,
+  `architettura.md`, `dati.md`, `collaudo.md`, `sicurezza.md`, più una scheda in
+  `docs/implementazione/` per ogni funzione realizzata. Un commit che cambia un
+  comportamento descritto lì aggiorna il documento nello stesso commit. I nomi di classe
+  di `architettura.md` e `dati.md` sono il contratto: se un nome deve cambiare, si
+  cambia prima nel documento.
+- Prima di implementare una funzione nuova si scrive la scheda di lavorazione, otto
+  punti: file toccati, requisito ALBO-xx, flusso per chi usa il sito, dati letti e
+  scritti, permessi coinvolti, modi di guasto previsti, test che si aggiungono, cosa
+  deliberatamente non si implementa. A fine lavoro la scheda aggiornata con com'è andata
+  davvero si committa in `docs/implementazione/<nome-funzione>.md`.
+- Ogni bug scoperto produce prima un test che lo riproduce e fallisce, poi la
+  correzione che lo fa passare. Il test resta per sempre nella batteria: non si cancella
+  e non si disattiva per far passare la CI.
 - Richiede il plugin `conformita-core`; la compatibilità di versione è verificata
   all'attivazione.
 - La politica di indicizzazione di questo componente è `noindex` imposto, ed è dichiarata
