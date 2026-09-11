@@ -4,40 +4,78 @@ Plugin WordPress per la pubblicazione con effetto di pubblicità legale (albo pr
 online). Il componente implementa requisiti **derivati dalla normativa** applicabile ai
 soggetti dell'art. 2-bis del d.lgs. 33/2013, indipendentemente dallo specifico ente.
 
-**Stato: in sviluppo.** Non ancora utilizzabile in produzione. Questa fase apre il
-repository e ne fissa licenza, documentazione minima e infrastruttura di verifica.
+## Stato: in costruzione, e questa pagina distingue cosa c'è da cosa è previsto
 
-## Cosa fa
+**Oggi il repository contiene lo scheletro del plugin, la documentazione e
+l'infrastruttura di verifica. Nessuna delle funzioni descritte più sotto è costruita**, e
+il componente non è utilizzabile in produzione.
+
+La distinzione fra "c'è" e "è previsto" è mantenuta in tutta la documentazione, con una
+colonna Stato in `docs/requisiti.md` e in `docs/collaudo.md` che si muove **solo dopo la
+verifica continua verde**, mai sulla parola di chi scrive. Questa pagina segue la stessa
+regola: quello che non c'è è al futuro.
+
+## Cosa farà
 
 L'albo pretorio non è un elenco di documenti: è un sistema a scadenza, in cui il rischio
-principale non è pubblicare male ma non smettere di pubblicare. Il componente è costruito
-attorno a questo:
+principale non è pubblicare male ma non smettere di pubblicare. Il componente è progettato
+attorno a questo.
 
-- tipo di contenuto dedicato all'atto, con metadati obbligatori e data di fine
-  pubblicazione sempre valorizzata;
-- durata della pubblicazione configurabile per tipo di atto, senza durate cablate nel
-  codice e senza default silenziosi;
-- scadenza applicata come proprietà del dato in lettura, su ogni percorso pubblico
-  (elenco, scheda, ricerca interna, feed, sitemap, REST e allegati), quindi indipendente
-  dall'effettiva esecuzione del compito pianificato;
-- defissione automatica con registro delle operazioni e battito di controllo che segnala
-  lo stallo del pianificatore;
-- numerazione di repertorio progressiva annuale assegnata dal sistema, immodificabilità
-  dell'atto pubblicato, referto di pubblicazione;
-- esclusione dall'indicizzazione dei motori di ricerca, che per questo componente è la
-  politica imposta;
-- separazione netta dagli obblighi di pubblicazione del d.lgs. 33/2013: finalità, durate e
-  cicli di vita sono distinti.
+**Il cuore, cioè la scadenza.** La scadenza sarà una proprietà del dato applicata **in
+lettura**, su ogni percorso pubblico (elenco, scheda, ricerca interna, feed, mappa per i
+motori, interfaccia informatica e allegati), quindi indipendente dall'esecuzione del
+compito pianificato. Un compito pianificato farà poi il lavoro pesante e un battito di
+controllo segnalerà il suo stallo, ma la visibilità pubblica non dipenderà mai da loro.
 
-Il componente richiede il plugin `conformita-core`, che fornisce i meccanismi comuni
-(scadenza, consegna degli allegati, registro) e riceve da qui la politica come parametro
-esplicito. La compatibilità di versione è verificata all'attivazione.
+**L'atto.** Tipo di contenuto dedicato, con i suoi dati, un documento principale e
+allegati ulteriori facoltativi. Una bozza si potrà salvare incompleta; **la data di fine
+pubblicazione sarà richiesta per pubblicare**, e non esisterà l'atto pubblicato a tempo
+indeterminato. La durata sarà configurabile per tipo di atto, senza durate cablate nel
+codice e senza valori predefiniti silenziosi.
+
+**Le regole che non si negoziano.** Immodificabilità dell'atto pubblicato, esclusione
+dall'indicizzazione dei motori di ricerca (per questo componente è la politica imposta, non
+un'opzione), separazione dagli obblighi di pubblicazione del d.lgs. 33/2013, con finalità,
+durate e cicli di vita distinti.
+
+**Due funzioni sono ipotesi, non impegni.** La **numerazione di repertorio** progressiva
+annuale e il **referto di pubblicazione** poggiano sulla prassi della pubblicità legale, che
+non è una fonte normativa: sono scelte operative da confermare contro il regolamento
+dell'amministrazione, e le relative lavorazioni sono ferme in attesa di quella conferma.
+Sono marcate come ipotesi in `docs/requisiti.md` e in `docs/collaudo.md`.
+
+## Il rapporto con `conformita-core`
+
+Il componente richiede il plugin `conformita-core`, che fornisce i meccanismi comuni e
+riceve da qui le politiche come parametro esplicito: indicizzazione vietata e contenuto
+scaduto irraggiungibile.
+
+**Di quei meccanismi oggi ne esiste uno**, il filtro che applica la scadenza a ogni lettura.
+Consegna degli allegati in cartella protetta, registro delle operazioni, compito pianificato,
+battito di controllo, applicazione della politica di indicizzazione e separazione delle
+esposizioni sono lavorazioni successive di quel componente, non funzioni già disponibili.
+L'elenco riga per riga, con lo stato di ciascuno, è in
+[`docs/architettura.md`](docs/architettura.md).
+
+**La dipendenza è controllata in due punti distinti**, e coprono due cose diverse.
+L'intestazione `Requires Plugins` di WordPress impedisce l'attivazione quando
+`conformita-core` non è installato o non è attivo, ma non guarda le versioni. Il controllo
+di compatibilità con la versione `1.2.0` dell'interfaccia avviene **all'avvio del
+componente**, su `plugins_loaded`, ed è la lavorazione che apre lo sviluppo del codice.
 
 ## Requisiti normativi di riferimento
 
-Le fonti sono citate per estremi. L'elenco completo dei requisiti (ALBO-01..21), con
-fonte e criterio di verifica per ciascuno, viene pubblicato in `docs/requisiti.md` nel
-corso dello sviluppo.
+Le fonti sono citate per estremi. Il **catalogo corrente dei requisiti** (ALBO-01..26), con
+fonte e criterio di verifica per ciascuno, è in [`docs/requisiti.md`](docs/requisiti.md).
+
+**Non è un elenco completo, e il documento lo dichiara.** ALBO-22, che riguarda gli stati
+dell'atto e il flusso di pubblicazione, è una decisione ancora incompleta; ALBO-07 e ALBO-08
+sono ipotesi da confermare. La colonna Stato dice a che punto è ciascun requisito: oggi sono
+tutti da fare.
+
+Un'altra distinzione che il catalogo tiene ferma: dove c'è una fonte normativa, **la norma
+fissa il risultato obbligatorio, non il modo in cui il componente lo ottiene**. Le soluzioni
+tecniche sono decisioni di prodotto, marcate come tali, e restano discutibili.
 
 - Legge 18 giugno 2009, n. 69, art. 32: assolvimento degli obblighi di pubblicazione con
   effetto di pubblicità legale mediante pubblicazione sui siti informatici, con rinvio
