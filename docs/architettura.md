@@ -5,7 +5,7 @@ file, **che cosa sta toccando**, anche senza leggere il PHP riga per riga.
 
 > **Stato di questo documento: mappa progettata, non ancora costruita.** Alla data di
 > scrittura il componente contiene lo scheletro del plugin e nient'altro: **nessuna delle
-> parti elencate più sotto esiste nel codice**, e dei sei meccanismi comuni ne esiste uno
+> parti elencate più sotto esiste nel codice**, e dei sette meccanismi comuni ne esiste uno
 > solo. Le due tabelle hanno una colonna che lo dice riga per riga. Il documento è
 > pubblicato lo stesso, perché serve a decidere dove va una modifica prima di scriverla, ma
 > va letto per quello che è: chi cerca oggi una di queste parti non la trova, e non è un
@@ -104,14 +104,22 @@ ATTO
 
 ## Cosa arriva da conformita-core
 
-**Un solo meccanismo esiste oggi: il filtro di scadenza.** Gli altri cinque sono
-pianificati e non costruiti, e la colonna a destra lo dice riga per riga. Elencarli al
+**Un solo meccanismo esiste oggi: il filtro di scadenza a ogni lettura.** Gli altri sei
+sono pianificati e non costruiti, e la colonna a destra lo dice riga per riga. Elencarli al
 presente farebbe credere disponibili funzioni che nessuno ha ancora scritto, ed e' il modo
 in cui un documento diventa piu' pericoloso della sua assenza.
 
+**Il motore di scadenza va contato per meta'**, ed e' la distinzione che conta di piu' in
+questa tabella. Il **filtro a ogni lettura** esiste ed e' quello da cui dipende la
+conformita': un atto scaduto non compare, anche se nessun compito pianificato ha mai girato.
+Il **compito pianificato** che porta lo stato memorizzato a defisso **non esiste ancora**.
+Chiamare "motore" l'insieme delle due parti e segnarlo come costruito farebbe credere
+disponibile la meta' che manca.
+
 | Meccanismo di core | Cosa fa per l'albo | Requisiti | Esiste oggi |
 |---|---|---|---|
-| Motore di scadenza | Filtro a ogni lettura pubblica (l'atto scaduto non appare da nessun percorso) più compito pianificato per il lavoro pesante | ALBO-03, ALBO-18, ALBO-21 | si' |
+| **Filtro di scadenza a ogni lettura** | A ogni richiesta pubblica l'atto scaduto non compare su nessuno dei percorsi coperti, anche se nessun compito pianificato ha mai girato. È la parte da cui dipende la conformità | ALBO-05, ALBO-18, ALBO-21 | **sì** |
+| **Compito pianificato di aggiornamento** | Fa il lavoro pesante alla scadenza: porta lo stato memorizzato a defisso e scrive nel registro. **Non è ancora costruito** (unità S6 del meccanismo comune). La sua assenza non rende visibile un atto scaduto, perché la visibilità dipende dal filtro qui sopra e non da questo | ALBO-03 | **no, pianificato** |
 | Battito di controllo | Timestamp a ogni esecuzione del cron, avviso al responsabile se invecchia | ALBO-19 | no, pianificato |
 | Consegna allegati | I file stanno in cartella protetta e si scaricano solo da un endpoint che rifà i controlli di visibilità a ogni richiesta | ALBO-05, ALBO-18, ALBO-20 | no, pianificato |
 | Registro delle modifiche | Log solo in aggiunta: chi, cosa, quando, perché | ALBO-10 | no, pianificato |

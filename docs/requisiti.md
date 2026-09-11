@@ -3,7 +3,9 @@
 Questo documento spiega in linguaggio semplice cosa il plugin deve fare e perché. Ogni
 requisito ha un identificativo (ALBO-01 fino ad ALBO-26): è lo stesso usato nei test, nei
 commit e nelle discussioni, così si può sempre risalire dal codice al motivo per cui
-esiste. La specifica tecnica completa, con le fonti normative, è la tabella in fondo.
+esiste. In fondo c'è il **catalogo corrente dei requisiti**, con le fonti normative e le
+decisioni aperte marcate esplicitamente. Non è una specifica completa e non lo sarà finché
+ALBO-22 resta una decisione incompleta e ALBO-07 e ALBO-08 restano da confermare.
 
 ## L'idea in dieci righe
 

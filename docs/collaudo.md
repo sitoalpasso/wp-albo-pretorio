@@ -50,9 +50,9 @@ il comportamento non c'è ancora), **fatto** (scritto e verde in CI). Un requisi
 | ALBO-04 | da fare | [attacco, statico] si cerca la costante 15 usata come durata nel codice | assente |
 | ALBO-05 | da fare | Atto defisso, tutti i percorsi C-10..C-21, provati **sia da visitatore anonimo sia da utente con permessi** | irraggiungibile in entrambi i casi. La politica dichiarata e' `irraggiungibile`, quindi l'esenzione non esiste per nessun utente: provarlo solo da anonimo lascerebbe passare un componente che invece dichiara `archivio` |
 | ALBO-06 | da fare | Si ispezionano le pagine dell'albo: meta robots, sitemap | noindex presente, URL fuori dalla sitemap |
-| ALBO-07 | da fare | Si genera il referto di un atto defisso | contiene numero, date effettive, impronta del file, autore; ristampato, è identico |
-| ALBO-08 | da fare | Si pubblicano più atti in parallelo (test di concorrenza) | ogni atto ottiene un numero unico, progressivo, assegnato una sola volta e mai riutilizzato, neanche dopo un'operazione fallita a metà. L'assenza di buchi non è fra le garanzie |
-| ALBO-08 | da fare | [attacco] si invia una richiesta manipolata che tenta di scrivere il numero di repertorio | il numero resta quello del sistema |
+| ALBO-07 **ipotesi** | da fare | Si genera il referto di un atto defisso. **Requisito da confermare**: poggia sulla prassi, non su una fonte, e l'unità che lo costruisce è bloccata dalla conferma | contiene numero, date effettive, impronta del file, autore; ristampato, è identico |
+| ALBO-08 **ipotesi** | da fare | Si pubblicano più atti in parallelo (test di concorrenza). **Requisito da confermare**, come ALBO-07 | ogni atto ottiene un numero unico, progressivo, assegnato una sola volta e mai riutilizzato, neanche dopo un'operazione fallita a metà. L'assenza di buchi non è fra le garanzie |
+| ALBO-08 **ipotesi** | da fare | [attacco] si invia una richiesta manipolata che tenta di scrivere il numero di repertorio. **Requisito da confermare** | il numero resta quello del sistema |
 | ALBO-09 | da fare | Si tenta di sostituire l'allegato di un atto pubblicato | bloccato; la rettifica è un nuovo atto |
 | ALBO-10 | da fare | Si pubblica e si defigge in anticipo con motivo | due voci di registro: chi, quando, perché |
 | ALBO-11 | da fare | Si percorre il flusso di pubblicazione saltando la conferma sui dati personali | il flusso non si conclude; la schermata elenca i casi di rivelazione indiretta |
@@ -70,6 +70,8 @@ il comportamento non c'è ancora), **fatto** (scritto e verde in CI). Un requisi
 | ALBO-24 | da fare | Si aggiorna il componente a una versione che introduce permessi nuovi | i permessi nuovi arrivano ai ruoli che avevano già gli altri. Un aggiornamento che li assegna solo alla prima attivazione lascia scoperti i siti già installati |
 | ALBO-25 | da fare | Nessun ruolo possiede i permessi del tipo atto | avviso in amministrazione che lo dice, con il nome del ruolo mancante |
 | ALBO-26 | da fare | Ruolo proprio del componente, per esempio responsabile della pubblicazione | creato e configurato da questo componente, non dal meccanismo comune |
+| [attacco] | da fare | Un amministratore tenta di cancellare un atto pubblicato | bloccato: nessuna esenzione |
+| [attacco, statico] | da fare | Si cerca ogni rotta REST o AJAX registrata senza nonce o `permission_callback` | nessuna |
 
 **ALBO-22 non ha righe qui, e non è una dimenticanza.** È una decisione incompleta: mancano
 le transizioni consentite, chi può compierle e cosa accade a una transizione rifiutata.
@@ -81,8 +83,6 @@ lo stato memorizzato non è la condizione di scadenza.
 **ALBO-07 e ALBO-08 hanno righe qui ma sono ipotesi**, non impegni: poggiano sulla prassi e
 non su una fonte, e le unità che li costruiscono sono bloccate dalla conferma. Le righe
 restano perché il criterio di verifica è già scritto, non perché il requisito sia confermato.
-| [attacco] | da fare | Un amministratore tenta di cancellare un atto pubblicato | bloccato: nessuna esenzione |
-| [attacco, statico] | da fare | Si cerca ogni rotta REST o AJAX registrata senza nonce o `permission_callback` | nessuna |
 
 ## Avvio del componente e dichiarazione delle politiche
 
