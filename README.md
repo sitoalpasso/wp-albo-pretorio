@@ -35,9 +35,10 @@ esplicito. La compatibilità di versione è verificata all'attivazione.
 
 ## Requisiti normativi di riferimento
 
-Le fonti sono citate per estremi. L'elenco completo dei requisiti (ALBO-01..21), con
-fonte e criterio di verifica per ciascuno, viene pubblicato in `docs/requisiti.md` nel
-corso dello sviluppo.
+Le fonti sono citate per estremi. L'elenco completo dei requisiti (ALBO-01..26), con
+fonte e criterio di verifica per ciascuno, è in [`docs/requisiti.md`](docs/requisiti.md).
+La colonna Stato di quel documento dice a che punto è ciascuno: oggi il componente è
+all'avvio della costruzione e sono tutti da fare.
 
 - Legge 18 giugno 2009, n. 69, art. 32: assolvimento degli obblighi di pubblicazione con
   effetto di pubblicità legale mediante pubblicazione sui siti informatici, con rinvio
