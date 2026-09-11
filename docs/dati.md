@@ -19,16 +19,23 @@ Un atto è un contenuto WordPress di tipo dedicato (`atto`), con questi dati:
 | Numero proprio dell'atto (es. determina 45/2026) | no | metadato | redattore. È il numero dell'atto, non quello di pubblicazione |
 | Data di adozione | sì | metadato | redattore |
 | Data di inizio pubblicazione | sì | metadato | proposta dal sistema, confermata dal redattore |
-| Data di fine pubblicazione | sì | metadato | calcolata dalla durata configurata per il tipo; il sistema rifiuta il salvataggio senza |
+| Data di fine pubblicazione | sì per pubblicare | metadato | calcolata dalla durata configurata per il tipo; il sistema rifiuta la **pubblicazione** senza, non il salvataggio della bozza |
 | Numero di repertorio (es. 123/2026) | dalla pubblicazione | metadato più contatore in tabella dedicata | **solo il sistema**, alla prima pubblicazione, in modo atomico |
 | Stato | sì | stato del contenuto | il flusso di pubblicazione, mai a mano nel database |
 | Conferma del controllo dati personali | sì per pubblicare | metadato con utente e data | il redattore, tramite la schermata obbligata |
-| Allegati | almeno uno | file in cartella protetta più impronta (hash) in metadato | redattore prima della pubblicazione, poi bloccati |
+| Documento principale | sì per pubblicare | file in cartella protetta più impronta (hash) in metadato | redattore prima della pubblicazione, poi bloccato. È uno e uno solo |
+| Allegati ulteriori | no | come sopra | redattore. Possono non esserci: un atto con il solo documento principale si pubblica |
 | Motivo di annullamento o defissione anticipata | quando ricorre | metadato più voce di registro | responsabile con permesso dedicato |
 
-Gli **stati** possibili: bozza, in controllo, pubblicato, defisso, annullato. Le
-transizioni consentite sono solo quelle del diagramma in `architettura.md`; ogni
-transizione scrive una voce nel registro.
+Gli **stati** possibili: bozza, in verifica, pubblicato, defisso, annullato. **Defisso non
+e' uno stato in cui si entra con un'operazione: discende dalla data di fine**, quindi vale
+anche se nessun compito pianificato ha girato.
+
+**Attenzione, qui c'e' una decisione ancora aperta.** Quali transizioni siano consentite fra
+quali stati, chi possa compierle e cosa accada a una transizione rifiutata fa parte di
+ALBO-22, che e' incompleta: vedi la nota in `requisiti.md`. Anche i nomi definitivi degli
+stati si chiudono li'. Fino ad allora questo elenco e' il perimetro, non la specifica, e
+`architettura.md` non contiene ancora nessun diagramma delle transizioni.
 
 ## Le risposte alle domande di controllo
 
@@ -39,12 +46,14 @@ il referto riporta la verità, non la previsione.
 
 **Cosa succede se cambio un documento già pubblicato?** Non si può. L'atto pubblicato è
 immodificabile per chiunque, amministratore compreso: la strada giusta è creare un nuovo
-atto di rettifica che rinvia al precedente. Ogni tentativo respinto è comunque tracciato.
+atto di rettifica che rinvia al precedente.
 
 **Cosa succede agli allegati?** Vengono caricati in una cartella protetta, non
 raggiungibile per URL diretto: si scaricano solo attraverso l'endpoint di consegna di
 core, che a ogni richiesta ricontrolla che l'atto sia visibile. Alla defissione il file
-non si cancella: resta nell'archivio ad accesso controllato, e la sua impronta sta nel
+non si cancella e la sua impronta sta nel referto, ma **non e' piu' scaricabile dal
+pubblico**: l'endpoint rifa' i controlli e l'atto e' scaduto. Resta raggiungibile
+dall'amministrazione, e in futuro da un archivio riservato. Il resto del referto sta nel
 referto. Sostituire l'allegato di un atto pubblicato è vietato come modificare l'atto.
 
 **Chi può cambiare lo stato?** Solo chi ha la capability della transizione, e solo lungo
@@ -75,7 +84,7 @@ Questa è la mappa delle azioni:
 | Creare e modificare bozze | gestione atti | |
 | Pubblicare (con controllo dati personali) | pubblicazione atti | la conferma resta registrata con nome e data |
 | Defissione anticipata, annullamento | defissione atti | motivo obbligatorio |
-| Consultare l'archivio dei defissi | archivio atti | il pubblico non lo vede mai |
+| Consultare gli atti defissi dall'amministrazione | archivio atti | **funzione successiva, oggi non costruita.** Non fa tornare a rispondere l'indirizzo pubblico dell'atto: quello resta irraggiungibile per chiunque, permessi compresi. È una schermata di amministrazione, non una pagina del sito |
 | Consultare il registro delle operazioni | lettura registro (di core) | |
 | Configurare tipi di atto e durate | amministrazione albo | |
 | Cancellare un atto pubblicato | **nessuna**: vietato per tutti | la voce non esiste proprio |

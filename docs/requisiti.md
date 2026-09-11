@@ -25,11 +25,22 @@ nessuno se ne ricorda, anche se il sito non riceve visite.
 
 ### L'atto e i suoi campi (ALBO-01, ALBO-02)
 
-Un atto non è un PDF buttato in una pagina: è una scheda con campi obbligatori (numero
-di repertorio, tipo, oggetto, organo che l'ha adottato, data di adozione, data di inizio
-e di fine pubblicazione, allegati). Senza tutti i campi la scheda non si salva
-(ALBO-01). In particolare **la data di fine è sempre obbligatoria**: non esiste l'atto
-pubblicato "per sempre" (ALBO-02), perché è proprio il caso sanzionato dal Garante.
+Un atto non è un PDF buttato in una pagina: è una scheda con i suoi dati (tipo, oggetto,
+organo che l'ha adottato, data di adozione, data di inizio e di fine pubblicazione) più il
+**documento principale**, che è uno e uno solo, e gli **allegati ulteriori**, che sono
+facoltativi e possono non esserci affatto (ALBO-01).
+
+**Salvare e pubblicare sono due momenti diversi, e il requisito vale sul secondo.** Una
+bozza si salva anche incompleta: è così che si lavora a un atto prima di avere tutti i
+pezzi, e un sistema che pretende tutto al primo salvataggio costringe a inventare
+segnaposto. È il **passaggio a pubblicato** che pretende ogni dato necessario, e lì il
+controllo è campo per campo. Il numero di repertorio non è fra i dati che si chiedono a chi
+compila: lo assegna il sistema alla prima pubblicazione (ALBO-08), quindi pretenderlo prima
+del salvataggio sarebbe una richiesta impossibile da soddisfare.
+
+**La data di fine è obbligatoria per pubblicare** e non esiste l'atto pubblicato "per
+sempre" (ALBO-02), perché è il caso sanzionato dal Garante. In bozza può mancare, perché una
+bozza non è esposta a nessuno.
 
 ### La scadenza, su tre strati (ALBO-03, ALBO-18, ALBO-19, ALBO-20, ALBO-21)
 
@@ -56,7 +67,11 @@ ore avanti o indietro rispetto all'ora legale.
 
 ### Sparire davvero (ALBO-05, ALBO-06)
 
-Alla scadenza l'atto esce dalla vista pubblica: se va conservato, va in un archivio ad
+Alla scadenza **l'indirizzo pubblico dell'atto smette di rispondere, per chiunque**, perche'
+l'albo dichiara al meccanismo comune la politica `irraggiungibile`. Non e' la politica
+`archivio`, che l'albo non usa. Se l'atto va conservato, lo si consulta dall'amministrazione
+e in futuro da un archivio riservato: e' una schermata di amministrazione e **non fa tornare
+a rispondere quell'indirizzo**. Il testo che segue descrive quell'archivio ad
 accesso controllato, non in una pagina pubblica meno visibile (ALBO-05). E finché è
 pubblicato, le sue pagine dicono ai motori di ricerca di non indicizzarlo: meta
 `noindex`, esclusione dalla sitemap (ALBO-06). Attenzione: è la regola **opposta** a
@@ -66,9 +81,15 @@ questo la politica di indicizzazione è un parametro dichiarato, mai un default.
 ### Il registro non si tocca (ALBO-08, ALBO-09, ALBO-10)
 
 - Il **numero di repertorio** è progressivo per anno (per esempio 123/2026), lo assegna
-  il sistema al primo passaggio in pubblicazione e non si modifica a mano (ALBO-08).
-  Niente buchi nella sequenza: in un registro un buco è un sospetto di cancellazione.
-  L'atto annullato conserva il suo numero, con stato e motivo.
+  il sistema al primo passaggio in pubblicazione e non si modifica a mano (ALBO-08). Le
+  garanzie sono quattro: **unico**, **progressivo**, assegnato **una sola volta**, **mai
+  riutilizzato**. L'atto annullato conserva il suo numero, con stato e motivo.
+  **L'assenza assoluta di buchi non è fra le garanzie**, ed è una scelta operativa da
+  confermare contro il regolamento dell'amministrazione. Il motivo è concreto: una sequenza
+  senza buchi obbliga a tenere il contatore dentro la stessa transazione della
+  pubblicazione, e ogni operazione che fallisce a metà o va in conflitto con un'altra deve
+  restituire il numero invece di bruciarlo. È fattibile, costa in complicazione, e la
+  decisione se pagarla non è nostra.
 - Un atto pubblicato è **immodificabile**: una rettifica è un atto nuovo che rinvia al
   precedente, mai una correzione silenziosa (ALBO-09). La cancellazione di un atto
   pubblicato è vietata per tutti, amministratore compreso.
@@ -134,53 +155,67 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 
 | ID | Stato | In una riga | Fonte principale |
 |---|---|---|---|
-| ALBO-01 | da fare | Scheda atto con campi obbligatori | l. 69/2009 art. 32 |
-| ALBO-02 | da fare | Data di fine sempre obbligatoria | Garante, provv. marzo 2026 |
-| ALBO-03 | da fare | Defissione automatica da cron di sistema | Garante, linee guida 2014 |
-| ALBO-04 | da fare | Durate per tipo di atto, configurabili, senza default | TUEL art. 124 |
-| ALBO-05 | da fare | L'atto defisso esce dalla vista pubblica | Garante, linee guida 2014 |
-| ALBO-06 | da fare | Niente indicizzazione dei motori di ricerca | Garante, linee guida 2014 |
-| ALBO-07 | da fare | Referto di pubblicazione congelato | prassi di pubblicità legale |
-| ALBO-08 | da fare | Repertorio progressivo annuale, assegnato dal sistema | prassi di pubblicità legale |
-| ALBO-09 | da fare | Atto pubblicato immodificabile | linee guida AgID doc. informatici |
-| ALBO-10 | da fare | Log delle operazioni | GDPR art. 5 |
-| ALBO-11 | da fare | Controllo preventivo sui dati personali | d.lgs. 196/2003 artt. 2-ter, 2-septies |
-| ALBO-12 | da fare | Versione oscurata accanto all'originale riservato | GDPR art. 5.1.c |
-| ALBO-13 | da fare | Allegati accessibili, avviso sui PDF sospetti | l. 4/2004 art. 11 |
-| ALBO-14 | da fare | Niente anti copia che rompa l'accessibilità | Garante, linee guida 2014 |
-| ALBO-15 | da fare | Separazione dall'amministrazione trasparente | d.lgs. 33/2013 |
-| ALBO-16 | da fare | Ricerca e filtri accessibili | usabilità |
-| ALBO-17 | da fare | Export in formato aperto | linee guida AgID doc. informatici |
-| ALBO-18 | da fare | Filtro di scadenza su ogni percorso di lettura | Garante, provv. marzo 2026 |
-| ALBO-19 | da fare | Battito di controllo con avviso | Garante, provv. marzo 2026 |
-| ALBO-20 | da fare | Niente cache sugli atti defissi | Garante, linee guida 2014 |
-| ALBO-21 | da fare | Scadenza sull'ora civile italiana | operativo |
-| ALBO-22 | da fare | Stati dell'atto e flusso di pubblicazione, con chi prepara e chi pubblica come permessi distinti | prassi di pubblicità legale |
-| ALBO-23 | da fare | All'attivazione l'insieme minimo di permessi sul tipo atto arriva all'amministratore | operativo |
-| ALBO-24 | da fare | A ogni aggiornamento i permessi nuovi arrivano ai ruoli che avevano già gli altri | operativo |
-| ALBO-25 | da fare | Se nessun ruolo possiede i permessi del tipo atto, l'amministrazione lo segnala | operativo |
-| ALBO-26 | da fare | Il componente crea e configura un proprio ruolo per la pubblicazione | operativo |
+| ALBO-01 | da fare | Scheda atto: dati, documento principale `[1..1]`, allegati ulteriori `[0..n]`. La bozza si salva incompleta, la pubblicazione no | **norma** l. 69/2009 art. 32 per l'esistenza dei dati identificativi; **prodotto** per l'elenco preciso dei campi |
+| ALBO-02 | da fare | Data di fine sempre obbligatoria | **norma** Garante, provv. marzo 2026 |
+| ALBO-03 | da fare | Defissione automatica da cron di sistema | **norma** Garante, linee guida 2014 |
+| ALBO-04 | da fare | Durate per tipo di atto, configurabili, senza default | **norma** TUEL art. 124 per l'esistenza di una durata, valido per comuni e province e non universale; **da confermare** le durate dei singoli tipi, che dipendono dal regolamento |
+| ALBO-05 | da fare | L'atto defisso esce dalla vista pubblica | **norma** Garante, linee guida 2014 |
+| ALBO-06 | da fare | Niente indicizzazione dei motori di ricerca | **norma** Garante, linee guida 2014 |
+| ALBO-07 | da fare | Referto di pubblicazione congelato | **da confermare**: la prassi non è una fonte. Il contenuto va verificato contro il regolamento |
+| ALBO-08 | da fare | Repertorio progressivo annuale, assegnato dal sistema. Unico, progressivo, assegnato una sola volta, mai riutilizzato | **da confermare**: la prassi non è una fonte. L'assenza assoluta di buchi non è promessa e dipende dal regolamento |
+| ALBO-09 | da fare | Atto pubblicato immodificabile | **norma** linee guida AgID doc. informatici |
+| ALBO-10 | da fare | Log delle operazioni | **norma** GDPR art. 5 |
+| ALBO-11 | da fare | Controllo preventivo sui dati personali | **norma** d.lgs. 196/2003 artt. 2-ter, 2-septies |
+| ALBO-12 | da fare | Versione oscurata accanto all'originale riservato | **norma** GDPR art. 5.1.c |
+| ALBO-13 | da fare | Allegati accessibili, avviso sui PDF sospetti | **norma** l. 4/2004 art. 11 |
+| ALBO-14 | da fare | Niente anti copia che rompa l'accessibilità | **norma** Garante, linee guida 2014 |
+| ALBO-15 | da fare | Separazione dall'amministrazione trasparente | **norma** d.lgs. 33/2013 |
+| ALBO-16 | da fare | Ricerca e filtri accessibili | **prodotto**, con l'accessibilità come vincolo di norma |
+| ALBO-17 | da fare | Export in formato aperto | **norma** linee guida AgID doc. informatici |
+| ALBO-18 | da fare | Filtro di scadenza su ogni percorso di lettura | **norma** Garante, provv. marzo 2026 |
+| ALBO-19 | da fare | Battito di controllo con avviso | **prodotto**, motivato dal guasto silenzioso sanzionato nel provv. Garante marzo 2026 |
+| ALBO-20 | da fare | Niente cache sugli atti defissi | **norma** Garante, linee guida 2014 |
+| ALBO-21 | da fare | Scadenza sull'ora civile italiana | **prodotto**: correttezza tecnica, nessuna fonte esterna |
+| ALBO-22 | da fare | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto, decisione incompleta**: vedi la nota qui sotto |
+| ALBO-23 | da fare | All'attivazione l'insieme minimo di permessi sul tipo atto arriva all'amministratore | **prodotto** |
+| ALBO-24 | da fare | A ogni aggiornamento i permessi nuovi arrivano ai ruoli che avevano già gli altri | **prodotto** |
+| ALBO-25 | da fare | Se nessun ruolo possiede i permessi del tipo atto, l'amministrazione lo segnala | **prodotto** |
+| ALBO-26 | da fare | Il componente crea e configura un proprio ruolo per la pubblicazione | **prodotto** |
 
-### Nota sui requisiti da ALBO-22 ad ALBO-26
+### Come si legge la colonna delle fonti
 
-Questi cinque sono **decisi ma non ancora sviluppati in testo esteso** come i primi
-ventuno, e questa nota esiste perché il documento non prometta più di quello che contiene.
+Tre categorie, e la distinzione non è formale: dice quanto è discutibile un requisito.
 
-Da ALBO-23 ad ALBO-26 riguardano i permessi e i ruoli. Il meccanismo comune ricava i
-permessi dedicati dall'identificativo del tipo di contenuto e **non li assegna a nessun
-ruolo**: assegnarli spetta a questo componente, che è l'unico a sapere a chi spetta la sua
-sezione. Da qui i quattro obblighi: darli all'attivazione, riportarli a ogni aggiornamento
-(un componente che li assegna solo alla prima attivazione lascia scoperti i siti già
-installati), segnalare in amministrazione la condizione in cui nessun ruolo li possiede, e
-creare un ruolo proprio tenendo distinti chi prepara e chi pubblica. Il criterio di verifica
-di ciascuno è nella tabella di `collaudo.md`.
+- **norma**: c'è una fonte primaria, legge, decreto o provvedimento. Non è negoziabile e il
+  componente non lo può scegliere diversamente.
+- **prodotto**: la scelta è nostra. È motivata, ma resta una decisione di progettazione e si
+  può discutere.
+- **da confermare**: dipende dal regolamento dell'amministrazione o da una fonte che non
+  abbiamo ancora reperito. Finché non è confermata è un'ipotesi, non un impegno.
 
-ALBO-22 riguarda gli stati dell'atto e il percorso obbligato verso la pubblicazione. Il suo
-testo esteso **non è ancora scritto**, e questo documento non lo inventa: verrà redatto
-insieme all'unità che costruisce il flusso di pubblicazione. Fino ad allora la riga qui sopra
-è il perimetro dichiarato, non la specifica.
+Fino al 2026-09-11 questa colonna aveva una categoria sola, e formule come "prassi di
+pubblicità legale" o "operativo" stavano accanto al GDPR: facevano sembrare obblighi di
+legge delle nostre decisioni progettuali, che è il modo più rapido per rendere non
+discutibile una cosa discutibile.
 
-## Come leggere la colonna Stato
+### Nota su ALBO-22: decisione incompleta
+
+Non è un requisito con il testo ancora da battere a macchina: è una **decisione che non è
+stata presa fino in fondo**, e va chiusa **prima** di aprire l'unità che costruisce il flusso
+di pubblicazione, non insieme a essa. Chi implementa un flusso mentre lo sta specificando
+sceglie la strada che il codice gli rende comoda, e la specifica diventa il resoconto di
+quello che è uscito.
+
+**Cosa è già deciso**: gli stati sono bozza, in verifica, pubblicato, defisso, annullato;
+defisso è uno stato che discende dalla data e non da un evento; la restituzione in bozza
+richiede una motivazione; la pubblicazione è tutto o niente; chi prepara e chi pubblica sono
+permessi distinti.
+
+**Cosa manca**: quali transizioni sono consentite fra quali stati, chi può compiere ciascuna,
+e cosa succede a una transizione rifiutata. Senza questi tre pezzi il requisito non è
+verificabile, e per questo non ha righe in `collaudo.md`.
+
+### Come si legge la colonna Stato
 
 Tre valori: **da fare** (il requisito esiste come impegno, il codice no), **in corso** (il
 codice e i test esistono ma non risultano verdi nella verifica continua), **fatto** (verde

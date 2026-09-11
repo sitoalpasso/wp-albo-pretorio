@@ -41,15 +41,17 @@ il comportamento non c'è ancora), **fatto** (scritto e verde in CI). Un requisi
 
 | Req | Stato | Il test, in parole | Esito atteso |
 |---|---|---|---|
-| ALBO-01 | da fare | Si prova a salvare un atto senza uno dei campi obbligatori, campo per campo | salvataggio rifiutato ogni volta |
-| ALBO-02 | da fare | Si prova a creare un atto senza data di fine da ogni ingresso possibile: interfaccia, REST, inserimento diretto | sempre bloccato |
+| ALBO-01 | da fare | Si salva una **bozza** con dati mancanti | riesce. Controllo positivo: impedisce di soddisfare la riga seguente rifiutando tutto |
+| ALBO-01 | da fare | Si prova a **pubblicare** senza uno dei dati necessari, uno per volta | bloccato ogni volta, con il nome del dato che manca. Il numero di repertorio non è fra questi: lo assegna il sistema |
+| ALBO-01 | da fare | Documento principale e allegati ulteriori | il principale è uno e uno solo e serve per pubblicare; gli ulteriori sono facoltativi e un atto senza nessuno di essi si pubblica |
+| ALBO-02 | da fare | Si prova a **pubblicare** senza data di fine da ogni ingresso: interfaccia, REST, inserimento diretto | sempre bloccato. In bozza la data può mancare |
 | ALBO-03 | da fare | Si invoca il compito dall'esterno con il cron interno di WordPress disattivato | defissione eseguita, log scritto |
 | ALBO-04 | da fare | Si prova a pubblicare un atto di un tipo senza durata configurata; si cambia la durata di un tipo senza toccare codice | pubblicazione bloccata; cambio possibile |
 | ALBO-04 | da fare | [attacco, statico] si cerca la costante 15 usata come durata nel codice | assente |
-| ALBO-05 | da fare | Atto defisso, visitatore anonimo, tutti i percorsi C-10..C-21 | irraggiungibile; in archivio entra solo chi ha il permesso |
+| ALBO-05 | da fare | Atto defisso, tutti i percorsi C-10..C-21, provati **sia da visitatore anonimo sia da utente con permessi** | irraggiungibile in entrambi i casi. La politica dichiarata e' `irraggiungibile`, quindi l'esenzione non esiste per nessun utente: provarlo solo da anonimo lascerebbe passare un componente che invece dichiara `archivio` |
 | ALBO-06 | da fare | Si ispezionano le pagine dell'albo: meta robots, sitemap | noindex presente, URL fuori dalla sitemap |
 | ALBO-07 | da fare | Si genera il referto di un atto defisso | contiene numero, date effettive, impronta del file, autore; ristampato, è identico |
-| ALBO-08 | da fare | Si pubblicano più atti in parallelo (test di concorrenza) | numeri progressivi senza buchi né doppioni |
+| ALBO-08 | da fare | Si pubblicano più atti in parallelo (test di concorrenza) | ogni atto ottiene un numero unico, progressivo, assegnato una sola volta e mai riutilizzato, neanche dopo un'operazione fallita a metà. L'assenza di buchi non è fra le garanzie |
 | ALBO-08 | da fare | [attacco] si invia una richiesta manipolata che tenta di scrivere il numero di repertorio | il numero resta quello del sistema |
 | ALBO-09 | da fare | Si tenta di sostituire l'allegato di un atto pubblicato | bloccato; la rettifica è un nuovo atto |
 | ALBO-10 | da fare | Si pubblica e si defigge in anticipo con motivo | due voci di registro: chi, quando, perché |
@@ -64,11 +66,17 @@ il comportamento non c'è ancora), **fatto** (scritto e verde in CI). Un requisi
 | ALBO-19 | da fare | Si retrodata il timestamp del battito oltre soglia | l'avviso parte verso il responsabile configurato |
 | ALBO-20 | da fare | Cache di pagina simulata attiva, poi defissione | la pagina dell'atto non resta servita dalla cache |
 | ALBO-21 | da fare | Atti in scadenza nei giorni dei due cambi d'ora, fuso del sito su Roma | la scadenza cade nell'istante civile giusto |
-| ALBO-22 | da fare | Si percorre il flusso di pubblicazione con un utente che può preparare ma non pubblicare | prepara sì, pubblica no: sono due permessi distinti |
-| ALBO-23 | da fare | Si attiva il componente su un sito pulito | l'amministratore riceve l'insieme minimo di permessi del tipo atto. Si verifica **dopo** l'attivazione e non nel codice: un utente amministratore vede la voce di menu e riesce a creare un atto |
-| ALBO-24 | da fare | Si aggiorna il componente a una versione che introduce permessi nuovi | i permessi nuovi arrivano ai ruoli che avevano già gli altri. Un aggiornamento che li aggiunge solo alla prima attivazione lascia senza i siti già installati |
-| ALBO-25 | da fare | Nessun ruolo possiede i permessi del tipo atto | avviso in amministrazione che lo dice, con il nome del ruolo mancante. È la condizione che altrimenti viene scambiata per un guasto del componente |
+| ALBO-23 | da fare | Si attiva il componente su un sito pulito | l'amministratore riceve l'insieme minimo di permessi del tipo atto. Si verifica **dopo** l'attivazione e non nel codice: un amministratore vede la voce di menu e riesce a creare un atto |
+| ALBO-24 | da fare | Si aggiorna il componente a una versione che introduce permessi nuovi | i permessi nuovi arrivano ai ruoli che avevano già gli altri. Un aggiornamento che li assegna solo alla prima attivazione lascia scoperti i siti già installati |
+| ALBO-25 | da fare | Nessun ruolo possiede i permessi del tipo atto | avviso in amministrazione che lo dice, con il nome del ruolo mancante |
 | ALBO-26 | da fare | Ruolo proprio del componente, per esempio responsabile della pubblicazione | creato e configurato da questo componente, non dal meccanismo comune |
+
+**ALBO-22 non ha righe qui, e non e' una dimenticanza.** E' una decisione incompleta:
+mancano le transizioni consentite, chi puo' compierle e cosa accade a una transizione
+rifiutata. Finche' quei tre pezzi non sono decisi il requisito non e' verificabile, e una
+riga di collaudo scritta adesso misurerebbe quello che il codice avra' fatto invece di
+quello che deve fare. Le righe si scrivono dopo la chiusura della decisione, che precede
+l'unita' del flusso di pubblicazione. Vedi la nota in `requisiti.md`.
 | [attacco] | da fare | Un amministratore tenta di cancellare un atto pubblicato | bloccato: nessuna esenzione |
 | [attacco, statico] | da fare | Si cerca ogni rotta REST o AJAX registrata senza nonce o `permission_callback` | nessuna |
 
@@ -83,14 +91,13 @@ sole. Prefisso `A-` con il trattino.
 Quando il meccanismo comune manca, il componente resta **attivo e inerte** e può segnalarlo
 a ogni richiesta. Quando la sezione risulta già registrata con politiche diverse, idem.
 Quando la versione di interfaccia è incompatibile il meccanismo comune **disattiva** il
-componente, che da quel momento non viene più caricato e non può più dire niente: lì
-l'avviso può renderlo persistente solo il meccanismo comune.
+componente, che da quel momento non viene più caricato e non può più dire niente.
 
 | # | Stato | Il test, in parole | Esito atteso |
 |---|---|---|---|
 | A-01 | da fare | La dipendenza è dichiarata in due posti: intestazione `Requires Plugins` e versione di interfaccia controllata all'avvio | entrambe presenti e coerenti. Sul controllo di WordPress si verifica il **codice** di errore, non il testo del messaggio, che sul sito italiano è tradotto |
 | A-02 | da fare | Il file principale viene caricato senza che il meccanismo comune sia già caricato | nessun errore grave e nessuna chiamata: l'avvio è rimandato all'aggancio che scatta a componenti caricati |
-| A-03 | da fare | Avvio con le funzioni del meccanismo comune non definite. Si dimostra prima che il componente risulti fra quelli attivi | resta **attivo e inerte**: nessun errore grave, nessuna sezione registrata, nessun avvio parziale. Avviso proprio a ogni richiesta di amministrazione, visibile solo a chi può attivare i componenti |
+| A-03 | da fare | Avvio con le funzioni del meccanismo comune non definite. Si dimostra prima che il componente risulti fra quelli attivi | resta **attivo e inerte**: nessun errore grave, nessuna sezione registrata, nessun avvio parziale. Avviso proprio a ogni richiesta di amministrazione, visibile solo a chi può attivare i componenti, con la versione richiesta e quella trovata |
 | A-04 | da fare | Criterio di compatibilità della versione, sui tre casi che contano | versione inferiore con stesso numero maggiore: incompatibile. Numero maggiore diverso: incompatibile. Versione superiore con stesso numero maggiore: compatibile |
 | A-05 | da fare | Effetto completo della guardia, in un processo separato con versione incompatibile, con una richiesta di amministrazione come prima richiesta | componente disattivato, **sezione assente fra quelle registrate**, nessun errore grave, avviso presente. La precondizione, cioè che il componente fosse attivo, si dimostra prima |
 | A-06 | da fare | Avvio con versione compatibile: il controllo positivo della guardia | il componente resta attivo e la sezione risulta registrata |

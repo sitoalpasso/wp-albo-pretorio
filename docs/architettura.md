@@ -5,31 +5,38 @@ file, **che cosa sta toccando**, anche senza leggere il PHP riga per riga.
 
 > **Stato di questo documento: mappa progettata, non ancora costruita.** Alla data di
 > scrittura il componente contiene lo scheletro del plugin e nient'altro: **nessuna delle
-> parti elencate più sotto esiste nel codice**. La mappa è il piano, e le sue caselle si
-> riempiono una unità di lavoro per volta. Il documento è pubblicato lo stesso, perché serve
-> a decidere dove va una modifica prima di scriverla, ma va letto per quello che è: chi
-> cerca una classe di questo elenco oggi non la trova, e non è un difetto.
+> parti elencate più sotto esiste nel codice**, e la stessa cosa vale per cinque dei sei
+> meccanismi comuni. Le due tabelle hanno una colonna che lo dice riga per riga. Il
+> documento è pubblicato lo stesso, perché serve a decidere dove va una modifica prima di
+> scriverla, ma va letto per quello che è: chi cerca oggi una di queste parti non la trova,
+> e non è un difetto.
 >
 > Da quando una parte esiste, il suo nome diventa il contratto: il codice usa quel nome, e
 > se deve cambiare si aggiorna prima questo documento, nello stesso commit. **Anche la
 > cartella non è ancora decisa**: qui è indicata `src/`, mentre lo scheletro attuale non ha
-> nessuna cartella di codice. La sceglie la prima unità che scrive codice, e questo
-> documento la segue.
+> nessuna cartella di codice. La sceglie la prima unità che scrive codice.
 
-Il plugin dipende da `conformita-core`, che fornisce i meccanismi comuni (scadenza,
-consegna allegati, registro, battito, controllo dell'indicizzazione). L'albo dichiara a
-core le **politiche**: cosa succede alla scadenza (l'atto esce dalla vista pubblica) e
-come si tratta l'indicizzazione (vietata). Core si rifiuta di partire senza queste
-dichiarazioni: così la regola opposta della trasparenza non può mai arrivare qui per
-sbaglio.
+Il plugin dipende da `conformita-core`, che fornisce i meccanismi comuni. L'albo gli
+dichiara le **politiche**: cosa succede alla scadenza (`irraggiungibile`, cioè l'atto esce
+dalla vista pubblica) e come si tratta l'indicizzazione (`vietata`).
+
+**Che cosa succede se le politiche non sono dichiarate per intero.** Core parte
+normalmente: è un plugin come gli altri e la sua attivazione non dipende da noi. È la
+**registrazione della sezione** che viene rifiutata, con un errore che dice quale politica
+manca, e viene rifiutata anche quando il meccanismo necessario non risulta disponibile. La
+conseguenza per l'albo è che senza registrazione riuscita non prosegue l'avvio: non
+registra niente e non pubblica niente. Detto così e non come "core non parte", perché la
+differenza conta il giorno in cui si guarda un sito e si cerca di capire chi non è partito.
 
 ## La vita di un atto
 
 ```
 ATTO
  |
- +--> viene creato come bozza
- |       campi obbligatori richiesti, allegati caricati in cartella protetta
+ +--> viene creato come bozza, anche incompleta
+ |       la bozza si salva con dati mancanti: e' il passaggio a pubblicato
+ |       che li pretende tutti. Documento principale [1..1] e allegati
+ |       ulteriori [0..n], in cartella protetta
  |       [TipoContenutoAtto, core: ConsegnaAllegati]
  |
  +--> passa il controllo sui dati personali
@@ -53,10 +60,19 @@ ATTO
  |       viene scattato il referto: fotografia immutabile
  |       [core: MotoreScadenza, Referto]
  |
- +--> resta in archivio ad accesso controllato
-         raggiungibile solo con permesso dedicato, mai da visitatore anonimo
-         il referto e' ristampabile da qui
-         [PoliticaAlbo, core: ConsegnaAllegati]
+ +--> l'indirizzo pubblico smette di rispondere, per chiunque
+         l'albo dichiara la politica `irraggiungibile`: dopo la defissione
+         quell'indirizzo non risponde piu' a nessuno sui percorsi pubblici,
+         nemmeno a chi ha permessi. Non e' la politica `archivio`, che
+         l'albo non dichiara
+         [PoliticaAlbo]
+ |
+ +--> resta consultabile dall'amministrazione, e in futuro da un archivio riservato
+         **funzione successiva, oggi non costruita**: un archivio amministrativo
+         con permesso dedicato. Non cambia la riga sopra, perche' non fa tornare
+         a rispondere l'indirizzo pubblico: e' una schermata di amministrazione,
+         non una pagina del sito
+         [da costruire]
 ```
 
 ## Le parti del plugin
@@ -75,14 +91,19 @@ ATTO
 
 ## Cosa arriva da conformita-core
 
-| Meccanismo di core | Cosa fa per l'albo | Requisiti |
-|---|---|---|
-| Motore di scadenza | Filtro a ogni lettura pubblica (l'atto scaduto non appare da nessun percorso) più compito pianificato per il lavoro pesante | ALBO-03, ALBO-18, ALBO-21 |
-| Battito di controllo | Timestamp a ogni esecuzione del cron, avviso al responsabile se invecchia | ALBO-19 |
-| Consegna allegati | I file stanno in cartella protetta e si scaricano solo da un endpoint che rifà i controlli di visibilità a ogni richiesta | ALBO-05, ALBO-18, ALBO-20 |
-| Registro delle modifiche | Log solo in aggiunta: chi, cosa, quando, perché | ALBO-10 |
-| Controllo indicizzazione | Applica la politica dichiarata: noindex e fuori sitemap | ALBO-06 |
-| Separazione delle esposizioni | Lo stesso documento può stare anche in trasparenza con regole sue, senza duplicare il file | ALBO-15 |
+**Un solo meccanismo esiste oggi: il filtro di scadenza.** Gli altri cinque sono
+pianificati e non costruiti, e la colonna a destra lo dice riga per riga. Elencarli al
+presente farebbe credere disponibili funzioni che nessuno ha ancora scritto, ed e' il modo
+in cui un documento diventa piu' pericoloso della sua assenza.
+
+| Meccanismo di core | Cosa fa per l'albo | Requisiti | Esiste oggi |
+|---|---|---|---|
+| Motore di scadenza | Filtro a ogni lettura pubblica (l'atto scaduto non appare da nessun percorso) più compito pianificato per il lavoro pesante | ALBO-03, ALBO-18, ALBO-21 | si' |
+| Battito di controllo | Timestamp a ogni esecuzione del cron, avviso al responsabile se invecchia | ALBO-19 | no, pianificato |
+| Consegna allegati | I file stanno in cartella protetta e si scaricano solo da un endpoint che rifà i controlli di visibilità a ogni richiesta | ALBO-05, ALBO-18, ALBO-20 | no, pianificato |
+| Registro delle modifiche | Log solo in aggiunta: chi, cosa, quando, perché | ALBO-10 | no, pianificato |
+| Controllo indicizzazione | Applica la politica dichiarata: noindex e fuori sitemap | ALBO-06 | no, pianificato |
+| Separazione delle esposizioni | Lo stesso documento può stare anche in trasparenza con regole sue, senza duplicare il file | ALBO-15 | no, pianificato |
 
 ## Il confine tra albo e core, in una frase
 

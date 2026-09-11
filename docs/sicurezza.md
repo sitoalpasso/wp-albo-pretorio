@@ -61,8 +61,14 @@ produrre un rifiuto rumoroso, mai un permesso silenzioso.
 **Uscita ed errori**
 
 - Escaping il più tardi possibile, nel punto in cui il dato incontra l'HTML.
-- I messaggi di errore verso l'utente non rivelano dettagli interni (query,
-  percorsi, versioni). Il dettaglio va nel log, non nel browser.
+- I messaggi di errore verso il pubblico non rivelano dettagli interni: query, percorsi
+  del filesystem, tracce di esecuzione, nomi di tabelle. Il dettaglio va nel log, non nel
+  browser.
+- **Le versioni non sono nell'elenco dei divieti assoluti.** Un avviso diagnostico
+  riservato a chi ha `activate_plugins` puo' e deve dire la versione richiesta e quella
+  trovata: senza quei due numeri l'avviso non e' azionabile, e chi lo legge ha gia' accesso
+  all'amministrazione. La regola e' sul destinatario, non sul dato: al pubblico anonimo non
+  si espongono numeri di versione dei componenti; a chi puo' installarli e attivarli si'.
 - Le operazioni sensibili scrivono nel registro delle modifiche: chi, cosa, quando.
   Nel registro non si scrivono dati personali oltre l'identificativo dell'utente.
 
