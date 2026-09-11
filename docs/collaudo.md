@@ -71,12 +71,16 @@ il comportamento non c'è ancora), **fatto** (scritto e verde in CI). Un requisi
 | ALBO-25 | da fare | Nessun ruolo possiede i permessi del tipo atto | avviso in amministrazione che lo dice, con il nome del ruolo mancante |
 | ALBO-26 | da fare | Ruolo proprio del componente, per esempio responsabile della pubblicazione | creato e configurato da questo componente, non dal meccanismo comune |
 
-**ALBO-22 non ha righe qui, e non e' una dimenticanza.** E' una decisione incompleta:
-mancano le transizioni consentite, chi puo' compierle e cosa accade a una transizione
-rifiutata. Finche' quei tre pezzi non sono decisi il requisito non e' verificabile, e una
-riga di collaudo scritta adesso misurerebbe quello che il codice avra' fatto invece di
-quello che deve fare. Le righe si scrivono dopo la chiusura della decisione, che precede
-l'unita' del flusso di pubblicazione. Vedi la nota in `requisiti.md`.
+**ALBO-22 non ha righe qui, e non è una dimenticanza.** È una decisione incompleta: mancano
+le transizioni consentite, chi può compierle e cosa accade a una transizione rifiutata.
+Finché quei tre pezzi non sono decisi il requisito non è verificabile, e una riga scritta
+adesso misurerebbe quello che il codice avrà fatto invece di quello che deve fare. Vedi la
+nota in `requisiti.md`, che contiene anche il vincolo che il flusso non potrà contraddire:
+lo stato memorizzato non è la condizione di scadenza.
+
+**ALBO-07 e ALBO-08 hanno righe qui ma sono ipotesi**, non impegni: poggiano sulla prassi e
+non su una fonte, e le unità che li costruiscono sono bloccate dalla conferma. Le righe
+restano perché il criterio di verifica è già scritto, non perché il requisito sia confermato.
 | [attacco] | da fare | Un amministratore tenta di cancellare un atto pubblicato | bloccato: nessuna esenzione |
 | [attacco, statico] | da fare | Si cerca ogni rotta REST o AJAX registrata senza nonce o `permission_callback` | nessuna |
 

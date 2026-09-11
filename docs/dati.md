@@ -20,16 +20,22 @@ Un atto è un contenuto WordPress di tipo dedicato (`atto`), con questi dati:
 | Data di adozione | sì | metadato | redattore |
 | Data di inizio pubblicazione | sì | metadato | proposta dal sistema, confermata dal redattore |
 | Data di fine pubblicazione | sì per pubblicare | metadato | calcolata dalla durata configurata per il tipo; il sistema rifiuta la **pubblicazione** senza, non il salvataggio della bozza |
-| Numero di repertorio (es. 123/2026) | dalla pubblicazione | metadato più contatore in tabella dedicata | **solo il sistema**, alla prima pubblicazione, in modo atomico |
+| Numero di repertorio (es. 123/2026). **Ipotesi da confermare** | dalla pubblicazione | metadato più contatore in tabella dedicata | **solo il sistema**, alla prima pubblicazione, in modo atomico |
 | Stato | sì | stato del contenuto | il flusso di pubblicazione, mai a mano nel database |
 | Conferma del controllo dati personali | sì per pubblicare | metadato con utente e data | il redattore, tramite la schermata obbligata |
 | Documento principale | sì per pubblicare | file in cartella protetta più impronta (hash) in metadato | redattore prima della pubblicazione, poi bloccato. È uno e uno solo |
 | Allegati ulteriori | no | come sopra | redattore. Possono non esserci: un atto con il solo documento principale si pubblica |
 | Motivo di annullamento o defissione anticipata | quando ricorre | metadato più voce di registro | responsabile con permesso dedicato |
 
-Gli **stati** possibili: bozza, in verifica, pubblicato, defisso, annullato. **Defisso non
-e' uno stato in cui si entra con un'operazione: discende dalla data di fine**, quindi vale
-anche se nessun compito pianificato ha girato.
+Gli **stati** possibili: bozza, in verifica, pubblicato, defisso, annullato.
+
+**Lo stato memorizzato non è la condizione di scadenza, e confonderli è l'errore che questo
+componente esiste per evitare.** Alla mezzanotte del giorno dopo la data di fine l'atto
+diventa **immediatamente invisibile al pubblico**, per opera del filtro in lettura, anche se
+nella banca dati il suo stato è ancora "pubblicato". Il compito pianificato porterà poi lo
+stato memorizzato a "defisso", e se per un guasto non gira, quel passaggio non avviene e
+**non cambia nulla di ciò che il pubblico vede**. Nessuna decisione sulla visibilità si
+prende leggendo lo stato memorizzato: si prende leggendo la data.
 
 **Attenzione, qui c'e' una decisione ancora aperta.** Quali transizioni siano consentite fra
 quali stati, chi possa compierle e cosa accada a una transizione rifiutata fa parte di
@@ -66,16 +72,13 @@ Gli atti usano permessi dedicati, non quelli generici degli articoli. Li **ricav
 meccanismo comune** dall'identificativo del tipo, ma non li assegna a nessuno: **è questo
 componente che li assegna ai ruoli**, e la corrispondenza è configurabile
 dall'amministrazione. Finché l'assegnazione non avviene, **nessun ruolo può gestire il tipo
-atto dall'amministrazione di WordPress**: non lo vede nei menu e non può crearne. Va detto
-nella documentazione di installazione, altrimenti sembra un difetto.
+atto dall'amministrazione di WordPress**: non lo vede nei menu e non può crearne.
 
 **Attenzione a cosa questi permessi non governano**, perché è la parte che si tende a dare
 per compresa: governano la gestione del contenuto, non la sua consultazione pubblica. Un
 atto pubblicato e non scaduto resta consultabile da chiunque anche quando nessun ruolo ha
 ricevuto i permessi, perché la visibilità pubblica discende dalla politica della sezione e
-dallo stato del contenuto, non dai permessi. Una versione precedente di questa pagina diceva
-che senza assegnazione l'atto non è visibile a nessuno, nemmeno all'amministratore: era
-falsa nella seconda metà, ed è corretta qui.
+dallo stato del contenuto, non dai permessi.
 
 Questa è la mappa delle azioni:
 
@@ -84,13 +87,20 @@ Questa è la mappa delle azioni:
 | Creare e modificare bozze | gestione atti | |
 | Pubblicare (con controllo dati personali) | pubblicazione atti | la conferma resta registrata con nome e data |
 | Defissione anticipata, annullamento | defissione atti | motivo obbligatorio |
-| Consultare gli atti defissi dall'amministrazione | archivio atti | **funzione successiva, oggi non costruita.** Non fa tornare a rispondere l'indirizzo pubblico dell'atto: quello resta irraggiungibile per chiunque, permessi compresi. È una schermata di amministrazione, non una pagina del sito |
+| Consultare gli atti defissi dall'amministrazione | archivio atti | **funzione successiva, oggi non costruita.** Non fa tornare a rispondere l'indirizzo pubblico dell'atto: quello resta irraggiungibile per chiunque, permessi compresi |
 | Consultare il registro delle operazioni | lettura registro (di core) | |
 | Configurare tipi di atto e durate | amministrazione albo | |
 | Cancellare un atto pubblicato | **nessuna**: vietato per tutti | la voce non esiste proprio |
 | Vedere un atto pubblicato e non scaduto | nessuna: pubblico | |
 
 ## Dati che il plugin scrive fuori dall'atto
+
+> **Attenzione: repertorio e referto sono due ipotesi, non due impegni.** ALBO-07 (referto)
+> e ALBO-08 (repertorio) poggiano sulla prassi della pubblicita' legale, che non e' una
+> fonte. Sono **scelte operative da confermare** contro il regolamento dell'amministrazione,
+> e finche' non sono confermate quello che segue descrive come le faremmo, non che le
+> faremo. Le unita' che le costruiscono sono bloccate da quella conferma.
+
 
 - **Contatore di repertorio**: una riga per anno (e per registro, se l'ente configura
   registri separati), aggiornata con un'operazione atomica per impedire due atti con lo

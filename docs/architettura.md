@@ -5,11 +5,11 @@ file, **che cosa sta toccando**, anche senza leggere il PHP riga per riga.
 
 > **Stato di questo documento: mappa progettata, non ancora costruita.** Alla data di
 > scrittura il componente contiene lo scheletro del plugin e nient'altro: **nessuna delle
-> parti elencate più sotto esiste nel codice**, e la stessa cosa vale per cinque dei sei
-> meccanismi comuni. Le due tabelle hanno una colonna che lo dice riga per riga. Il
-> documento è pubblicato lo stesso, perché serve a decidere dove va una modifica prima di
-> scriverla, ma va letto per quello che è: chi cerca oggi una di queste parti non la trova,
-> e non è un difetto.
+> parti elencate più sotto esiste nel codice**, e dei sei meccanismi comuni ne esiste uno
+> solo. Le due tabelle hanno una colonna che lo dice riga per riga. Il documento è
+> pubblicato lo stesso, perché serve a decidere dove va una modifica prima di scriverla, ma
+> va letto per quello che è: chi cerca oggi una di queste parti non la trova, e non è un
+> difetto.
 >
 > Da quando una parte esiste, il suo nome diventa il contratto: il codice usa quel nome, e
 > se deve cambiare si aggiorna prima questo documento, nello stesso commit. **Anche la
@@ -20,13 +20,23 @@ Il plugin dipende da `conformita-core`, che fornisce i meccanismi comuni. L'albo
 dichiara le **politiche**: cosa succede alla scadenza (`irraggiungibile`, cioè l'atto esce
 dalla vista pubblica) e come si tratta l'indicizzazione (`vietata`).
 
-**Che cosa succede se le politiche non sono dichiarate per intero.** Core parte
-normalmente: è un plugin come gli altri e la sua attivazione non dipende da noi. È la
-**registrazione della sezione** che viene rifiutata, con un errore che dice quale politica
-manca, e viene rifiutata anche quando il meccanismo necessario non risulta disponibile. La
-conseguenza per l'albo è che senza registrazione riuscita non prosegue l'avvio: non
-registra niente e non pubblica niente. Detto così e non come "core non parte", perché la
-differenza conta il giorno in cui si guarda un sito e si cerca di capire chi non è partito.
+**Che cosa succede se le politiche non sono dichiarate per intero.** Il meccanismo comune
+parte normalmente: è un componente come gli altri e la sua attivazione non dipende da noi. È
+la **registrazione della sezione** che viene rifiutata.
+
+I casi in cui rifiuta sono quattro, e sono tutti quelli che oggi esistono davvero: una
+politica non dichiarata o con un valore fuori dall'insieme ammesso, un identificativo di
+sezione vuoto o con caratteri non ammessi, una sezione già registrata, e **il motore di
+scadenza non avviato**. Quest'ultimo è l'unico controllo su un meccanismo, e non è un caso:
+il motore è l'unico meccanismo comune che oggi esiste. **Indicizzazione, consegna degli
+allegati, registro e battito non vengono verificati alla registrazione**, perché non ci sono
+ancora: quando arriveranno, se il loro mancato avvio dovrà bloccare la registrazione sarà una
+decisione da prendere allora, non una cosa che il codice già fa.
+
+La conseguenza per l'albo è che senza registrazione riuscita non prosegue l'avvio: non
+registra niente e non pubblica niente. Detto così e non come "il meccanismo comune non
+parte", perché la differenza conta il giorno in cui si guarda un sito e si cerca di capire
+chi non è partito.
 
 ## La vita di un atto
 
@@ -46,6 +56,8 @@ ATTO
  |
  +--> viene pubblicato
  |       il numero di repertorio viene assegnato ORA, in modo atomico
+ |       IPOTESI DA CONFERMARE: il repertorio poggia sulla prassi e non
+ |       su una fonte, e la sua unita' di lavoro e' bloccata
  |       voce nel registro: chi, cosa, quando
  |       [Repertorio, core: Registro]
  |
@@ -58,6 +70,7 @@ ATTO
  |       il cron di sistema cambia lo stato; il filtro in lettura lo copre
  |       gia' dal primo istante anche se il cron e' fermo
  |       viene scattato il referto: fotografia immutabile
+ |       IPOTESI DA CONFERMARE, come il repertorio
  |       [core: MotoreScadenza, Referto]
  |
  +--> l'indirizzo pubblico smette di rispondere, per chiunque
@@ -81,10 +94,10 @@ ATTO
 |---|---|---|---|
 | `TipoContenutoAtto` | Registra il tipo di contenuto "atto": campi obbligatori, validazione al salvataggio, capability dedicate, dichiarazione esplicita dell'esposizione REST | ALBO-01, ALBO-02 | no |
 | `PoliticaAlbo` | Dichiara a core le politiche dell'albo: scadenza "esce dalla vista pubblica", indicizzazione vietata, durate per tipo di atto lette dalla configurazione (nessun default) | ALBO-04, ALBO-05, ALBO-06 | no |
-| `Repertorio` | Assegna il numero progressivo annuale al primo passaggio in pubblicazione, in modo atomico; blocca ogni modifica manuale del numero | ALBO-08 | no |
+| `Repertorio` | Assegna il numero progressivo annuale al primo passaggio in pubblicazione, in modo atomico; blocca ogni modifica manuale del numero. **Ipotesi da confermare**, unita' di lavoro bloccata dalla conferma | ALBO-08 | no |
 | `FlussoPubblicazione` | Il percorso obbligato verso la pubblicazione: controllo preventivo sui dati personali con conferma esplicita; blocco di modifica e cancellazione dell'atto pubblicato, senza eccezioni per l'amministratore | ALBO-09, ALBO-11 | no |
 | `Oscuramento` | Gestisce la coppia versione oscurata pubblica / originale riservato | ALBO-12 | no |
-| `Referto` | Alla defissione congela la fotografia dell'esposizione (numero, date effettive, impronta del file, autore) e la rende ristampabile | ALBO-07 | no |
+| `Referto` | Alla defissione congela la fotografia dell'esposizione (numero, date effettive, impronta del file, autore) e la rende ristampabile. **Ipotesi da confermare**, unita' di lavoro bloccata dalla conferma | ALBO-07 | no |
 | `AvvisoPdf` | All'upload esamina il PDF e segnala gli indizi di inaccessibilità (scansione, assenza di struttura, titolo o lingua) | ALBO-13 | no |
 | `Ricerca` | Elenco pubblico, filtri per tipo, organo, date e testo, navigabili da tastiera | ALBO-14, ALBO-16 | no |
 | `Esportazione` | Export di atti e metadati di un periodo in formato aperto | ALBO-17 | no |

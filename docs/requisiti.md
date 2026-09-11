@@ -80,7 +80,14 @@ questo la politica di indicizzazione è un parametro dichiarato, mai un default.
 
 ### Il registro non si tocca (ALBO-08, ALBO-09, ALBO-10)
 
-- Il **numero di repertorio** è progressivo per anno (per esempio 123/2026), lo assegna
+> **Attenzione: repertorio e referto sono due ipotesi, non due impegni.** ALBO-07 (referto)
+> e ALBO-08 (repertorio) poggiano sulla prassi della pubblicita' legale, che non e' una
+> fonte. Sono **scelte operative da confermare** contro il regolamento dell'amministrazione,
+> e finche' non sono confermate quello che segue descrive come le faremmo, non che le
+> faremo. Le unita' che le costruiscono sono bloccate da quella conferma.
+
+
+- Il **numero di repertorio**, *se confermato*, è progressivo per anno (per esempio 123/2026), lo assegna
   il sistema al primo passaggio in pubblicazione e non si modifica a mano (ALBO-08). Le
   garanzie sono quattro: **unico**, **progressivo**, assegnato **una sola volta**, **mai
   riutilizzato**. L'atto annullato conserva il suo numero, con stato e motivo.
@@ -123,7 +130,7 @@ misura anti copia che renda l'atto illeggibile a chi usa un lettore di schermo
   tutti gli enti e non per tutti gli atti. Nel codice non esiste la costante 15: ogni
   tipo di atto ha la sua durata in configurazione, e un tipo senza durata non si
   pubblica.
-- **Referto di pubblicazione** (ALBO-07): alla defissione il sistema scatta una
+- **Referto di pubblicazione** (ALBO-07), *da confermare come sopra*: alla defissione il sistema scatta una
   fotografia immutabile (numero, date effettive, impronta del file, chi ha pubblicato)
   che attesta cosa è stato esposto e quando. Si congela, non si rigenera.
 - **Separazione dalla trasparenza** (ALBO-15): stesso documento, due esposizioni con
@@ -155,26 +162,26 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 
 | ID | Stato | In una riga | Fonte principale |
 |---|---|---|---|
-| ALBO-01 | da fare | Scheda atto: dati, documento principale `[1..1]`, allegati ulteriori `[0..n]`. La bozza si salva incompleta, la pubblicazione no | **norma** l. 69/2009 art. 32 per l'esistenza dei dati identificativi; **prodotto** per l'elenco preciso dei campi |
-| ALBO-02 | da fare | Data di fine sempre obbligatoria | **norma** Garante, provv. marzo 2026 |
-| ALBO-03 | da fare | Defissione automatica da cron di sistema | **norma** Garante, linee guida 2014 |
-| ALBO-04 | da fare | Durate per tipo di atto, configurabili, senza default | **norma** TUEL art. 124 per l'esistenza di una durata, valido per comuni e province e non universale; **da confermare** le durate dei singoli tipi, che dipendono dal regolamento |
-| ALBO-05 | da fare | L'atto defisso esce dalla vista pubblica | **norma** Garante, linee guida 2014 |
-| ALBO-06 | da fare | Niente indicizzazione dei motori di ricerca | **norma** Garante, linee guida 2014 |
-| ALBO-07 | da fare | Referto di pubblicazione congelato | **da confermare**: la prassi non è una fonte. Il contenuto va verificato contro il regolamento |
-| ALBO-08 | da fare | Repertorio progressivo annuale, assegnato dal sistema. Unico, progressivo, assegnato una sola volta, mai riutilizzato | **da confermare**: la prassi non è una fonte. L'assenza assoluta di buchi non è promessa e dipende dal regolamento |
-| ALBO-09 | da fare | Atto pubblicato immodificabile | **norma** linee guida AgID doc. informatici |
-| ALBO-10 | da fare | Log delle operazioni | **norma** GDPR art. 5 |
-| ALBO-11 | da fare | Controllo preventivo sui dati personali | **norma** d.lgs. 196/2003 artt. 2-ter, 2-septies |
-| ALBO-12 | da fare | Versione oscurata accanto all'originale riservato | **norma** GDPR art. 5.1.c |
-| ALBO-13 | da fare | Allegati accessibili, avviso sui PDF sospetti | **norma** l. 4/2004 art. 11 |
-| ALBO-14 | da fare | Niente anti copia che rompa l'accessibilità | **norma** Garante, linee guida 2014 |
-| ALBO-15 | da fare | Separazione dall'amministrazione trasparente | **norma** d.lgs. 33/2013 |
+| ALBO-01 | da fare | Scheda atto: dati, documento principale `[1..1]`, allegati ulteriori `[0..n]`. La bozza si salva incompleta, la pubblicazione no | **norma** l'atto pubblicato dev'essere identificabile e completo dei suoi estremi (l. 69/2009 art. 32). **Prodotto** l'elenco preciso dei campi e la separazione fra salvataggio e pubblicazione |
+| ALBO-02 | da fare | Data di fine **obbligatoria per pubblicare**. In bozza può mancare | **norma** nessuna pubblicazione a tempo indeterminato (Garante, provv. marzo 2026). **Prodotto** la data come dato che il sistema pretende al passaggio a pubblicato |
+| ALBO-03 | da fare | L'atto scaduto smette di essere pubblico tempestivamente | **norma** il risultato, senza dipendere dal traffico del sito (Garante). **Prodotto** i tre strati, cron esterno, filtro e battito: architettura nostra, non un obbligo |
+| ALBO-04 | da fare | Durate per tipo di atto, configurabili, senza default | **norma** l'esistenza di una durata (TUEL art. 124, valido per comuni e province, non universale). **Prodotto** la configurabilità per tipo. **Da confermare** le durate dei singoli tipi, che dipendono dal regolamento |
+| ALBO-05 | da fare | L'atto defisso esce dalla vista pubblica | **norma** il risultato (Garante, provvedimenti). **Prodotto** la politica `irraggiungibile` dichiarata al meccanismo comune |
+| ALBO-06 | da fare | Le pagine dell'atto non vengono indicizzate | **norma** il risultato (Garante, che raccomanda i metatag). **Prodotto** `noindex`, esclusione dalla mappa e politica dichiarata |
+| ALBO-07 | da fare | Referto di pubblicazione congelato | **da confermare**: la prassi non è una fonte. Contenuto e obbligatorietà vanno verificati contro il regolamento, e l'unità è bloccata da quella conferma |
+| ALBO-08 | da fare | Repertorio progressivo annuale, assegnato dal sistema. Unico, progressivo, assegnato una sola volta, mai riutilizzato | **da confermare**: la prassi non è una fonte. L'assenza assoluta di buchi non è promessa e dipende dal regolamento. L'unità è bloccata da quella conferma |
+| ALBO-09 | da fare | Integrità del documento pubblicato | **norma** il risultato (linee guida AgID doc. informatici). **Prodotto** immodificabilità assoluta e rettifica come atto nuovo |
+| ALBO-10 | da fare | Tracciabilità delle operazioni sugli atti | **norma** responsabilizzazione e tracciabilità (GDPR art. 5). **Prodotto** il registro solo in aggiunta del meccanismo comune è la soluzione scelta, non l'unica |
+| ALBO-11 | da fare | Liceità del trattamento dei dati particolari | **norma** il risultato (d.lgs. 196/2003 artt. 2-ter, 2-septies). **Prodotto** il passaggio obbligato con conferma esplicita |
+| ALBO-12 | da fare | I dati eccedenti non finiscono nella versione pubblica | **norma** minimizzazione, l'originale non va esposto (GDPR art. 5.1.c). **Prodotto** la coppia originale riservato più versione oscurata |
+| ALBO-13 | da fare | I documenti pubblicati sono accessibili | **norma** il risultato (l. 69/2009 art. 32 che rinvia a l. 4/2004 art. 11). **Prodotto** l'avviso euristico al caricamento, che segnala un indizio e non blocca |
+| ALBO-14 | da fare | Niente anti copia che rompa l'accessibilità | **norma** l'accessibilità non si comprime per ostacolare il prelievo (Garante, l. 4/2004) |
+| ALBO-15 | da fare | Separazione dall'amministrazione trasparente | **norma** finalità e durate diverse (d.lgs. 33/2013, Garante). **Prodotto** due esposizioni indipendenti con un file solo |
 | ALBO-16 | da fare | Ricerca e filtri accessibili | **prodotto**, con l'accessibilità come vincolo di norma |
-| ALBO-17 | da fare | Export in formato aperto | **norma** linee guida AgID doc. informatici |
-| ALBO-18 | da fare | Filtro di scadenza su ogni percorso di lettura | **norma** Garante, provv. marzo 2026 |
+| ALBO-17 | da fare | Gli atti sono versabili in conservazione | **norma** il risultato (linee guida AgID doc. informatici). **Prodotto** l'export in formato aperto |
+| ALBO-18 | da fare | L'atto scaduto non è pubblico su nessun percorso | **norma** il risultato (Garante, provv. marzo 2026). **Prodotto** il filtro in interrogazione sui percorsi di WordPress, il cui elenco dipende da WordPress e non dalla norma |
 | ALBO-19 | da fare | Battito di controllo con avviso | **prodotto**, motivato dal guasto silenzioso sanzionato nel provv. Garante marzo 2026 |
-| ALBO-20 | da fare | Niente cache sugli atti defissi | **norma** Garante, linee guida 2014 |
+| ALBO-20 | da fare | L'atto defisso non viene più servito a nessuno | **norma** il risultato (Garante). **Prodotto** esclusione dalla memoria di pagina oppure invalidazione immediata: due strade, la scelta è nostra |
 | ALBO-21 | da fare | Scadenza sull'ora civile italiana | **prodotto**: correttezza tecnica, nessuna fonte esterna |
 | ALBO-22 | da fare | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto, decisione incompleta**: vedi la nota qui sotto |
 | ALBO-23 | da fare | All'attivazione l'insieme minimo di permessi sul tipo atto arriva all'amministratore | **prodotto** |
@@ -186,17 +193,21 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 
 Tre categorie, e la distinzione non è formale: dice quanto è discutibile un requisito.
 
-- **norma**: c'è una fonte primaria, legge, decreto o provvedimento. Non è negoziabile e il
-  componente non lo può scegliere diversamente.
-- **prodotto**: la scelta è nostra. È motivata, ma resta una decisione di progettazione e si
-  può discutere.
+- **norma**: esiste un **risultato obbligatorio**, con una fonte primaria. Non significa che
+  tutta la riga sia intoccabile: la norma dice che cosa deve essere vero alla fine, e il modo
+  con cui il componente lo garantisce resta quasi sempre una nostra decisione. Per questo
+  quasi tutte le righe marcate "norma" portano anche una parte marcata "prodotto", nella
+  stessa cella, dopo il risultato obbligatorio. Tenerle separate serve a una cosa precisa: se
+  "cron esterno" e "il Garante lo impone" stanno insieme senza distinzione, quella scelta
+  tecnica non la riapre più nessuno, nemmeno quando ha smesso di essere la migliore.
+- **prodotto**: la scelta è nostra. Motivata, ma nostra, e si può discutere.
 - **da confermare**: dipende dal regolamento dell'amministrazione o da una fonte che non
-  abbiamo ancora reperito. Finché non è confermata è un'ipotesi, non un impegno.
+  abbiamo ancora reperito. Finché non è confermata è un'ipotesi, non un impegno, e l'unità
+  che la costruisce è bloccata da quella conferma.
 
 Fino al 2026-09-11 questa colonna aveva una categoria sola, e formule come "prassi di
-pubblicità legale" o "operativo" stavano accanto al GDPR: facevano sembrare obblighi di
-legge delle nostre decisioni progettuali, che è il modo più rapido per rendere non
-discutibile una cosa discutibile.
+pubblicità legale" o "operativo" stavano accanto al GDPR: facevano sembrare obblighi di legge
+delle decisioni progettuali nostre.
 
 ### Nota su ALBO-22: decisione incompleta
 
@@ -206,10 +217,18 @@ di pubblicazione, non insieme a essa. Chi implementa un flusso mentre lo sta spe
 sceglie la strada che il codice gli rende comoda, e la specifica diventa il resoconto di
 quello che è uscito.
 
-**Cosa è già deciso**: gli stati sono bozza, in verifica, pubblicato, defisso, annullato;
-defisso è uno stato che discende dalla data e non da un evento; la restituzione in bozza
-richiede una motivazione; la pubblicazione è tutto o niente; chi prepara e chi pubblica sono
-permessi distinti.
+**Cosa è già deciso**: gli stati sono bozza, in verifica, pubblicato, defisso, annullato; la
+restituzione in bozza richiede una motivazione; la pubblicazione è tutto o niente; chi
+prepara e chi pubblica sono permessi distinti.
+
+**Una cosa che il flusso non può contraddire.** Lo **stato memorizzato** e la **condizione di
+scadenza** sono due cose diverse. Alla mezzanotte del giorno dopo la data di fine l'atto
+diventa **immediatamente invisibile al pubblico**, per opera del filtro in lettura, anche se
+nella banca dati risulta ancora "pubblicato". Il compito pianificato porterà poi lo stato
+memorizzato a "defisso", e se non gira quel passaggio non avviene, senza che cambi nulla di
+ciò che il pubblico vede. Il flusso non può quindi trattare "defisso" come lo stato che rende
+invisibile un atto: la conformità non dipende da uno stato scritto da qualcuno, e questo è già
+costruito e collaudato nel meccanismo comune.
 
 **Cosa manca**: quali transizioni sono consentite fra quali stati, chi può compiere ciascuna,
 e cosa succede a una transizione rifiutata. Senza questi tre pezzi il requisito non è
@@ -221,5 +240,4 @@ Tre valori: **da fare** (il requisito esiste come impegno, il codice no), **in c
 codice e i test esistono ma non risultano verdi nella verifica continua), **fatto** (verde
 nella verifica continua). Un requisito passa a "fatto" solo quando tutte le sue righe di
 `collaudo.md` sono "fatto". Oggi il componente è all'avvio della costruzione: **tutti i
-requisiti sono a "da fare"**, e questa colonna esiste perché il repository non prometta
-niente di falso a chi lo valuta.
+requisiti sono a "da fare"**.
