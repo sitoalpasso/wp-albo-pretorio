@@ -34,6 +34,10 @@ class AvvioTest extends WP_UnitTestCase {
 	 * dell'albo vivono in memoria per tutta l'esecuzione: una prova che ne
 	 * lascia dietro uno renderebbe verde o rossa la successiva per un motivo
 	 * che non c'entra con cio' che quella prova verifica.
+	 *
+	 * L'utente corrente e' un amministratore perche' gli avvisi sono riservati a
+	 * chi puo' attivare i componenti: senza dire chi guarda la bacheca, "l'avviso
+	 * c'e'" e "l'avviso non c'e'" sarebbero la stessa osservazione.
 	 */
 	public function set_up(): void {
 		parent::set_up();
@@ -44,6 +48,8 @@ class AvvioTest extends WP_UnitTestCase {
 		Avvio::azzera();
 
 		update_option( 'active_plugins', array( $this->componente ) );
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
 	}
 
 	/**
@@ -296,7 +302,19 @@ class AvvioTest extends WP_UnitTestCase {
 			'Precondizione: la sezione deve risultare registrata da altri prima dell\'avvio.'
 		);
 
-		$this->assertFalse( Avvio::esegui(), 'La sezione gia\' registrata da altri e\' un conflitto.' );
+		$esito = Avvio::esegui();
+
+		$this->assertInstanceOf(
+			'WP_Error',
+			$esito,
+			'La sezione gia\' registrata da altri e\' un conflitto.'
+		);
+
+		$this->assertSame(
+			'conformita_core_sezione_duplicata',
+			$esito->get_error_code(),
+			'L\'errore deve essere quello dedicato alla sezione gia\' registrata.'
+		);
 
 		$this->assertContains(
 			$this->componente,

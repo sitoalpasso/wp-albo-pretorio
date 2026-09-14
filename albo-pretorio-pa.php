@@ -39,14 +39,59 @@ const WP_MINIMA = '6.5';
 const PHP_MINIMA = '8.1';
 
 /**
- * Versione dell'API di conformita-core richiesta.
+ * Versione dell'interfaccia di conformita-core richiesta.
  *
- * Il controllo di compatibilità a runtime arriva insieme al primo meccanismo:
- * qui la costante fissa solo il valore atteso.
+ * L'intestazione `Requires Plugins` garantisce la presenza del componente
+ * comune e non la sua versione, perché accetta slug e non vincoli di versione:
+ * il vincolo di versione vive qui e si verifica a ogni avvio.
  */
-const CORE_API_RICHIESTA = '1';
+const CORE_API_RICHIESTA = '1.2.0';
+
+/**
+ * Nome visibile del componente, come compare negli avvisi in amministrazione.
+ */
+const NOME = 'Albo Pretorio';
+
+/**
+ * Identificativo della sezione dichiarata al meccanismo comune.
+ *
+ * Lettere minuscole, cifre e trattino basso: è l'insieme di caratteri che il
+ * registro delle sezioni ammette.
+ */
+const SEZIONE = 'albo_pretorio';
+
+/**
+ * Politica di indicizzazione della sezione.
+ *
+ * Vietata, e non configurabile. La pubblicità legale ha una durata definita, e
+ * un atto defisso che resta nell'indice di un motore di ricerca continua a
+ * diffondere i dati che vi compaiono oltre il termine. Non è una preferenza di
+ * chi installa il componente: è la ragione per cui la politica è dichiarata qui
+ * e non letta da un'opzione.
+ */
+const INDICIZZAZIONE = 'vietata';
+
+/**
+ * Politica di scadenza della sezione.
+ *
+ * Irraggiungibile: alla scadenza il contenuto non è più consultabile da nessun
+ * utente, non passa in un archivio consultabile. La politica opposta esiste nel
+ * meccanismo comune e serve ad altri componenti.
+ */
+const SCADENZA = 'irraggiungibile';
 
 /**
  * Percorso del file principale del plugin.
  */
 const FILE_PRINCIPALE = __FILE__;
+
+require_once __DIR__ . '/includes/class-avvio.php';
+
+/*
+ * L'avvio si aggancia e non si esegue. Al caricamento di questo file il
+ * meccanismo comune può non essere ancora caricato: WordPress carica i
+ * componenti in ordine alfabetico di cartella, e `albo-pretorio-pa` viene prima
+ * di `conformita-core`. Una chiamata qui sarebbe un errore grave sul sito vero,
+ * non una diagnosi. A `plugins_loaded` tutti i componenti attivi sono caricati.
+ */
+add_action( 'plugins_loaded', array( Avvio::class, 'da_plugins_loaded' ) );

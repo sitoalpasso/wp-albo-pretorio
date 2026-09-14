@@ -33,7 +33,8 @@ class SenzaCoreTest extends WP_UnitTestCase {
 	 *
 	 * Senza questa, "e' rimasto attivo" sarebbe vero per niente: nell'ambiente
 	 * di prova l'albo e' caricato dall'avvio della suite e non compare
-	 * nell'elenco degli attivi.
+	 * nell'elenco degli attivi. L'utente corrente e' un amministratore perche'
+	 * l'avviso e' riservato a chi puo' attivare i componenti.
 	 */
 	public function set_up(): void {
 		parent::set_up();
@@ -43,6 +44,8 @@ class SenzaCoreTest extends WP_UnitTestCase {
 		Avvio::azzera();
 
 		update_option( 'active_plugins', array( $this->componente ) );
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
 	}
 
 	/**
