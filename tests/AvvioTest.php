@@ -329,7 +329,7 @@ class AvvioTest extends WP_UnitTestCase {
 	 */
 	public function politiche_preesistenti(): array {
 		return array(
-			'politiche diverse'  => array(
+			'politiche diverse'   => array(
 				array(
 					'indicizzazione' => 'consentita',
 					'scadenza'       => 'archivio',
