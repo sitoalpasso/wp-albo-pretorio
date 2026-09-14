@@ -91,23 +91,36 @@ indicizzate per requisito, perché ciascuna attua un ALBO-xx. Queste no: costrui
 l'infrastruttura su cui ALBO-05 e ALBO-06 poggeranno, e nessun requisito è chiuso da loro
 sole. Prefisso `A-` con il trattino.
 
-**Le tre situazioni di guasto non sono simmetriche, ed è il punto che regge la tabella.**
-Quando il meccanismo comune manca, il componente resta **attivo e inerte** e può segnalarlo
-a ogni richiesta. Quando la sezione risulta già registrata con politiche diverse, idem.
-Quando la versione di interfaccia è incompatibile il meccanismo comune **disattiva** il
-componente, che da quel momento non viene più caricato e non può più dire niente.
+**Le situazioni di guasto non sono simmetriche, ed è il punto che regge la tabella.** Quando
+il meccanismo comune manca, il componente resta **attivo e inerte** e può segnalarlo a ogni
+richiesta. Lo stesso quando la sezione risulta già registrata **da altri, con politiche
+identiche o diverse**, e quando il filtro di scadenza non risulta avviato. Quando la versione
+di interfaccia è incompatibile il meccanismo comune **disattiva** il componente, che da quel
+momento non viene più caricato e non può più dire niente.
+
+**Perché l'idempotenza non si dimostra confrontando le politiche.** La via facile sarebbe: se
+la sezione esiste già con le politiche giuste, l'avvio prosegue in silenzio. Non regge.
+L'uguaglianza dei valori dice che qualcuno ha registrato quella sezione con quelle politiche,
+**non che sia stato questo componente**. Un altro componente può registrare la stessa sezione
+dichiarando gli stessi valori, e l'albo proseguirebbe governando una sezione non sua. Oggi il
+danno è teorico, perché A-01..A-10 non derivano niente dalla sezione. **Il conflitto diventa
+rilevante quando la capability dell'archivio riservato sarà derivata dall'identificativo
+della sezione**: accettare come propria una sezione registrata da altri potrebbe far
+condividere involontariamente quella superficie riservata. Da non confondere con le
+capability del tipo di contenuto, che derivano dall'identificativo **del tipo**.
 
 | # | Stato | Il test, in parole | Esito atteso |
 |---|---|---|---|
-| A-01 | da fare | La dipendenza è dichiarata in due posti: intestazione `Requires Plugins` e versione di interfaccia controllata all'avvio | entrambe presenti e coerenti. Sul controllo di WordPress si verifica il **codice** di errore, non il testo del messaggio, che sul sito italiano è tradotto |
-| A-02 | da fare | Il file principale viene caricato senza che il meccanismo comune sia già caricato | nessun errore grave e nessuna chiamata: l'avvio è rimandato all'aggancio che scatta a componenti caricati |
-| A-03 | da fare | Avvio con le funzioni del meccanismo comune non definite. Si dimostra prima che il componente risulti fra quelli attivi | resta **attivo e inerte**: nessun errore grave, nessuna sezione registrata, nessun avvio parziale. Avviso proprio a ogni richiesta di amministrazione, visibile solo a chi può attivare i componenti, con la versione richiesta e quella trovata |
-| A-04 | da fare | Criterio di compatibilità della versione, sui tre casi che contano | versione inferiore con stesso numero maggiore: incompatibile. Numero maggiore diverso: incompatibile. Versione superiore con stesso numero maggiore: compatibile |
-| A-05 | da fare | Effetto completo della guardia, in un processo separato con versione incompatibile, con una richiesta di amministrazione come prima richiesta | componente disattivato, **sezione assente fra quelle registrate**, nessun errore grave, avviso presente. La precondizione, cioè che il componente fosse attivo, si dimostra prima |
-| A-06 | da fare | Avvio con versione compatibile: il controllo positivo della guardia | il componente resta attivo e la sezione risulta registrata |
-| A-07 | da fare | Rilettura delle due politiche attraverso l'interfaccia pubblica del meccanismo comune, non dallo stato interno del componente | indicizzazione vietata, scadenza irraggiungibile |
-| A-08 | da fare | La funzione di avvio invocata due volte nella stessa richiesta | nessun errore e nessun avviso; una sola sezione registrata, politiche invariate |
-| A-09 | da fare | La sezione risulta già registrata con politiche diverse | resta **attivo e inerte**, non registra niente, e **le politiche preesistenti risultano intatte alla rilettura**. Avviso a ogni richiesta di amministrazione, riservato a chi può attivare i componenti |
+| A-01 | fatto | La dipendenza è dichiarata in due posti: intestazione `Requires Plugins` e versione di interfaccia controllata all'avvio | entrambe presenti e coerenti. Sul controllo di WordPress si verifica il **codice** di errore, non il testo del messaggio, che sul sito italiano è tradotto |
+| A-02 | fatto | Il file principale viene caricato senza che il meccanismo comune sia già caricato | nessun errore grave e nessuna chiamata: l'avvio è rimandato all'aggancio che scatta a componenti caricati |
+| A-03 | fatto | Avvio con le funzioni del meccanismo comune non definite. Si dimostra prima che il componente risulti fra quelli attivi | resta **attivo e inerte**: nessun errore grave, nessuna sezione registrata, nessun avvio parziale. Avviso proprio a ogni richiesta di amministrazione, visibile solo a chi può attivare i componenti, che porta tre valori verificati uno per uno: il nome del componente fermo, il nome del meccanismo comune da installare e la **versione richiesta**. Si verifica anche che nel testo compaia **un solo** numero di versione: nessuna versione è stata trovata, perché il meccanismo comune non c'è, ed è ciò che distingue questo avviso da quello dell'incompatibilità |
+| A-04 | fatto | Criterio di compatibilità della versione, sui tre casi che contano | versione inferiore con stesso numero maggiore: incompatibile. Numero maggiore diverso: incompatibile. Versione superiore con stesso numero maggiore: compatibile |
+| A-05 | fatto | Effetto completo della guardia, in un processo separato con versione incompatibile, con una richiesta di amministrazione come prima richiesta | componente disattivato, **sezione assente fra quelle registrate**, nessun errore grave, avviso presente con la versione richiesta e quella trovata. Tre precondizioni dimostrate prima: il componente era attivo, la procedura di avvio **non è agganciata** in quell'esecuzione, e la bacheca è pulita. Le ultime due servono a rendere l'avviso attribuibile: se la procedura girasse da sola all'avvio della suite, il meccanismo comune lascerebbe un avviso agganciato con una chiusura anonima, che nessuno può rimuovere, e la prova resterebbe verde anche se la propria chiamata non producesse niente |
+| A-06 | fatto | Avvio con versione compatibile: il controllo positivo della guardia | il componente resta attivo e la sezione risulta registrata |
+| A-07 | fatto | Rilettura delle due politiche attraverso l'interfaccia pubblica del meccanismo comune, non dallo stato interno del componente | indicizzazione vietata, scadenza irraggiungibile |
+| A-08 | fatto | **La funzione di avvio invocata due volte nella stessa richiesta**, con la prima andata a buon fine | la seconda **ritorna senza registrare di nuovo**, senza errori né avvisi, e rilegge lo stato osservabile per confermare che sia rimasto corretto: una sola sezione registrata, con le due politiche invariate. L'idempotenza poggia su uno **stato interno della classe di avvio**, non sul confronto fra le politiche trovate e quelle attese |
+| A-09 | fatto | La sezione risulta **già registrata da altri alla prima invocazione**, in **due varianti**: con politiche **diverse** e con politiche **identiche** a quelle dell'albo | **conflitto in entrambi i casi**, con lo stesso esito: resta **attivo e inerte**, non registra niente, le politiche preesistenti risultano intatte alla rilettura, e c'è un avviso a ogni richiesta di amministrazione riservato a chi può attivare i componenti. La variante con politiche identiche è quella che conta: vedi la premessa |
+| A-10 | fatto | Meccanismo comune compatibile, ma **filtro di scadenza portato allo stato non avviato** con il meccanismo interno che quel componente espone per le prove, poi tentativo di avvio | la registrazione è **rifiutata con il codice di errore dedicato al motore non avviato**; il componente resta **attivo e inerte**, la sezione è assente, e c'è l'avviso riservato a chi può attivare i componenti. **Nessuna disattivazione**: quella appartiene alla sola incompatibilità di versione. Il filtro si ripristina in una chiusura garantita della prova, anche se un'asserzione fallisce |
 
 ## Collaudo congiunto con la trasparenza
 

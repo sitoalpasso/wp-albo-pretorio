@@ -50,6 +50,35 @@
 		caricato: WP_Filesystem non esiste ancora e la diagnostica va su STDERR.
 	-->
 	<rule ref="WordPress.WP.AlternativeFunctions.file_system_operations_fwrite">
-		<exclude-pattern>/tests/bootstrap\.php</exclude-pattern>
+		<exclude-pattern>/tests/bootstrap*\.php</exclude-pattern>
+		<exclude-pattern>/tests/avvio-comune\.php</exclude-pattern>
+	</rule>
+
+	<!--
+		Nei test valgono regole diverse, e non per comodita'. Eseguire un aggancio
+		di WordPress e' cio' che una prova deve fare per osservare un avviso in
+		bacheca, e il prefisso obbligatorio sui nomi degli agganci riguarda quelli
+		che il componente dichiara, non quelli che una prova esegue. Le operazioni
+		su file passano dalle funzioni di PHP perche' l'astrazione di WordPress
+		sul filesystem, in un test, aggiunge un pezzo di infrastruttura da
+		configurare senza rendere la prova piu' vera.
+	-->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound">
+		<exclude-pattern>/tests/*</exclude-pattern>
+	</rule>
+
+	<rule ref="WordPress.WP.AlternativeFunctions">
+		<exclude-pattern>/tests/*</exclude-pattern>
+	</rule>
+
+	<!--
+		Un avvio della suite definisce la costante della versione di interfaccia
+		del componente comune prima che quel componente si carichi: e' il solo modo
+		di far vedere alla guardia una versione diversa da quella reale, e la
+		costante e' di quel componente, non nostra, quindi non porta il nostro
+		prefisso.
+	-->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound">
+		<exclude-pattern>/tests/bootstrap-core-incompatibile\.php</exclude-pattern>
 	</rule>
 </ruleset>

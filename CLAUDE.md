@@ -29,7 +29,9 @@ supportato.
   in ingresso, escaping in uscita, capability dedicate.
 - Documentazione e messaggi di commit in italiano, descrittivi e senza riferimenti a
   installazioni specifiche.
-- Richiede il plugin `conformita-core`; la compatibilità di versione è verificata
+- Richiede il plugin `conformita-core`. L'intestazione `Requires Plugins` impedisce
+  l'attivazione quando quel plugin manca, ma accetta slug e non vincoli di versione: la
+  compatibilità di versione si verifica quindi **all'avvio**, su `plugins_loaded`, e non
   all'attivazione.
 - La politica di indicizzazione di questo componente è `noindex` imposto, ed è dichiarata
   a core come parametro esplicito. Non è un'opzione configurabile.

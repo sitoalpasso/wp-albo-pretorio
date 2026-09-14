@@ -90,10 +90,16 @@ ATTO
 
 ## Le parti del plugin
 
+**Una sola parte esiste oggi**, ed è quella che dichiara la sezione e le sue politiche. Le
+altre sono previste e non costruite: la colonna a destra lo dice riga per riga, perché una
+tabella letta al presente farebbe credere disponibili funzioni che nessuno ha ancora
+scritto.
+
 | Parte prevista | Responsabilità | Requisiti | Esiste oggi |
 |---|---|---|---|
 | `TipoContenutoAtto` | Registra il tipo di contenuto "atto": campi obbligatori, validazione al salvataggio, capability dedicate, dichiarazione esplicita dell'esposizione REST | ALBO-01, ALBO-02 | no |
-| `PoliticaAlbo` | Dichiara a core le politiche dell'albo: scadenza "esce dalla vista pubblica", indicizzazione vietata, durate per tipo di atto lette dalla configurazione (nessun default) | ALBO-04, ALBO-05, ALBO-06 | no |
+| `Avvio` | Verifica che il meccanismo comune sia caricato e compatibile, poi gli dichiara la sezione dell'albo con le due politiche per intero: indicizzazione `vietata`, scadenza `irraggiungibile`. Non chiude nessun requisito da sola: è il piano su cui ALBO-05 e ALBO-06 poggeranno. Se una qualsiasi delle tre condizioni non regge il componente resta attivo e inerte e lo segnala in bacheca, tranne nel caso della versione incompatibile, in cui è il meccanismo comune a disattivarlo | base di ALBO-05, ALBO-06 | **sì** |
+| Durate di pubblicazione | Le durate per tipo di atto, lette dalla configurazione e senza nessun valore predefinito. Erano scritte nella riga qui sopra e ne sono state separate quando quella riga è stata costruita: la dichiarazione delle politiche esiste, le durate no | ALBO-04 | no |
 | `Repertorio` | Assegna il numero progressivo annuale al primo passaggio in pubblicazione, in modo atomico; blocca ogni modifica manuale del numero. **Ipotesi da confermare**, unita' di lavoro bloccata dalla conferma | ALBO-08 | no |
 | `FlussoPubblicazione` | Il percorso obbligato verso la pubblicazione: controllo preventivo sui dati personali con conferma esplicita; blocco di modifica e cancellazione dell'atto pubblicato, senza eccezioni per l'amministratore | ALBO-09, ALBO-11 | no |
 | `Oscuramento` | Gestisce la coppia versione oscurata pubblica / originale riservato | ALBO-12 | no |

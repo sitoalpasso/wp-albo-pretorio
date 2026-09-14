@@ -77,10 +77,27 @@ jobs:
       - name: Prepara la suite di test di WordPress
         run: bin/installa-suite-test.sh wordpress_test root root 127.0.0.1:3306 ${{ matrix.wp }}
 
-      - name: Esegue PHPUnit
+      - name: Procura il componente comune alla revisione fissata
+        run: bin/installa-core.sh
+
+      # Tre avvii separati e non uno: la versione dell'interfaccia del componente
+      # comune la dichiara una costante, e una costante si definisce una volta sola
+      # per processo. I tre ambienti non possono quindi convivere nella stessa
+      # esecuzione.
+      - name: Esegue PHPUnit, componente comune presente e compatibile
         env:
           WP_TESTS_DIR: /tmp/wordpress-tests-lib
         run: composer test
+
+      - name: Esegue PHPUnit, componente comune assente
+        env:
+          WP_TESTS_DIR: /tmp/wordpress-tests-lib
+        run: composer test:senza-core
+
+      - name: Esegue PHPUnit, versione di interfaccia incompatibile
+        env:
+          WP_TESTS_DIR: /tmp/wordpress-tests-lib
+        run: composer test:core-incompatibile
 
   publiccode:
     name: Validazione publiccode.yml

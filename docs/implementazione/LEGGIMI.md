@@ -10,5 +10,8 @@ il percorso di chi usa il sito, i dati letti e scritti, i permessi coinvolti, i 
 guasto previsti, i test aggiunti con il riferimento a `collaudo.md`, cosa non implementa, e
 come si prova la funzione su un'installazione reale dopo il rilascio.
 
-La cartella è vuota perché il componente non ha ancora funzioni realizzate: la prima scheda
-arriva con la prima unità che scrive codice.
+Schede presenti:
+
+- [`avvio-e-politiche.md`](avvio-e-politiche.md): avvio del componente, controllo di
+  compatibilità con il meccanismo comune, registrazione della sezione e dichiarazione delle
+  due politiche. Righe di collaudo A-01..A-10.
