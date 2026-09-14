@@ -97,8 +97,58 @@ class SenzaCoreTest extends WP_UnitTestCase {
 			Avvio::registrata(),
 			'Nessuna sezione registrata e nessun avvio parziale.'
 		);
+	}
 
-		$this->assertNotSame( '', $this->avvisi_in_bacheca(), 'La condizione deve essere segnalata.' );
+	/**
+	 * A-03: l'avviso dice quale versione serve e che non se n'e' trovata nessuna.
+	 *
+	 * Un avviso qualunque non chiude la riga del catalogo, che promette una
+	 * diagnosi. Si verificano i **valori** che l'avviso deve portare e non la
+	 * frase che li tiene insieme: il nome del componente fermo, il nome del
+	 * componente da installare, e la versione richiesta.
+	 *
+	 * L'ultima asserzione e' quella che dice "nessuna versione trovata" senza
+	 * dipendere da come e' scritto: nel testo compare **un solo** numero di
+	 * versione, ed e' quello richiesto. Se un domani l'avviso riportasse anche
+	 * una versione disponibile, come fa quello dell'incompatibilita', questa
+	 * prova diventerebbe rossa, ed e' esattamente il caso da distinguere.
+	 */
+	public function test_a03_avviso_dice_cosa_manca(): void {
+		$this->assertSame(
+			'',
+			$this->avvisi_in_bacheca(),
+			'La bacheca deve essere pulita prima della chiamata: l\'avviso verificato dopo nasce da questa chiamata.'
+		);
+
+		Avvio::esegui();
+
+		$avviso = $this->avvisi_in_bacheca();
+
+		$this->assertStringContainsString(
+			\AlboPretorioPa\NOME,
+			$avviso,
+			'L\'avviso deve dire quale componente e\' fermo.'
+		);
+
+		$this->assertStringContainsString(
+			\AlboPretorioPa\CORE_NOME,
+			$avviso,
+			'L\'avviso deve nominare il componente comune da installare.'
+		);
+
+		$this->assertStringContainsString(
+			\AlboPretorioPa\CORE_API_RICHIESTA,
+			$avviso,
+			'L\'avviso deve dire quale versione di interfaccia serve.'
+		);
+
+		preg_match_all( '/\d+\.\d+\.\d+/', $avviso, $versioni );
+
+		$this->assertSame(
+			array( \AlboPretorioPa\CORE_API_RICHIESTA ),
+			array_values( array_unique( $versioni[0] ) ),
+			'Nell\'avviso deve comparire la sola versione richiesta: nessuna versione e\' stata trovata, perche\' il componente comune non c\'e\'.'
+		);
 	}
 
 	/**

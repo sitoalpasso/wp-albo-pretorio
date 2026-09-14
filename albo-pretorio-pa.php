@@ -53,6 +53,16 @@ const CORE_API_RICHIESTA = '1.2.0';
 const NOME = 'Albo Pretorio';
 
 /**
+ * Nome visibile del componente comune da cui questo dipende.
+ *
+ * Sta in una costante e non dentro il testo degli avvisi perché è un dato e non
+ * una frase: gli avvisi lo ricevono come parametro, e le prove possono
+ * verificare che l'avviso nomini il componente da installare senza dipendere da
+ * come la frase è scritta.
+ */
+const CORE_NOME = 'Conformita Core';
+
+/**
  * Identificativo della sezione dichiarata al meccanismo comune.
  *
  * Lettere minuscole, cifre e trattino basso: è l'insieme di caratteri che il

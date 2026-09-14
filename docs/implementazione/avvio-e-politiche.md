@@ -70,18 +70,27 @@ non può usarla.
 
 ## 4. Dati letti e scritti
 
-Nessuna scrittura, da nessuna parte. La procedura non tocca le opzioni, non tocca il
-database e non pianifica niente: quello che produce vive in memoria per la durata della
-richiesta e si rifà identico alla richiesta successiva.
+**Nel percorso normale e in tutti i rifiuti di registrazione: nessuna scrittura.** La
+procedura non tocca le opzioni, non tocca la banca dati e non pianifica niente. Quello che
+produce vive in memoria per la durata della richiesta e si rifà identico alla richiesta
+successiva.
+
+**Una scrittura però c'è, in un percorso solo, e non la fa questo componente.** Quando la
+versione dell'interfaccia è incompatibile, la guardia del meccanismo comune disattiva il
+componente, e disattivare un componente significa riscrivere l'elenco dei componenti attivi
+di WordPress. È un dato di WordPress, scritto dal meccanismo comune con la funzione di
+WordPress che serve a quello, e la riga A-05 lo verifica proprio come effetto osservabile.
+Va scritto qui perché "nessuna scrittura, da nessuna parte" sarebbe comodo e falso, e un
+documento che descrive un comportamento che il codice non ha è peggio di nessun documento.
 
 In lettura: la versione di interfaccia che il meccanismo comune espone, e il proprio
 percorso come lo conosce WordPress. Nessun dato nuovo, quindi `docs/dati.md` non cambia.
 
-**Perché nessuna scrittura, che è una scelta e non una dimenticanza.** L'alternativa
-sarebbe registrare la sezione una volta sola all'attivazione e fidarsi. Ma la politica
-serve a ogni richiesta, anche a quelle che arrivano dopo un aggiornamento, un cambio di
-tema o un ripristino da backup: un dato salvato una volta racconterebbe la configurazione
-del giorno dell'attivazione, non quella di adesso.
+**Perché il componente non scrive, che è una scelta e non una dimenticanza.** L'alternativa
+sarebbe registrare la sezione una volta sola all'attivazione e fidarsi. Ma la politica serve
+a ogni richiesta, anche a quelle che arrivano dopo un aggiornamento, un cambio di tema o un
+ripristino da backup: un dato salvato una volta racconterebbe la configurazione del giorno
+dell'attivazione, non quella di adesso.
 
 ## 5. Permessi
 
@@ -117,7 +126,7 @@ Righe A-01..A-10 del catalogo, distribuite su tre esecuzioni.
 |---|---|---|
 | A-01 | `tests/AvvioTest.php` | `test_a01_dipendenza_dichiarata_in_due_posti`, `test_a01_wordpress_rifiuta_con_il_codice_dedicato` |
 | A-02 | `tests/AvvioTest.php` | `test_a02_avvio_rimandato_a_plugins_loaded` |
-| A-03 | `tests/SenzaCoreTest.php` | `test_precondizione_core_assente`, `test_a03_resta_attivo_e_inerte`, `test_a03_avviso_riservato` |
+| A-03 | `tests/SenzaCoreTest.php` | `test_precondizione_core_assente`, `test_a03_resta_attivo_e_inerte`, `test_a03_avviso_dice_cosa_manca`, `test_a03_avviso_riservato` |
 | A-04 | `tests/AvvioTest.php` | `test_a04_criterio_di_compatibilita`, sui tre casi |
 | A-05 | `tests/CoreIncompatibileTest.php` | `test_precondizione_versione_incompatibile`, `test_a05_effetto_completo_della_guardia` |
 | A-06 | `tests/AvvioTest.php` | `test_a06_avvio_con_core_compatibile` |
@@ -141,12 +150,24 @@ amministratore, perché gli avvisi sono riservati a chi può attivare i componen
 dire chi guarda la bacheca, "l'avviso c'è" e "l'avviso non c'è" sarebbero la stessa
 osservazione.
 
-**Due scostamenti dal piano, tutti e due nei test e tutti e due verso il più severo.**
-La riga A-09 osserva ora il codice dell'errore restituito dall'avvio invece di un semplice
-falso: la convenzione sul valore restituito è diventata uniforme, e un'asserzione sul codice
-è più stretta di una sul falso. La precondizione sull'utente amministratore, appena
-descritta, non era nel piano: senza di essa le asserzioni sugli avvisi non avrebbero
-misurato niente.
+**Quattro scostamenti dal piano, tutti nei test e tutti verso il più severo.** La riga A-09
+osserva ora il codice dell'errore restituito dall'avvio invece di un semplice falso: la
+convenzione sul valore restituito è diventata uniforme, e un'asserzione sul codice è più
+stretta di una sul falso. La precondizione sull'utente amministratore, appena descritta, non
+era nel piano. La riga A-03 non si accontenta più di un avviso non vuoto e verifica i tre
+valori che l'avviso deve portare, più il fatto che nel testo compaia una sola versione. E la
+riga A-05 gira ora con la procedura di avvio **non agganciata**, per la ragione qui sotto.
+
+**Il falso positivo dell'avviso, trovato e chiuso.** Caricare il file principale dell'albo
+aggancia la procedura di avvio, che l'avvio della suite esegue subito dopo. Nell'esecuzione
+con la versione incompatibile quella prima esecuzione falliva e il meccanismo comune
+lasciava in bacheca un avviso agganciato con una **chiusura anonima**: non è rimuovibile e
+non è azzerabile da fuori, quindi restava lì per tutta l'esecuzione. La prova che verificava
+"c'è un avviso" lo trovava e lo attribuiva alla propria chiamata, e sarebbe rimasta verde
+anche con una chiamata che non produceva niente. Chiuso togliendo l'aggancio subito dopo il
+caricamento del file, solo in quell'esecuzione: così la sola chiamata alla procedura in quel
+processo è quella che la prova fa di persona. E la cosa non si dà per buona, si dimostra: la
+prova verifica che l'aggancio non ci sia e che la bacheca sia pulita prima della chiamata.
 
 ## 8. Cosa deliberatamente NON fa
 
@@ -167,30 +188,31 @@ misurato niente.
 
 ## 9. Come si prova sul sito vero
 
-Quattro prove, ciascuna con l'azione, cosa si deve vedere e cosa vuol dire se non lo si
-vede. Si eseguono nell'ordine, su un'installazione reale, dopo il rilascio. Le righe vivono
-nel `collaudo-di-rilascio.md` del repository di progetto.
+Sei prove, ciascuna con l'azione, cosa si deve vedere e cosa vuol dire se non lo si vede.
+Vivono per esteso, con i comandi e il riepilogo da compilare, nel `collaudo-di-rilascio.md`
+del repository di progetto. Qui il sommario, che deve restare allineato a quel documento.
 
-**Prova 1, il caso normale.** Con entrambi i componenti attivi, apro la bacheca. Devo vedere
-la bacheca normale, senza nessun riquadro rosso. Se vedo un riquadro rosso, l'avvio non è
-arrivato in fondo su questo sito e il testo del riquadro dice a che punto si è fermato: il
-rilascio si annulla e si legge quel testo.
+Le prove da 2 in poi rendono temporaneamente inservibile il meccanismo comune, quindi si
+eseguono su un **ambiente controllato** e non sull'installazione in esercizio, e ciascuna
+dice come si torna indietro.
 
-**Prova 2, il meccanismo comune spento.** Disattivo Conformita Core dall'elenco dei
-componenti e ricarico la bacheca. Devo vedere Albo Pretorio ancora fra i componenti attivi,
-e un riquadro rosso che dice che resta attivo ma inerte e che va installato e attivato
-Conformita Core. Se Albo Pretorio risulta disattivato, la degradazione sta andando nel verso
-sbagliato. Se non vedo nessun riquadro, l'avviso non arriva a chi deve rimediare e il
-guasto è silenzioso: in entrambi i casi il rilascio si annulla. Poi riattivo Conformita
-Core e verifico che il riquadro sparisca.
-
-**Prova 3, chi vede l'avviso.** Con Conformita Core ancora disattivato, entro con un utente
-che non può attivare componenti (per esempio un sottoscrittore) e apro l'area di
-amministrazione che quel ruolo può vedere. Non devo vedere nessun riquadro. Se lo vedo,
-stiamo mostrando un guasto a chi non ha l'interruttore per ripararlo.
-
-**Prova 4, il visitatore.** Da un browser dove non ho fatto accesso, con Conformita Core
-ancora disattivato, apro la home del sito. La pagina deve caricarsi normalmente, senza
-nessun messaggio e senza nessun errore. Se la pagina si rompe, un componente di conformità
-fermo sta buttando giù il sito pubblico, che è esattamente il contrario di quello che deve
-fare. Al termine riattivo Conformita Core e ripeto la prova 1.
+1. **L'avvio è arrivato in fondo.** Si rilegge lo stato attraverso l'interfaccia pubblica
+   del meccanismo comune, da riga di comando: la sezione `albo_pretorio` fra quelle
+   registrate, e le due politiche `vietata` e `irraggiungibile`. La bacheca senza riquadri
+   rossi non basta, perché sarebbe identica anche se l'avvio non fosse mai partito.
+2. **Il meccanismo comune non c'è.** Non si ottiene disattivandolo dall'elenco dei
+   componenti: con la dichiarazione di dipendenza WordPress impedisce di disattivare un
+   componente da cui altri componenti attivi dipendono. Si ottiene rinominando la sua
+   cartella. Il componente deve restare attivo e mostrare il riquadro con una sola versione,
+   quella richiesta.
+3. **Chi vede l'avviso.** Con la cartella ancora rinominata, un utente che non può attivare
+   componenti non deve vedere nessun riquadro.
+4. **Il sito pubblico.** Con la cartella ancora rinominata, le pagine pubbliche si caricano
+   normalmente. Poi si rinomina la cartella indietro.
+5. **La versione dell'interfaccia incompatibile.** Si esegue, non si dichiara irriproducibile:
+   il meccanismo comune definisce la versione della propria interfaccia solo se nessuno l'ha
+   già definita, quindi un componente indispensabile di una riga la definisce prima. La prima
+   richiesta dopo la modifica deve essere di amministrazione, per il difetto noto del
+   meccanismo comune sull'avviso che non arriva. Qui il componente **deve** risultare
+   disattivato, e il riquadro deve portare due versioni.
+6. **Si torna allo stato di partenza.** Si ripete per intero la prova 1.

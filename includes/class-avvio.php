@@ -148,10 +148,11 @@ final class Avvio {
 		if ( ! function_exists( 'conformita_core_avvia_componente' ) ) {
 			self::avvisa(
 				sprintf(
-					/* translators: 1: nome del componente, 2: versione di interfaccia richiesta. */
-					__( '%1$s resta attivo ma inerte: richiede la versione %2$s dell\'interfaccia di Conformita Core, e nessuna versione risulta disponibile perché quel componente non è caricato. Installare e attivare Conformita Core.', 'albo-pretorio-pa' ),
+					/* translators: 1: nome del componente, 2: versione di interfaccia richiesta, 3: nome del componente comune. */
+					__( '%1$s resta attivo ma inerte: richiede la versione %2$s dell\'interfaccia di %3$s, e nessuna versione risulta disponibile perché %3$s non è caricato. Installare e attivare %3$s, poi ricaricare la pagina.', 'albo-pretorio-pa' ),
 					NOME,
-					CORE_API_RICHIESTA
+					CORE_API_RICHIESTA,
+					CORE_NOME
 				)
 			);
 

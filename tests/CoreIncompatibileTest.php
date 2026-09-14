@@ -11,6 +11,13 @@
  * l'amministrazione" e' un difetto noto di quel componente, registrato a
  * parte, e non appartiene a questa riga.
  *
+ * In questo avvio la procedura di avvio **non e' agganciata**: l'unica sua
+ * esecuzione e' quella che la prova fa di persona. Senza, l'esecuzione
+ * automatica dell'avvio della suite lascerebbe in bacheca un avviso agganciato
+ * dal componente comune con una chiusura anonima, che nessuno puo' rimuovere, e
+ * la prova sarebbe verde anche se la propria chiamata non producesse niente.
+ * L'isolamento si dimostra qui sotto e non si da' per buono.
+ *
  * @package AlboPretorioPa
  */
 
@@ -63,6 +70,10 @@ class CoreIncompatibileTest extends WP_UnitTestCase {
 
 	/**
 	 * L'ambiente e' davvero quello previsto.
+	 *
+	 * Comprese le due condizioni che rendono attribuibile cio' che si osserva
+	 * dopo: la procedura di avvio non e' agganciata, quindi non e' mai girata da
+	 * sola, e la bacheca e' pulita.
 	 */
 	public function test_precondizione_versione_incompatibile(): void {
 		$this->assertSame(
@@ -81,12 +92,29 @@ class CoreIncompatibileTest extends WP_UnitTestCase {
 			(array) get_option( 'active_plugins', array() ),
 			'Precondizione: l\'albo deve risultare fra i componenti attivi.'
 		);
+
+		$this->assertFalse(
+			has_action( 'plugins_loaded', array( Avvio::class, 'da_plugins_loaded' ) ),
+			'Precondizione: in questo avvio la procedura non deve essere agganciata, altrimenti e\' gia\' girata una volta.'
+		);
+
+		$this->assertSame(
+			'',
+			$this->avvisi_in_bacheca(),
+			'Precondizione: nessun avviso deve preesistere alla chiamata della prova.'
+		);
 	}
 
 	/**
 	 * A-05: la guardia disattiva il componente e non registra niente.
 	 */
 	public function test_a05_effetto_completo_della_guardia(): void {
+		$this->assertSame(
+			'',
+			$this->avvisi_in_bacheca(),
+			'La bacheca deve essere pulita prima della chiamata: l\'avviso che si verifica dopo nasce da questa chiamata e non dall\'avvio della suite.'
+		);
+
 		$this->assertFalse( Avvio::esegui(), 'Con la versione incompatibile l\'avvio non prosegue.' );
 
 		$this->assertNotContains(
