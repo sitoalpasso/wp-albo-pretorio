@@ -91,11 +91,49 @@ const INDICIZZAZIONE = 'vietata';
 const SCADENZA = 'irraggiungibile';
 
 /**
+ * Identificativo del tipo di contenuto atto.
+ *
+ * Non `atto` e basta: da questo identificativo il meccanismo comune ricava i
+ * nomi dei permessi, e un nome generico e' un nome che un altro componente puo'
+ * avere gia' preso. In quel caso la registrazione verrebbe rifiutata e l'albo
+ * resterebbe inerte su quel sito. L'indirizzo pubblico degli atti non viene da
+ * qui: viene dal parametro di riscrittura, che resta libero.
+ */
+const TIPO = 'atto_albo';
+
+/**
+ * Elenco di voci dei tipi di atto.
+ */
+const TASSONOMIA_TIPO_ATTO = 'albo_tipo_atto';
+
+/**
+ * Elenco di voci degli organi che adottano gli atti.
+ */
+const TASSONOMIA_ORGANO = 'albo_organo';
+
+/**
+ * Ruolo proprio del componente, per chi pubblica gli atti.
+ */
+const RUOLO = 'albo_responsabile_pubblicazione';
+
+/**
+ * Opzione che ricorda quale versione del componente e' installata su questo sito.
+ *
+ * E' il primo dato che il componente scrive nella banca dati, ed e' la
+ * sentinella dell'installazione: finche' il valore memorizzato e' diverso da
+ * quello del codice, il lavoro di installazione va rifatto.
+ */
+const OPZIONE_VERSIONE = 'albo_pretorio_pa_versione';
+
+/**
  * Percorso del file principale del plugin.
  */
 const FILE_PRINCIPALE = __FILE__;
 
 require_once __DIR__ . '/includes/class-avvio.php';
+require_once __DIR__ . '/includes/class-permessi.php';
+require_once __DIR__ . '/includes/class-tipo-atto.php';
+require_once __DIR__ . '/includes/class-installazione.php';
 
 /*
  * L'avvio si aggancia e non si esegue. Al caricamento di questo file il
@@ -105,3 +143,13 @@ require_once __DIR__ . '/includes/class-avvio.php';
  * non una diagnosi. A `plugins_loaded` tutti i componenti attivi sono caricati.
  */
 add_action( 'plugins_loaded', array( Avvio::class, 'da_plugins_loaded' ) );
+
+/*
+ * I tipi di contenuto si registrano su `init`, non prima. L'installazione viene
+ * dopo, perche' i nomi dei permessi si ricavano dal tipo e il tipo deve gia'
+ * esistere.
+ */
+add_action( 'init', array( TipoAtto::class, 'da_init' ) );
+add_action( 'init', array( Installazione::class, 'da_init' ), 20 );
+
+add_action( 'admin_notices', array( Permessi::class, 'mostra_avviso' ) );
