@@ -45,7 +45,7 @@ il comportamento non c'è ancora), **fatto** (scritto e verde in CI). Un requisi
 | ALBO-01 | da fare | Si prova a **pubblicare** senza uno dei dati necessari, uno per volta | bloccato ogni volta, con il nome del dato che manca. Il numero di repertorio non è fra questi: lo assegna il sistema |
 | ALBO-01 | da fare | Documento principale e allegati ulteriori | il principale è uno e uno solo e serve per pubblicare; gli ulteriori sono facoltativi e un atto senza nessuno di essi si pubblica |
 | ALBO-02 | da fare | Si prova a **pubblicare** senza data di fine da ogni ingresso: interfaccia, REST, inserimento diretto | sempre bloccato. In bozza la data può mancare |
-| ALBO-03 | da fare | Si invoca il compito dall'esterno con il cron interno di WordPress disattivato | defissione eseguita, log scritto |
+| ALBO-03 | da fare | Si invoca il compito dall'esterno con il cron interno di WordPress disattivato | defissione eseguita, e **voce nel registro delle modifiche del meccanismo comune**. Il comportamento dipende da **due** lavorazioni del meccanismo comune, il compito pianificato e il registro, non dal solo compito |
 | ALBO-04 | da fare | Si prova a pubblicare un atto di un tipo senza durata configurata; si cambia la durata di un tipo senza toccare codice | pubblicazione bloccata; cambio possibile |
 | ALBO-04 | da fare | [attacco, statico] si cerca la costante 15 usata come durata nel codice | assente |
 | ALBO-05 | da fare | Atto defisso, tutti i percorsi C-10..C-21, provati **sia da visitatore anonimo sia da utente con permessi** | irraggiungibile in entrambi i casi. La politica dichiarata e' `irraggiungibile`, quindi l'esenzione non esiste per nessun utente: provarlo solo da anonimo lascerebbe passare un componente che invece dichiara `archivio` |

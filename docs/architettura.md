@@ -119,7 +119,7 @@ disponibile la meta' che manca.
 | Meccanismo di core | Cosa fa per l'albo | Requisiti | Esiste oggi |
 |---|---|---|---|
 | **Filtro di scadenza a ogni lettura** | A ogni richiesta pubblica l'atto scaduto non compare su nessuno dei percorsi coperti, anche se nessun compito pianificato ha mai girato. È la parte da cui dipende la conformità | ALBO-05, ALBO-18, ALBO-21 | **sì** |
-| **Compito pianificato di aggiornamento** | Fa il lavoro pesante alla scadenza: porta lo stato memorizzato a defisso e scrive nel registro. **Non è ancora costruito** (unità S6 del meccanismo comune). La sua assenza non rende visibile un atto scaduto, perché la visibilità dipende dal filtro qui sopra e non da questo | ALBO-03 | **no, pianificato** |
+| **Compito pianificato di aggiornamento** | Fa il lavoro pesante alla scadenza: porta lo stato memorizzato a defisso e scrive una voce nel registro delle modifiche per ogni atto toccato. **Non è ancora costruito**, e per esserlo ha bisogno anche del **registro delle modifiche**, che è a sua volta una lavorazione successiva del meccanismo comune: sono due pezzi distinti e il primo dipende dal secondo. La sua assenza non rende visibile un atto scaduto, perché la visibilità dipende dal filtro qui sopra e non da questo | ALBO-03 | **no, pianificato** |
 | Battito di controllo | Timestamp a ogni esecuzione del cron, avviso al responsabile se invecchia | ALBO-19 | no, pianificato |
 | Consegna allegati | I file stanno in cartella protetta e si scaricano solo da un endpoint che rifà i controlli di visibilità a ogni richiesta | ALBO-05, ALBO-18, ALBO-20 | no, pianificato |
 | Registro delle modifiche | Log solo in aggiunta: chi, cosa, quando, perché | ALBO-10 | no, pianificato |
