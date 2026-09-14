@@ -122,6 +122,61 @@ capability del tipo di contenuto, che derivano dall'identificativo **del tipo**.
 | A-09 | fatto | La sezione risulta **già registrata da altri alla prima invocazione**, in **due varianti**: con politiche **diverse** e con politiche **identiche** a quelle dell'albo | **conflitto in entrambi i casi**, con lo stesso esito: resta **attivo e inerte**, non registra niente, le politiche preesistenti risultano intatte alla rilettura, e c'è un avviso a ogni richiesta di amministrazione riservato a chi può attivare i componenti. La variante con politiche identiche è quella che conta: vedi la premessa |
 | A-10 | fatto | Meccanismo comune compatibile, ma **filtro di scadenza portato allo stato non avviato** con il meccanismo interno che quel componente espone per le prove, poi tentativo di avvio | la registrazione è **rifiutata con il codice di errore dedicato al motore non avviato**; il componente resta **attivo e inerte**, la sezione è assente, e c'è l'avviso riservato a chi può attivare i componenti. **Nessuna disattivazione**: quella appartiene alla sola incompatibilità di versione. Il filtro si ripristina in una chiusura garantita della prova, anche se un'asserzione fallisce |
 
+## Il tipo atto, i permessi e i ruoli
+
+Stesso prefisso `A-` delle righe qui sopra, numerazione che prosegue: anche queste
+costruiscono l'infrastruttura su cui i requisiti poggeranno, e nessuna di esse chiude un
+requisito da sola.
+
+**Tre cose diverse, che questa tabella tiene separate perché confonderle produce una
+promessa che il codice non mantiene.**
+
+| Categoria | Cosa comprende | Che cosa è garantito |
+|---|---|---|
+| **Ingressi supportati e intercettati** | la schermata di amministrazione, l'inserimento e l'aggiornamento da codice, la richiesta di pubblicazione programmata | l'atto **non resta né pubblicato né programmato**: torna o resta in bozza, e la riga nella tabella dei contenuti non attraversa mai quegli stati |
+| **Superficie assente** | l'interfaccia per programmi (REST) del tipo e dei due elenchi di voci | **non esiste**. Non è un ingresso intercettato: è una superficie che non c'è, e si verifica come assenza |
+| **Scavalcamento grezzo** | la funzione di WordPress che pubblica un contenuto scrivendo direttamente nella banca dati, chiamata da codice di terzi | lo stato **cambia davvero** a pubblicato, e il componente non lo impedisce. La garanzia è un'altra: quel contenuto resta **irraggiungibile su ogni superficie pubblica**, per come il tipo è configurato |
+
+**Il componente non promette che nessuno stato pubblicato sia possibile. Promette che nessun
+atto sia raggiungibile.**
+
+**Perché in questa fase il tipo atto non è pubblico.** Il documento principale di un atto ha
+bisogno della consegna protetta del meccanismo comune, che non esiste ancora: senza, un file
+caricato risponde al proprio indirizzo diretto, e lo stato dell'atto non lo protegge. Finché
+quella consegna non c'è, il tipo è visibile in amministrazione e non interrogabile dal
+pubblico, e la pubblicazione si apre in una lavorazione dedicata, tutta insieme, quando i
+controlli che impediscono un'esposizione oltre il termine esistono davvero.
+
+**Perché viene respinta anche la programmazione.** Conservare una pubblicazione programmata
+che sappiamo non potersi concludere sarebbe una promessa non mantenibile: la richiesta viene
+respinta come quella di pubblicazione e l'atto resta in bozza.
+
+| # | Stato | Il test, in parole | Esito atteso |
+|---|---|---|---|
+| A-11 | da fare | Si registra il tipo attraverso il meccanismo comune **senza che la sezione sia registrata** | rifiutato con il codice di errore dedicato, e il tipo **non risulta fra quelli di WordPress**: la verifica rilegge, non assume |
+| A-12 | da fare | Registrazione riuscita, **controllo positivo** | il tipo risulta registrato presso il meccanismo comune e la sua sezione è quella dell'albo, letti dall'interfaccia pubblica di quel componente e non dallo stato interno di questo. Senza questa riga, ogni riga negativa qui sotto sarebbe soddisfacibile non registrando niente |
+| A-13 | da fare | Si rileggono gli argomenti con cui il tipo è registrato | non pubblico, non interrogabile dal pubblico, senza indirizzo proprio, senza elenco pubblico, fuori dalla ricerca interna; e insieme visibile in amministrazione, con voce di menu propria. **Sono valori scritti uno per uno e non lasciati derivare**: WordPress ne deriva una parte, e una derivazione che cambiasse in una versione futura non deve poter aprire il tipo da sola |
+| A-14 | da fare | Si rileggono i due elenchi di voci, tipo di atto e organo | registrati, **piatti**, non pubblici, non interrogabili dal pubblico, senza indirizzo proprio. Piatti perché il dominio non ha rapporti fra voce e sottovoce: né i tipi di atto né gli organi si contengono a vicenda. In questa fase non c'è nessun riquadro di scelta, per non consegnare un campo a testo libero su un elenco controllato: l'interfaccia di scelta arriva con la schermata di compilazione |
+| A-15 | da fare | Interfaccia per programmi dichiarata spenta, e **assenza delle tre rotte** | il valore riletto dal tipo è spento, e fra le rotte del server non compaiono né quella degli atti né quelle dei due elenchi di voci. **Precondizione**: il server espone almeno una rotta propria di WordPress, altrimenti l'assenza sarebbe vera per niente |
+| A-16 | da fare | [statico] si cerca nei sorgenti la registrazione diretta di un tipo di contenuto e quella di un elenco di voci | la prima **assente**, perché il tipo passa dal meccanismo comune. La seconda **presente**, perché per gli elenchi di voci quel meccanismo non esiste: è una differenza che si vede qui invece di scoprirla nel codice |
+| A-17 | da fare | [statico] si cercano nei sorgenti i nomi dei permessi derivati dal tipo | assenti: si chiedono al meccanismo comune. Un nome di permesso riscritto a mano e sbagliato di una lettera è un permesso che nessuno possiede e di cui nessuno si accorge |
+| A-18 | da fare | Permessi separati da quelli degli articoli, provati **chiedendo il permesso a utenti veri** | un utente con il solo ruolo Autore di WordPress non può creare, modificare né pubblicare atti; un amministratore può crearli e modificarli. Leggere una tabella di ruoli non basta |
+| A-19 | da fare | Il ruolo proprio del componente | esiste, ha i permessi del suo insieme e non quelli degli articoli. Chi redige e chi pubblica restano permessi **distinti** |
+| A-20 | da fare | Si esegue l'assegnazione dei permessi **due volte** | la seconda non duplica e non toglie, e un permesso che il sito avesse aggiunto per conto suo a quel ruolo resta. La verifica rilegge dai ruoli |
+| A-21 | da fare | **Aggiornamento senza nuova attivazione**: un sito con la versione precedente memorizzata riceve un insieme con un permesso in più | il permesso nuovo arriva ai ruoli che avevano già gli altri, e la versione memorizzata risulta aggiornata. È la riga che distingue un meccanismo di aggiornamento da uno di sola attivazione: senza, i siti già installati resterebbero scoperti |
+| A-22 | da fare | Nessun ruolo possiede i permessi del tipo | avviso in amministrazione, visibile solo a chi può attivare i componenti, che nomina il ruolo che dovrebbe averli. **Precondizione dimostrata**: prima della rimozione quell'avviso non c'è |
+| A-23 | da fare | **I tre ingressi supportati**: schermata, inserimento e aggiornamento da codice, richiesta di programmazione | nessuno dei tre lascia l'atto pubblicato né programmato: resta in bozza. Per ciascuno si dimostra prima che lo stato richiesto fosse davvero quello, altrimenti "è rimasto in bozza" sarebbe vero per niente |
+| A-24 | da fare | **Nessun intervallo pubblicato** sui tre ingressi supportati | si osserva il valore **scritto** nella tabella dei contenuti, non quello finale: non è mai stato né pubblicato né programmato. Vale per i tre ingressi e non per lo scavalcamento, dove lo stato pubblicato è il punto di partenza |
+| A-25 | da fare | [attacco] **Scavalcamento grezzo**: si pubblica un atto scrivendo direttamente lo stato, con data di fine **valida e futura** | lo stato risulta davvero pubblicato, e il meccanismo comune dice che il contenuto **non è scaduto**: così la riga dimostra la chiusura del tipo e non il filtro di scadenza. L'atto è comunque irraggiungibile: indirizzo non trovato per un visitatore non autenticato, assente dalla ricerca interna, assente dalla mappa per i motori. **Precondizione**: un contenuto ordinario pubblicato nello stesso momento è raggiungibile, altrimenti il non trovato direbbe soltanto che nell'ambiente di prova gli indirizzi non funzionano |
+| A-26 | da fare | I **due** posti in cui finisce il motivo di un rifiuto | quello della schermata sta sull'utente e sull'atto insieme e si consuma alla prima lettura; quello della chiamata da codice **non si memorizza** e viene segnalato a chi programma. Non esiste un terzo posto persistente sull'atto, perché non esiste la programmazione che lo richiederebbe |
+| A-27 | da fare | Due utenti che tentano la pubblicazione **dello stesso atto** | ciascuno vede il proprio messaggio e non quello dell'altro |
+
+**Cosa non chiudono queste righe.** Nessun dato dell'atto oltre a oggetto, tipo e organo:
+niente schermata di compilazione, niente controllo campo per campo, nessuna pubblicazione per
+nessuno. ALBO-01 e ALBO-02 restano intatte. Il divieto di cancellare un atto pubblicato
+**non esiste ancora**: finché non c'è, chi ha il permesso di cancellare un atto lo cancella,
+pubblicato compreso.
+
 ## Collaudo congiunto con la trasparenza
 
 Con entrambi i plugin attivi sullo stesso sito: le pagine dell'albo hanno noindex e sono
