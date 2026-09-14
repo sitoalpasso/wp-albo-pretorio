@@ -11,6 +11,13 @@
 	<testsuites>
 		<testsuite name="albo-pretorio-pa">
 			<directory suffix="Test.php">./tests</directory>
+			<!--
+				Questi due girano in avvii separati, con un componente comune
+				diverso: raccolti qui verrebbero eseguiti contro l'ambiente
+				sbagliato e diventerebbero verdi o rossi per il motivo sbagliato.
+			-->
+			<exclude>./tests/SenzaCoreTest.php</exclude>
+			<exclude>./tests/CoreIncompatibileTest.php</exclude>
 		</testsuite>
 	</testsuites>
 </phpunit>

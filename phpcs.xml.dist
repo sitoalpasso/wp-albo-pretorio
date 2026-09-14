@@ -50,6 +50,16 @@
 		caricato: WP_Filesystem non esiste ancora e la diagnostica va su STDERR.
 	-->
 	<rule ref="WordPress.WP.AlternativeFunctions.file_system_operations_fwrite">
-		<exclude-pattern>/tests/bootstrap\.php</exclude-pattern>
+		<exclude-pattern>/tests/bootstrap*\.php</exclude-pattern>
+		<exclude-pattern>/tests/avvio-comune\.php</exclude-pattern>
+	</rule>
+
+	<!--
+		Gli avvii della suite girano da riga di comando e definiscono funzioni
+		globali che servono solo a loro: il prefisso obbligatorio sui nomi
+		globali non si applica a codice che non arriva mai dentro WordPress.
+	-->
+	<rule ref="WordPress.Files.FileName">
+		<exclude-pattern>/tests/*</exclude-pattern>
 	</rule>
 </ruleset>
