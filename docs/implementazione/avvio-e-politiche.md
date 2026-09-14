@@ -164,8 +164,9 @@ asserzioni, 4 con 11, 2 con 11.
 | La guardia di versione del meccanismo comune non viene consultata | versione di interfaccia incompatibile | `test_a05_effetto_completo_della_guardia`, su "Failed asserting that true is false". 2 prove, 1 fallita |
 
 Nessun codice rotto è stato messo sotto controllo di versione: la copia non aveva nemmeno la
-cartella di git. A prova finita è stata confrontata file per file con il repository, senza
-differenze, e poi eliminata.
+cartella di git. A prova finita è stata confrontata file per file con il repository: nessuna
+differenza nei file sorgente e di configurazione; era presente soltanto la cache non
+versionata di PHPUnit. Poi la copia è stata eliminata.
 
 Una differenza rispetto alla verifica continua va detta: la prova mirata è girata su PHP
 8.4, che non è nessuna delle due combinazioni della matrice (8.1 e 8.3). Non indebolisce la
