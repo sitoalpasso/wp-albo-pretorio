@@ -137,11 +137,40 @@ Righe A-01..A-10 del catalogo, distribuite su tre esecuzioni.
 | A-09 | `tests/AvvioTest.php` | `test_a09_sezione_gia_registrata_da_altri` (due varianti), `test_a09_avviso_riservato_a_chi_attiva_i_componenti` |
 | A-10 | `tests/AvvioTest.php` | `test_a10_motore_di_scadenza_non_avviato` |
 
-**Prova di non vacuità, eseguita.** I test sono stati scritti e mandati in verifica continua
-**prima** dell'implementazione, e sono falliti tutti con "classe Avvio non trovata": non per
-un errore di sintassi e non per un problema dell'ambiente, ma perché il comportamento non
-c'era. È la dimostrazione che misurano qualcosa. Il registro della verifica continua
-conserva l'esecuzione rossa e quella verde sullo stesso ramo, a due commit di distanza.
+**Prova di non vacuità: cosa il rosso storico copre, e cosa non copre.** I test sono stati
+scritti e mandati in verifica continua **prima** dell'implementazione. In quell'esecuzione è
+andata rossa **la sola suite con il meccanismo comune presente e compatibile**, con tredici
+errori "classe Avvio non trovata": non un errore di sintassi e non un problema
+dell'ambiente, ma il comportamento che non c'era.
+
+**Le altre due suite, in quella esecuzione, non sono partite affatto.** Il lavoro si ferma
+al primo passo fallito e i passi successivi restano saltati, quindi la suite senza il
+meccanismo comune e quella con la versione incompatibile sono state eseguite per la prima
+volta **dopo** l'implementazione, già verdi. Il registro della verifica continua non
+contiene un rosso storico per le righe A-03 e A-05: dire il contrario sarebbe una promessa
+più grande di quello che è successo.
+
+**Prova mirata per A-03 e A-05, eseguita a parte.** Perché quelle due righe non restassero
+senza dimostrazione, la non vacuità è stata provata in una **copia usa e getta** del
+componente, presa fuori dal controllo di versione, con la stessa suite di WordPress 6.5 e la
+stessa revisione fissata del meccanismo comune che usa la verifica continua. Prima e dopo
+ogni guasto le tre suite sono state rieseguite verdi, nei conteggi di sempre: 17 con 55
+asserzioni, 4 con 11, 2 con 11.
+
+| Guasto introdotto di proposito | Suite | Cosa è diventato rosso |
+|---|---|---|
+| Nel ramo "meccanismo comune non caricato", tolto l'avviso: il componente si ferma in silenzio | senza il meccanismo comune | `test_a03_avviso_dice_cosa_manca`, su "Failed asserting that '' contains Albo Pretorio". 4 prove, 1 fallita |
+| Nello stesso ramo, l'avvio dichiara di essere riuscito e la sezione registrata | senza il meccanismo comune | `test_a03_resta_attivo_e_inerte`, su "Failed asserting that true is false". 4 prove, 1 fallita |
+| La guardia di versione del meccanismo comune non viene consultata | versione di interfaccia incompatibile | `test_a05_effetto_completo_della_guardia`, su "Failed asserting that true is false". 2 prove, 1 fallita |
+
+Nessun codice rotto è stato messo sotto controllo di versione: la copia non aveva nemmeno la
+cartella di git. A prova finita è stata confrontata file per file con il repository, senza
+differenze, e poi eliminata.
+
+Una differenza rispetto alla verifica continua va detta: la prova mirata è girata su PHP
+8.4, che non è nessuna delle due combinazioni della matrice (8.1 e 8.3). Non indebolisce la
+conclusione, perché quello che dimostra è il passaggio da verde a rosso sullo stesso
+interprete, ma non sostituisce la matrice e non va contata come una sua esecuzione.
 
 **Tre precondizioni scritte nei test e non lasciate al buon senso.** Le prove che
 asseriscono uno stato dell'elenco dei componenti attivi ce lo mettono prima, perché
