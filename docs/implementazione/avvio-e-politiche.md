@@ -47,7 +47,9 @@ WordPress carica i componenti attivi
         v
   tutti i componenti caricati  --> parte la procedura di avvio
         |
-        +-- meccanismo comune non caricato
+        +-- meccanismo comune non caricato (sparito dopo l'attivazione:
+        |   se mancasse gia' all'attivazione, WordPress non avrebbe
+        |   lasciato attivare il componente)
         |     -> il componente resta attivo e inerte
         |     -> avviso in bacheca a ogni richiesta di amministrazione
         |
@@ -108,7 +110,7 @@ Quattro, tutti previsti, tutti chiusi verso la prudenza.
 
 | Guasto | Come degrada | Perché così |
 |---|---|---|
-| Meccanismo comune non caricato | Attivo e inerte, con avviso a ogni richiesta di amministrazione | Il componente non può registrare niente, ma può continuare a dire che è fermo. Disattivarsi lo zittirebbe |
+| Meccanismo comune non caricato, cioè sparito dopo un'attivazione riuscita | Attivo e inerte, con avviso a ogni richiesta di amministrazione | Il componente non può registrare niente, ma può continuare a dire che è fermo. Disattivarsi lo zittirebbe. Il caso in cui il meccanismo comune manca già al momento dell'attivazione non arriva qui: lo blocca WordPress con l'intestazione `Requires Plugins` |
 | Versione di interfaccia incompatibile | Disattivato dal meccanismo comune, con avviso che riporta la versione richiesta e quella trovata | Non è una scelta di questo componente: la guardia appartiene al meccanismo comune, ed è l'unico punto in cui questo componente viene disattivato |
 | Sezione già registrata da altri | Attivo e inerte, con avviso che nomina la sezione; le politiche preesistenti restano intatte | Sovrascrivere la politica di un altro componente è il guasto peggiore possibile in questo punto. Vale anche quando le politiche coincidono: vedi la premessa del catalogo |
 | Motore di scadenza non avviato | Attivo e inerte, con avviso che riporta il codice del rifiuto | Una sezione registrata con il motore spento avrebbe una politica di scadenza dichiarata e nessuno ad applicarla. Il rifiuto arriva dal meccanismo comune e si riporta com'è |
@@ -175,10 +177,19 @@ prova verifica che l'aggancio non ci sia e che la bacheca sia pulita prima della
   e all'avviso che scatta quando nessun ruolo le possiede (ALBO-23..26).
 - **Non scrive niente all'attivazione.** L'infrastruttura di attivazione e aggiornamento
   nasce con la prima cosa da scrivere, cioè con le capacità di A2.
-- **Non impedisce l'attivazione con il meccanismo comune assente.** Non può: l'intestazione
-  `Requires Plugins` è l'unico strumento che WordPress offre per farlo, e verifica la
-  presenza per slug, non la versione. Il vincolo di versione può quindi solo essere
-  controllato dopo, ad avvio avvenuto.
+- **Non duplica il controllo che WordPress fa già all'attivazione.** L'intestazione
+  `Requires Plugins` copre il primo dei tre casi qui sotto, e i tre non vanno confusi:
+  1. **meccanismo comune assente già al momento dell'attivazione**: è WordPress a impedire
+     l'attivazione del componente, per via dell'intestazione, e non serve che il componente
+     faccia niente;
+  2. **meccanismo comune sparito dopo un'attivazione riuscita**, per esempio rimosso o
+     rinominato: il controllo delle dipendenze di WordPress gira solo all'attivazione,
+     quindi il componente resta attivo e caricato. Qui parla il componente, che resta attivo
+     e inerte e mostra il proprio avviso a ogni richiesta di amministrazione;
+  3. **meccanismo comune presente ma con interfaccia incompatibile**: l'intestazione non
+     guarda le versioni, perché accetta slug e non vincoli di versione, quindi l'attivazione
+     riesce. L'incompatibilità la rileva la guardia del meccanismo comune all'avvio, che
+     disattiva il componente e lo scrive.
 - **Non ripara l'avviso mancato del meccanismo comune.** Quando la disattivazione per
   incompatibilità avviene durante una richiesta che non è di amministrazione, l'avviso non
   viene mai mostrato: il componente è già disattivato e non c'è più nessuno a riagganciarlo.
