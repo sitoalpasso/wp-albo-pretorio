@@ -134,6 +134,8 @@ require_once __DIR__ . '/includes/class-avvio.php';
 require_once __DIR__ . '/includes/class-permessi.php';
 require_once __DIR__ . '/includes/class-tipo-atto.php';
 require_once __DIR__ . '/includes/class-installazione.php';
+require_once __DIR__ . '/includes/class-rifiuti.php';
+require_once __DIR__ . '/includes/class-chiusura-pubblicazione.php';
 
 /*
  * L'avvio si aggancia e non si esegue. Al caricamento di questo file il
@@ -153,3 +155,12 @@ add_action( 'init', array( TipoAtto::class, 'da_init' ) );
 add_action( 'init', array( Installazione::class, 'da_init' ), 20 );
 
 add_action( 'admin_notices', array( Permessi::class, 'mostra_avviso' ) );
+add_action( 'admin_notices', array( Rifiuti::class, 'mostra' ) );
+add_filter( 'redirect_post_location', array( Rifiuti::class, 'segna_indirizzo_di_ritorno' ), 10, 2 );
+
+/*
+ * Lo sbarramento si aggancia al caricamento e non all'avvio riuscito: deve
+ * valere anche quando il resto del componente e' inerte, perche' una fase in
+ * cui la pubblicazione e' concessa non deve esistere in nessuna condizione.
+ */
+ChiusuraPubblicazione::aggancia();
