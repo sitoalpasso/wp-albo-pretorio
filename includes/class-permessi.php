@@ -24,6 +24,13 @@ defined( 'ABSPATH' ) || exit;
 final class Permessi {
 
 	/**
+	 * Messaggi da mostrare a chi puo' rimediare.
+	 *
+	 * @var array<int, string>
+	 */
+	private static $avvisi = array();
+
+	/**
 	 * Chi redige: prepara gli atti e non li espone.
 	 *
 	 * Nomi generici di WordPress, non nomi derivati: la corrispondenza la
@@ -120,8 +127,10 @@ final class Permessi {
 
 		$assegnazioni = null === $assegnazioni ? self::assegnazioni() : $assegnazioni;
 
-		if ( null === get_role( RUOLO ) ) {
-			add_role( RUOLO, self::nome_ruolo(), array( 'read' => true ) );
+		$proprio = self::prepara_ruolo_proprio();
+
+		if ( is_wp_error( $proprio ) ) {
+			return $proprio;
 		}
 
 		foreach ( $assegnazioni as $ruolo => $chiavi ) {
@@ -146,7 +155,149 @@ final class Permessi {
 			}
 		}
 
+		return self::verifica_scrittura( $assegnazioni, $mappa );
+	}
+
+	/**
+	 * Crea il ruolo proprio, oppure riconosce quello che c'e' gia'.
+	 *
+	 * Tre situazioni, e la terza e' quella per cui questa funzione esiste. Il
+	 * ruolo non c'e': si crea, con il marcatore. Il ruolo c'e' e ha il
+	 * marcatore: e' nostro, lasciato da una versione precedente, e si aggiorna.
+	 * Il ruolo c'e' e il marcatore non c'e': **e' di qualcun altro**, e
+	 * adottarlo significherebbe consegnare i permessi dell'albo a chiunque lo
+	 * possieda gia'. In quel caso non si tocca niente, nemmeno gli altri ruoli:
+	 * un sito in cui un identificativo che ci serve e' di un altro componente e'
+	 * un sito da sistemare a mano, non da servire a meta'.
+	 *
+	 * @return true|\WP_Error
+	 */
+	private static function prepara_ruolo_proprio() {
+		$ruolo = get_role( RUOLO );
+
+		if ( null === $ruolo ) {
+			add_role(
+				RUOLO,
+				self::nome_ruolo(),
+				array(
+					'read'          => true,
+					RUOLO_MARCATORE => true,
+				)
+			);
+
+			return null === get_role( RUOLO )
+				? new \WP_Error(
+					'albo_ruolo_non_creato',
+					sprintf(
+						/* translators: %s: identificativo del ruolo. */
+						__( 'Il ruolo %s non risulta creato dopo il tentativo di crearlo.', 'albo-pretorio-pa' ),
+						RUOLO
+					)
+				)
+				: true;
+		}
+
+		if ( $ruolo->has_cap( RUOLO_MARCATORE ) ) {
+			return true;
+		}
+
+		self::avvisa(
+			sprintf(
+				/* translators: 1: nome del componente, 2: identificativo del ruolo in conflitto. */
+				__( '%1$s resta attivo e inerte: esiste gia\' un ruolo chiamato %2$s che non e\' stato creato da questo componente, e assegnargli i permessi dell\'albo li darebbe a chiunque lo possieda. Rinominare quel ruolo, oppure rimuoverlo se non serve piu\'.', 'albo-pretorio-pa' ),
+				NOME,
+				RUOLO
+			)
+		);
+
+		return new \WP_Error(
+			'albo_ruolo_in_conflitto',
+			sprintf(
+				/* translators: %s: identificativo del ruolo in conflitto. */
+				__( 'Ruolo %s gia\' esistente e non creato da questo componente.', 'albo-pretorio-pa' ),
+				RUOLO
+			),
+			array( 'ruolo' => RUOLO )
+		);
+	}
+
+	/**
+	 * I permessi assegnati risultano scritti, riletti dalla banca dati.
+	 *
+	 * **Si rilegge da una copia nuova del registro dei ruoli e non da quella in
+	 * memoria.** La differenza conta: un permesso aggiunto all'oggetto in
+	 * memoria la cui scrittura non e' andata a buon fine resta vero per tutta
+	 * la richiesta e sparisce alla successiva, quando nessuno sta piu'
+	 * guardando. Dichiarare riuscita quell'assegnazione significa non rifarla
+	 * mai piu', perche' intanto la versione risulterebbe memorizzata.
+	 *
+	 * @param array<string, array<int, string>> $assegnazioni Ruoli e insiemi dichiarati.
+	 * @param array<string, string>             $mappa        Corrispondenza fra nomi generici e derivati.
+	 * @return true|\WP_Error
+	 */
+	private static function verifica_scrittura( array $assegnazioni, array $mappa ) {
+		$riletti = new \WP_Roles();
+
+		foreach ( $assegnazioni as $nome => $chiavi ) {
+			$oggetto = $riletti->get_role( (string) $nome );
+
+			if ( null === $oggetto ) {
+				return self::non_scritti( (string) $nome, '' );
+			}
+
+			foreach ( $chiavi as $chiave ) {
+				if ( ! isset( $mappa[ $chiave ] ) ) {
+					continue;
+				}
+
+				if ( ! $oggetto->has_cap( $mappa[ $chiave ] ) ) {
+					return self::non_scritti( (string) $nome, (string) $mappa[ $chiave ] );
+				}
+			}
+		}
+
 		return true;
+	}
+
+	/**
+	 * L'errore della postcondizione mancata, con l'avviso che lo accompagna.
+	 *
+	 * @param string $ruolo    Ruolo su cui la verifica e' caduta.
+	 * @param string $permesso Permesso mancante, stringa vuota se manca il ruolo.
+	 * @return \WP_Error
+	 */
+	private static function non_scritti( string $ruolo, string $permesso ) {
+		self::avvisa(
+			sprintf(
+				/* translators: 1: nome del componente, 2: identificativo del ruolo. */
+				__( '%1$s resta attivo e inerte: i permessi del tipo atto non risultano scritti sul ruolo %2$s. Il componente riprovera\' alla richiesta successiva.', 'albo-pretorio-pa' ),
+				NOME,
+				$ruolo
+			)
+		);
+
+		return new \WP_Error(
+			'albo_permessi_non_scritti',
+			sprintf(
+				/* translators: 1: identificativo del ruolo, 2: identificativo del permesso. */
+				__( 'Permessi non scritti sul ruolo %1$s: %2$s.', 'albo-pretorio-pa' ),
+				$ruolo,
+				'' === $permesso ? __( 'il ruolo stesso non risulta scritto', 'albo-pretorio-pa' ) : $permesso
+			),
+			array(
+				'ruolo'    => $ruolo,
+				'permesso' => $permesso,
+			)
+		);
+	}
+
+	/**
+	 * Registra un messaggio per chi puo' rimediare.
+	 *
+	 * @param string $messaggio Testo dell'avviso.
+	 */
+	private static function avvisa( string $messaggio ): void {
+		self::$avvisi[] = $messaggio;
 	}
 
 	/**
@@ -208,6 +359,10 @@ final class Permessi {
 			return;
 		}
 
+		foreach ( self::$avvisi as $messaggio ) {
+			printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html( $messaggio ) );
+		}
+
 		if ( ! self::nessun_ruolo_possiede() ) {
 			return;
 		}
@@ -250,8 +405,12 @@ final class Permessi {
 			}
 		}
 
-		if ( null !== get_role( RUOLO ) ) {
+		$ruolo = get_role( RUOLO );
+
+		if ( null !== $ruolo && $ruolo->has_cap( RUOLO_MARCATORE ) ) {
 			remove_role( RUOLO );
 		}
+
+		self::$avvisi = array();
 	}
 }

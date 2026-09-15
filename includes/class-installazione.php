@@ -49,6 +49,17 @@ final class Installazione {
 	 * @return bool Vero se il lavoro e' stato eseguito, falso se non serviva o non e' stato possibile.
 	 */
 	public static function aggiorna_se_serve(): bool {
+		/*
+		 * Due precondizioni, e la prima non e' ridondante. La sezione deve
+		 * risultare registrata **da questo componente**, e il tipo deve essere
+		 * stato registrato da questa istanza: solo allora i permessi che stiamo
+		 * per assegnare sono quelli del nostro tipo e non di un tipo omonimo di
+		 * un altro componente.
+		 */
+		if ( ! Avvio::registrata() || ! TipoAtto::registrato() ) {
+			return false;
+		}
+
 		if ( VERSIONE === self::versione_installata() ) {
 			return false;
 		}
@@ -59,8 +70,16 @@ final class Installazione {
 			return false;
 		}
 
-		update_option( OPZIONE_VERSIONE, VERSIONE, false );
+		/*
+		 * L'esito della scrittura si controlla, e poi si rilegge. Memorizzare
+		 * una versione che non e' stata scritta significa non rifare mai piu'
+		 * questo lavoro: alla richiesta dopo il confronto direbbe che va tutto
+		 * bene, e i permessi resterebbero quelli vecchi per sempre.
+		 */
+		if ( ! update_option( OPZIONE_VERSIONE, VERSIONE, false ) ) {
+			return false;
+		}
 
-		return true;
+		return VERSIONE === self::versione_installata();
 	}
 }

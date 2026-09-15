@@ -26,19 +26,15 @@ use WP_UnitTestCase;
  */
 class ChiusuraPubblicazioneTest extends WP_UnitTestCase {
 
+	use AmbienteAlbo;
+
 	/**
 	 * Registri e ruoli riportati allo stato iniziale.
 	 */
 	public function set_up(): void {
 		parent::set_up();
 
-		\Conformita_Core_Tipi::azzera();
-		\Conformita_Core_Sezioni::azzera();
-		Avvio::azzera();
-		TipoAtto::azzera();
-
-		$GLOBALS['wp_roles'] = new \WP_Roles();
-		Permessi::azzera();
+		$this->azzera_ambiente_albo();
 
 		$this->assertTrue( Avvio::esegui() );
 		$this->assertTrue( TipoAtto::registra() );
@@ -52,14 +48,31 @@ class ChiusuraPubblicazioneTest extends WP_UnitTestCase {
 	 * Rimonta tipo e ruoli dopo ogni prova.
 	 */
 	public function tear_down(): void {
-		Permessi::azzera();
-		\Conformita_Core_Tipi::azzera();
-		TipoAtto::azzera();
-
-		$GLOBALS['wp_roles'] = new \WP_Roles();
+		$this->azzera_ambiente_albo();
 		unset( $GLOBALS['current_screen'] );
+		unset( $_POST['action'], $_POST['post_ID'], $_POST['_wpnonce'] );
 
 		parent::tear_down();
+	}
+
+	/**
+	 * Riproduce un invio vero della schermata classica dell'atto.
+	 *
+	 * **Non basta `set_current_screen()`.** Quello rende vera la domanda "siamo
+	 * in una richiesta di amministrazione", che e' un'altra cosa: anche un
+	 * componente che salva durante una richiesta di amministrazione la
+	 * soddisfa, e non e' una persona davanti a una schermata. Il modulo si
+	 * riconosce dalla sua azione, dal suo identificativo e dal suo codice di
+	 * sicurezza, che sono tre cose che solo quel modulo ha.
+	 *
+	 * @param int $post_id Identificativo dell'atto che la schermata sta salvando.
+	 */
+	private function invio_dalla_schermata( int $post_id ): void {
+		set_current_screen( 'post' );
+
+		$_POST['action']   = 'editpost';
+		$_POST['post_ID']  = (string) $post_id;
+		$_POST['_wpnonce'] = wp_create_nonce( 'update-post_' . $post_id );
 	}
 
 	/**
@@ -113,7 +126,7 @@ class ChiusuraPubblicazioneTest extends WP_UnitTestCase {
 	public function test_a23_ingresso_schermata(): void {
 		$id = $this->bozza();
 
-		set_current_screen( 'post' );
+		$this->invio_dalla_schermata( $id );
 
 		$this->assertTrue( is_admin(), 'Precondizione: la prova deve girare in un contesto di amministrazione.' );
 
@@ -164,6 +177,12 @@ class ChiusuraPubblicazioneTest extends WP_UnitTestCase {
 	public function test_a23_ingresso_programmazione(): void {
 		set_current_screen( 'post' );
 
+		/*
+		 * L'inserimento arriva da codice e non dal modulo della schermata, quindi
+		 * il rifiuto va a chi programma: e' la segnalazione di uso scorretto.
+		 */
+		$this->setExpectedIncorrectUsage( 'wp_insert_post' );
+
 		$domani = gmdate( 'Y-m-d H:i:s', time() + DAY_IN_SECONDS );
 
 		$id = wp_insert_post(
@@ -206,6 +225,8 @@ class ChiusuraPubblicazioneTest extends WP_UnitTestCase {
 			},
 			PHP_INT_MAX
 		);
+
+		$this->setExpectedIncorrectUsage( 'wp_insert_post' );
 
 		set_current_screen( 'post' );
 
@@ -298,7 +319,7 @@ class ChiusuraPubblicazioneTest extends WP_UnitTestCase {
 	public function test_a26_due_depositi_del_motivo(): void {
 		$id = $this->bozza();
 
-		set_current_screen( 'post' );
+		$this->invio_dalla_schermata( $id );
 
 		wp_update_post(
 			array(
@@ -352,12 +373,11 @@ class ChiusuraPubblicazioneTest extends WP_UnitTestCase {
 	public function test_a27_due_utenti_sullo_stesso_atto(): void {
 		$id = $this->bozza();
 
-		set_current_screen( 'post' );
-
 		$prima = self::factory()->user->create( array( 'role' => 'administrator' ) );
 		$dopo  = self::factory()->user->create( array( 'role' => 'administrator' ) );
 
 		wp_set_current_user( $prima );
+		$this->invio_dalla_schermata( $id );
 		wp_update_post(
 			array(
 				'ID'          => $id,
@@ -366,6 +386,7 @@ class ChiusuraPubblicazioneTest extends WP_UnitTestCase {
 		);
 
 		wp_set_current_user( $dopo );
+		$this->invio_dalla_schermata( $id );
 		wp_update_post(
 			array(
 				'ID'          => $id,
@@ -381,6 +402,193 @@ class ChiusuraPubblicazioneTest extends WP_UnitTestCase {
 			array(),
 			Rifiuti::preleva_per_utente( $id ),
 			'Il secondo utente deve avere il proprio messaggio: la lettura del primo non lo consuma.'
+		);
+	}
+
+	/**
+	 * A-34: l'avviso generico non dipende dal dato che deve sostituire.
+	 *
+	 * Un dato temporaneo puo' essere buttato via prima del tempo da una memoria
+	 * condivisa esterna, o la sua scrittura puo' fallire. Se l'indicatore
+	 * nell'indirizzo di ritorno dipendesse da lui, nel caso in cui serve non ci
+	 * sarebbe ne' il dettaglio ne' l'avviso generico.
+	 */
+	public function test_a34_avviso_generico_senza_il_dato_temporaneo(): void {
+		$id = $this->bozza();
+
+		$this->invio_dalla_schermata( $id );
+
+		wp_update_post(
+			array(
+				'ID'          => $id,
+				'post_status' => 'publish',
+			)
+		);
+
+		$indirizzo = admin_url( 'post.php?post=' . $id . '&action=edit' );
+
+		$this->assertStringContainsString(
+			'albo-rifiuto=1',
+			Rifiuti::segna_indirizzo_di_ritorno( $indirizzo, $id ),
+			'Precondizione: con il dato presente l\'indicatore c\'e\'.'
+		);
+
+		$this->assertNotSame(
+			array(),
+			Rifiuti::preleva_per_utente( $id ),
+			'Precondizione: il dato temporaneo esisteva davvero.'
+		);
+
+		$this->assertStringContainsString(
+			'albo-rifiuto=1',
+			Rifiuti::segna_indirizzo_di_ritorno( $indirizzo, $id ),
+			'Sparito il dato, l\'indicatore deve restare: vive nella richiesta corrente.'
+		);
+
+		set_current_screen( 'post' );
+		$GLOBALS['current_screen']->post_type = \AlboPretorioPa\TIPO;
+		$GLOBALS['post']                      = get_post( $id );
+
+		$this->assertSame(
+			\AlboPretorioPa\TIPO,
+			get_current_screen()->post_type,
+			'Precondizione: la schermata deve essere quella di un atto.'
+		);
+
+		$_GET['albo-rifiuto'] = '1';
+
+		ob_start();
+		Rifiuti::mostra();
+		$avviso = (string) ob_get_clean();
+
+		unset( $_GET['albo-rifiuto'], $GLOBALS['post'] );
+
+		$this->assertStringContainsString(
+			'rifiutata',
+			$avviso,
+			'Senza il dettaglio la schermata deve mostrare comunque l\'avviso generico.'
+		);
+		$this->assertStringNotContainsString(
+			'consegna protetta',
+			$avviso,
+			'Il dettaglio non c\'e\' piu\': quello che resta e\' l\'avviso generico.'
+		);
+	}
+
+	/**
+	 * A-35: un invio vero della schermata lascia il motivo all'utente.
+	 */
+	public function test_a35_invio_vero_della_schermata(): void {
+		$id = $this->bozza();
+
+		$this->invio_dalla_schermata( $id );
+
+		wp_update_post(
+			array(
+				'ID'          => $id,
+				'post_status' => 'publish',
+			)
+		);
+
+		$this->assertNotSame(
+			array(),
+			Rifiuti::preleva_per_utente( $id ),
+			'Chi ha premuto il pulsante deve trovare il motivo.'
+		);
+	}
+
+	/**
+	 * A-35: una chiamata da codice in amministrazione non e' un invio.
+	 *
+	 * `is_admin()` dice in quale meta' di WordPress siamo, non chi ha chiesto il
+	 * salvataggio. Un componente che salva durante una richiesta di
+	 * amministrazione la soddisfa senza essere una persona davanti a una
+	 * schermata, e riceverebbe un messaggio che nessuno legge invece della
+	 * segnalazione destinata a chi programma.
+	 */
+	public function test_a35_chiamata_da_codice_in_amministrazione(): void {
+		set_current_screen( 'post' );
+		unset( $_POST['action'], $_POST['post_ID'], $_POST['_wpnonce'] );
+
+		$this->assertTrue( is_admin(), 'Precondizione: siamo in una richiesta di amministrazione.' );
+
+		$this->setExpectedIncorrectUsage( 'wp_insert_post' );
+
+		$id = wp_insert_post(
+			array(
+				'post_type'   => \AlboPretorioPa\TIPO,
+				'post_status' => 'publish',
+				'post_title'  => 'Atto salvato da un componente',
+			)
+		);
+
+		$this->assertGreaterThan( 0, $id, 'Precondizione: l\'inserimento deve essere avvenuto.' );
+		$this->assertSame( 'draft', get_post_status( $id ), 'L\'atto deve restare in bozza.' );
+		$this->assertSame(
+			array(),
+			Rifiuti::preleva_per_utente( $id ),
+			'Nessun deposito per l\'utente: non e\' stata una persona a chiedere il salvataggio.'
+		);
+	}
+
+	/**
+	 * A-36: un inserimento annidato non fa perdere il motivo del primo.
+	 *
+	 * Il secondo inserimento avviene fra la preparazione e la scrittura del
+	 * primo. Con un solo appoggio condiviso, il secondo lo sovrascrive e il
+	 * primo arriva a destinazione senza niente da depositare.
+	 */
+	public function test_a36_inserimento_annidato(): void {
+		$esterno = $this->bozza();
+
+		$this->invio_dalla_schermata( $esterno );
+
+		$annidato = 0;
+		$fatto    = false;
+
+		$filtro = static function ( $data ) use ( &$annidato, &$fatto ) {
+			if ( \AlboPretorioPa\TIPO === $data['post_type'] && ! $fatto ) {
+				$fatto    = true;
+				$annidato = wp_insert_post(
+					array(
+						'post_type'   => \AlboPretorioPa\TIPO,
+						'post_status' => 'publish',
+						'post_title'  => 'Atto inserito dentro il salvataggio di un altro',
+					)
+				);
+			}
+
+			return $data;
+		};
+
+		add_filter( 'wp_insert_post_data', $filtro, 11 );
+
+		$this->setExpectedIncorrectUsage( 'wp_insert_post' );
+
+		try {
+			wp_update_post(
+				array(
+					'ID'          => $esterno,
+					'post_status' => 'publish',
+				)
+			);
+		} finally {
+			remove_filter( 'wp_insert_post_data', $filtro, 11 );
+		}
+
+		$this->assertGreaterThan( 0, $annidato, 'Precondizione: l\'inserimento annidato deve essere avvenuto.' );
+		$this->assertSame( 'draft', get_post_status( $annidato ), 'Anche l\'annidato resta in bozza.' );
+		$this->assertSame( 'draft', get_post_status( $esterno ), 'Il primo resta in bozza.' );
+
+		$this->assertNotSame(
+			array(),
+			Rifiuti::preleva_per_utente( $esterno ),
+			'Il motivo del primo non deve essere stato perso dal secondo.'
+		);
+		$this->assertSame(
+			array(),
+			Rifiuti::preleva_per_utente( $annidato ),
+			'Il secondo e\' una chiamata da codice: nessun deposito per l\'utente.'
 		);
 	}
 }

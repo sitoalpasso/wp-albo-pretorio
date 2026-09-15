@@ -35,14 +35,18 @@ defined( 'ABSPATH' ) || exit;
 final class ChiusuraPubblicazione {
 
 	/**
-	 * Motivi del rifiuto deciso nella scrittura in corso.
+	 * Le decisioni prese e non ancora depositate, dalla piu' recente.
 	 *
-	 * Si tengono qui perche' la decisione si prende prima che la riga esista, e
-	 * il motivo si deposita dopo, quando l'atto ha un identificativo.
+	 * **Una pila e non un appoggio solo.** La decisione si prende prima che la
+	 * riga esista e il motivo si deposita dopo, quando l'atto ha un
+	 * identificativo: in mezzo un altro componente puo' inserire un secondo
+	 * contenuto, e con un appoggio solo il secondo cancellerebbe il primo prima
+	 * che arrivi a destinazione. Gli inserimenti annidati si chiudono in ordine
+	 * inverso a come si aprono, quindi una pila li rimette in fila da sola.
 	 *
-	 * @var array<string, string>
+	 * @var array<int, array<string, mixed>>
 	 */
-	private static $rifiuto = array();
+	private static $pila = array();
 
 	/**
 	 * Gli stati che questa fase non concede.
@@ -103,22 +107,34 @@ final class ChiusuraPubblicazione {
 	 * @return array<string, mixed>
 	 */
 	public static function da_wp_insert_post_data( $data, $postarr ) {
-		unset( $postarr );
-
 		if ( ! is_array( $data ) || ! isset( $data['post_type'] ) || TIPO !== $data['post_type'] ) {
 			return $data;
 		}
 
-		self::$rifiuto = array();
+		/*
+		 * **Il nome non basta a dire che il contenuto e' nostro.** Un altro
+		 * componente puo' registrare un tipo con lo stesso identificativo, e se
+		 * il nostro avvio non e' riuscito quel tipo non ha niente a che fare con
+		 * l'albo: riportare in bozza i suoi contenuti sarebbe governare roba di
+		 * altri. Lo sbarramento agisce solo su un tipo registrato da questa
+		 * istanza.
+		 */
+		if ( ! TipoAtto::registrato() ) {
+			return $data;
+		}
 
 		$motivi = self::motivi( array( 'post_status' => isset( $data['post_status'] ) ? $data['post_status'] : '' ) );
+
+		self::$pila[] = array(
+			'id'     => isset( $postarr['ID'] ) ? (int) $postarr['ID'] : 0,
+			'motivi' => $motivi,
+		);
 
 		if ( array() === $motivi ) {
 			return $data;
 		}
 
 		$data['post_status'] = 'draft';
-		self::$rifiuto       = $motivi;
 
 		return $data;
 	}
@@ -130,17 +146,36 @@ final class ChiusuraPubblicazione {
 	 * @param \WP_Post $post    Contenuto appena scritto.
 	 */
 	public static function da_wp_insert_post( $post_id, $post ): void {
-		if ( array() === self::$rifiuto ) {
+		if ( array() === self::$pila ) {
 			return;
 		}
 
-		$motivi        = self::$rifiuto;
-		self::$rifiuto = array();
-
-		if ( ! $post instanceof \WP_Post || TIPO !== $post->post_type ) {
+		if ( ! $post instanceof \WP_Post || TIPO !== $post->post_type || ! TipoAtto::registrato() ) {
 			return;
 		}
 
-		Rifiuti::deposita( (int) $post_id, $motivi );
+		$post_id = (int) $post_id;
+		$voce    = null;
+
+		/*
+		 * Si prende la decisione in cima, e si scartano quelle che non
+		 * corrispondono: sono inserimenti che non sono arrivati a destinazione,
+		 * per esempio per un errore della banca dati, e tenerle farebbe
+		 * attribuire a un atto il motivo di un altro.
+		 */
+		while ( array() !== self::$pila ) {
+			$candidata = array_pop( self::$pila );
+
+			if ( 0 === $candidata['id'] || $post_id === $candidata['id'] ) {
+				$voce = $candidata;
+				break;
+			}
+		}
+
+		if ( null === $voce || array() === $voce['motivi'] ) {
+			return;
+		}
+
+		Rifiuti::deposita( $post_id, $voce['motivi'] );
 	}
 }

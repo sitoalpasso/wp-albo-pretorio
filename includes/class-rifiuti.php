@@ -38,13 +38,28 @@ final class Rifiuti {
 	const DURATA = 300;
 
 	/**
+	 * Gli atti rifiutati in questa richiesta.
+	 *
+	 * **Vive nella richiesta e non nel dato temporaneo**, ed e' il punto. Il
+	 * dato temporaneo puo' non essere scritto, o essere buttato via prima del
+	 * tempo da una memoria condivisa esterna: se l'indicatore nell'indirizzo di
+	 * ritorno dipendesse da lui, nel caso in cui serve non ci sarebbe ne' il
+	 * dettaglio ne' l'avviso generico, cioe' niente.
+	 *
+	 * @var array<int, bool>
+	 */
+	private static $rifiutati = array();
+
+	/**
 	 * Deposita il motivo dove appartiene, a seconda di chi ha tentato.
 	 *
 	 * @param int                   $post_id Identificativo dell'atto.
 	 * @param array<string, string> $motivi  Motivi del rifiuto, per codice.
 	 */
 	public static function deposita( int $post_id, array $motivi ): void {
-		if ( is_admin() && get_current_user_id() > 0 ) {
+		self::$rifiutati[ $post_id ] = true;
+
+		if ( self::invio_dalla_schermata( $post_id ) ) {
 			set_transient( self::chiave( get_current_user_id(), $post_id ), $motivi, self::DURATA );
 
 			return;
@@ -57,6 +72,46 @@ final class Rifiuti {
 		 * dopo, e questa segnalazione lo dice dove chi programma guarda.
 		 */
 		_doing_it_wrong( 'wp_insert_post', esc_html( implode( ' ', $motivi ) ), esc_html( VERSIONE ) );
+	}
+
+	/**
+	 * Il salvataggio arriva davvero dalla schermata classica dell'atto.
+	 *
+	 * **`is_admin()` non basta, e la differenza non e' teorica.** Quella
+	 * funzione dice in quale meta' di WordPress siamo, non chi ha chiesto il
+	 * salvataggio: un componente che salva durante una richiesta di
+	 * amministrazione la soddisfa, e riceverebbe un messaggio per l'utente che
+	 * nessuno andra' a leggere invece della segnalazione destinata a chi
+	 * programma. Il modulo della schermata si riconosce da tre cose che solo lui
+	 * ha: la sua azione, l'identificativo del contenuto che sta salvando, e il
+	 * proprio codice di sicurezza.
+	 *
+	 * @param int $post_id Identificativo dell'atto che si sta salvando.
+	 * @return bool
+	 */
+	private static function invio_dalla_schermata( int $post_id ): bool {
+		if ( ! is_admin() || get_current_user_id() <= 0 ) {
+			return false;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- il codice di sicurezza si verifica qui sotto, ed e' l'oggetto stesso di questo controllo.
+		$azione = isset( $_POST['action'] ) ? sanitize_key( wp_unslash( $_POST['action'] ) ) : '';
+
+		if ( 'editpost' !== $azione ) {
+			return false;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- come sopra.
+		$dichiarato = isset( $_POST['post_ID'] ) ? (int) $_POST['post_ID'] : 0;
+
+		if ( 0 === $dichiarato || $dichiarato !== $post_id ) {
+			return false;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- come sopra.
+		$codice = isset( $_POST['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ) ) : '';
+
+		return (bool) wp_verify_nonce( $codice, 'update-post_' . $post_id );
 	}
 
 	/**
@@ -101,7 +156,7 @@ final class Rifiuti {
 			return $indirizzo;
 		}
 
-		if ( array() === self::motivi_disponibili( $post_id ) ) {
+		if ( ! isset( self::$rifiutati[ $post_id ] ) ) {
 			return $indirizzo;
 		}
 
@@ -143,24 +198,6 @@ final class Rifiuti {
 			'<div class="notice notice-error"><p>%s</p></div>',
 			esc_html__( 'La pubblicazione e\' stata rifiutata e l\'atto e\' rimasto in bozza. Il dettaglio non e\' piu\' disponibile: riprovare per rivederlo.', 'albo-pretorio-pa' )
 		);
-	}
-
-	/**
-	 * I motivi depositati, senza consumarli.
-	 *
-	 * @param int $post_id Identificativo dell'atto.
-	 * @return array<string, string>
-	 */
-	private static function motivi_disponibili( int $post_id ): array {
-		$utente = get_current_user_id();
-
-		if ( $utente <= 0 ) {
-			return array();
-		}
-
-		$motivi = get_transient( self::chiave( $utente, $post_id ) );
-
-		return is_array( $motivi ) ? $motivi : array();
 	}
 
 	/**

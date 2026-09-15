@@ -21,6 +21,8 @@ use WP_UnitTestCase;
  */
 class SenzaCoreTest extends WP_UnitTestCase {
 
+	use AmbienteAlbo;
+
 	/**
 	 * Percorso del componente come lo conosce WordPress.
 	 *
@@ -46,18 +48,6 @@ class SenzaCoreTest extends WP_UnitTestCase {
 		update_option( 'active_plugins', array( $this->componente ) );
 
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
-	}
-
-	/**
-	 * Testo degli avvisi prodotti in amministrazione.
-	 *
-	 * @return string
-	 */
-	private function avvisi_in_bacheca(): string {
-		ob_start();
-		do_action( 'admin_notices' );
-
-		return (string) ob_get_clean();
 	}
 
 	/**

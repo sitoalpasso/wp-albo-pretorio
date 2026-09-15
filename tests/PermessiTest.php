@@ -19,16 +19,15 @@ use WP_UnitTestCase;
  */
 class PermessiTest extends WP_UnitTestCase {
 
+	use AmbienteAlbo;
+
 	/**
 	 * Registri in memoria e ruoli riportati allo stato iniziale.
 	 */
 	public function set_up(): void {
 		parent::set_up();
 
-		\Conformita_Core_Tipi::azzera();
-		\Conformita_Core_Sezioni::azzera();
-		Avvio::azzera();
-		TipoAtto::azzera();
+		$this->azzera_ambiente_albo();
 
 		$GLOBALS['wp_roles'] = new \WP_Roles();
 
@@ -42,11 +41,7 @@ class PermessiTest extends WP_UnitTestCase {
 	 * Rimonta tipo e ruoli dopo ogni prova.
 	 */
 	public function tear_down(): void {
-		Permessi::azzera();
-		\Conformita_Core_Tipi::azzera();
-		TipoAtto::azzera();
-
-		$GLOBALS['wp_roles'] = new \WP_Roles();
+		$this->azzera_ambiente_albo();
 
 		parent::tear_down();
 	}
@@ -62,18 +57,6 @@ class PermessiTest extends WP_UnitTestCase {
 		$this->assertNotWPError( $mappa, 'Precondizione: il nucleo comune deve fornire i permessi del tipo.' );
 
 		return $mappa;
-	}
-
-	/**
-	 * Testo degli avvisi prodotti in amministrazione.
-	 *
-	 * @return string
-	 */
-	private function avvisi_in_bacheca(): string {
-		ob_start();
-		do_action( 'admin_notices' );
-
-		return (string) ob_get_clean();
 	}
 
 	/**
@@ -212,6 +195,59 @@ class PermessiTest extends WP_UnitTestCase {
 			'',
 			$this->avvisi_in_bacheca(),
 			'Chi non puo\' attivare i componenti non vede l\'avviso: non puo\' rimediare.'
+		);
+	}
+
+	/**
+	 * A-38: l'assegnazione riuscita si rilegge dalla banca dati.
+	 *
+	 * Il controllo positivo viene prima: senza, la riga sarebbe soddisfatta da
+	 * un componente che fallisce sempre. Poi si sabota la scrittura di un solo
+	 * permesso e si pretende l'errore: un permesso che resta nell'oggetto in
+	 * memoria ma non arriva nella banca dati sparisce alla richiesta dopo, e
+	 * nessuno se ne accorge.
+	 */
+	public function test_a38_postcondizione_dei_permessi(): void {
+		$mappa = $this->mappa();
+
+		$this->assertTrue( Permessi::applica(), 'Controllo positivo: senza sabotaggi l\'assegnazione riesce.' );
+
+		$riletti = new \WP_Roles();
+
+		$this->assertTrue(
+			$riletti->get_role( \AlboPretorioPa\RUOLO )->has_cap( $mappa['publish_posts'] ),
+			'Controllo positivo: il permesso si rilegge dalla banca dati, non dall\'oggetto in memoria.'
+		);
+
+		Permessi::azzera();
+
+		$mancante = $mappa['publish_posts'];
+
+		$sabota = static function ( $valore ) use ( $mancante ) {
+			if ( ! is_array( $valore ) ) {
+				return $valore;
+			}
+
+			foreach ( array_keys( $valore ) as $ruolo ) {
+				unset( $valore[ $ruolo ]['capabilities'][ $mancante ] );
+			}
+
+			return $valore;
+		};
+
+		add_filter( 'pre_update_option_' . wp_roles()->role_key, $sabota );
+
+		try {
+			$esito = Permessi::applica();
+		} finally {
+			remove_filter( 'pre_update_option_' . wp_roles()->role_key, $sabota );
+		}
+
+		$this->assertWPError( $esito, 'Un permesso che non arriva nella banca dati non e\' un\'assegnazione riuscita.' );
+		$this->assertSame(
+			'albo_permessi_non_scritti',
+			$esito->get_error_code(),
+			'L\'errore deve essere quello dedicato alla postcondizione mancata.'
 		);
 	}
 }

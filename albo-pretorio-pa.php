@@ -3,7 +3,7 @@
  * Plugin Name:       Albo Pretorio
  * Plugin URI:        https://github.com/sitoalpasso/wp-albo-pretorio
  * Description:       Pubblicazione con effetto di pubblicità legale. Attua requisiti derivati dalla normativa applicabile ai soggetti dell'art. 2-bis del d.lgs. 33/2013.
- * Version:           0.1.0-alpha
+ * Version:           0.2.0-alpha
  * Requires at least: 6.5
  * Requires PHP:      8.1
  * Requires Plugins:  conformita-core
@@ -26,7 +26,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Versione del plugin.
  */
-const VERSIONE = '0.1.0-alpha';
+const VERSIONE = '0.2.0-alpha';
 
 /**
  * Versione minima di WordPress dichiarata.
@@ -115,6 +115,22 @@ const TASSONOMIA_ORGANO = 'albo_organo';
  * Ruolo proprio del componente, per chi pubblica gli atti.
  */
 const RUOLO = 'albo_responsabile_pubblicazione';
+
+/**
+ * Permesso marcatore che rende riconoscibile il ruolo creato da questo componente.
+ *
+ * Serve a distinguere due situazioni che si assomigliano e non lo sono: un
+ * ruolo creato da una versione precedente dell'albo, che va aggiornato, e un
+ * ruolo omonimo di un altro componente, che non va adottato. Adottarlo
+ * significherebbe consegnare i permessi dell'albo a chiunque possieda gia'
+ * quel ruolo.
+ *
+ * Il riconoscimento non poggia sull'opzione della versione, e non e' un
+ * dettaglio: cancellata quella sola opzione il componente deve ripararsi da
+ * solo, e con un riconoscimento basato su di essa scambierebbe il proprio ruolo
+ * per estraneo proprio nel momento in cui deve rimetterlo a posto.
+ */
+const RUOLO_MARCATORE = 'albo_pretorio_ruolo_del_componente';
 
 /**
  * Opzione che ricorda quale versione del componente e' installata su questo sito.

@@ -58,15 +58,46 @@ final class TipoAtto {
 			return true;
 		}
 
-		if ( ! function_exists( 'conformita_core_registra_tipo' ) ) {
+		/*
+		 * **La precondizione e' la paternita' della sezione, non la presenza del
+		 * meccanismo comune.** Che le sue funzioni esistano dice che quel
+		 * componente e' caricato; non dice che la sezione dell'albo sia nostra.
+		 * Un altro componente puo' averla registrata prima, anche con le stesse
+		 * politiche, e in quel caso il meccanismo comune vedrebbe una sezione
+		 * valida e accetterebbe il tipo: staremmo costruendo dentro la sezione di
+		 * qualcun altro mentre l'avvio si e' gia' dichiarato inerte.
+		 */
+		if ( ! Avvio::registrata() ) {
 			return new \WP_Error(
-				'albo_meccanismo_comune_assente',
+				'albo_sezione_non_nostra',
 				sprintf(
-					/* translators: 1: nome del componente, 2: nome del componente comune. */
-					__( '%1$s: il tipo atto non e\' stato registrato perche\' %2$s non e\' caricato.', 'albo-pretorio-pa' ),
-					NOME,
-					CORE_NOME
+					/* translators: %s: nome del componente. */
+					__( '%s: il tipo atto non e\' stato registrato perche\' la sezione dell\'albo non risulta registrata da questo componente.', 'albo-pretorio-pa' ),
+					NOME
 				)
+			);
+		}
+
+		$occupato = self::elenco_di_voci_occupato();
+
+		if ( '' !== $occupato ) {
+			self::avvisa(
+				sprintf(
+					/* translators: 1: nome del componente, 2: identificativo dell'elenco di voci in conflitto. */
+					__( '%1$s resta attivo e inerte: l\'elenco di voci %2$s e\' gia\' registrato da un altro componente, e sostituirlo cancellerebbe il suo. Rinominare l\'altro elenco oppure disattivare il componente che lo registra.', 'albo-pretorio-pa' ),
+					NOME,
+					$occupato
+				)
+			);
+
+			return new \WP_Error(
+				'albo_elenco_di_voci_in_conflitto',
+				sprintf(
+					/* translators: %s: identificativo dell'elenco di voci in conflitto. */
+					__( 'Elenco di voci %s gia\' registrato da un altro componente.', 'albo-pretorio-pa' ),
+					$occupato
+				),
+				array( 'elenco' => $occupato )
 			);
 		}
 
@@ -102,11 +133,46 @@ final class TipoAtto {
 			return $esito;
 		}
 
-		self::registra_elenchi_di_voci();
+		$elenchi = self::registra_elenchi_di_voci();
+
+		if ( is_wp_error( $elenchi ) ) {
+			self::avvisa(
+				sprintf(
+					/* translators: 1: nome del componente, 2: messaggio di errore. */
+					__( '%1$s resta attivo e inerte: %2$s', 'albo-pretorio-pa' ),
+					NOME,
+					$elenchi->get_error_message()
+				)
+			);
+
+			return $elenchi;
+		}
 
 		self::$registrato = true;
 
 		return true;
+	}
+
+	/**
+	 * Il primo dei due elenchi di voci gia' registrato da qualcun altro.
+	 *
+	 * **Si guarda prima di registrare il tipo, e non dopo.** WordPress mette
+	 * l'oggetto nuovo nel registro globale e sostituisce quello che trova, senza
+	 * dire niente: accorgersene dopo significherebbe avere gia' cancellato
+	 * l'elenco di un altro componente. E indietro non si torna in modo pulito,
+	 * perche' il meccanismo comune non espone una funzione per smontare quel
+	 * solo tipo senza lasciare uno stato a meta'.
+	 *
+	 * @return string Identificativo in conflitto, stringa vuota se non ce ne sono.
+	 */
+	private static function elenco_di_voci_occupato(): string {
+		foreach ( array( TASSONOMIA_TIPO_ATTO, TASSONOMIA_ORGANO ) as $nome ) {
+			if ( taxonomy_exists( $nome ) ) {
+				return $nome;
+			}
+		}
+
+		return '';
 	}
 
 	/**
@@ -157,7 +223,7 @@ final class TipoAtto {
 	}
 
 	/**
-	 * Registra i due elenchi di voci del tipo atto.
+	 * Registra i due elenchi di voci del tipo atto, e ne verifica l'esito.
 	 *
 	 * Piatti, perche' il dominio non ha rapporti fra voce e sottovoce: ne' i
 	 * tipi di atto ne' gli organi si contengono a vicenda.
@@ -166,8 +232,10 @@ final class TipoAtto {
 	 * riquadro predefinito di un elenco piatto e' un campo a testo libero, e su
 	 * un vocabolario controllato lo snaturerebbe. L'interfaccia di scelta arriva
 	 * con la schermata di compilazione.
+	 *
+	 * @return true|\WP_Error Vero se entrambi risultano registrati e agganciati al tipo.
 	 */
-	private static function registra_elenchi_di_voci(): void {
+	private static function registra_elenchi_di_voci() {
 		$comuni = array(
 			'public'             => false,
 			'publicly_queryable' => false,
@@ -184,17 +252,50 @@ final class TipoAtto {
 			'capabilities'       => self::permessi_elenchi(),
 		);
 
-		register_taxonomy(
-			TASSONOMIA_TIPO_ATTO,
-			array( TIPO ),
-			array_merge( $comuni, array( 'labels' => self::etichette_tipo_atto() ) )
+		$elenchi = array(
+			TASSONOMIA_TIPO_ATTO => self::etichette_tipo_atto(),
+			TASSONOMIA_ORGANO    => self::etichette_organo(),
 		);
 
-		register_taxonomy(
-			TASSONOMIA_ORGANO,
-			array( TIPO ),
-			array_merge( $comuni, array( 'labels' => self::etichette_organo() ) )
-		);
+		foreach ( $elenchi as $nome => $etichette ) {
+			$esito = register_taxonomy( $nome, array( TIPO ), array_merge( $comuni, array( 'labels' => $etichette ) ) );
+
+			if ( is_wp_error( $esito ) ) {
+				return new \WP_Error(
+					'albo_elenco_di_voci_non_registrato',
+					sprintf(
+						/* translators: 1: identificativo dell'elenco di voci, 2: messaggio di errore di WordPress. */
+						__( 'Elenco di voci %1$s non registrato: %2$s', 'albo-pretorio-pa' ),
+						$nome,
+						$esito->get_error_message()
+					)
+				);
+			}
+		}
+
+		/*
+		 * La postcondizione si rilegge dal registro, e non e' pignoleria. Una
+		 * registrazione puo' non reggere senza che la chiamata segnali niente,
+		 * per esempio se qualcuno smonta l'elenco subito dopo averlo visto
+		 * nascere: senza questo controllo il componente proseguirebbe convinto
+		 * di avere due elenchi che non ci sono.
+		 */
+		foreach ( array_keys( $elenchi ) as $nome ) {
+			$oggetto = get_taxonomy( (string) $nome );
+
+			if ( false === $oggetto || ! in_array( TIPO, (array) $oggetto->object_type, true ) ) {
+				return new \WP_Error(
+					'albo_elenco_di_voci_non_registrato',
+					sprintf(
+						/* translators: %s: identificativo dell'elenco di voci. */
+						__( 'Elenco di voci %s non risulta registrato e agganciato al tipo atto dopo la registrazione.', 'albo-pretorio-pa' ),
+						$nome
+					)
+				);
+			}
+		}
+
+		return true;
 	}
 
 	/**

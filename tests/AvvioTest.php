@@ -20,6 +20,8 @@ use WP_UnitTestCase;
  */
 class AvvioTest extends WP_UnitTestCase {
 
+	use AmbienteAlbo;
+
 	/**
 	 * Percorso del componente come lo conosce WordPress.
 	 *
@@ -59,18 +61,6 @@ class AvvioTest extends WP_UnitTestCase {
 	 */
 	private function componenti_attivi(): array {
 		return (array) get_option( 'active_plugins', array() );
-	}
-
-	/**
-	 * Testo degli avvisi prodotti in amministrazione.
-	 *
-	 * @return string
-	 */
-	private function avvisi_in_bacheca(): string {
-		ob_start();
-		do_action( 'admin_notices' );
-
-		return (string) ob_get_clean();
 	}
 
 	/**

@@ -6,14 +6,17 @@ ALBO-24, ALBO-25 e ALBO-26.
 ## In tre paragrafi
 
 **Cosa è stato costruito.** Nel menu dell'amministrazione compare la voce **Albo
-pretorio**, e chi ha il permesso può creare un atto, dargli un oggetto, sceglierne il tipo
-e l'organo che lo ha adottato, e salvarlo in bozza. Gli atti non si governano con i
+pretorio**, e chi ha il permesso può creare un atto, dargli un oggetto e salvarlo in bozza.
+**Tipo di atto e organo esistono come elenchi amministrabili, ma dalla scheda dell'atto non
+si scelgono ancora**: il riquadro di scelta è spento di proposito, perché quello predefinito
+è un campo a testo libero e su un elenco controllato lo snaturerebbe. L'associazione fra un
+atto e le sue voci arriva con la schermata di compilazione. Gli atti non si governano con i
 permessi degli articoli ma con permessi propri, e il componente crea un ruolo suo,
 Responsabile della pubblicazione all'albo. Se nessun ruolo del sito possiede quei
 permessi, la bacheca lo dice a chi può rimediare, invece di lasciare che l'assenza del
-menu venga scambiata per un guasto. **La pubblicazione non è aperta**: qualunque tentativo
-di pubblicare o di programmare la pubblicazione di un atto lo lascia in bozza, con un
-messaggio che dice il perché.
+menu venga scambiata per un guasto. **La pubblicazione non è aperta**: dalla schermata, da
+codice e per programmazione, ogni tentativo lascia l'atto in bozza con un messaggio che dice
+il perché.
 
 **Come è stato costruito.** Il tipo di contenuto non è registrato direttamente in
 WordPress: passa dal meccanismo comune, che lo accetta solo dentro una sezione già
@@ -48,7 +51,8 @@ getta: la tabella in fondo dice quale guasto ha fatto cadere quale prova.
 | `includes/class-installazione.php` | il confronto con la versione memorizzata |
 | `includes/class-chiusura-pubblicazione.php` | lo sbarramento e la sua unica regola attuale |
 | `includes/class-rifiuti.php` | i due posti in cui finisce il motivo di un rifiuto |
-| `tests/TipoAttoTest.php`, `tests/StaticoTest.php`, `tests/PermessiTest.php`, `tests/AggiornamentoTest.php`, `tests/ChiusuraPubblicazioneTest.php` | le prove |
+| `tests/TipoAttoTest.php`, `tests/StaticoTest.php`, `tests/PermessiTest.php`, `tests/AggiornamentoTest.php`, `tests/ChiusuraPubblicazioneTest.php`, `tests/InerziaTest.php`, `tests/CollisioniTest.php` | le prove |
+| `tests/ambiente-albo.php` | l'azzeramento dell'ambiente condiviso, comune alle prove |
 | `phpcs.xml.dist` | una esclusione per i test, motivata sul posto |
 | `docs/collaudo.md`, `docs/requisiti.md`, `docs/architettura.md`, `docs/dati.md` | contratto e mappa aggiornati nello stesso ramo |
 
@@ -69,7 +73,9 @@ getta: la tabella in fondo dice quale guasto ha fatto cadere quale prova.
 
 Attivazione su un sito con il meccanismo comune attivo, poi la prima pagina di
 amministrazione: i permessi sono assegnati e la voce **Albo pretorio** compare. Si crea un
-atto, si sceglie tipo e organo, si salva la bozza. Il tentativo di pubblicare non riesce e
+atto, si scrive l'oggetto, si salva la bozza. Tipo di atto e organo si amministrano dalle
+loro due voci di menu e non si assegnano ancora all'atto. Il tentativo di pubblicare non
+riesce e
 l'avviso dice che la pubblicazione non è ancora aperta e per quale motivo. Un utente con il
 solo ruolo Autore di WordPress non vede gli atti; un utente con il ruolo Responsabile della
 pubblicazione all'albo li vede e li redige.
@@ -136,21 +142,38 @@ come WordPress avvia una richiesta vera, e il commento nel file spiega perché.
 
 ### 8. Cosa NON è stato implementato
 
-Nessun dato dell'atto oltre a oggetto, tipo e organo. Nessuna schermata di compilazione.
-Nessun controllo campo per campo. **Nessuna pubblicazione, per nessuno.** Nessun documento
+Nessun dato dell'atto oltre all'oggetto e ai due elenchi di voci, che esistono ma non si
+assegnano ancora. Nessuna schermata di compilazione. Nessun controllo campo per campo.
+
+**Sulla pubblicazione la garanzia va detta per intero, perché "nessuna pubblicazione per
+nessuno" sarebbe più di quello che il codice mantiene.** I tre ingressi supportati, cioè la
+schermata, l'inserimento e l'aggiornamento da codice e la richiesta di programmazione, non
+portano un atto a pubblicato né a programmato, e la riga nella tabella dei contenuti non
+attraversa mai quegli stati. La funzione di WordPress che scrive lo stato direttamente nella
+banca dati non passa da quello sbarramento: chiamata da codice di terzi **può portare un atto
+a pubblicato**, e quello che garantiamo in quel caso è che resti irraggiungibile su ogni
+superficie pubblica.
+
+Nessun documento
 principale e nessun allegato: il file di un atto ha bisogno della consegna protetta del
 meccanismo comune, che non esiste, e senza di essa un file caricato risponde al proprio
 indirizzo diretto, indipendentemente dallo stato dell'atto. Nessuna esposizione per
 programmi. Nessun divieto di modifica o cancellazione dell'atto pubblicato. Nessun numero
 di repertorio, nessun referto, nessuna durata configurabile, nessun controllo sui dati
-personali. Nessuno stato oltre bozza, programmato e pubblicato, perché la decisione sugli
-stati dell'atto è ancora aperta.
+personali.
+
+**Gli stati dell'atto non sono governati**, ed è diverso dal dire che ne esistono soltanto
+tre. A2a rifiuta due richieste, quella di pubblicare e quella di programmare; tutti gli altri
+stati che WordPress conosce, in attesa di revisione o nel cestino per esempio, restano quelli
+di WordPress e nessuna regola dell'albo li tocca. Gli stati propri dell'atto, con le
+transizioni consentite e chi può compierle, sono una decisione ancora aperta e non si
+implementano finché non è chiusa.
 
 ALBO-01 e ALBO-02 **restano intatte**: nulla qui le chiude nemmeno in parte.
 
 ### 9. Come si prova sul sito vero
 
-Sei prove, raccolte nel documento di collaudo di rilascio del progetto.
+Sette prove, raccolte nel documento di collaudo di rilascio del progetto.
 
 | # | Azione | Cosa si deve vedere | Se non lo si vede |
 |---|---|---|---|
@@ -165,17 +188,22 @@ Sei prove, raccolte nel documento di collaudo di rilascio del progetto.
 ## Prova di non vacuità
 
 Eseguita in una copia presa fuori dal controllo di versione, quindi senza la possibilità
-materiale di committare codice rotto. Quattro guasti, uno per volta, ogni volta con
-ripristino verificato.
+materiale di committare codice rotto. Nove guasti in tutto, uno per volta, ogni volta con
+ripristino verificato: quattro nella prima stesura, cinque dopo la revisione.
 
 | Guasto introdotto | Prova diventata rossa | Come è caduta |
 |---|---|---|
+| Il tipo non guarda più chi ha registrato la sezione | A-28 | tipo, elenchi, ruolo e permessi nascono dentro la sezione di un altro |
+| Lo sbarramento decide sul solo nome del tipo | A-29 | il contenuto di un altro componente viene riportato in bozza |
+| La collisione sugli elenchi di voci non si guarda | A-30, tutte e due le varianti | l'elenco di un altro componente viene sostituito |
+| L'indicatore dell'avviso torna a dipendere dal dato temporaneo | A-34 | sparito il dato, non resta nemmeno l'avviso generico |
+| L'esito della scrittura della versione torna ignorato | A-37 | il lavoro si dichiara concluso senza aver scritto niente |
 | Il tipo diventa interrogabile dal pubblico | A-25 | l'indirizzo dell'atto risponde invece di dare non trovato |
 | Lo stato programmato esce dagli stati negati | A-23, ingresso della programmazione | l'atto resta programmato invece di tornare in bozza |
 | L'esposizione per programmi si accende | A-15 | compaiono le rotte che non devono esistere |
 | L'assegnazione non passa più sui ruoli non dichiarati | A-21 | il permesso nuovo non raggiunge il ruolo che aveva già gli altri |
 
-Prima dei guasti e dopo ogni ripristino: quarantaquattro prove verdi, cioè trentotto,
+Prima dei guasti e dopo ogni ripristino: cinquantotto prove verdi, cioè cinquantadue,
 quattro e due sui tre avvii della suite. Al termine la copia è stata cancellata e l'albero
 di lavoro non presentava differenze.
 
@@ -188,3 +216,36 @@ verifica continua.
 state scritte prima del codice e mandate in esecuzione, con diciannove errori sulle classi
 inesistenti e un fallimento sulla ricerca statica della registrazione degli elenchi di
 voci. Le diciassette prove preesistenti erano verdi nello stesso passaggio.
+
+## La seconda revisione, e cosa ha trovato
+
+Nove difetti, tutti dello stesso genere: il componente faceva la cosa giusta nel suo
+perimetro e non si chiedeva **di chi fosse la roba su cui agiva**, oppure dichiarava un
+esito che non poteva dimostrare. Nessuno di essi produceva un errore: producevano un verde.
+
+| # | Che cosa faceva | Che cosa fa adesso |
+|---|---|---|
+| 1 | Registrava il tipo guardando se le funzioni del meccanismo comune esistevano | Guarda se la sezione risulta registrata **da questo componente**. Che il meccanismo comune ci sia dice un'altra cosa: un altro componente può avere registrato la sezione prima, anche con le stesse politiche, e il tipo sarebbe nato dentro la sezione sua |
+| 2 | Lo sbarramento decideva sul nome del tipo | Agisce solo su un tipo registrato da questa istanza. Un componente esterno può registrare un tipo con lo stesso identificativo, e riportare in bozza i suoi contenuti sarebbe governare roba di altri |
+| 3 | Registrava gli elenchi di voci senza guardare se esistevano | Controlla **prima di registrare il tipo**: WordPress sostituisce l'oggetto che trova, e accorgersene dopo significa averlo già cancellato. Controlla anche l'esito delle due chiamate e rilegge il registro prima di dichiararsi registrato |
+| 4 | Adottava un ruolo omonimo già esistente | Lo riconosce da un permesso marcatore che solo l'albo assegna: quello di una versione precedente si aggiorna, quello di un altro non si adotta. Il marcatore non poggia sull'opzione della versione, così l'autoriparazione dopo la perdita di quella sola opzione non scambia il proprio ruolo per estraneo |
+| 5 | L'indicatore dell'avviso dipendeva dal dato che doveva sostituire | Vive nella richiesta corrente. Se il dato temporaneo non viene scritto o sparisce, l'avviso generico compare lo stesso |
+| 6 | Deduceva da `is_admin()` che il salvataggio venisse da una persona | Riconosce il modulo della schermata dalla sua azione, dall'identificativo che dichiara e dal proprio codice di sicurezza. E le decisioni in attesa stanno in una pila, così un inserimento annidato non cancella quella di chi lo contiene |
+| 7 | Ignorava l'esito della scrittura della versione | Lo controlla e rilegge. Dichiarare concluso un aggiornamento mai scritto significa non rifarlo mai più. L'assegnazione dei permessi si rilegge a sua volta da una copia nuova del registro dei ruoli, perché un permesso che resta solo in memoria sparisce alla richiesta dopo |
+| 8 | Dichiarava ancora la versione dell'unità precedente | Dichiara `0.2.0-alpha` nell'intestazione e nella costante, e c'è una prova che pretende che i due posti dicano la stessa cosa invece di confrontare un numero scritto a mano |
+| 9 | La scheda prometteva più del codice | Corretta in quattro punti, elencati qui sotto |
+
+**Le quattro affermazioni corrette in questa scheda.** Che in A2a si scelgano tipo e organo
+dalla scheda dell'atto, mentre il riquadro di scelta è spento e si amministrano soltanto i
+due elenchi. Che le prove sul sito vero fossero sei, mentre ne sono sette. Che esistano
+soltanto tre stati, mentre il componente rifiuta due richieste e non governa gli altri stati
+di WordPress. E "nessuna pubblicazione per nessuno", che era più di quello che il codice
+mantiene: la garanzia vale sui tre ingressi supportati, mentre la funzione che scrive lo
+stato direttamente può portare un atto a pubblicato, e lì la garanzia è l'irraggiungibilità.
+
+**Una cosa imparata sull'ambiente di prova.** I ruoli non vivono in memoria come i tipi di
+contenuto: stanno in un'opzione della banca dati, che sopravvive alle esecuzioni precedenti
+della suite. Una prova che si affida all'azzeramento del componente parte da quello che ha
+lasciato l'esecuzione prima, perché quell'azzeramento chiede al meccanismo comune i nomi dei
+permessi e quindi funziona solo a tipo registrato. Le prove hanno ora un azzeramento proprio,
+che riconosce i permessi dalla forma del nome e non chiede niente a nessuno.

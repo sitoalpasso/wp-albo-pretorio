@@ -18,6 +18,8 @@ use WP_UnitTestCase;
  */
 class TipoAttoTest extends WP_UnitTestCase {
 
+	use AmbienteAlbo;
+
 	/**
 	 * Riporta i registri in memoria allo stato iniziale.
 	 *
@@ -28,18 +30,14 @@ class TipoAttoTest extends WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 
-		\Conformita_Core_Tipi::azzera();
-		\Conformita_Core_Sezioni::azzera();
-		Avvio::azzera();
-		TipoAtto::azzera();
+		$this->azzera_ambiente_albo();
 	}
 
 	/**
 	 * Rimonta il tipo dopo ogni prova, per non lasciarlo alla successiva.
 	 */
 	public function tear_down(): void {
-		\Conformita_Core_Tipi::azzera();
-		TipoAtto::azzera();
+		$this->azzera_ambiente_albo();
 
 		parent::tear_down();
 	}
@@ -58,13 +56,15 @@ class TipoAttoTest extends WP_UnitTestCase {
 			'Precondizione: la sezione non deve risultare registrata.'
 		);
 
+		$this->assertFalse( Avvio::registrata(), 'Precondizione: la sezione non risulta registrata da noi.' );
+
 		$esito = TipoAtto::registra();
 
 		$this->assertWPError( $esito, 'Senza sezione la registrazione deve essere rifiutata.' );
 		$this->assertSame(
-			'conformita_core_tipo_senza_sezione',
+			'albo_sezione_non_nostra',
 			$esito->get_error_code(),
-			'L\'errore deve essere quello dedicato al tipo senza sezione.'
+			'Il rifiuto e\' dell\'albo e arriva prima: al meccanismo comune non si chiede niente finche\' la sezione non risulta nostra.'
 		);
 
 		$this->assertFalse(

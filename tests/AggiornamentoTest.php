@@ -20,16 +20,26 @@ use WP_UnitTestCase;
  */
 class AggiornamentoTest extends WP_UnitTestCase {
 
+	use AmbienteAlbo;
+
+	/**
+	 * La versione che un sito installato con l'unita' precedente ha memorizzato.
+	 *
+	 * Non un numero inventato: se la prova ne usasse uno finto, resterebbe verde
+	 * anche il giorno in cui il componente dimentica di cambiare la propria
+	 * versione, che e' proprio il caso che rende inutile il meccanismo.
+	 *
+	 * @var string
+	 */
+	const VERSIONE_PRECEDENTE = '0.1.0-alpha';
+
 	/**
 	 * Registri e ruoli riportati allo stato iniziale.
 	 */
 	public function set_up(): void {
 		parent::set_up();
 
-		\Conformita_Core_Tipi::azzera();
-		\Conformita_Core_Sezioni::azzera();
-		Avvio::azzera();
-		TipoAtto::azzera();
+		$this->azzera_ambiente_albo();
 
 		$GLOBALS['wp_roles'] = new \WP_Roles();
 
@@ -44,12 +54,7 @@ class AggiornamentoTest extends WP_UnitTestCase {
 	 * Rimonta tipo e ruoli dopo ogni prova.
 	 */
 	public function tear_down(): void {
-		Permessi::azzera();
-		delete_option( \AlboPretorioPa\OPZIONE_VERSIONE );
-		\Conformita_Core_Tipi::azzera();
-		TipoAtto::azzera();
-
-		$GLOBALS['wp_roles'] = new \WP_Roles();
+		$this->azzera_ambiente_albo();
 
 		parent::tear_down();
 	}
@@ -80,7 +85,8 @@ class AggiornamentoTest extends WP_UnitTestCase {
 		);
 
 		get_role( 'editor' )->add_cap( $mappa['edit_posts'] );
-		update_option( \AlboPretorioPa\OPZIONE_VERSIONE, '0.0.1' );
+		// La versione dell'unita' precedente, non un numero inventato: e' il sito vero che riceve questa.
+		update_option( \AlboPretorioPa\OPZIONE_VERSIONE, self::VERSIONE_PRECEDENTE );
 
 		$this->assertFalse(
 			get_role( \AlboPretorioPa\RUOLO )->has_cap( $mappa['delete_others_posts'] ),
@@ -118,6 +124,48 @@ class AggiornamentoTest extends WP_UnitTestCase {
 		$this->assertFalse(
 			Installazione::aggiorna_se_serve(),
 			'Con la versione gia\' allineata non si rifa\' niente a ogni richiesta.'
+		);
+	}
+
+	/**
+	 * A-37: una scrittura fallita non si dichiara riuscita.
+	 *
+	 * Dichiarare concluso un aggiornamento che non e' stato scritto significa
+	 * non rifarlo mai piu': alla richiesta dopo la versione memorizzata sarebbe
+	 * ancora quella vecchia, ma nessuno tornerebbe a guardarla.
+	 */
+	public function test_a37_scrittura_della_versione_fallita(): void {
+		$this->assertTrue( TipoAtto::registrato(), 'Precondizione: il tipo deve essere registrato.' );
+
+		update_option( \AlboPretorioPa\OPZIONE_VERSIONE, self::VERSIONE_PRECEDENTE );
+
+		$blocca = static function () {
+			return self::VERSIONE_PRECEDENTE;
+		};
+
+		add_filter( 'pre_update_option_' . \AlboPretorioPa\OPZIONE_VERSIONE, $blocca );
+
+		try {
+			$esito = Installazione::aggiorna_se_serve();
+		} finally {
+			remove_filter( 'pre_update_option_' . \AlboPretorioPa\OPZIONE_VERSIONE, $blocca );
+		}
+
+		$this->assertFalse( $esito, 'Con la scrittura fallita il lavoro non deve dichiararsi concluso.' );
+		$this->assertSame(
+			self::VERSIONE_PRECEDENTE,
+			Installazione::versione_installata(),
+			'La versione riletta deve essere ancora quella precedente.'
+		);
+
+		$this->assertTrue(
+			Installazione::aggiorna_se_serve(),
+			'Alla richiesta successiva il lavoro deve essere ritentato.'
+		);
+		$this->assertSame(
+			\AlboPretorioPa\VERSIONE,
+			Installazione::versione_installata(),
+			'Al secondo tentativo la versione deve risultare scritta.'
 		);
 	}
 }
