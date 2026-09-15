@@ -31,12 +31,12 @@ all'attivazione. La chiusura della pubblicazione è un elenco ordinato di regole
 solo sbarramento, agganciato al punto in cui WordPress prepara la scrittura di un
 contenuto: oggi la lista contiene una regola sola.
 
-**Come si prova, e cosa lo farebbe diventare rosso.** Le prove sono quarantaquattro in
+**Come si prova, e cosa lo farebbe diventare rosso.** Le prove sono sessantasei in
 tutto, su tre avvii separati della suite. Rileggono lo stato invece di fidarsi di quello
 che una funzione risponde: il tipo risulta registrato chiedendolo al meccanismo comune, i
 permessi risultano addosso ai ruoli chiedendo il permesso a utenti veri, e l'atto risulta
 irraggiungibile facendo una richiesta pubblica al suo indirizzo. La prova di non vacuità è
-stata eseguita a parte, con quattro guasti introdotti uno per volta in una copia usa e
+stata eseguita a parte, con diciotto guasti introdotti uno per volta in una copia usa e
 getta: la tabella in fondo dice quale guasto ha fatto cadere quale prova.
 
 ## I nove punti
@@ -188,7 +188,7 @@ Sette prove, raccolte nel documento di collaudo di rilascio del progetto.
 ## Prova di non vacuità
 
 Eseguita in una copia presa fuori dal controllo di versione, quindi senza la possibilità
-materiale di committare codice rotto. Quindici guasti in tutto, uno per volta, ogni volta
+materiale di committare codice rotto. Diciotto guasti in tutto, uno per volta, ogni volta
 con ripristino verificato: quattro nella prima stesura, cinque dopo la prima revisione, sei
 dopo la seconda, tre dopo la terza.
 
