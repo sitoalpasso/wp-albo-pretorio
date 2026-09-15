@@ -92,7 +92,8 @@ class InerziaTest extends WP_UnitTestCase {
 		TipoAtto::da_init();
 		Installazione::da_init();
 
-		$this->assertFalse( TipoAtto::registrato(), 'Il tipo non risulta registrato da questo componente.' );
+		$this->assertFalse( TipoAtto::tipo_nostro(), 'Il tipo non e\' nostro: non lo abbiamo registrato.' );
+		$this->assertFalse( TipoAtto::registrazione_completa(), 'E la registrazione non e\' completa.' );
 		$this->assertFalse( post_type_exists( \AlboPretorioPa\TIPO ), 'Il tipo non deve esistere per WordPress.' );
 		$this->assertFalse(
 			conformita_core_tipo_registrato( \AlboPretorioPa\TIPO ),
@@ -134,8 +135,8 @@ class InerziaTest extends WP_UnitTestCase {
 		TipoAtto::da_init();
 
 		$this->assertFalse(
-			TipoAtto::registrato(),
-			'Precondizione: il tipo non deve risultare registrato da questo componente.'
+			TipoAtto::tipo_nostro(),
+			'Precondizione: il tipo non deve risultare nostro.'
 		);
 
 		register_post_type(

@@ -190,7 +190,7 @@ Sette prove, raccolte nel documento di collaudo di rilascio del progetto.
 Eseguita in una copia presa fuori dal controllo di versione, quindi senza la possibilità
 materiale di committare codice rotto. Quindici guasti in tutto, uno per volta, ogni volta
 con ripristino verificato: quattro nella prima stesura, cinque dopo la prima revisione, sei
-dopo la seconda.
+dopo la seconda, tre dopo la terza.
 
 | Guasto introdotto | Prova diventata rossa | Come è caduta |
 |---|---|---|
@@ -208,10 +208,13 @@ dopo la seconda.
 | La proprietà torna a essere il solo valore memorizzato | A-41, tutte e tre le varianti | un oggetto sostituito da altri continua a risultare nostro |
 | Il segno nell'indirizzo torna prima della distinzione | A-42 | una chiamata da codice fa comparire l'avviso a una persona |
 | Il tipo diventa interrogabile dal pubblico | A-43 | nello stato parziale il contenuto diventa raggiungibile |
+| Lo sbarramento torna a pretendere la registrazione completa | A-41, le due varianti sugli elenchi | perso un elenco, una pubblicazione supportata arriva a pubblicato |
+| L'oggetto del tipo si conserva solo a registrazione completa | A-43, prima installazione | nello stato parziale il tipo non risulta più nostro e lo sbarramento smette |
+| L'installazione si accontenta della proprietà del tipo | A-41 e A-43, sito già installato | i permessi si scrivono su un insieme incompleto |
 | L'assegnazione non passa più sui ruoli non dichiarati | A-21 | il permesso nuovo non raggiunge il ruolo che aveva già gli altri |
 
-Prima dei guasti e dopo ogni ripristino: sessantacinque prove verdi, cioè cinquantanove,
-quattro e due sui tre avvii della suite. Al termine la copia è stata cancellata e l'albero
+Prima dei guasti e dopo ogni ripristino: sessantasei prove verdi, cioè sessanta, quattro e
+due sui tre avvii della suite. Al termine la copia è stata cancellata e l'albero
 di lavoro non presentava differenze.
 
 **Limite dichiarato:** quella prova è girata su PHP 8.4, che non è nessuna delle due
@@ -299,3 +302,54 @@ nessuna versione memorizzata, nessuna azione del componente sui contenuti, e nes
 raggiungibilità pubblica, perché gli argomenti di registrazione restano quelli chiusi.
 Detto in breve: **il tipo resta, e resta muto.** Chi amministra il sito deve saperlo, e
 l'avviso glielo dice.
+
+## La quarta revisione: una domanda sola per due cose diverse
+
+Il difetto trovato in questo giro non è un pezzo dimenticato: è un **errore di modello**, e
+produceva il danno nella direzione peggiore.
+
+`TipoAtto::registrato()` rispondeva insieme a due domande che non sono la stessa:
+
+1. il tipo atto oggi nel registro è ancora quello che abbiamo registrato noi?
+2. la registrazione è **completa**, cioè lo sono anche tutti e due gli elenchi di voci?
+
+Lo sbarramento della pubblicazione usava quella condizione unica. Conseguenza: bastava che
+un elenco di voci venisse sostituito o perso perché lo sbarramento **smettesse di agire su
+un tipo che era ancora il nostro**. Una richiesta supportata sarebbe arrivata a pubblicato.
+Quando una condizione di sicurezza sbaglia, può sbagliare chiudendo troppo o aprendo troppo:
+questa apriva.
+
+**La correzione non richiede il ripristino impossibile del tipo.** Richiede due osservazioni
+distinte, con nomi che non si possono confondere:
+
+| Osservazione | Che cosa dice | Chi la usa |
+|---|---|---|
+| `TipoAtto::tipo_nostro()` | l'oggetto del tipo oggi nel registro è, per identità, quello ricevuto alla registrazione | **lo sbarramento della pubblicazione**, e soltanto lui |
+| `TipoAtto::registrazione_completa()` | tipo e tutti e due gli elenchi presenti e ancora nostri | l'installazione, e chiunque abbia bisogno dell'insieme intero |
+
+**L'oggetto del tipo si conserva appena il meccanismo comune lo registra, prima degli
+elenchi.** È l'ordine che rende vera la distinzione: se gli elenchi non reggono, il tipo è
+comunque nostro e lo sbarramento continua a proteggerlo.
+
+### Che cosa sapevamo dire, e che cosa no
+
+La prova precedente sullo stato parziale partiva da un ambiente azzerato. Poteva quindi dire
+che non esistono ruolo, permessi e versione, e la scheda lo riportava come se valesse in
+generale. **Vale della prima installazione e basta.** Su un sito dove il componente aveva
+già completato almeno una volta, quelle tre cose esistono, e la domanda giusta non è se ci
+siano: è se un tentativo fallito le tocchi.
+
+Adesso A-43 copre i due momenti.
+
+| | Prima installazione | Sito già installato |
+|---|---|---|
+| Ruolo, permessi, versione | non nascono | **esistono già, e restano intatti**: né cancellati né ampliati |
+| Installazione | non prosegue | non prosegue, e la prova lo verifica anche con una versione da aggiornare, perché altrimenti l'asserzione sarebbe vuota |
+| Sbarramento | respinge: il tipo è nostro | respinge, per la stessa ragione |
+| Raggiungibilità pubblica | nessuna | nessuna |
+| Ritorno allo stato completo | seconda chiamata nella stessa richiesta | richiesta successiva con gli elenchi al loro posto |
+
+Resta separato, e non si usa come scusa, il caso già documentato dello scavalcamento grezzo:
+la funzione che scrive lo stato direttamente può ancora portare un atto a pubblicato, e lì la
+garanzia è che resti irraggiungibile. Non giustifica il mancato sbarramento degli ingressi
+che controlliamo.

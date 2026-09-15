@@ -135,7 +135,7 @@ class AggiornamentoTest extends WP_UnitTestCase {
 	 * ancora quella vecchia, ma nessuno tornerebbe a guardarla.
 	 */
 	public function test_a37_scrittura_della_versione_fallita(): void {
-		$this->assertTrue( TipoAtto::registrato(), 'Precondizione: il tipo deve essere registrato.' );
+		$this->assertTrue( TipoAtto::registrazione_completa(), 'Precondizione: la registrazione deve essere completa.' );
 
 		update_option( \AlboPretorioPa\OPZIONE_VERSIONE, self::VERSIONE_PRECEDENTE );
 

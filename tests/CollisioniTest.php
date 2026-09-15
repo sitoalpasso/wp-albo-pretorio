@@ -94,7 +94,8 @@ class CollisioniTest extends WP_UnitTestCase {
 			'L\'elenco esterno deve restare agganciato a cio\' a cui era agganciato.'
 		);
 
-		$this->assertFalse( TipoAtto::registrato(), 'Il tipo dell\'albo non deve risultare registrato.' );
+		$this->assertFalse( TipoAtto::registrazione_completa(), 'La registrazione dell\'albo non deve risultare completa.' );
+		$this->assertFalse( TipoAtto::tipo_nostro(), 'E il tipo non deve essere nato affatto.' );
 		$this->assertFalse( post_type_exists( \AlboPretorioPa\TIPO ), 'Il tipo dell\'albo non deve nascere.' );
 		$this->assertFalse(
 			conformita_core_tipo_registrato( \AlboPretorioPa\TIPO ),
@@ -161,8 +162,13 @@ class CollisioniTest extends WP_UnitTestCase {
 			'L\'errore deve essere quello dedicato alla postcondizione mancata.'
 		);
 		$this->assertFalse(
-			TipoAtto::registrato(),
-			'Il tipo non si dichiara registrato se i suoi elenchi di voci non ci sono.'
+			TipoAtto::registrazione_completa(),
+			'La registrazione non si dichiara completa se i suoi elenchi di voci non ci sono.'
+		);
+
+		$this->assertTrue(
+			TipoAtto::tipo_nostro(),
+			'Ma il tipo resta nostro: l\'oggetto si conserva appena il nucleo comune lo registra, prima degli elenchi.'
 		);
 		$this->assertFalse( Installazione::aggiorna_se_serve(), 'L\'installazione non deve proseguire.' );
 	}
@@ -342,52 +348,29 @@ class CollisioniTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * A-41: la proprieta' si rilegge dallo stato corrente.
+	 * A-41: il tipo sostituito non e' piu' nostro, e non lo governiamo.
 	 *
-	 * Un valore memorizzato dice che abbiamo registrato qualcosa in passato,
-	 * non che l'oggetto nel registro sia ancora il nostro: WordPress lo
-	 * sostituisce senza dire niente a nessuno.
-	 *
-	 * @dataProvider oggetti_sostituibili
-	 *
-	 * @param string $quale `tipo` oppure l'identificativo di un elenco di voci.
+	 * WordPress mette l'oggetto di chi registra per ultimo al posto del nostro,
+	 * senza dire niente a nessuno. Da quel momento quei contenuti sono di un
+	 * altro componente, e riportarli in bozza sarebbe governare roba di altri.
 	 */
-	public function test_a41_proprieta_riletta_dallo_stato_corrente( string $quale ): void {
+	public function test_a41_tipo_sostituito_non_e_piu_nostro(): void {
 		$this->preparaTipo();
 
-		$this->assertTrue( TipoAtto::registrato(), 'Precondizione: il tipo deve risultare nostro.' );
+		$this->assertTrue( TipoAtto::tipo_nostro(), 'Precondizione: il tipo deve essere nostro.' );
 
-		if ( 'tipo' === $quale ) {
-			register_post_type(
-				\AlboPretorioPa\TIPO,
-				array(
-					'public'  => false,
-					'label'   => 'Tipo sostituito da un altro componente',
-					'rewrite' => false,
-				)
-			);
-		} else {
-			register_taxonomy(
-				$quale,
-				array( 'post' ),
-				array(
-					'public' => false,
-					'label'  => 'Elenco sostituito da un altro componente',
-				)
-			);
-		}
-
-		$this->assertFalse(
-			TipoAtto::registrato(),
-			'Sostituito l\'oggetto nel registro, quello che c\'e\' non e\' piu\' nostro.'
+		register_post_type(
+			\AlboPretorioPa\TIPO,
+			array(
+				'public'  => false,
+				'label'   => 'Tipo sostituito da un altro componente',
+				'rewrite' => false,
+			)
 		);
 
+		$this->assertFalse( TipoAtto::tipo_nostro(), 'Sostituito l\'oggetto, il tipo non e\' piu\' nostro.' );
+		$this->assertFalse( TipoAtto::registrazione_completa(), 'E la registrazione non e\' piu\' completa.' );
 		$this->assertFalse( Installazione::aggiorna_se_serve(), 'L\'installazione non deve proseguire.' );
-		$this->assertSame( array(), $this->permessi_dell_albo_sui_ruoli(), 'Nessun permesso deve essere assegnato.' );
-		$this->assertFalse(
-			get_option( \AlboPretorioPa\OPZIONE_VERSIONE, false ),
-			'Nessuna versione deve risultare memorizzata.'
-		);
 
 		$id = wp_insert_post(
 			array(
@@ -405,30 +388,83 @@ class CollisioniTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Gli oggetti globali che un altro componente puo' sostituire.
+	 * A-41: un elenco di voci sostituito non toglie la proprieta' del tipo.
+	 *
+	 * **E' il caso in cui la risposta sbagliata apre invece di chiudere.** Con
+	 * una sola condizione per due domande, perdere un elenco faceva smettere lo
+	 * sbarramento su un tipo che era ancora nostro: da quel momento una
+	 * richiesta supportata sarebbe arrivata a pubblicato.
+	 *
+	 * @dataProvider elenchi_sostituibili
+	 *
+	 * @param string $elenco Identificativo dell'elenco che un altro sostituisce.
+	 */
+	public function test_a41_elenco_sostituito_non_toglie_il_tipo( string $elenco ): void {
+		$this->preparaTipo();
+
+		register_taxonomy(
+			$elenco,
+			array( 'post' ),
+			array(
+				'public' => false,
+				'label'  => 'Elenco sostituito da un altro componente',
+			)
+		);
+
+		$this->assertTrue(
+			TipoAtto::tipo_nostro(),
+			'Il tipo resta nostro: un elenco di voci non e\' il tipo.'
+		);
+		$this->assertFalse(
+			TipoAtto::registrazione_completa(),
+			'La registrazione non e\' piu\' completa: manca un elenco che era nostro.'
+		);
+
+		$this->assertFalse(
+			Installazione::aggiorna_se_serve(),
+			'L\'installazione si ferma, perche\' ha bisogno dell\'insieme completo.'
+		);
+
+		// L'inserimento arriva da codice: il rifiuto va a chi programma.
+		$this->setExpectedIncorrectUsage( 'wp_insert_post' );
+
+		$id = wp_insert_post(
+			array(
+				'post_type'   => \AlboPretorioPa\TIPO,
+				'post_status' => 'publish',
+				'post_title'  => 'Atto con un elenco di voci perso',
+			)
+		);
+
+		$this->assertSame(
+			'draft',
+			get_post_status( $id ),
+			'Lo sbarramento deve continuare a respingere: quel tipo e\' ancora il nostro.'
+		);
+	}
+
+	/**
+	 * I due elenchi di voci che un altro componente puo' sostituire.
 	 *
 	 * @return array<string, array<int, string>>
 	 */
-	public function oggetti_sostituibili(): array {
+	public function elenchi_sostituibili(): array {
 		return array(
-			'il tipo atto'      => array( 'tipo' ),
 			'il primo elenco'   => array( \AlboPretorioPa\TASSONOMIA_TIPO_ATTO ),
 			'il secondo elenco' => array( \AlboPretorioPa\TASSONOMIA_ORGANO ),
 		);
 	}
 
 	/**
-	 * A-43: cosa resta registrato quando la postcondizione cade, e cosa no.
+	 * Provoca la caduta della postcondizione degli elenchi di voci.
 	 *
-	 * **Non basta dire inerte.** Il tipo resta registrato e non c'e' un modo
-	 * pulito di smontarlo: il nucleo comune non espone una funzione per togliere
-	 * quel solo tipo, e toglierlo a WordPress lascerebbe il registro del nucleo
-	 * a dire il contrario. Quello che si garantisce e' l'elenco chiuso di cio'
-	 * che non succede, e questa prova lo verifica voce per voce.
+	 * Il guasto si simula smontando il secondo elenco subito dopo che WordPress
+	 * lo ha registrato: e' il modo in cui una registrazione puo' non reggere
+	 * senza che la chiamata segnali niente.
+	 *
+	 * @return \WP_Error|true L'esito della registrazione.
 	 */
-	public function test_a43_stato_parziale_sicuro(): void {
-		$this->assertTrue( Avvio::esegui(), 'Precondizione: l\'avvio deve riuscire.' );
-
+	private function registrazione_con_elenco_perso() {
 		$smonta = static function ( $tassonomia ) {
 			if ( \AlboPretorioPa\TASSONOMIA_ORGANO === $tassonomia ) {
 				unregister_taxonomy( $tassonomia );
@@ -438,51 +474,58 @@ class CollisioniTest extends WP_UnitTestCase {
 		add_action( 'registered_taxonomy', $smonta );
 
 		try {
-			$esito = TipoAtto::registra();
+			return TipoAtto::registra();
 		} finally {
 			remove_action( 'registered_taxonomy', $smonta );
 		}
+	}
 
-		$this->assertWPError( $esito, 'Precondizione: la postcondizione deve essere caduta.' );
-
-		// Cio' che resta, detto invece che taciuto.
+	/**
+	 * Cio' che vale in tutti e due i momenti del ciclo di vita.
+	 *
+	 * @param string $quando Etichetta del momento, per i messaggi.
+	 */
+	private function verifica_stato_parziale( string $quando ): void {
 		$this->assertTrue(
 			post_type_exists( \AlboPretorioPa\TIPO ),
-			'Il tipo resta registrato presso WordPress: non c\'e\' modo di smontarlo in modo pulito.'
+			$quando . ': il tipo resta registrato presso WordPress, e va detto invece che taciuto.'
 		);
 		$this->assertTrue(
 			conformita_core_tipo_registrato( \AlboPretorioPa\TIPO ),
-			'E resta registrato anche presso il nucleo comune, per la stessa ragione.'
+			$quando . ': e resta registrato anche presso il nucleo comune.'
 		);
 
-		// Cio' che e' comunque garantito.
-		$this->assertFalse( TipoAtto::registrato(), 'Il componente non lo considera proprio.' );
+		$this->assertTrue(
+			TipoAtto::tipo_nostro(),
+			$quando . ': il tipo e\' nostro, e questo tiene in piedi lo sbarramento.'
+		);
+		$this->assertFalse(
+			TipoAtto::registrazione_completa(),
+			$quando . ': la registrazione non e\' completa.'
+		);
 
 		$oggetto = get_post_type_object( \AlboPretorioPa\TIPO );
 
-		$this->assertFalse( $oggetto->public, 'Gli argomenti restano quelli chiusi.' );
-		$this->assertFalse( $oggetto->publicly_queryable, 'Il tipo non e\' interrogabile dal pubblico.' );
+		$this->assertFalse( $oggetto->public, $quando . ': gli argomenti restano quelli chiusi.' );
+		$this->assertFalse( $oggetto->publicly_queryable, $quando . ': il tipo non e\' interrogabile dal pubblico.' );
 
-		$this->assertFalse( Installazione::aggiorna_se_serve(), 'Nessuna installazione.' );
-		$this->assertSame( array(), $this->permessi_dell_albo_sui_ruoli(), 'Nessun permesso su nessun ruolo.' );
-		$this->assertNull( get_role( \AlboPretorioPa\RUOLO ), 'Nessun ruolo proprio.' );
-		$this->assertFalse(
-			get_option( \AlboPretorioPa\OPZIONE_VERSIONE, false ),
-			'Nessuna versione memorizzata.'
-		);
+		$this->assertFalse( Installazione::aggiorna_se_serve(), $quando . ': l\'installazione non prosegue.' );
+
+		// L'inserimento arriva da codice: il rifiuto va a chi programma.
+		$this->setExpectedIncorrectUsage( 'wp_insert_post' );
 
 		$id = wp_insert_post(
 			array(
 				'post_type'   => \AlboPretorioPa\TIPO,
 				'post_status' => 'publish',
-				'post_title'  => 'Contenuto nello stato parziale',
+				'post_title'  => 'Atto nello stato parziale',
 			)
 		);
 
 		$this->assertSame(
-			'publish',
+			'draft',
 			get_post_status( $id ),
-			'Nessuna azione sui contenuti: il componente non tocca niente.'
+			$quando . ': una pubblicazione da un ingresso supportato deve restare in bozza.'
 		);
 
 		$ordinario = self::factory()->post->create(
@@ -492,12 +535,135 @@ class CollisioniTest extends WP_UnitTestCase {
 			)
 		);
 
+		$utente = get_current_user_id();
+
 		wp_set_current_user( 0 );
 
 		$this->richiesta_pubblica( get_permalink( $ordinario ) );
-		$this->assertTrue( is_singular(), 'Precondizione: un contenuto ordinario pubblicato e\' raggiungibile.' );
+		$this->assertTrue( is_singular(), $quando . ': precondizione, un contenuto ordinario e\' raggiungibile.' );
 
 		$this->richiesta_pubblica( get_permalink( $id ) );
-		$this->assertTrue( is_404(), 'Nessuna raggiungibilita\' pubblica, che e\' la garanzia che regge tutto il resto.' );
+		$this->assertTrue( is_404(), $quando . ': nessuna raggiungibilita\' pubblica.' );
+
+		wp_set_current_user( $utente );
+
+		$this->assertStringContainsString(
+			\AlboPretorioPa\TIPO,
+			$this->avvisi_in_bacheca(),
+			$quando . ': l\'avviso deve dire cosa resta registrato.'
+		);
+	}
+
+	/**
+	 * A-43, primo momento: prima installazione su un sito pulito.
+	 *
+	 * Qui, e soltanto qui, si puo' dire che ruolo, permessi e versione non
+	 * esistono: non sono stati creati perche' l'installazione non e' arrivata
+	 * fin li'.
+	 */
+	public function test_a43_stato_parziale_prima_installazione(): void {
+		$this->assertTrue( Avvio::esegui(), 'Precondizione: l\'avvio deve riuscire.' );
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+
+		$this->assertWPError( $this->registrazione_con_elenco_perso(), 'Precondizione: la postcondizione deve cadere.' );
+
+		$this->verifica_stato_parziale( 'Prima installazione' );
+
+		$this->assertNull( get_role( \AlboPretorioPa\RUOLO ), 'Nessun ruolo proprio viene creato.' );
+		$this->assertSame( array(), $this->permessi_dell_albo_sui_ruoli(), 'Nessun permesso viene scritto.' );
+		$this->assertFalse(
+			get_option( \AlboPretorioPa\OPZIONE_VERSIONE, false ),
+			'Nessuna versione viene memorizzata.'
+		);
+
+		$this->assertTrue(
+			TipoAtto::registra(),
+			'Ripristinati gli elenchi, una seconda chiamata nella stessa richiesta deve completare.'
+		);
+		$this->assertTrue( TipoAtto::registrazione_completa(), 'E la registrazione risulta completa.' );
+	}
+
+	/**
+	 * A-43, secondo momento: sito su cui il componente aveva gia' completato.
+	 *
+	 * **E' il caso che la prova precedente non copriva.** Partendo da un
+	 * ambiente azzerato si poteva dire che ruolo, permessi e versione non
+	 * esistono, ma quello e' vero della prima installazione e basta. Su un sito
+	 * gia' installato esistono, e la domanda giusta non e' se ci sono: e' se il
+	 * tentativo fallito li tocca.
+	 */
+	public function test_a43_stato_parziale_su_sito_gia_installato(): void {
+		$this->preparaTipo();
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+
+		$this->assertTrue( Installazione::aggiorna_se_serve(), 'Precondizione: la prima installazione riesce.' );
+
+		$ruolo_prima    = get_role( \AlboPretorioPa\RUOLO )->capabilities;
+		$permessi_prima = $this->permessi_dell_albo_sui_ruoli();
+		$versione_prima = get_option( \AlboPretorioPa\OPZIONE_VERSIONE );
+
+		$this->assertNotSame( array(), $permessi_prima, 'Precondizione: i permessi esistono.' );
+		$this->assertSame( \AlboPretorioPa\VERSIONE, $versione_prima, 'Precondizione: la versione e\' memorizzata.' );
+
+		// La richiesta successiva: gli agganci ripartono da zero, la banca dati no.
+		\Conformita_Core_Tipi::azzera();
+		\Conformita_Core_Sezioni::azzera();
+		Avvio::azzera();
+		TipoAtto::azzera();
+
+		$this->assertTrue( Avvio::esegui(), 'Precondizione: l\'avvio della richiesta successiva riesce.' );
+		$this->assertWPError( $this->registrazione_con_elenco_perso(), 'Precondizione: la postcondizione deve cadere.' );
+
+		$this->verifica_stato_parziale( 'Sito gia\' installato' );
+
+		$this->assertNotNull( get_role( \AlboPretorioPa\RUOLO ), 'Il ruolo preesistente non sparisce.' );
+		$this->assertSame(
+			$ruolo_prima,
+			get_role( \AlboPretorioPa\RUOLO )->capabilities,
+			'Il ruolo preesistente non viene ne\' modificato ne\' ampliato dal tentativo fallito.'
+		);
+		$this->assertSame(
+			$permessi_prima,
+			$this->permessi_dell_albo_sui_ruoli(),
+			'I permessi preesistenti restano quelli che erano.'
+		);
+		$this->assertSame(
+			$versione_prima,
+			get_option( \AlboPretorioPa\OPZIONE_VERSIONE ),
+			'La versione preesistente resta memorizzata: non si cancella cio\' che era gia\' valido.'
+		);
+
+		/*
+		 * L'installazione si ferma **per la precondizione e non perche' la
+		 * versione coincide**. Senza questo passaggio l'asserzione precedente
+		 * sarebbe vuota: con la versione gia' allineata il lavoro esce prima per
+		 * un motivo che non c'entra, e un componente che si accontentasse della
+		 * proprieta' del tipo passerebbe lo stesso.
+		 */
+		update_option( \AlboPretorioPa\OPZIONE_VERSIONE, '0.1.0-alpha' );
+
+		$this->assertFalse(
+			Installazione::aggiorna_se_serve(),
+			'Anche con una versione da aggiornare, l\'installazione si ferma: le manca l\'insieme completo.'
+		);
+		$this->assertSame(
+			'0.1.0-alpha',
+			get_option( \AlboPretorioPa\OPZIONE_VERSIONE ),
+			'E la versione non viene avanzata.'
+		);
+
+		update_option( \AlboPretorioPa\OPZIONE_VERSIONE, $versione_prima );
+
+		// Ancora la richiesta dopo, con gli elenchi al loro posto.
+		\Conformita_Core_Tipi::azzera();
+		\Conformita_Core_Sezioni::azzera();
+		Avvio::azzera();
+		TipoAtto::azzera();
+
+		$this->assertTrue( Avvio::esegui() );
+		$this->assertTrue( TipoAtto::registra(), 'Ripristinati gli elenchi, si torna allo stato completo.' );
+		$this->assertTrue( TipoAtto::registrazione_completa(), 'E la registrazione risulta completa.' );
 	}
 }

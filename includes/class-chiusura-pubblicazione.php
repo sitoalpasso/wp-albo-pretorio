@@ -112,14 +112,16 @@ final class ChiusuraPubblicazione {
 		}
 
 		/*
-		 * **Il nome non basta a dire che il contenuto e' nostro.** Un altro
-		 * componente puo' registrare un tipo con lo stesso identificativo, e se
-		 * il nostro avvio non e' riuscito quel tipo non ha niente a che fare con
-		 * l'albo: riportare in bozza i suoi contenuti sarebbe governare roba di
-		 * altri. Lo sbarramento agisce solo su un tipo registrato da questa
-		 * istanza.
+		 * **La domanda e' se il tipo e' nostro, non se la registrazione e'
+		 * completa.** Sono due cose diverse e vanno tenute separate proprio qui.
+		 * Un altro componente puo' registrare un tipo con lo stesso
+		 * identificativo: in quel caso i contenuti non sono nostri e riportarli
+		 * in bozza sarebbe governare roba di altri. Ma se a mancare e' soltanto
+		 * un elenco di voci, il tipo e' ancora il nostro e va protetto:
+		 * chiedere qui la registrazione completa farebbe smettere lo sbarramento
+		 * nel momento sbagliato, cioe' aprirebbe invece di chiudere.
 		 */
-		if ( ! TipoAtto::registrato() ) {
+		if ( ! TipoAtto::tipo_nostro() ) {
 			return $data;
 		}
 
@@ -150,7 +152,7 @@ final class ChiusuraPubblicazione {
 			return;
 		}
 
-		if ( ! $post instanceof \WP_Post || TIPO !== $post->post_type || ! TipoAtto::registrato() ) {
+		if ( ! $post instanceof \WP_Post || TIPO !== $post->post_type || ! TipoAtto::tipo_nostro() ) {
 			return;
 		}
 

@@ -51,12 +51,15 @@ final class Installazione {
 	public static function aggiorna_se_serve(): bool {
 		/*
 		 * Due precondizioni, e la prima non e' ridondante. La sezione deve
-		 * risultare registrata **da questo componente**, e il tipo deve essere
-		 * stato registrato da questa istanza: solo allora i permessi che stiamo
-		 * per assegnare sono quelli del nostro tipo e non di un tipo omonimo di
-		 * un altro componente.
+		 * risultare registrata **da questo componente**, e la registrazione del
+		 * tipo deve essere **completa**, elenchi di voci compresi: i permessi che
+		 * stiamo per assegnare governano anche quelli, e assegnarli mentre uno
+		 * manca vorrebbe dire scrivere permessi su un insieme incompleto.
+		 *
+		 * Qui serve la condizione piu' esigente, non quella dello sbarramento:
+		 * la' bastava che il tipo fosse nostro.
 		 */
-		if ( ! Avvio::registrata() || ! TipoAtto::registrato() ) {
+		if ( ! Avvio::registrata() || ! TipoAtto::registrazione_completa() ) {
 			return false;
 		}
 

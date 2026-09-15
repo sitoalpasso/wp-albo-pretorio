@@ -28,11 +28,11 @@ defined( 'ABSPATH' ) || exit;
 final class TipoAtto {
 
 	/**
-	 * La registrazione e' gia' avvenuta in questa richiesta.
+	 * La registrazione e' stata portata a termine per intero in questa richiesta.
 	 *
 	 * @var bool
 	 */
-	private static $registrato = false;
+	private static $completa = false;
 
 	/**
 	 * L'oggetto del tipo come lo abbiamo ricevuto alla registrazione.
@@ -43,6 +43,11 @@ final class TipoAtto {
 	 * componente puo' registrare lo stesso identificativo e WordPress mette il
 	 * suo oggetto al posto del nostro, senza dire niente a nessuno. Il confronto
 	 * per identita' con l'oggetto che avevamo ricevuto e' la prova che regge.
+	 *
+	 * **Si conserva appena il nucleo comune registra il tipo, prima degli
+	 * elenchi di voci.** L'ordine non e' un dettaglio: se gli elenchi non
+	 * reggono, il tipo e' comunque nostro e lo sbarramento deve continuare a
+	 * proteggerlo.
 	 *
 	 * @var \WP_Post_Type|null
 	 */
@@ -77,7 +82,7 @@ final class TipoAtto {
 	 * @return true|\WP_Error Vero se il tipo risulta registrato, errore altrimenti.
 	 */
 	public static function registra() {
-		if ( self::$registrato ) {
+		if ( self::registrazione_completa() ) {
 			return true;
 		}
 
@@ -101,6 +106,93 @@ final class TipoAtto {
 			);
 		}
 
+		/*
+		 * Il tipo si registra solo se non e' gia' nostro. Puo' esserlo dopo un
+		 * tentativo in cui gli elenchi di voci non hanno retto: in quel caso
+		 * resta da rifare soltanto la parte che e' caduta, e richiedere di nuovo
+		 * il tipo al nucleo comune darebbe un errore di duplicato su una cosa che
+		 * abbiamo gia'.
+		 */
+		if ( ! self::tipo_nostro() ) {
+			$esito = self::registra_tipo();
+
+			if ( is_wp_error( $esito ) ) {
+				return $esito;
+			}
+		}
+
+		$elenchi = self::registra_elenchi_di_voci();
+
+		if ( is_wp_error( $elenchi ) ) {
+			self::avvisa(
+				sprintf(
+					/* translators: 1: nome del componente, 2: messaggio di errore, 3: identificativo del tipo di contenuto. */
+					__( '%1$s non ha completato la registrazione: %2$s Il tipo %3$s resta registrato e chiuso al pubblico, e il componente non ha modificato ne\' i permessi ne\' la versione installata. Riprovera\' alla richiesta successiva.', 'albo-pretorio-pa' ),
+					NOME,
+					$elenchi->get_error_message(),
+					TIPO
+				)
+			);
+
+			return $elenchi;
+		}
+
+		self::$completa = true;
+
+		return true;
+	}
+
+	/**
+	 * Il tipo oggi presente nel registro e' quello che abbiamo registrato noi.
+	 *
+	 * **E' la domanda da cui dipende lo sbarramento della pubblicazione, e non
+	 * va confusa con la completezza della registrazione.** Se un altro
+	 * componente registra lo stesso identificativo, WordPress mette il suo
+	 * oggetto al posto del nostro e da quel momento quei contenuti non sono
+	 * nostri: governarli sarebbe governare roba di altri. Se invece si perde un
+	 * elenco di voci, il tipo e' ancora il nostro e va protetto: confondere le
+	 * due cose fa smettere lo sbarramento nel momento sbagliato, cioe' apre
+	 * invece di chiudere.
+	 *
+	 * @return bool
+	 */
+	public static function tipo_nostro(): bool {
+		return null !== self::$oggetto_tipo && get_post_type_object( TIPO ) === self::$oggetto_tipo;
+	}
+
+	/**
+	 * Tipo e due elenchi di voci sono tutti presenti e tutti nostri.
+	 *
+	 * E' la domanda dell'installazione e di chiunque abbia bisogno
+	 * dell'insieme completo. Piu' esigente della proprieta' del tipo, e usarla
+	 * al suo posto nello sbarramento sarebbe l'errore da evitare.
+	 *
+	 * @return bool
+	 */
+	public static function registrazione_completa(): bool {
+		if ( ! self::$completa || ! self::tipo_nostro() ) {
+			return false;
+		}
+
+		if ( count( self::$oggetti_elenchi ) < 2 ) {
+			return false;
+		}
+
+		foreach ( self::$oggetti_elenchi as $nome => $oggetto ) {
+			if ( get_taxonomy( (string) $nome ) !== $oggetto ) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Registra il tipo presso il nucleo comune e ne conserva l'oggetto.
+	 *
+	 * @return true|\WP_Error
+	 */
+	private static function registra_tipo() {
 		$occupato = self::elenco_di_voci_occupato();
 
 		if ( '' !== $occupato ) {
@@ -156,23 +248,7 @@ final class TipoAtto {
 			return $esito;
 		}
 
-		$elenchi = self::registra_elenchi_di_voci();
-
-		if ( is_wp_error( $elenchi ) ) {
-			self::avvisa(
-				sprintf(
-					/* translators: 1: nome del componente, 2: messaggio di errore. */
-					__( '%1$s resta attivo e inerte: %2$s', 'albo-pretorio-pa' ),
-					NOME,
-					$elenchi->get_error_message()
-				)
-			);
-
-			return $elenchi;
-		}
-
 		self::$oggetto_tipo = get_post_type_object( TIPO );
-		self::$registrato   = true;
 
 		return true;
 	}
@@ -191,9 +267,16 @@ final class TipoAtto {
 	 */
 	private static function elenco_di_voci_occupato(): string {
 		foreach ( array( TASSONOMIA_TIPO_ATTO, TASSONOMIA_ORGANO ) as $nome ) {
-			if ( taxonomy_exists( $nome ) ) {
-				return $nome;
+			if ( ! taxonomy_exists( $nome ) ) {
+				continue;
 			}
+
+			// Un elenco che e' gia' nostro non e' una collisione: e' roba nostra.
+			if ( isset( self::$oggetti_elenchi[ $nome ] ) && get_taxonomy( $nome ) === self::$oggetti_elenchi[ $nome ] ) {
+				continue;
+			}
+
+			return $nome;
 		}
 
 		return '';
@@ -454,7 +537,7 @@ final class TipoAtto {
 			}
 		}
 
-		self::$registrato      = false;
+		self::$completa        = false;
 		self::$oggetto_tipo    = null;
 		self::$oggetti_elenchi = array();
 		self::$avvisi          = array();
