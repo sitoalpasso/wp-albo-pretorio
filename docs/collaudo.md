@@ -171,6 +171,30 @@ respinta come quella di pubblicazione e l'atto resta in bozza.
 | A-26 | fatto | I **due** posti in cui finisce il motivo di un rifiuto | quello della schermata sta sull'utente e sull'atto insieme e si consuma alla prima lettura; quello della chiamata da codice **non si memorizza** e viene segnalato a chi programma. Non esiste un terzo posto persistente sull'atto, perché non esiste la programmazione che lo richiederebbe |
 | A-27 | fatto | Due utenti che tentano la pubblicazione **dello stesso atto** | ciascuno vede il proprio messaggio e non quello dell'altro |
 
+### Postcondizioni e collisioni
+
+**Le prime due righe correggono lo stesso errore visto da due lati.** Le righe qui sopra
+verificano che il componente faccia la cosa giusta quando tutto va bene, e che rifiuti quando
+qualcosa va male nel suo perimetro. Non verificavano la domanda più importante: **di chi è la
+roba su cui si sta agendo.** La presenza delle funzioni del meccanismo comune dice che quel
+componente c'è, non che la sezione sia nostra; il nome di un tipo di contenuto dice come si
+chiama, non chi lo ha registrato. Un componente che decide su quelle basi governa contenuti
+di altri, e si dichiara inerte mentre non lo è.
+
+| # | Stato | Il test, in parole | Esito atteso |
+|---|---|---|---|
+| A-28 | da fare | **Avvio non riuscito, poi il percorso normale di avvio dei tipi**: qualcun altro registra la sezione dell'albo prima, con le stesse politiche, poi si esegue il percorso come in una richiesta vera | non nasce niente: nessun tipo, nessuno dei due elenchi di voci, nessun ruolo, nessun permesso su nessun ruolo, nessuna versione memorizzata. **Il componente è inerte davvero**, non solo nella dichiarazione dell'avvio. Ogni passaggio dipende dal fatto che la sezione risulti registrata **da questo componente**, non dal fatto che il meccanismo comune sia caricato: sono due cose diverse |
+| A-29 | da fare | **Lo sbarramento non tocca contenuti di altri**: un componente esterno registra un proprio tipo con lo stesso identificativo mentre l'avvio dell'albo fallisce, poi pubblica un proprio contenuto | la pubblicazione **riesce** e il contenuto resta pubblicato. Lo sbarramento agisce solo quando risulta che il tipo è stato registrato da questa istanza dell'albo: decidere sul solo nome vuol dire riportare in bozza contenuti che non sono nostri |
+| A-30 | da fare | **Collisione su un elenco di voci**, due varianti: il primo elenco è già di qualcun altro, oppure il secondo | in entrambe: l'elenco esterno resta **invariato**, il tipo dell'albo **non nasce**, nessun permesso viene assegnato, nessuna versione viene memorizzata, e compare un avviso che nomina l'identificativo in conflitto. **La verifica precede la registrazione del tipo**: WordPress mette l'oggetto nuovo nel registro e sostituisce quello esistente, e dopo non c'è modo di smontare il solo tipo senza lasciare le cose a metà |
+| A-31 | da fare | **Postcondizione degli elenchi di voci**: si controlla l'esito delle due registrazioni e si rilegge il registro prima di considerare il tipo registrato | il tipo risulta registrato **solo se** entrambi gli elenchi risultano registrati e agganciati al tipo. Un esito non controllato lascia il componente convinto di avere due elenchi che non ci sono |
+| A-32 | da fare | **Ruolo con lo stesso nome**, due varianti: creato da una versione precedente dell'albo, oppure di qualcun altro | il ruolo dell'albo si riconosce da un **permesso marcatore** che solo l'albo assegna, e viene aggiornato. Quello di altri **non si adotta**: resta intatto, nessun permesso viene assegnato, nessuna versione memorizzata, e compare un avviso che nomina il ruolo in conflitto. Adottarlo vorrebbe dire consegnare i permessi dell'albo a chiunque possieda già quel ruolo |
+| A-33 | da fare | **Autoriparazione**: si cancella la sola versione memorizzata, lasciando ruolo e permessi | il lavoro riparte alla richiesta successiva, **riconosce il proprio ruolo dal marcatore** invece di scambiarlo per altrui, e la versione torna memorizzata |
+| A-34 | da fare | **L'avviso generico non dipende dal dato che deve sostituire**: rifiuto dalla schermata, il dato temporaneo sparisce subito, poi si costruisce l'indirizzo di ritorno | l'indicatore generico c'è lo stesso, perché vive nella richiesta corrente e non nel dato temporaneo, e la schermata mostra l'avviso generico. Farlo dipendere dal dato temporaneo vuol dire non avere nessun avviso proprio nel caso in cui serve |
+| A-35 | da fare | **L'origine del salvataggio**: invio vero della schermata classica con la sua azione, il suo identificativo e il suo codice di sicurezza; e chiamata da codice durante una richiesta di amministrazione, senza quel modulo | nel primo caso il motivo finisce nel deposito dell'utente, nel secondo **no**, e la segnalazione va a chi programma. Un componente che salva durante una richiesta di amministrazione non è una persona davanti a una schermata |
+| A-36 | da fare | **Inserimento annidato**: un secondo inserimento avviene fra la preparazione e la scrittura del primo | il motivo del primo non viene perso né attribuito al secondo |
+| A-37 | da fare | **La scrittura della versione memorizzata fallisce** | il lavoro **non dichiara successo**, la versione riletta resta quella precedente, e alla richiesta successiva viene ritentato. Dichiarare concluso un aggiornamento mai scritto vuol dire non rifarlo mai più |
+| A-38 | da fare | **Postcondizione dei permessi**: si rileggono i ruoli dopo averli scritti | l'assegnazione risulta riuscita solo se ogni ruolo dichiarato possiede davvero ogni permesso del proprio insieme |
+
 **Cosa non chiudono queste righe.** Nessun dato dell'atto oltre a oggetto, tipo e organo:
 niente schermata di compilazione, niente controllo campo per campo, nessuna pubblicazione per
 nessuno. ALBO-01 e ALBO-02 restano intatte. Il divieto di cancellare un atto pubblicato
