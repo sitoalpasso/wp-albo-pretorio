@@ -168,4 +168,61 @@ class AggiornamentoTest extends WP_UnitTestCase {
 			'Al secondo tentativo la versione deve risultare scritta.'
 		);
 	}
+
+	/**
+	 * A-39: la verifica copre anche i ruoli completati automaticamente.
+	 *
+	 * Sono proprio quelli di cui nessuno tiene il conto: il componente li
+	 * scopre da se' perche' possiedono gia' un permesso dell'albo, e se la
+	 * verifica finale guarda solo i ruoli dichiarati un permesso che non arriva
+	 * la' resta invisibile fino alla richiesta dopo, quando intanto la versione
+	 * risulta memorizzata e nessuno rifara' il lavoro.
+	 */
+	public function test_a39_postcondizione_sui_ruoli_completati_da_se(): void {
+		$mappa = conformita_core_capacita_tipo( \AlboPretorioPa\TIPO );
+
+		$this->assertNotWPError( $mappa, 'Precondizione: il nucleo comune deve fornire i permessi del tipo.' );
+
+		get_role( 'editor' )->add_cap( $mappa['edit_posts'] );
+		update_option( \AlboPretorioPa\OPZIONE_VERSIONE, self::VERSIONE_PRECEDENTE );
+
+		$this->assertFalse(
+			get_role( 'editor' )->has_cap( $mappa['edit_published_posts'] ),
+			'Precondizione: al ruolo completato automaticamente deve mancare un permesso del suo insieme.'
+		);
+
+		$mancante = $mappa['edit_published_posts'];
+
+		$sabota = static function ( $valore ) use ( $mancante ) {
+			if ( is_array( $valore ) && isset( $valore['editor']['capabilities'][ $mancante ] ) ) {
+				unset( $valore['editor']['capabilities'][ $mancante ] );
+			}
+
+			return $valore;
+		};
+
+		add_filter( 'pre_update_option_' . wp_roles()->role_key, $sabota );
+
+		try {
+			$esito = Installazione::aggiorna_se_serve();
+		} finally {
+			remove_filter( 'pre_update_option_' . wp_roles()->role_key, $sabota );
+		}
+
+		$this->assertFalse( $esito, 'Con un permesso che non arriva, l\'installazione non deve dichiararsi conclusa.' );
+		$this->assertSame(
+			self::VERSIONE_PRECEDENTE,
+			Installazione::versione_installata(),
+			'La versione riletta deve restare quella precedente.'
+		);
+
+		$this->assertTrue(
+			Installazione::aggiorna_se_serve(),
+			'Alla richiesta successiva il lavoro deve essere ritentato.'
+		);
+		$this->assertTrue(
+			get_role( 'editor' )->has_cap( $mancante ),
+			'Al secondo tentativo il permesso deve arrivare anche al ruolo completato automaticamente.'
+		);
+	}
 }

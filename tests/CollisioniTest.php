@@ -279,4 +279,225 @@ class CollisioniTest extends WP_UnitTestCase {
 		$this->assertTrue( Avvio::esegui(), 'Precondizione: l\'avvio deve riuscire.' );
 		$this->assertTrue( TipoAtto::registra(), 'Precondizione: il tipo deve essere registrato.' );
 	}
+
+	/**
+	 * A-40: il marcatore che non si scrive, e la via di recupero.
+	 *
+	 * Senza recupero il ruolo creato a meta' diventerebbe una collisione
+	 * permanente: alla richiesta dopo il componente lo troverebbe senza
+	 * marcatore e lo direbbe di un altro, per sempre, su un sito dove invece
+	 * lo aveva creato lui.
+	 */
+	public function test_a40_marcatore_non_scritto_e_recupero(): void {
+		$this->preparaTipo();
+
+		$this->assertNull( get_role( \AlboPretorioPa\RUOLO ), 'Precondizione: il ruolo non esiste ancora.' );
+
+		$sabota = static function ( $valore ) {
+			if ( ! is_array( $valore ) ) {
+				return $valore;
+			}
+
+			foreach ( array_keys( $valore ) as $ruolo ) {
+				unset( $valore[ $ruolo ]['capabilities'][ \AlboPretorioPa\RUOLO_MARCATORE ] );
+			}
+
+			return $valore;
+		};
+
+		add_filter( 'pre_update_option_' . wp_roles()->role_key, $sabota );
+
+		try {
+			$esito = Installazione::aggiorna_se_serve();
+		} finally {
+			remove_filter( 'pre_update_option_' . wp_roles()->role_key, $sabota );
+		}
+
+		$this->assertFalse( $esito, 'Senza il marcatore scritto non si dichiara successo.' );
+		$this->assertFalse(
+			get_option( \AlboPretorioPa\OPZIONE_VERSIONE, false ),
+			'Nessuna versione deve risultare memorizzata.'
+		);
+
+		$this->assertNull(
+			get_role( \AlboPretorioPa\RUOLO ),
+			'Il ruolo creato a meta\' deve essere stato rimosso.'
+		);
+
+		$riletti = new \WP_Roles();
+
+		$this->assertNull(
+			$riletti->get_role( \AlboPretorioPa\RUOLO ),
+			'La rimozione si rilegge dalla banca dati: e\' la postcondizione del recupero.'
+		);
+
+		$this->assertTrue(
+			Installazione::aggiorna_se_serve(),
+			'Tolto il sabotaggio, la richiesta successiva deve riuscire: nessuna collisione permanente.'
+		);
+		$this->assertTrue(
+			get_role( \AlboPretorioPa\RUOLO )->has_cap( \AlboPretorioPa\RUOLO_MARCATORE ),
+			'E il ruolo ricreato deve avere il marcatore.'
+		);
+	}
+
+	/**
+	 * A-41: la proprieta' si rilegge dallo stato corrente.
+	 *
+	 * Un valore memorizzato dice che abbiamo registrato qualcosa in passato,
+	 * non che l'oggetto nel registro sia ancora il nostro: WordPress lo
+	 * sostituisce senza dire niente a nessuno.
+	 *
+	 * @dataProvider oggetti_sostituibili
+	 *
+	 * @param string $quale `tipo` oppure l'identificativo di un elenco di voci.
+	 */
+	public function test_a41_proprieta_riletta_dallo_stato_corrente( string $quale ): void {
+		$this->preparaTipo();
+
+		$this->assertTrue( TipoAtto::registrato(), 'Precondizione: il tipo deve risultare nostro.' );
+
+		if ( 'tipo' === $quale ) {
+			register_post_type(
+				\AlboPretorioPa\TIPO,
+				array(
+					'public'  => false,
+					'label'   => 'Tipo sostituito da un altro componente',
+					'rewrite' => false,
+				)
+			);
+		} else {
+			register_taxonomy(
+				$quale,
+				array( 'post' ),
+				array(
+					'public' => false,
+					'label'  => 'Elenco sostituito da un altro componente',
+				)
+			);
+		}
+
+		$this->assertFalse(
+			TipoAtto::registrato(),
+			'Sostituito l\'oggetto nel registro, quello che c\'e\' non e\' piu\' nostro.'
+		);
+
+		$this->assertFalse( Installazione::aggiorna_se_serve(), 'L\'installazione non deve proseguire.' );
+		$this->assertSame( array(), $this->permessi_dell_albo_sui_ruoli(), 'Nessun permesso deve essere assegnato.' );
+		$this->assertFalse(
+			get_option( \AlboPretorioPa\OPZIONE_VERSIONE, false ),
+			'Nessuna versione deve risultare memorizzata.'
+		);
+
+		$id = wp_insert_post(
+			array(
+				'post_type'   => \AlboPretorioPa\TIPO,
+				'post_status' => 'publish',
+				'post_title'  => 'Contenuto del tipo sostituito',
+			)
+		);
+
+		$this->assertSame(
+			'publish',
+			get_post_status( $id ),
+			'Lo sbarramento non deve toccare i contenuti di un tipo che non e\' piu\' nostro.'
+		);
+	}
+
+	/**
+	 * Gli oggetti globali che un altro componente puo' sostituire.
+	 *
+	 * @return array<string, array<int, string>>
+	 */
+	public function oggetti_sostituibili(): array {
+		return array(
+			'il tipo atto'      => array( 'tipo' ),
+			'il primo elenco'   => array( \AlboPretorioPa\TASSONOMIA_TIPO_ATTO ),
+			'il secondo elenco' => array( \AlboPretorioPa\TASSONOMIA_ORGANO ),
+		);
+	}
+
+	/**
+	 * A-43: cosa resta registrato quando la postcondizione cade, e cosa no.
+	 *
+	 * **Non basta dire inerte.** Il tipo resta registrato e non c'e' un modo
+	 * pulito di smontarlo: il nucleo comune non espone una funzione per togliere
+	 * quel solo tipo, e toglierlo a WordPress lascerebbe il registro del nucleo
+	 * a dire il contrario. Quello che si garantisce e' l'elenco chiuso di cio'
+	 * che non succede, e questa prova lo verifica voce per voce.
+	 */
+	public function test_a43_stato_parziale_sicuro(): void {
+		$this->assertTrue( Avvio::esegui(), 'Precondizione: l\'avvio deve riuscire.' );
+
+		$smonta = static function ( $tassonomia ) {
+			if ( \AlboPretorioPa\TASSONOMIA_ORGANO === $tassonomia ) {
+				unregister_taxonomy( $tassonomia );
+			}
+		};
+
+		add_action( 'registered_taxonomy', $smonta );
+
+		try {
+			$esito = TipoAtto::registra();
+		} finally {
+			remove_action( 'registered_taxonomy', $smonta );
+		}
+
+		$this->assertWPError( $esito, 'Precondizione: la postcondizione deve essere caduta.' );
+
+		// Cio' che resta, detto invece che taciuto.
+		$this->assertTrue(
+			post_type_exists( \AlboPretorioPa\TIPO ),
+			'Il tipo resta registrato presso WordPress: non c\'e\' modo di smontarlo in modo pulito.'
+		);
+		$this->assertTrue(
+			conformita_core_tipo_registrato( \AlboPretorioPa\TIPO ),
+			'E resta registrato anche presso il nucleo comune, per la stessa ragione.'
+		);
+
+		// Cio' che e' comunque garantito.
+		$this->assertFalse( TipoAtto::registrato(), 'Il componente non lo considera proprio.' );
+
+		$oggetto = get_post_type_object( \AlboPretorioPa\TIPO );
+
+		$this->assertFalse( $oggetto->public, 'Gli argomenti restano quelli chiusi.' );
+		$this->assertFalse( $oggetto->publicly_queryable, 'Il tipo non e\' interrogabile dal pubblico.' );
+
+		$this->assertFalse( Installazione::aggiorna_se_serve(), 'Nessuna installazione.' );
+		$this->assertSame( array(), $this->permessi_dell_albo_sui_ruoli(), 'Nessun permesso su nessun ruolo.' );
+		$this->assertNull( get_role( \AlboPretorioPa\RUOLO ), 'Nessun ruolo proprio.' );
+		$this->assertFalse(
+			get_option( \AlboPretorioPa\OPZIONE_VERSIONE, false ),
+			'Nessuna versione memorizzata.'
+		);
+
+		$id = wp_insert_post(
+			array(
+				'post_type'   => \AlboPretorioPa\TIPO,
+				'post_status' => 'publish',
+				'post_title'  => 'Contenuto nello stato parziale',
+			)
+		);
+
+		$this->assertSame(
+			'publish',
+			get_post_status( $id ),
+			'Nessuna azione sui contenuti: il componente non tocca niente.'
+		);
+
+		$ordinario = self::factory()->post->create(
+			array(
+				'post_status' => 'publish',
+				'post_title'  => 'Contenuto ordinario di controllo',
+			)
+		);
+
+		wp_set_current_user( 0 );
+
+		$this->richiesta_pubblica( get_permalink( $ordinario ) );
+		$this->assertTrue( is_singular(), 'Precondizione: un contenuto ordinario pubblicato e\' raggiungibile.' );
+
+		$this->richiesta_pubblica( get_permalink( $id ) );
+		$this->assertTrue( is_404(), 'Nessuna raggiungibilita\' pubblica, che e\' la garanzia che regge tutto il resto.' );
+	}
 }

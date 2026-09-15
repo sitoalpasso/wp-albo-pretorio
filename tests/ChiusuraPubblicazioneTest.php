@@ -76,30 +76,6 @@ class ChiusuraPubblicazioneTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Esegue una richiesta pubblica come la eseguirebbe un sito vero.
-	 *
-	 * **Non basta `go_to()`**, e la differenza cambia l'esito. Quell'aiuto passa
-	 * la stringa di interrogazione anche come variabili aggiuntive, cosa che
-	 * WordPress in una richiesta vera non fa: `post_type` e' una variabile
-	 * riservata, e le variabili riservate vengono rimesse **dopo** il controllo
-	 * che scarta i tipi non interrogabili dal pubblico. Il risultato e' che
-	 * l'indirizzo risponde nel laboratorio e non risponde sul sito, cioe' la
-	 * prova osserverebbe una condizione che non esiste. Qui la richiesta si
-	 * rifa' con una istanza pulita e nessuna variabile aggiuntiva, che e' come
-	 * WordPress avvia una richiesta vera.
-	 *
-	 * @param string $indirizzo Indirizzo da richiedere.
-	 */
-	private function richiesta_pubblica( string $indirizzo ): void {
-		$this->go_to( $indirizzo );
-
-		$GLOBALS['wp_the_query'] = new \WP_Query();
-		$GLOBALS['wp_query']     = $GLOBALS['wp_the_query'];
-		$GLOBALS['wp']           = new \WP();
-		$GLOBALS['wp']->main( '' );
-	}
-
-	/**
 	 * Un atto in bozza, da cui partono le prove.
 	 *
 	 * @return int
@@ -589,6 +565,69 @@ class ChiusuraPubblicazioneTest extends WP_UnitTestCase {
 			array(),
 			Rifiuti::preleva_per_utente( $annidato ),
 			'Il secondo e\' una chiamata da codice: nessun deposito per l\'utente.'
+		);
+	}
+
+	/**
+	 * A-42: il segno nell'indirizzo nasce solo da un invio riconosciuto.
+	 *
+	 * Le due direzioni insieme, perche' una sola non dimostra niente: se il
+	 * segno comparisse sempre, la prima resterebbe verde e una persona si
+	 * vedrebbe comparire un avviso per un salvataggio che non ha chiesto.
+	 */
+	public function test_a42_segno_solo_per_un_invio_riconosciuto(): void {
+		$indirizzo = admin_url( 'post.php?action=edit' );
+
+		// Prima direzione: invio vero della schermata, con il dato temporaneo sparito.
+		$dalla_schermata = $this->bozza();
+
+		$this->invio_dalla_schermata( $dalla_schermata );
+
+		wp_update_post(
+			array(
+				'ID'          => $dalla_schermata,
+				'post_status' => 'publish',
+			)
+		);
+
+		$this->assertNotSame(
+			array(),
+			Rifiuti::preleva_per_utente( $dalla_schermata ),
+			'Precondizione: il dettaglio c\'era, e prelevandolo sparisce.'
+		);
+
+		$this->assertStringContainsString(
+			'albo-rifiuto=1',
+			Rifiuti::segna_indirizzo_di_ritorno( $indirizzo, $dalla_schermata ),
+			'Sparito il dato, il segno deve restare.'
+		);
+
+		// Seconda direzione: chiamata da codice durante una richiesta di amministrazione.
+		unset( $_POST['action'], $_POST['post_ID'], $_POST['_wpnonce'] );
+		set_current_screen( 'post' );
+
+		$this->assertTrue( is_admin(), 'Precondizione: siamo in una richiesta di amministrazione.' );
+
+		$this->setExpectedIncorrectUsage( 'wp_insert_post' );
+
+		$da_codice = wp_insert_post(
+			array(
+				'post_type'   => \AlboPretorioPa\TIPO,
+				'post_status' => 'publish',
+				'post_title'  => 'Atto salvato da un componente',
+			)
+		);
+
+		$this->assertSame( 'draft', get_post_status( $da_codice ), 'Precondizione: il rifiuto e\' avvenuto.' );
+		$this->assertSame(
+			array(),
+			Rifiuti::preleva_per_utente( $da_codice ),
+			'Nessun dettaglio per l\'utente.'
+		);
+		$this->assertStringNotContainsString(
+			'albo-rifiuto',
+			Rifiuti::segna_indirizzo_di_ritorno( $indirizzo, $da_codice ),
+			'E nessun segno: la persona non deve vedere un avviso per un salvataggio che non ha chiesto.'
 		);
 	}
 }

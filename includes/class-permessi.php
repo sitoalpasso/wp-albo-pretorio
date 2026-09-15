@@ -133,8 +133,25 @@ final class Permessi {
 			return $proprio;
 		}
 
+		/*
+		 * Che cosa e' gia' scritto si chiede alla banca dati e non all'oggetto in
+		 * memoria. **Dopo una scrittura persa i due divergono**: l'oggetto in
+		 * memoria ha il permesso, la banca dati no, e un ritentativo che si fida
+		 * della memoria non riscrive niente e fallisce di nuovo per sempre. E'
+		 * il caso in cui il ritentativo serve davvero, quindi e' l'unico in cui
+		 * non deve saltare il lavoro.
+		 */
+		$archivio = new \WP_Roles();
+		$toccati  = array();
+
 		foreach ( $assegnazioni as $ruolo => $chiavi ) {
-			self::concedi( (string) $ruolo, $chiavi, $mappa );
+			if ( null === get_role( (string) $ruolo ) ) {
+				return self::non_scritti( (string) $ruolo, '' );
+			}
+
+			self::concedi( (string) $ruolo, $chiavi, $mappa, $archivio );
+
+			$toccati[ (string) $ruolo ] = $chiavi;
 		}
 
 		foreach ( array_keys( wp_roles()->role_objects ) as $nome ) {
@@ -149,13 +166,24 @@ final class Permessi {
 			}
 
 			if ( $oggetto->has_cap( $mappa['publish_posts'] ) ) {
-				self::concedi( (string) $nome, self::CHIAVI_PUBBLICAZIONE, $mappa );
+				self::concedi( (string) $nome, self::CHIAVI_PUBBLICAZIONE, $mappa, $archivio );
+
+				$toccati[ (string) $nome ] = self::CHIAVI_PUBBLICAZIONE;
 			} elseif ( $oggetto->has_cap( $mappa['edit_posts'] ) ) {
-				self::concedi( (string) $nome, self::CHIAVI_REDAZIONE, $mappa );
+				self::concedi( (string) $nome, self::CHIAVI_REDAZIONE, $mappa, $archivio );
+
+				$toccati[ (string) $nome ] = self::CHIAVI_REDAZIONE;
 			}
 		}
 
-		return self::verifica_scrittura( $assegnazioni, $mappa );
+		/*
+		 * Si verifica **ogni ruolo toccato**, non solo quelli dichiarati. I ruoli
+		 * completati qui sopra sono proprio quelli di cui nessuno tiene il conto:
+		 * il componente li scopre da se', e un permesso che non arriva la'
+		 * resterebbe invisibile fino alla richiesta dopo, quando la versione
+		 * risulta gia' memorizzata e nessuno rifara' il lavoro.
+		 */
+		return self::verifica_scrittura( $toccati, $mappa );
 	}
 
 	/**
@@ -185,16 +213,7 @@ final class Permessi {
 				)
 			);
 
-			return null === get_role( RUOLO )
-				? new \WP_Error(
-					'albo_ruolo_non_creato',
-					sprintf(
-						/* translators: %s: identificativo del ruolo. */
-						__( 'Il ruolo %s non risulta creato dopo il tentativo di crearlo.', 'albo-pretorio-pa' ),
-						RUOLO
-					)
-				)
-				: true;
+			return self::verifica_marcatore();
 		}
 
 		if ( $ruolo->has_cap( RUOLO_MARCATORE ) ) {
@@ -222,6 +241,62 @@ final class Permessi {
 	}
 
 	/**
+	 * Il ruolo appena creato risulta scritto, marcatore compreso.
+	 *
+	 * **Controllare che il ruolo esista non basta**: se il marcatore non arriva
+	 * nella banca dati, alla richiesta successiva il componente troverebbe un
+	 * ruolo senza marcatore e lo direbbe di un altro, per sempre, su un sito
+	 * dove invece lo ha creato lui. Da qui la via di recupero: il ruolo creato a
+	 * meta' si toglie, e la rimozione si rilegge. Se nemmeno la rimozione
+	 * riesce, l'avviso dice qual e' il ruolo da togliere a mano, perche' una
+	 * collisione permanente silenziosa e' il peggiore dei due esiti.
+	 *
+	 * @return true|\WP_Error
+	 */
+	private static function verifica_marcatore() {
+		$riletti = new \WP_Roles();
+		$scritto = $riletti->get_role( RUOLO );
+
+		if ( null !== $scritto && $scritto->has_cap( RUOLO_MARCATORE ) ) {
+			return true;
+		}
+
+		remove_role( RUOLO );
+
+		$verifica = new \WP_Roles();
+		$rimosso  = null === $verifica->get_role( RUOLO );
+
+		self::avvisa(
+			$rimosso
+				? sprintf(
+					/* translators: 1: nome del componente, 2: identificativo del ruolo. */
+					__( '%1$s resta attivo e inerte: il ruolo %2$s non e\' stato scritto per intero ed e\' stato rimosso. Il componente riprovera\' alla richiesta successiva.', 'albo-pretorio-pa' ),
+					NOME,
+					RUOLO
+				)
+				: sprintf(
+					/* translators: 1: nome del componente, 2: identificativo del ruolo. */
+					__( '%1$s resta attivo e inerte: il ruolo %2$s non e\' stato scritto per intero e non e\' stato possibile rimuoverlo. Va rimosso a mano, altrimenti il componente lo scambiera\' per un ruolo di un altro.', 'albo-pretorio-pa' ),
+					NOME,
+					RUOLO
+				)
+		);
+
+		return new \WP_Error(
+			'albo_marcatore_non_scritto',
+			sprintf(
+				/* translators: %s: identificativo del ruolo. */
+				__( 'Il ruolo %s non risulta scritto con il proprio marcatore.', 'albo-pretorio-pa' ),
+				RUOLO
+			),
+			array(
+				'ruolo'   => RUOLO,
+				'rimosso' => $rimosso,
+			)
+		);
+	}
+
+	/**
 	 * I permessi assegnati risultano scritti, riletti dalla banca dati.
 	 *
 	 * **Si rilegge da una copia nuova del registro dei ruoli e non da quella in
@@ -231,14 +306,14 @@ final class Permessi {
 	 * guardando. Dichiarare riuscita quell'assegnazione significa non rifarla
 	 * mai piu', perche' intanto la versione risulterebbe memorizzata.
 	 *
-	 * @param array<string, array<int, string>> $assegnazioni Ruoli e insiemi dichiarati.
-	 * @param array<string, string>             $mappa        Corrispondenza fra nomi generici e derivati.
+	 * @param array<string, array<int, string>> $toccati Ruoli davvero toccati e insiemi applicati.
+	 * @param array<string, string>             $mappa   Corrispondenza fra nomi generici e derivati.
 	 * @return true|\WP_Error
 	 */
-	private static function verifica_scrittura( array $assegnazioni, array $mappa ) {
+	private static function verifica_scrittura( array $toccati, array $mappa ) {
 		$riletti = new \WP_Roles();
 
-		foreach ( $assegnazioni as $nome => $chiavi ) {
+		foreach ( $toccati as $nome => $chiavi ) {
 			$oggetto = $riletti->get_role( (string) $nome );
 
 			if ( null === $oggetto ) {
@@ -303,23 +378,26 @@ final class Permessi {
 	/**
 	 * Concede a un ruolo i permessi derivati di un insieme.
 	 *
-	 * @param string                $ruolo  Identificativo del ruolo.
-	 * @param array<int, string>    $chiavi Nomi generici dei permessi.
-	 * @param array<string, string> $mappa  Corrispondenza fra nomi generici e derivati.
+	 * @param string                $ruolo    Identificativo del ruolo.
+	 * @param array<int, string>    $chiavi   Nomi generici dei permessi.
+	 * @param array<string, string> $mappa    Corrispondenza fra nomi generici e derivati.
+	 * @param \WP_Roles             $archivio I ruoli come stanno nella banca dati.
 	 */
-	private static function concedi( string $ruolo, array $chiavi, array $mappa ): void {
+	private static function concedi( string $ruolo, array $chiavi, array $mappa, \WP_Roles $archivio ): void {
 		$oggetto = get_role( $ruolo );
 
 		if ( null === $oggetto ) {
 			return;
 		}
 
+		$scritto = $archivio->get_role( $ruolo );
+
 		foreach ( $chiavi as $chiave ) {
 			if ( ! isset( $mappa[ $chiave ] ) ) {
 				continue;
 			}
 
-			if ( $oggetto->has_cap( $mappa[ $chiave ] ) ) {
+			if ( null !== $scritto && $scritto->has_cap( $mappa[ $chiave ] ) ) {
 				continue;
 			}
 

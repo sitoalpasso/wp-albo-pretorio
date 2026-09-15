@@ -89,6 +89,30 @@ trait AmbienteAlbo {
 	}
 
 	/**
+	 * Esegue una richiesta pubblica come la eseguirebbe un sito vero.
+	 *
+	 * **Non basta `go_to()`**, e la differenza cambia l'esito. Quell'aiuto passa
+	 * la stringa di interrogazione anche come variabili aggiuntive, cosa che
+	 * WordPress in una richiesta vera non fa: `post_type` e' una variabile
+	 * riservata, e le variabili riservate vengono rimesse **dopo** il controllo
+	 * che scarta i tipi non interrogabili dal pubblico. Il risultato e' che
+	 * l'indirizzo risponde nel laboratorio e non risponde sul sito, cioe' la
+	 * prova osserverebbe una condizione che non esiste. Qui la richiesta si
+	 * rifa' con una istanza pulita e nessuna variabile aggiuntiva, che e' come
+	 * WordPress avvia una richiesta vera.
+	 *
+	 * @param string $indirizzo Indirizzo da richiedere.
+	 */
+	protected function richiesta_pubblica( string $indirizzo ): void {
+		$this->go_to( $indirizzo );
+
+		$GLOBALS['wp_the_query'] = new \WP_Query();
+		$GLOBALS['wp_query']     = $GLOBALS['wp_the_query'];
+		$GLOBALS['wp']           = new \WP();
+		$GLOBALS['wp']->main( '' );
+	}
+
+	/**
 	 * Testo degli avvisi prodotti in amministrazione.
 	 *
 	 * @return string

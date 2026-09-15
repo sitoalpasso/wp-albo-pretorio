@@ -35,6 +35,29 @@ final class TipoAtto {
 	private static $registrato = false;
 
 	/**
+	 * L'oggetto del tipo come lo abbiamo ricevuto alla registrazione.
+	 *
+	 * **Serve a dimostrare la proprieta', che un valore booleano non dimostra.**
+	 * Quel valore dice che abbiamo registrato qualcosa in passato; non dice che
+	 * l'oggetto oggi presente nel registro sia ancora il nostro. Un altro
+	 * componente puo' registrare lo stesso identificativo e WordPress mette il
+	 * suo oggetto al posto del nostro, senza dire niente a nessuno. Il confronto
+	 * per identita' con l'oggetto che avevamo ricevuto e' la prova che regge.
+	 *
+	 * @var \WP_Post_Type|null
+	 */
+	private static $oggetto_tipo = null;
+
+	/**
+	 * Gli oggetti dei due elenchi di voci, per identificativo.
+	 *
+	 * Stessa ragione dell'oggetto del tipo.
+	 *
+	 * @var array<string, \WP_Taxonomy>
+	 */
+	private static $oggetti_elenchi = array();
+
+	/**
 	 * Messaggi da mostrare a chi puo' rimediare.
 	 *
 	 * @var array<int, string>
@@ -148,7 +171,8 @@ final class TipoAtto {
 			return $elenchi;
 		}
 
-		self::$registrato = true;
+		self::$oggetto_tipo = get_post_type_object( TIPO );
+		self::$registrato   = true;
 
 		return true;
 	}
@@ -181,7 +205,21 @@ final class TipoAtto {
 	 * @return bool
 	 */
 	public static function registrato(): bool {
-		return self::$registrato;
+		if ( ! self::$registrato || null === self::$oggetto_tipo ) {
+			return false;
+		}
+
+		if ( get_post_type_object( TIPO ) !== self::$oggetto_tipo ) {
+			return false;
+		}
+
+		foreach ( self::$oggetti_elenchi as $nome => $oggetto ) {
+			if ( get_taxonomy( (string) $nome ) !== $oggetto ) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	/**
@@ -280,8 +318,14 @@ final class TipoAtto {
 		 * nascere: senza questo controllo il componente proseguirebbe convinto
 		 * di avere due elenchi che non ci sono.
 		 */
+		self::$oggetti_elenchi = array();
+
 		foreach ( array_keys( $elenchi ) as $nome ) {
 			$oggetto = get_taxonomy( (string) $nome );
+
+			if ( false !== $oggetto ) {
+				self::$oggetti_elenchi[ (string) $nome ] = $oggetto;
+			}
 
 			if ( false === $oggetto || ! in_array( TIPO, (array) $oggetto->object_type, true ) ) {
 				return new \WP_Error(
@@ -410,7 +454,9 @@ final class TipoAtto {
 			}
 		}
 
-		self::$registrato = false;
-		self::$avvisi     = array();
+		self::$registrato      = false;
+		self::$oggetto_tipo    = null;
+		self::$oggetti_elenchi = array();
+		self::$avvisi          = array();
 	}
 }

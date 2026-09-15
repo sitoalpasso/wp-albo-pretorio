@@ -57,9 +57,15 @@ final class Rifiuti {
 	 * @param array<string, string> $motivi  Motivi del rifiuto, per codice.
 	 */
 	public static function deposita( int $post_id, array $motivi ): void {
-		self::$rifiutati[ $post_id ] = true;
-
+		/*
+		 * Il segno si mette **dentro** il ramo della schermata e non prima.
+		 * Marcarlo per ogni rifiuto farebbe comparire a una persona un avviso
+		 * per un salvataggio chiesto da un componente, che lei non ha fatto e
+		 * su cui non puo' fare niente.
+		 */
 		if ( self::invio_dalla_schermata( $post_id ) ) {
+			self::$rifiutati[ $post_id ] = true;
+
 			set_transient( self::chiave( get_current_user_id(), $post_id ), $motivi, self::DURATA );
 
 			return;
