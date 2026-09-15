@@ -33,6 +33,8 @@ use WP_UnitTestCase;
  */
 class CoreIncompatibileTest extends WP_UnitTestCase {
 
+	use AmbienteAlbo;
+
 	/**
 	 * Percorso del componente come lo conosce WordPress.
 	 *
@@ -54,18 +56,6 @@ class CoreIncompatibileTest extends WP_UnitTestCase {
 		Avvio::azzera();
 
 		update_option( 'active_plugins', array( $this->componente ) );
-	}
-
-	/**
-	 * Testo degli avvisi prodotti in amministrazione.
-	 *
-	 * @return string
-	 */
-	private function avvisi_in_bacheca(): string {
-		ob_start();
-		do_action( 'admin_notices' );
-
-		return (string) ob_get_clean();
 	}
 
 	/**

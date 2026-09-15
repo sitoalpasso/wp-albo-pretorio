@@ -3,7 +3,7 @@
  * Plugin Name:       Albo Pretorio
  * Plugin URI:        https://github.com/sitoalpasso/wp-albo-pretorio
  * Description:       Pubblicazione con effetto di pubblicità legale. Attua requisiti derivati dalla normativa applicabile ai soggetti dell'art. 2-bis del d.lgs. 33/2013.
- * Version:           0.1.0-alpha
+ * Version:           0.2.0-alpha
  * Requires at least: 6.5
  * Requires PHP:      8.1
  * Requires Plugins:  conformita-core
@@ -26,7 +26,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Versione del plugin.
  */
-const VERSIONE = '0.1.0-alpha';
+const VERSIONE = '0.2.0-alpha';
 
 /**
  * Versione minima di WordPress dichiarata.
@@ -91,11 +91,67 @@ const INDICIZZAZIONE = 'vietata';
 const SCADENZA = 'irraggiungibile';
 
 /**
+ * Identificativo del tipo di contenuto atto.
+ *
+ * Non `atto` e basta: da questo identificativo il meccanismo comune ricava i
+ * nomi dei permessi, e un nome generico e' un nome che un altro componente puo'
+ * avere gia' preso. In quel caso la registrazione verrebbe rifiutata e l'albo
+ * resterebbe inerte su quel sito. L'indirizzo pubblico degli atti non viene da
+ * qui: viene dal parametro di riscrittura, che resta libero.
+ */
+const TIPO = 'atto_albo';
+
+/**
+ * Elenco di voci dei tipi di atto.
+ */
+const TASSONOMIA_TIPO_ATTO = 'albo_tipo_atto';
+
+/**
+ * Elenco di voci degli organi che adottano gli atti.
+ */
+const TASSONOMIA_ORGANO = 'albo_organo';
+
+/**
+ * Ruolo proprio del componente, per chi pubblica gli atti.
+ */
+const RUOLO = 'albo_responsabile_pubblicazione';
+
+/**
+ * Permesso marcatore che rende riconoscibile il ruolo creato da questo componente.
+ *
+ * Serve a distinguere due situazioni che si assomigliano e non lo sono: un
+ * ruolo creato da una versione precedente dell'albo, che va aggiornato, e un
+ * ruolo omonimo di un altro componente, che non va adottato. Adottarlo
+ * significherebbe consegnare i permessi dell'albo a chiunque possieda gia'
+ * quel ruolo.
+ *
+ * Il riconoscimento non poggia sull'opzione della versione, e non e' un
+ * dettaglio: cancellata quella sola opzione il componente deve ripararsi da
+ * solo, e con un riconoscimento basato su di essa scambierebbe il proprio ruolo
+ * per estraneo proprio nel momento in cui deve rimetterlo a posto.
+ */
+const RUOLO_MARCATORE = 'albo_pretorio_ruolo_del_componente';
+
+/**
+ * Opzione che ricorda quale versione del componente e' installata su questo sito.
+ *
+ * E' il primo dato che il componente scrive nella banca dati, ed e' la
+ * sentinella dell'installazione: finche' il valore memorizzato e' diverso da
+ * quello del codice, il lavoro di installazione va rifatto.
+ */
+const OPZIONE_VERSIONE = 'albo_pretorio_pa_versione';
+
+/**
  * Percorso del file principale del plugin.
  */
 const FILE_PRINCIPALE = __FILE__;
 
 require_once __DIR__ . '/includes/class-avvio.php';
+require_once __DIR__ . '/includes/class-permessi.php';
+require_once __DIR__ . '/includes/class-tipo-atto.php';
+require_once __DIR__ . '/includes/class-installazione.php';
+require_once __DIR__ . '/includes/class-rifiuti.php';
+require_once __DIR__ . '/includes/class-chiusura-pubblicazione.php';
 
 /*
  * L'avvio si aggancia e non si esegue. Al caricamento di questo file il
@@ -105,3 +161,22 @@ require_once __DIR__ . '/includes/class-avvio.php';
  * non una diagnosi. A `plugins_loaded` tutti i componenti attivi sono caricati.
  */
 add_action( 'plugins_loaded', array( Avvio::class, 'da_plugins_loaded' ) );
+
+/*
+ * I tipi di contenuto si registrano su `init`, non prima. L'installazione viene
+ * dopo, perche' i nomi dei permessi si ricavano dal tipo e il tipo deve gia'
+ * esistere.
+ */
+add_action( 'init', array( TipoAtto::class, 'da_init' ) );
+add_action( 'init', array( Installazione::class, 'da_init' ), 20 );
+
+add_action( 'admin_notices', array( Permessi::class, 'mostra_avviso' ) );
+add_action( 'admin_notices', array( Rifiuti::class, 'mostra' ) );
+add_filter( 'redirect_post_location', array( Rifiuti::class, 'segna_indirizzo_di_ritorno' ), 10, 2 );
+
+/*
+ * Lo sbarramento si aggancia al caricamento e non all'avvio riuscito: deve
+ * valere anche quando il resto del componente e' inerte, perche' una fase in
+ * cui la pubblicazione e' concessa non deve esistere in nessuna condizione.
+ */
+ChiusuraPubblicazione::aggancia();

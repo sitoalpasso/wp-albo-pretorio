@@ -24,7 +24,25 @@ class ScheletroTest extends WP_UnitTestCase {
 	 */
 	public function test_plugin_caricato(): void {
 		$this->assertTrue( defined( 'AlboPretorioPa\\VERSIONE' ) );
-		$this->assertSame( '0.1.0-alpha', \AlboPretorioPa\VERSIONE );
+
+		$intestazione = get_file_data( \AlboPretorioPa\FILE_PRINCIPALE, array( 'versione' => 'Version' ) );
+
+		/*
+		 * Si verifica l'accordo fra l'intestazione e la costante, non un numero
+		 * scritto qui: un numero scritto a mano nella prova obbliga a cambiarlo
+		 * a ogni versione, e prima o poi lo si cambia senza guardare. Il difetto
+		 * vero e' che i due posti dicano cose diverse.
+		 */
+		$this->assertSame(
+			$intestazione['versione'],
+			\AlboPretorioPa\VERSIONE,
+			'L\'intestazione del componente e la costante devono dichiarare la stessa versione.'
+		);
+		$this->assertMatchesRegularExpression(
+			'/^\d+\.\d+\.\d+(-[a-z]+)?$/',
+			\AlboPretorioPa\VERSIONE,
+			'La versione deve essere completa.'
+		);
 	}
 
 	/**
