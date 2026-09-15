@@ -1,6 +1,6 @@
 <?php
 /**
- * Prove sulle collisioni di identificativi globali: righe A-30..A-33.
+ * Prove sulle collisioni di identificativi globali: righe A-30..A-33, A-45 e A-46.
  *
  * Elenchi di voci e ruoli vivono in registri di WordPress che sono di tutti.
  * Registrarci sopra senza guardare sostituisce la roba di un altro componente,
@@ -654,7 +654,13 @@ class CollisioniTest extends WP_UnitTestCase {
 			'E la versione non viene avanzata.'
 		);
 
-		update_option( \AlboPretorioPa\OPZIONE_VERSIONE, $versione_prima );
+		/*
+		 * **La versione resta quella vecchia, e non si riallinea a mano.**
+		 * Riportarla alla corrente prima del recupero renderebbe vuota la
+		 * verifica che segue: l'installazione uscirebbe subito perche' la
+		 * versione coincide, e "non prosegue" e "prosegue e non ha niente da
+		 * fare" darebbero lo stesso esito.
+		 */
 
 		// Ancora la richiesta dopo, con gli elenchi al loro posto.
 		\Conformita_Core_Tipi::azzera();
@@ -665,5 +671,156 @@ class CollisioniTest extends WP_UnitTestCase {
 		$this->assertTrue( Avvio::esegui() );
 		$this->assertTrue( TipoAtto::registra(), 'Ripristinati gli elenchi, si torna allo stato completo.' );
 		$this->assertTrue( TipoAtto::registrazione_completa(), 'E la registrazione risulta completa.' );
+
+		$this->assertSame(
+			'0.1.0-alpha',
+			get_option( \AlboPretorioPa\OPZIONE_VERSIONE ),
+			'Precondizione del ritentativo: la versione memorizzata e\' ancora quella vecchia.'
+		);
+
+		$this->assertTrue(
+			Installazione::aggiorna_se_serve(),
+			'E l\'installazione viene ritentata davvero, non solo dichiarata possibile.'
+		);
+		$this->assertSame(
+			\AlboPretorioPa\VERSIONE,
+			get_option( \AlboPretorioPa\OPZIONE_VERSIONE ),
+			'La versione memorizzata avanza a quella corrente: e\' il segno che il lavoro e\' stato rifatto.'
+		);
+	}
+
+	/**
+	 * A-45: il ritentativo non sostituisce un elenco diventato di altri.
+	 *
+	 * **La garanzia di A-30 si perdeva alla seconda richiesta.** Con la verifica
+	 * delle collisioni dentro la sola registrazione del tipo, un ritentativo la
+	 * saltava: il tipo era gia' nostro, quindi quel passaggio non veniva
+	 * eseguito, e la registrazione degli elenchi passava sopra l'elenco che nel
+	 * frattempo era diventato di un altro componente.
+	 */
+	public function test_a45_il_ritentativo_non_sostituisce_un_elenco_di_altri(): void {
+		$this->assertTrue( Avvio::esegui(), 'Precondizione: l\'avvio deve riuscire.' );
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+
+		$this->assertWPError( $this->registrazione_con_elenco_perso(), 'Precondizione: la postcondizione deve cadere.' );
+		$this->assertTrue(
+			TipoAtto::tipo_nostro(),
+			'Precondizione: il tipo e\' gia\' nostro, ed e\' esattamente cio\' che faceva saltare la verifica.'
+		);
+		$this->assertFalse(
+			taxonomy_exists( \AlboPretorioPa\TASSONOMIA_ORGANO ),
+			'Precondizione: l\'elenco caduto non c\'e\', quindi il suo identificativo e\' libero.'
+		);
+
+		// Fra un tentativo e l'altro qualcun altro prende l'identificativo libero.
+		register_taxonomy(
+			\AlboPretorioPa\TASSONOMIA_ORGANO,
+			array( 'post' ),
+			array(
+				'label'        => 'Elenco di un altro componente',
+				'public'       => true,
+				'hierarchical' => true,
+			)
+		);
+
+		$prima = get_taxonomy( \AlboPretorioPa\TASSONOMIA_ORGANO );
+
+		$this->assertNotFalse( $prima, 'Precondizione: l\'elenco esterno deve esistere.' );
+
+		$esito = TipoAtto::registra();
+
+		$this->assertWPError( $esito, 'Il ritentativo deve fermarsi: l\'identificativo non e\' piu\' libero.' );
+		$this->assertSame(
+			'albo_elenco_di_voci_in_conflitto',
+			$esito->get_error_code(),
+			'L\'errore deve essere quello dedicato alla collisione sugli elenchi di voci.'
+		);
+
+		$dopo = get_taxonomy( \AlboPretorioPa\TASSONOMIA_ORGANO );
+
+		$this->assertSame(
+			$prima,
+			$dopo,
+			'Deve essere lo stesso oggetto: una sostituzione ne lascerebbe uno diverso al suo posto.'
+		);
+		$this->assertSame( $prima->label, $dopo->label, 'E i suoi argomenti devono restare quelli.' );
+		$this->assertTrue( $dopo->public, 'L\'elenco esterno deve restare pubblico com\'era.' );
+		$this->assertSame(
+			array( 'post' ),
+			(array) $dopo->object_type,
+			'E restare agganciato a cio\' a cui era agganciato.'
+		);
+
+		$this->assertFalse( TipoAtto::registrazione_completa(), 'La registrazione dell\'albo resta incompleta.' );
+		$this->assertTrue( TipoAtto::tipo_nostro(), 'Il tipo pero\' e\' ancora nostro.' );
+		$this->assertFalse( Installazione::aggiorna_se_serve(), 'L\'installazione non prosegue.' );
+
+		$this->assertStringContainsString(
+			\AlboPretorioPa\TASSONOMIA_ORGANO,
+			$this->avvisi_in_bacheca(),
+			'L\'avviso deve nominare l\'identificativo in conflitto.'
+		);
+
+		// L'inserimento arriva da codice: il rifiuto va a chi programma.
+		$this->setExpectedIncorrectUsage( 'wp_insert_post' );
+
+		$id = wp_insert_post(
+			array(
+				'post_type'   => \AlboPretorioPa\TIPO,
+				'post_status' => 'publish',
+				'post_title'  => 'Atto durante la collisione al ritentativo',
+			)
+		);
+
+		$this->assertSame(
+			'draft',
+			get_post_status( $id ),
+			'E lo sbarramento continua a proteggere il tipo, che e\' ancora il nostro.'
+		);
+	}
+
+	/**
+	 * A-46: l'avviso del tentativo fallito sparisce quando il recupero riesce.
+	 *
+	 * Un avviso che descrive uno stato non piu' vero e' peggio di nessun avviso:
+	 * chi lo legge in bacheca non ha modo di sapere che e' vecchio, e cerchera'
+	 * di rimediare a un guasto che non c'e' piu'.
+	 */
+	public function test_a46_avviso_incompleto_tolto_dopo_il_recupero(): void {
+		$this->assertTrue( Avvio::esegui(), 'Precondizione: l\'avvio deve riuscire.' );
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+
+		$this->assertWPError( $this->registrazione_con_elenco_perso(), 'Precondizione: la postcondizione deve cadere.' );
+
+		$this->assertStringContainsString(
+			'non ha completato la registrazione',
+			$this->avvisi_in_bacheca(),
+			'Prima direzione: dopo il fallimento l\'avviso c\'e\'.'
+		);
+
+		$this->assertTrue( TipoAtto::registra(), 'Il recupero nella stessa richiesta deve riuscire.' );
+		$this->assertTrue( TipoAtto::registrazione_completa(), 'E la registrazione deve risultare completa.' );
+
+		$dopo_il_recupero = $this->avvisi_in_bacheca();
+
+		$this->assertStringNotContainsString(
+			'non ha completato la registrazione',
+			$dopo_il_recupero,
+			'Seconda direzione: raggiunta la postcondizione completa, quell\'avviso non si mostra piu\'.'
+		);
+
+		/*
+		 * Controllo che non sia una cancellazione indiscriminata. L'avviso sui
+		 * permessi appartiene a un'altra superficie e in questo momento e' vero:
+		 * l'installazione non e' ancora passata, quindi nessun ruolo possiede i
+		 * permessi del tipo. Deve restare.
+		 */
+		$this->assertStringContainsString(
+			'nessun ruolo possiede i permessi',
+			$dopo_il_recupero,
+			'L\'avviso di un\'altra superficie, che e\' ancora vero, deve continuare a comparire.'
+		);
 	}
 }

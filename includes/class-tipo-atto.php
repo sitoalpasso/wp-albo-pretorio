@@ -63,11 +63,35 @@ final class TipoAtto {
 	private static $oggetti_elenchi = array();
 
 	/**
-	 * Messaggi da mostrare a chi puo' rimediare.
+	 * Messaggi da mostrare a chi puo' rimediare, per chiave.
+	 *
+	 * **La chiave serve a toglierli.** Un avviso nasce da una condizione, e
+	 * quella condizione puo' finire mentre la richiesta e' ancora in corso: un
+	 * tentativo di registrazione fallisce e il successivo riesce. Senza una
+	 * chiave l'avviso del primo resta in lista e in bacheca compare un errore
+	 * che descrive uno stato non piu' vero, che e' peggio di nessun avviso,
+	 * perche' chi lo legge non ha modo di saperlo e cerca di rimediare a un
+	 * guasto che non c'e' piu'.
+	 *
+	 * @var array<string, string>
+	 */
+	private static $avvisi = array();
+
+	/**
+	 * Le chiavi degli avvisi che parlano di un tentativo di registrazione.
+	 *
+	 * Sono quelle, e soltanto quelle, che smettono di essere vere quando la
+	 * registrazione arriva alla postcondizione completa. Gli avvisi di altre
+	 * superfici non si toccano: descrivono condizioni che questa funzione non
+	 * ha cambiato.
 	 *
 	 * @var array<int, string>
 	 */
-	private static $avvisi = array();
+	private const AVVISI_DEL_TENTATIVO = array(
+		'registrazione_incompleta',
+		'elenco_in_conflitto',
+		'tipo_non_registrato',
+	);
 
 	/**
 	 * Aggancio a `init`, dove i tipi di contenuto si registrano.
@@ -107,6 +131,20 @@ final class TipoAtto {
 		}
 
 		/*
+		 * **La verifica delle collisioni precede ogni tentativo, e sta qui e non
+		 * dentro la registrazione del tipo.** Dentro quella, un ritentativo la
+		 * salterebbe: il tipo e' gia' nostro, quel passaggio non viene eseguito,
+		 * e la registrazione degli elenchi passerebbe sopra un identificativo
+		 * che nel frattempo e' diventato di un altro componente. La garanzia
+		 * varrebbe alla prima richiesta e non alla seconda.
+		 */
+		$liberi = self::verifica_elenchi_di_voci_liberi();
+
+		if ( is_wp_error( $liberi ) ) {
+			return $liberi;
+		}
+
+		/*
 		 * Il tipo si registra solo se non e' gia' nostro. Puo' esserlo dopo un
 		 * tentativo in cui gli elenchi di voci non hanno retto: in quel caso
 		 * resta da rifare soltanto la parte che e' caduta, e richiedere di nuovo
@@ -125,6 +163,7 @@ final class TipoAtto {
 
 		if ( is_wp_error( $elenchi ) ) {
 			self::avvisa(
+				'registrazione_incompleta',
 				sprintf(
 					/* translators: 1: nome del componente, 2: messaggio di errore, 3: identificativo del tipo di contenuto. */
 					__( '%1$s non ha completato la registrazione: %2$s Il tipo %3$s resta registrato e chiuso al pubblico, e il componente non ha modificato ne\' i permessi ne\' la versione installata. Riprovera\' alla richiesta successiva.', 'albo-pretorio-pa' ),
@@ -138,6 +177,8 @@ final class TipoAtto {
 		}
 
 		self::$completa = true;
+
+		self::dimentica_avvisi_del_tentativo();
 
 		return true;
 	}
@@ -188,15 +229,36 @@ final class TipoAtto {
 	}
 
 	/**
-	 * Registra il tipo presso il nucleo comune e ne conserva l'oggetto.
+	 * Nessuno dei due elenchi di voci e' di qualcun altro.
 	 *
 	 * @return true|\WP_Error
 	 */
-	private static function registra_tipo() {
+	private static function verifica_elenchi_di_voci_liberi() {
 		$occupato = self::elenco_di_voci_occupato();
 
-		if ( '' !== $occupato ) {
+		if ( '' === $occupato ) {
+			return true;
+		}
+
+		/*
+		 * Il messaggio cambia con lo stato, perche' dire "resta attivo e
+		 * inerte" a chi ha gia' il tipo registrato sarebbe falso: quel tipo
+		 * c'e', e l'avviso deve dire cosa resta in piedi.
+		 */
+		if ( self::tipo_nostro() ) {
 			self::avvisa(
+				'elenco_in_conflitto',
+				sprintf(
+					/* translators: 1: nome del componente, 2: identificativo dell'elenco di voci in conflitto, 3: identificativo del tipo di contenuto. */
+					__( '%1$s non ha completato la registrazione: l\'elenco di voci %2$s e\' ora registrato da un altro componente, e sostituirlo cancellerebbe il suo. Il tipo %3$s resta registrato e chiuso al pubblico, e il componente non ha modificato ne\' i permessi ne\' la versione installata. Rinominare l\'altro elenco oppure disattivare il componente che lo registra.', 'albo-pretorio-pa' ),
+					NOME,
+					$occupato,
+					TIPO
+				)
+			);
+		} else {
+			self::avvisa(
+				'elenco_in_conflitto',
 				sprintf(
 					/* translators: 1: nome del componente, 2: identificativo dell'elenco di voci in conflitto. */
 					__( '%1$s resta attivo e inerte: l\'elenco di voci %2$s e\' gia\' registrato da un altro componente, e sostituirlo cancellerebbe il suo. Rinominare l\'altro elenco oppure disattivare il componente che lo registra.', 'albo-pretorio-pa' ),
@@ -204,18 +266,29 @@ final class TipoAtto {
 					$occupato
 				)
 			);
-
-			return new \WP_Error(
-				'albo_elenco_di_voci_in_conflitto',
-				sprintf(
-					/* translators: %s: identificativo dell'elenco di voci in conflitto. */
-					__( 'Elenco di voci %s gia\' registrato da un altro componente.', 'albo-pretorio-pa' ),
-					$occupato
-				),
-				array( 'elenco' => $occupato )
-			);
 		}
 
+		return new \WP_Error(
+			'albo_elenco_di_voci_in_conflitto',
+			sprintf(
+				/* translators: %s: identificativo dell'elenco di voci in conflitto. */
+				__( 'Elenco di voci %s gia\' registrato da un altro componente.', 'albo-pretorio-pa' ),
+				$occupato
+			),
+			array( 'elenco' => $occupato )
+		);
+	}
+
+	/**
+	 * Registra il tipo presso il nucleo comune e ne conserva l'oggetto.
+	 *
+	 * Le collisioni le ha gia' guardate chi chiama, prima di questo passaggio
+	 * e prima di quello degli elenchi di voci: guardarle qui dentro lascerebbe
+	 * scoperto il ritentativo, che questo passaggio non lo esegue affatto.
+	 *
+	 * @return true|\WP_Error
+	 */
+	private static function registra_tipo() {
 		$esito = conformita_core_registra_tipo(
 			TIPO,
 			array(
@@ -237,6 +310,7 @@ final class TipoAtto {
 
 		if ( is_wp_error( $esito ) ) {
 			self::avvisa(
+				'tipo_non_registrato',
 				sprintf(
 					/* translators: 1: nome del componente, 2: messaggio di errore del componente comune. */
 					__( '%1$s resta attivo e inerte: il tipo atto non e\' stato registrato. %2$s', 'albo-pretorio-pa' ),
@@ -256,12 +330,16 @@ final class TipoAtto {
 	/**
 	 * Il primo dei due elenchi di voci gia' registrato da qualcun altro.
 	 *
-	 * **Si guarda prima di registrare il tipo, e non dopo.** WordPress mette
+	 * **Si guarda prima di ogni tentativo, e non dopo.** WordPress mette
 	 * l'oggetto nuovo nel registro globale e sostituisce quello che trova, senza
 	 * dire niente: accorgersene dopo significherebbe avere gia' cancellato
 	 * l'elenco di un altro componente. E indietro non si torna in modo pulito,
 	 * perche' il meccanismo comune non espone una funzione per smontare quel
 	 * solo tipo senza lasciare uno stato a meta'.
+	 *
+	 * Ogni tentativo, non solo il primo: un identificativo libero quando il
+	 * tipo e' nato puo' essere di qualcun altro quando si rifa' la parte che
+	 * era caduta.
 	 *
 	 * @return string Identificativo in conflitto, stringa vuota se non ce ne sono.
 	 */
@@ -280,29 +358,6 @@ final class TipoAtto {
 		}
 
 		return '';
-	}
-
-	/**
-	 * Il tipo risulta registrato da questo componente in questa richiesta.
-	 *
-	 * @return bool
-	 */
-	public static function registrato(): bool {
-		if ( ! self::$registrato || null === self::$oggetto_tipo ) {
-			return false;
-		}
-
-		if ( get_post_type_object( TIPO ) !== self::$oggetto_tipo ) {
-			return false;
-		}
-
-		foreach ( self::$oggetti_elenchi as $nome => $oggetto ) {
-			if ( get_taxonomy( (string) $nome ) !== $oggetto ) {
-				return false;
-			}
-		}
-
-		return true;
 	}
 
 	/**
@@ -499,13 +554,27 @@ final class TipoAtto {
 	/**
 	 * Registra un messaggio per chi puo' rimediare.
 	 *
+	 * @param string $chiave    Chiave con cui l'avviso si riconosce e si toglie.
 	 * @param string $messaggio Testo dell'avviso.
 	 */
-	private static function avvisa( string $messaggio ): void {
-		self::$avvisi[] = $messaggio;
+	private static function avvisa( string $chiave, string $messaggio ): void {
+		self::$avvisi[ $chiave ] = $messaggio;
 
 		if ( ! has_action( 'admin_notices', array( self::class, 'mostra_avvisi' ) ) ) {
 			add_action( 'admin_notices', array( self::class, 'mostra_avvisi' ) );
+		}
+	}
+
+	/**
+	 * Toglie gli avvisi dei tentativi che la registrazione completa smentisce.
+	 *
+	 * **Si tolgono per chiave, non tutti.** Gli avvisi delle altre superfici
+	 * parlano di condizioni che questa funzione non ha cambiato, e cancellarli
+	 * qui vorrebbe dire nascondere un guasto vero per averne risolto un altro.
+	 */
+	private static function dimentica_avvisi_del_tentativo(): void {
+		foreach ( self::AVVISI_DEL_TENTATIVO as $chiave ) {
+			unset( self::$avvisi[ $chiave ] );
 		}
 	}
 

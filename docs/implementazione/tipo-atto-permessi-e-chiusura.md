@@ -31,12 +31,12 @@ all'attivazione. La chiusura della pubblicazione è un elenco ordinato di regole
 solo sbarramento, agganciato al punto in cui WordPress prepara la scrittura di un
 contenuto: oggi la lista contiene una regola sola.
 
-**Come si prova, e cosa lo farebbe diventare rosso.** Le prove sono sessantasei in
+**Come si prova, e cosa lo farebbe diventare rosso.** Le prove sono settanta in
 tutto, su tre avvii separati della suite. Rileggono lo stato invece di fidarsi di quello
 che una funzione risponde: il tipo risulta registrato chiedendolo al meccanismo comune, i
 permessi risultano addosso ai ruoli chiedendo il permesso a utenti veri, e l'atto risulta
 irraggiungibile facendo una richiesta pubblica al suo indirizzo. La prova di non vacuità è
-stata eseguita a parte, con diciotto guasti introdotti uno per volta in una copia usa e
+stata eseguita a parte, con ventitre guasti introdotti uno per volta in una copia usa e
 getta: la tabella in fondo dice quale guasto ha fatto cadere quale prova.
 
 ## I nove punti
@@ -126,7 +126,9 @@ filtro di scadenza del meccanismo comune. In questa fase la prima da sola la imp
 
 ### 7. Prove aggiunte
 
-Righe A-11..A-27 del catalogo. Le tre categorie restano distinte anche nelle prove: A-23 e
+Righe A-11..A-27 del catalogo, cioè quelle della prima stesura; le righe A-28..A-46 sono
+nate nelle revisioni e ciascuna è spiegata nella sezione del giro che l'ha prodotta. Le tre
+categorie restano distinte anche nelle prove: A-23 e
 A-24 valgono sui **tre ingressi supportati**, A-15 verifica l'**assenza** delle tre rotte,
 e A-25 verifica che lo **scavalcamento grezzo** cambi davvero lo stato e non renda
 raggiungibile.
@@ -188,9 +190,9 @@ Sette prove, raccolte nel documento di collaudo di rilascio del progetto.
 ## Prova di non vacuità
 
 Eseguita in una copia presa fuori dal controllo di versione, quindi senza la possibilità
-materiale di committare codice rotto. Diciotto guasti in tutto, uno per volta, ogni volta
+materiale di committare codice rotto. Ventitre guasti in tutto, uno per volta, ogni volta
 con ripristino verificato: quattro nella prima stesura, cinque dopo la prima revisione, sei
-dopo la seconda, tre dopo la terza.
+dopo la seconda, tre dopo la terza, cinque dopo la quarta.
 
 | Guasto introdotto | Prova diventata rossa | Come è caduta |
 |---|---|---|
@@ -212,9 +214,14 @@ dopo la seconda, tre dopo la terza.
 | L'oggetto del tipo si conserva solo a registrazione completa | A-43, prima installazione | nello stato parziale il tipo non risulta più nostro e lo sbarramento smette |
 | L'installazione si accontenta della proprietà del tipo | A-41 e A-43, sito già installato | i permessi si scrivono su un insieme incompleto |
 | L'assegnazione non passa più sui ruoli non dichiarati | A-21 | il permesso nuovo non raggiunge il ruolo che aveva già gli altri |
+| Il metodo dell'osservazione ambigua torna nel ramo | A-44 | la forma tolta ricompare, e con essa la domanda che confondeva le due cose |
+| La verifica delle collisioni torna dentro la registrazione del tipo | A-45, mentre **A-30 resta verde** | il ritentativo la salta e sostituisce l'elenco di un altro componente |
+| L'avviso del tentativo non si toglie alla postcondizione completa | A-46, seconda direzione | in bacheca resta un errore che descrive uno stato non più vero |
+| Al recupero si cancellano tutti gli avvisi invece dei tre per chiave | A-46, controllo di non indiscriminatezza | sparisce anche l'avviso di un'altra superficie, che era ancora vero |
+| La versione si riallinea a mano prima della richiesta di recupero | A-43, sito già installato | l'installazione esce perché non ha niente da fare, e il ritentativo non viene provato |
 
-Prima dei guasti e dopo ogni ripristino: sessantasei prove verdi, cioè sessanta, quattro e
-due sui tre avvii della suite. Al termine la copia è stata cancellata e l'albero
+Prima dei guasti e dopo ogni ripristino: settanta prove verdi, cioè sessantaquattro, quattro
+e due sui tre avvii della suite. Al termine la copia è stata cancellata e l'albero
 di lavoro non presentava differenze.
 
 **Limite dichiarato:** quella prova è girata su PHP 8.4, che non è nessuna delle due
@@ -308,7 +315,7 @@ l'avviso glielo dice.
 Il difetto trovato in questo giro non è un pezzo dimenticato: è un **errore di modello**, e
 produceva il danno nella direzione peggiore.
 
-`TipoAtto::registrato()` rispondeva insieme a due domande che non sono la stessa:
+L'osservazione unica che c'era prima rispondeva insieme a due domande che non sono la stessa:
 
 1. il tipo atto oggi nel registro è ancora quello che abbiamo registrato noi?
 2. la registrazione è **completa**, cioè lo sono anche tutti e due gli elenchi di voci?
@@ -353,3 +360,84 @@ Resta separato, e non si usa come scusa, il caso già documentato dello scavalca
 la funzione che scrive lo stato direttamente può ancora portare un atto a pubblicato, e lì la
 garanzia è che resti irraggiungibile. Non giustifica il mancato sbarramento degli ingressi
 che controlliamo.
+
+## La quinta revisione: tre difetti che sessantasei prove non toccavano
+
+I tre difetti di questo giro hanno in comune il motivo per cui erano invisibili: **nessuno
+dei tre sta su un percorso che le prove esistenti percorrevano.** Il primo su nessun
+percorso affatto, il secondo su un percorso che si apre solo alla seconda chiamata, il terzo
+su cosa resta in bacheca dopo che la correzione ha già funzionato.
+
+### Il metodo tolto che era rimasto
+
+La quarta revisione ha sostituito l'osservazione ambigua con due osservazioni distinte, e ha
+cambiato tutti i chiamanti. **Non ha tolto il metodo.** Quel metodo leggeva una proprietà
+statica che nel frattempo era stata rinominata, quindi chiamarlo sarebbe stato un errore di
+esecuzione; ma nessuno lo chiamava, quindi nessuna prova di funzionamento lo esercitava e la
+verifica continua restava verde.
+
+Il danno peggiore non era l'errore di esecuzione. Era che chi lo avesse trovato avrebbe
+avuto di nuovo a disposizione, con un nome che sembra quello giusto, esattamente la domanda
+ambigua che la correzione aveva eliminato, e l'avrebbe usata credendo di chiedere la
+proprietà del tipo.
+
+Per questo A-44 è una riga **statica**: una prova che esegue codice non può trovare codice
+che nessuno esegue. Cerca le tre forme in cui quel nome poteva comparire, e guarda anche le
+prove, perché una prova che chiama il metodo tolto è un errore di esecuzione tanto quanto
+una chiamata dal componente.
+
+### La verifica delle collisioni che il ritentativo saltava
+
+La verifica stava **dentro** la registrazione del tipo. Il ritentativo però quella parte non
+la esegue: il tipo è già nostro, quindi si salta direttamente alla registrazione degli
+elenchi. Sequenza possibile dentro una sola richiesta:
+
+1. registrazione parziale: il tipo e il primo elenco restano nostri, il secondo cade;
+2. un altro componente registra il secondo elenco, che è un identificativo libero;
+3. l'albo ritenta;
+4. la verifica non viene eseguita, perché stava in un passaggio che il ritentativo non fa;
+5. la registrazione dell'elenco **sostituisce quello dell'altro componente**.
+
+È la garanzia di A-30 che vale alla prima richiesta e non alla seconda. La verifica adesso
+sta nel flusso esterno, prima sia della registrazione del tipo sia di quella degli elenchi, e
+continua a distinguere i tre casi: elenco già nostro non è una collisione, elenco assente si
+può registrare, elenco presente con un oggetto diverso da quello conservato è un conflitto e
+non si sostituisce niente.
+
+**A-30 da sola non bastava a scoprirlo**, e la prova di non vacuità lo mostra: rimesso il
+controllo dentro la registrazione del tipo, A-45 diventa rossa e le due varianti di A-30
+restano verdi.
+
+### L'avviso che sopravviveva al recupero
+
+Un tentativo fallito lascia un avviso che dice "non ha completato la registrazione, riproverà
+alla richiesta successiva". Ma A-43 dimostra che una seconda chiamata **nella stessa
+richiesta** può completare. Quando succedeva, l'avviso restava in lista, e al momento di
+mostrare la bacheca compariva un errore che descriveva uno stato non più vero.
+
+Un avviso falso è peggio di nessun avviso: chi lo legge non ha modo di sapere che è vecchio,
+e cerca di rimediare a un guasto che non c'è più.
+
+Adesso gli avvisi hanno una chiave. Raggiunta la postcondizione completa si tolgono **per
+chiave** i tre che parlano di un tentativo di registrazione: registrazione incompleta,
+elenco in conflitto, tipo non registrato. Sono i tre che quella postcondizione smentisce.
+Gli avvisi delle altre superfici non si toccano, e la prova lo verifica: dopo il recupero
+l'avviso sui permessi che nessun ruolo possiede, che in quel momento è ancora vero, continua
+a comparire.
+
+Sono tre avvisi e non uno perché il difetto è identico in tutti e tre: ciascuno descrive un
+tentativo che non ha completato, e ciascuno diventa falso nello stesso istante. Toglierne uno
+solo avrebbe lasciato due copie dello stesso problema.
+
+### Il caso che la prova non provava
+
+Nella prova sul sito già installato, la versione memorizzata veniva riportata a quella
+corrente prima della richiesta di recupero. Con la versione già allineata l'installazione
+esce subito perché non ha niente da fare, quindi la prova non distingueva "il lavoro
+riparte" da "il lavoro non serviva": la verifica del ritentativo era vuota.
+
+Adesso la versione resta quella vecchia, e la richiesta di recupero verifica che
+l'installazione venga **davvero** rieseguita e che la versione avanzi a quella corrente.
+**Qui non c'era nessun difetto nel codice**, che già ritentava correttamente: c'era una prova
+che non lo dimostrava. Vale la pena dirlo, perché una prova che passa per il motivo sbagliato
+è indistinguibile da una che passa per quello giusto finché qualcuno non la rompe apposta.
