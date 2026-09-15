@@ -188,8 +188,9 @@ Sette prove, raccolte nel documento di collaudo di rilascio del progetto.
 ## Prova di non vacuità
 
 Eseguita in una copia presa fuori dal controllo di versione, quindi senza la possibilità
-materiale di committare codice rotto. Nove guasti in tutto, uno per volta, ogni volta con
-ripristino verificato: quattro nella prima stesura, cinque dopo la revisione.
+materiale di committare codice rotto. Quindici guasti in tutto, uno per volta, ogni volta
+con ripristino verificato: quattro nella prima stesura, cinque dopo la prima revisione, sei
+dopo la seconda.
 
 | Guasto introdotto | Prova diventata rossa | Come è caduta |
 |---|---|---|
@@ -201,9 +202,15 @@ ripristino verificato: quattro nella prima stesura, cinque dopo la revisione.
 | Il tipo diventa interrogabile dal pubblico | A-25 | l'indirizzo dell'atto risponde invece di dare non trovato |
 | Lo stato programmato esce dagli stati negati | A-23, ingresso della programmazione | l'atto resta programmato invece di tornare in bozza |
 | L'esposizione per programmi si accende | A-15 | compaiono le rotte che non devono esistere |
+| La verifica dei permessi torna ai soli ruoli dichiarati | A-39 | il permesso perso sul ruolo completato da sé non viene visto |
+| Il ritentativo torna a fidarsi della memoria invece che della banca dati | A-39 | il secondo tentativo non riscrive niente e fallisce di nuovo |
+| Dopo la creazione del ruolo si controlla solo che esista | A-40 | il marcatore non scritto passa per buono |
+| La proprietà torna a essere il solo valore memorizzato | A-41, tutte e tre le varianti | un oggetto sostituito da altri continua a risultare nostro |
+| Il segno nell'indirizzo torna prima della distinzione | A-42 | una chiamata da codice fa comparire l'avviso a una persona |
+| Il tipo diventa interrogabile dal pubblico | A-43 | nello stato parziale il contenuto diventa raggiungibile |
 | L'assegnazione non passa più sui ruoli non dichiarati | A-21 | il permesso nuovo non raggiunge il ruolo che aveva già gli altri |
 
-Prima dei guasti e dopo ogni ripristino: cinquantotto prove verdi, cioè cinquantadue,
+Prima dei guasti e dopo ogni ripristino: sessantacinque prove verdi, cioè cinquantanove,
 quattro e due sui tre avvii della suite. Al termine la copia è stata cancellata e l'albero
 di lavoro non presentava differenze.
 
@@ -249,3 +256,46 @@ della suite. Una prova che si affida all'azzeramento del componente parte da que
 lasciato l'esecuzione prima, perché quell'azzeramento chiede al meccanismo comune i nomi dei
 permessi e quindi funziona solo a tipo registrato. Le prove hanno ora un azzeramento proprio,
 che riconosce i permessi dalla forma del nome e non chiede niente a nessuno.
+
+## La terza revisione, e cosa ha trovato
+
+Quattro difetti tecnici e due contraddizioni fra documenti. I difetti sono di nuovo dello
+stesso genere del giro precedente, e la cosa è istruttiva: **una postcondizione scritta
+male somiglia moltissimo a una postcondizione giusta**, perché in condizioni normali dice
+la stessa cosa.
+
+| # | Che cosa faceva | Che cosa fa adesso |
+|---|---|---|
+| 1 | Verificava i permessi sui soli ruoli dichiarati | Verifica **ogni ruolo toccato**, compresi quelli che l'assegnazione completa da sé. Erano proprio quelli di cui nessuno tiene il conto |
+| 2 | Dopo aver creato il ruolo controllava che esistesse | Controlla che il **marcatore** sia stato scritto, e se non lo è rimuove il ruolo e rilegge la rimozione. Senza recupero un ruolo creato a metà sarebbe diventato una collisione permanente |
+| 3 | La proprietà del tipo era un valore booleano | È il confronto per identità con gli oggetti ricevuti alla registrazione. Un altro componente può sostituirli e WordPress non lo dice a nessuno |
+| 4 | Il segno nell'indirizzo si metteva prima di distinguere l'origine | Si mette solo dentro il ramo della schermata. Prima, una chiamata da codice faceva comparire un avviso a una persona che non aveva chiesto niente |
+| 5 | Nel catalogo A-28..A-38 erano ancora "da fare" | Portate a "fatto": erano verdi in verifica continua |
+| 6 | Nel catalogo restava "nessuna pubblicazione per nessuno" | Riscritta: contraddiceva A-25 |
+
+**Un difetto trovato correggendone un altro, e vale la pena raccontarlo.** Estendendo la
+verifica a tutti i ruoli, la prova ha mostrato che **il ritentativo non ritentava**. Dopo
+una scrittura persa l'oggetto in memoria ha il permesso e la banca dati no; la funzione che
+concede saltava il lavoro perché chiedeva alla memoria se il permesso c'era già, e trovava
+di sì. Risultato: il secondo tentativo non riscriveva niente e falliva di nuovo, per
+sempre. Adesso legge dalla banca dati anche per decidere che cosa scrivere. È l'unico caso
+in cui saltare il lavoro è esattamente l'errore da non fare.
+
+### Che cosa resta registrato quando la postcondizione degli elenchi cade
+
+La domanda era lecita e la risposta precedente, "il componente resta inerte", non bastava.
+Quando la registrazione di un elenco di voci non regge, **il tipo è già registrato** presso
+WordPress e presso il meccanismo comune, e uno dei due elenchi può essere già registrato.
+
+**Non si può smontare in modo pulito.** Il meccanismo comune non espone una funzione per
+togliere quel solo tipo, e toglierlo a WordPress lascerebbe il registro del meccanismo
+comune a dire il contrario, cioè uno stato peggiore di quello che si vuole riparare. Per
+questo la verifica sulle collisioni avviene **prima** della registrazione del tipo: è
+l'unico momento in cui indietro si torna gratis.
+
+Quello che si garantisce è quindi un elenco chiuso di cose che **non** succedono, e la riga
+A-43 le verifica una per una: nessun permesso su nessun ruolo, nessun ruolo proprio creato,
+nessuna versione memorizzata, nessuna azione del componente sui contenuti, e nessuna
+raggiungibilità pubblica, perché gli argomenti di registrazione restano quelli chiusi.
+Detto in breve: **il tipo resta, e resta muto.** Chi amministra il sito deve saperlo, e
+l'avviso glielo dice.
