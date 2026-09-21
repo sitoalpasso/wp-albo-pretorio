@@ -79,7 +79,7 @@ final class Installazione {
 		 * questo lavoro: alla richiesta dopo il confronto direbbe che va tutto
 		 * bene, e i permessi resterebbero quelli vecchi per sempre.
 		 */
-		if ( ! update_option( OPZIONE_VERSIONE, VERSIONE, false ) ) {
+		if ( ! update_option( OPZIONE_VERSIONE, VERSIONE, true ) ) {
 			return false;
 		}
 
