@@ -203,8 +203,9 @@ di altri, e si dichiara inerte mentre non lo è.
 | A-45 | fatto | **Il ritentativo non sostituisce un elenco diventato di altri**: si provoca la postcondizione parziale di A-31, un componente esterno registra l'elenco che manca, poi l'albo ritenta nella stessa richiesta | il ritentativo si ferma con l'errore di collisione; l'elenco esterno è ancora lo **stesso oggetto** e i suoi argomenti sono invariati; la registrazione resta incompleta; l'installazione non prosegue; lo sbarramento continua a respingere una pubblicazione da un ingresso supportato, perché il tipo è ancora nostro. **La verifica delle collisioni appartiene al flusso di `registra()`, prima di ogni tentativo**, e non alla sola registrazione del tipo: là dentro il ritentativo la salta, perché il tipo è già nostro, e cancella l'elenco dell'altro. È la garanzia di A-30 che si perde alla seconda richiesta |
 | A-46 | fatto | **L'avviso di registrazione incompleta sparisce quando il recupero riesce**, in due direzioni: subito dopo il fallimento della postcondizione, e dopo la seconda chiamata che nella stessa richiesta completa la registrazione | dopo il fallimento l'avviso c'è; dopo il recupero **non viene più mostrato**, perché descrive uno stato che non è più vero e chi lo legge in bacheca non ha modo di sapere che è vecchio. Gli avvisi hanno una chiave e si tolgono per chiave: si tolgono i tre avvisi del tentativo di registrazione, non tutti gli avvisi. **Controllo che non sia una cancellazione indiscriminata**: l'avviso di un'altra superficie, quello sui permessi che nessun ruolo possiede, continua a comparire |
 
-**Cosa non chiudono queste righe.** Nessun dato dell'atto oltre a oggetto, tipo e organo:
-niente schermata di compilazione, niente controllo campo per campo.
+**Cosa non chiudono queste righe.** Nessun dato dell'atto oltre all'oggetto: tipo e organo
+esistono come elenchi di voci e non si assegnano ancora all'atto. Niente schermata di
+compilazione, niente controllo campo per campo.
 
 **Sulla pubblicazione la garanzia va detta per intero**, perché "nessuna pubblicazione per
 nessuno" contraddice A-25 e prometterebbe più di quello che il codice mantiene. I tre

@@ -84,11 +84,11 @@ pubblicazione all'albo li vede e li redige.
 
 Scritti una volta per ogni cambio di versione: il numero di versione installata in
 un'opzione, i permessi sui ruoli, il ruolo proprio. L'opzione è il primo dato che questo
-componente scrive nella banca dati: l'unità precedente non ne scriveva nessuno. Scritti
-quando qualcuno redige: oggetto e le due voci scelte. Scritto quando uno sbarramento
-interviene: il motivo del rifiuto, in un dato temporaneo che vive cinque minuti. Letto: la
-corrispondenza fra nomi generici e permessi derivati, chiesta al meccanismo comune dopo la
-registrazione del tipo.
+componente scrive nella banca dati: l'unità precedente non ne scriveva nessuno. Scritto
+quando qualcuno redige: l'oggetto, perché in A2a tipo e organo non si scelgono ancora dalla
+scheda dell'atto. Scritto quando uno sbarramento interviene: il motivo del rifiuto, in un
+dato temporaneo che vive cinque minuti. Letto: la corrispondenza fra nomi generici e
+permessi derivati, chiesta al meccanismo comune dopo la registrazione del tipo.
 
 ### 5. Permessi
 
