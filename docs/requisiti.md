@@ -5,7 +5,7 @@ requisito ha un identificativo (ALBO-01 fino ad ALBO-26): è lo stesso usato nei
 commit e nelle discussioni, così si può sempre risalire dal codice al motivo per cui
 esiste. In fondo c'è il **catalogo corrente dei requisiti**, con le fonti normative e le
 decisioni aperte marcate esplicitamente. Non è una specifica completa e non lo sarà finché
-ALBO-22 resta una decisione incompleta e ALBO-07 e ALBO-08 restano da confermare.
+ALBO-07 e ALBO-08 restano da confermare.
 
 ## L'idea in dieci righe
 
@@ -185,7 +185,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-19 | da fare | Battito di controllo con avviso | **prodotto**, motivato dal guasto silenzioso sanzionato nel provv. Garante marzo 2026 |
 | ALBO-20 | da fare | L'atto defisso non viene più servito a nessuno | **norma** il risultato (Garante). **Prodotto** esclusione dalla memoria di pagina oppure invalidazione immediata: due strade, la scelta è nostra |
 | ALBO-21 | da fare | Scadenza sull'ora civile italiana | **prodotto**: correttezza tecnica, nessuna fonte esterna |
-| ALBO-22 | da fare | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto, decisione incompleta**: vedi la nota qui sotto |
+| ALBO-22 | da fare | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto**, decisione chiusa il 2026-09-21: la tabella delle transizioni è nella nota qui sotto. Due sotto-decisioni restano aperte e non bloccano l'unità |
 | ALBO-23 | da fare | All'attivazione l'insieme minimo di permessi sul tipo atto arriva all'amministratore | **prodotto** |
 | ALBO-24 | da fare | A ogni aggiornamento i permessi nuovi arrivano ai ruoli che avevano già gli altri | **prodotto** |
 | ALBO-25 | da fare | Se nessun ruolo possiede i permessi del tipo atto, l'amministrazione lo segnala | **prodotto** |
@@ -211,30 +211,94 @@ Fino al 2026-09-11 questa colonna aveva una categoria sola, e formule come "pras
 pubblicità legale" o "operativo" stavano accanto al GDPR: facevano sembrare obblighi di legge
 delle decisioni progettuali nostre.
 
-### Nota su ALBO-22: decisione incompleta
+### Nota su ALBO-22: la decisione, e le due sotto-decisioni che restano aperte
 
-Non è un requisito con il testo ancora da battere a macchina: è una **decisione che non è
-stata presa fino in fondo**, e va chiusa **prima** di aprire l'unità che costruisce il flusso
-di pubblicazione, non insieme a essa. Chi implementa un flusso mentre lo sta specificando
-sceglie la strada che il codice gli rende comoda, e la specifica diventa il resoconto di
-quello che è uscito.
+Era una decisione presa a metà, ed è stata chiusa il **2026-09-21**, prima di aprire l'unità
+che costruisce il flusso di pubblicazione e non insieme a essa. Il motivo dell'ordine resta
+quello di sempre: chi implementa un flusso mentre lo sta specificando sceglie la strada che
+il codice gli rende comoda, e la specifica diventa il resoconto di quello che è uscito.
 
-**Cosa è già deciso**: gli stati sono bozza, in verifica, pubblicato, defisso, annullato; la
-restituzione in bozza richiede una motivazione; la pubblicazione è tutto o niente; chi
-prepara e chi pubblica sono permessi distinti.
+**Le cinque situazioni** restano quelle già decise: bozza, in verifica, pubblicato, defisso,
+annullato.
 
-**Una cosa che il flusso non può contraddire.** Lo **stato memorizzato** e la **condizione di
-scadenza** sono due cose diverse. Alla mezzanotte del giorno dopo la data di fine l'atto
-diventa **immediatamente invisibile al pubblico**, per opera del filtro in lettura, anche se
-nella banca dati risulta ancora "pubblicato". Il compito pianificato porterà poi lo stato
-memorizzato a "defisso", e se non gira quel passaggio non avviene, senza che cambi nulla di
-ciò che il pubblico vede. Il flusso non può quindi trattare "defisso" come lo stato che rende
-invisibile un atto: la conformità non dipende da uno stato scritto da qualcuno, e questo è già
-costruito e collaudato nel meccanismo comune.
+#### Il criterio con cui il disegno è stato scelto
 
-**Cosa manca**: quali transizioni sono consentite fra quali stati, chi può compiere ciascuna,
-e cosa succede a una transizione rifiutata. Senza questi tre pezzi il requisito non è
-verificabile, e per questo non ha righe in `collaudo.md`.
+Erano possibili tre disegni, che si distinguono su due domande: se il passaggio in verifica
+sia obbligatorio, e se chi pubblica possa essere la stessa persona che ha preparato l'atto.
+
+1. verifica obbligatoria e **due persone necessariamente diverse**;
+2. verifica obbligatoria, **una persona sola ammessa** se possiede entrambi i permessi;
+3. **verifica facoltativa**, con la possibilità di pubblicare direttamente da bozza.
+
+È stato scelto il **secondo**. Il primo è contenuto nel secondo: un ente che vuole le due
+firme distinte ottiene esattamente quel comportamento non assegnando a nessuno entrambi i
+permessi, e il meccanismo dei ruoli del componente lo consente già senza una riga di codice
+in più. Imporlo a tutti avrebbe invece cablato nel componente una regola organizzativa che
+cambia da ente a ente, proprio ciò che le regole di sviluppo vietano, e reso il componente
+inservibile dove una persona sola fa tutto il lavoro. Il terzo è stato scartato perché
+sposterebbe il controllo sui dati personali (ALBO-11) da un passaggio obbligato a una
+conferma dentro l'azione di pubblicazione: un punto solo invece di due, sul requisito che
+nasce dai provvedimenti del Garante del marzo 2026.
+
+#### Le transizioni consentite, e chi le compie
+
+| Da | A | Chi | Condizioni |
+|---|---|---|---|
+| (nuovo) | bozza | chi redige | nessuna: la bozza si salva incompleta |
+| bozza | bozza | chi redige | nessuna |
+| bozza | in verifica | chi redige | devono esserci tutti i dati che la pubblicazione pretende, data di fine compresa (ALBO-01, ALBO-02) |
+| in verifica | bozza | chi pubblica | motivazione obbligatoria, che finisce nel registro (ALBO-10). L'atto torna modificabile |
+| in verifica | pubblicato | chi pubblica | conferma esplicita del controllo sui dati personali (ALBO-11). Tutto o niente |
+| pubblicato | defisso | il compito pianificato | alla scadenza. È una registrazione, non un interruttore: vedi il vincolo più sotto |
+| pubblicato | defisso | chi pubblica | motivazione obbligatoria, e **soltanto su un atto non ancora scaduto** |
+| pubblicato | annullato | chi pubblica | motivazione obbligatoria. L'atto conserva numero, stato e motivo |
+| defisso | annullato | chi pubblica | come sopra |
+
+**Chi redige e chi pubblica possono essere la stessa persona**, se possiede entrambi i
+permessi. I due passaggi restano due, e il controllo sui dati personali sta nel secondo.
+
+**Un atto in verifica non è modificabile**, né da chi redige né da chi pubblica. Se va
+corretto torna in bozza con la sua motivazione. L'invariante è: **quello che è stato
+verificato è quello che esce.**
+
+**Tutto il resto è vietato, e non per omissione.** In particolare: non si pubblica saltando
+la verifica; non si torna indietro da pubblicato, defisso o annullato, per nessuno e da
+nessun ingresso, amministratore compreso; annullato è terminale; un atto pubblicato, defisso
+o annullato non si cancella (ALBO-09).
+
+**Cosa succede a una transizione rifiutata.** L'atto resta nello stato in cui era, e la riga
+nella banca dati non attraversa mai lo stato richiesto: nessuna riparazione tardiva. Chi ha
+tentato da una schermata riceve il motivo; chi ha tentato da un programma riceve la
+segnalazione destinata a chi scrive codice.
+
+#### Il vincolo che il flusso non può contraddire
+
+Lo **stato memorizzato** e la **condizione di scadenza** sono due cose diverse. Alla
+mezzanotte del giorno dopo la data di fine l'atto diventa **immediatamente invisibile al
+pubblico**, per opera del filtro in lettura, anche se nella banca dati risulta ancora
+"pubblicato". Il compito pianificato porterà poi lo stato memorizzato a "defisso", e se non
+gira quel passaggio non avviene, senza che cambi nulla di ciò che il pubblico vede. Nessuna
+transizione della tabella può quindi essere usata come condizione di visibilità, e "defisso"
+in particolare è una registrazione contabile: la conformità non dipende da uno stato scritto
+da qualcuno, e questo è già costruito e collaudato nel meccanismo comune.
+
+Da qui discende la condizione sulla defissione anticipata: si dispone **solo su un atto non
+ancora scaduto**, perché su uno scaduto non c'è niente da anticipare. È già invisibile, e il
+compito pianificato lo registrerà.
+
+#### Due sotto-decisioni restano aperte, e non bloccano l'unità
+
+1. **Un atto annullato prima della scadenza resta visibile al pubblico, con lo stato
+   dichiarato?** Negli albi la pubblicazione dell'annullamento ha una sua funzione
+   informativa. La transizione si costruisce comunque: che cosa il pubblico veda di un atto
+   annullato è una domanda sul filtro in lettura, separata da chi può compiere il passaggio.
+   Finché non è decisa non ha riga in `collaudo.md`.
+2. **Chi dispone la defissione anticipata.** Qui è attribuita a chi pubblica, **in via
+   provvisoria**. Alcuni enti la riservano a un responsabile nominato, che sarebbe una terza
+   figura. La riga di collaudo prova la forma provvisoria e la marca come tale.
+
+Si chiudono guardando come si comportano albi pretorio già in esercizio e, per la seconda,
+contro il regolamento dell'amministrazione.
 
 ### Come si legge la colonna Stato
 
