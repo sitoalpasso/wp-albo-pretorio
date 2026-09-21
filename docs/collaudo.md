@@ -66,6 +66,16 @@ il comportamento non c'è ancora), **fatto** (scritto e verde in CI). Un requisi
 | ALBO-19 | da fare | Si retrodata il timestamp del battito oltre soglia | l'avviso parte verso il responsabile configurato |
 | ALBO-20 | da fare | Cache di pagina simulata attiva, poi defissione | la pagina dell'atto non resta servita dalla cache |
 | ALBO-21 | da fare | Atti in scadenza nei giorni dei due cambi d'ora, fuso del sito su Roma | la scadenza cade nell'istante civile giusto |
+| ALBO-22 | da fare | Si manda in verifica una bozza a cui manca un dato necessario, uno per volta | bloccato ogni volta, con il nome del dato che manca. **Controllo positivo**: con tutti i dati la bozza passa in verifica, altrimenti la riga sarebbe soddisfatta rifiutando tutto |
+| ALBO-22 | da fare | Chi redige tenta il passaggio da in verifica a pubblicato | rifiutato: non possiede quel permesso, e l'atto resta in verifica. **Controllo positivo**: chi pubblica lo compie. Le due direzioni insieme, perché una sola sarebbe vera anche con uno sbarramento che nega a tutti |
+| ALBO-22 | da fare | Si rimanda in bozza un atto in verifica, **senza** motivazione e **con** motivazione | senza, rifiutato e l'atto resta in verifica; con, riesce, l'atto torna modificabile e la motivazione finisce nel registro delle modifiche |
+| ALBO-22 | da fare | Si tenta di modificare un atto **in verifica**, prima da chi redige e poi da chi pubblica | bloccato in entrambi i casi: quello che è stato verificato è quello che esce. Per correggerlo si torna in bozza, che è una transizione tracciata |
+| ALBO-22 | da fare | [attacco] Si tenta di pubblicare **saltando la verifica**, da ogni ingresso: schermata, inserimento e aggiornamento da codice, richiesta di programmazione | sempre bloccato, l'atto resta in bozza. Si osserva il valore **scritto** nella tabella dei contenuti: non attraversa mai lo stato pubblicato |
+| ALBO-22 | da fare | [attacco] Si tenta di riportare indietro un atto **pubblicato**, a bozza e a in verifica, da ogni ingresso e per ogni ruolo, **amministratore compreso** | sempre bloccato: una correzione è un atto nuovo che rinvia al precedente (ALBO-09). Nessuna esenzione per nessuno |
+| ALBO-22 | da fare | [attacco] Si tenta ogni passaggio a partire da **annullato** | sempre bloccato: annullato è terminale, e lo si verifica su tutte e quattro le destinazioni possibili invece che su una sola |
+| ALBO-22 | da fare | **Defissione anticipata** da chi pubblica, con motivazione, su un atto non ancora scaduto; poi la stessa richiesta su un atto già scaduto | nel primo caso riesce, l'atto esce subito dalla vista e la motivazione finisce nel registro. Nel secondo è **rifiutata**: non c'è niente da anticipare, l'atto è già invisibile e il compito pianificato lo registrerà. **Chi possa disporla è una sotto-decisione provvisoria**: qui chi pubblica |
+| ALBO-22 | da fare | Il compito pianificato porta un atto scaduto da pubblicato a defisso, e si verifica che **nessuna decisione del flusso dipenda da quello stato** | con il compito **spento** e la data passata, l'atto è già irraggiungibile su ogni percorso mentre nell'archivio risulta ancora pubblicato; eseguito il compito, lo stato diventa defisso e **non cambia nulla di ciò che il pubblico vede**. È la riga che impedisce di trattare "defisso" come l'interruttore della visibilità |
+| ALBO-22 | da fare | [attacco] Una transizione rifiutata non lascia **stati intermedi** | si osserva il valore scritto nella tabella dei contenuti, non quello che si rilegge alla fine: non attraversa mai lo stato richiesto e rifiutato. Uno stato corretto dopo una riparazione tardiva sarebbe indistinguibile da uno stato mai scritto |
 | ALBO-23 | da fare | Si attiva il componente su un sito pulito | l'amministratore riceve l'insieme minimo di permessi del tipo atto. Si verifica **dopo** l'attivazione e non nel codice: un amministratore vede la voce di menu e riesce a creare un atto |
 | ALBO-24 | da fare | Si aggiorna il componente a una versione che introduce permessi nuovi | i permessi nuovi arrivano ai ruoli che avevano già gli altri. Un aggiornamento che li assegna solo alla prima attivazione lascia scoperti i siti già installati |
 | ALBO-25 | da fare | Nessun ruolo possiede i permessi del tipo atto | avviso in amministrazione che lo dice, con il nome del ruolo mancante |
@@ -73,12 +83,16 @@ il comportamento non c'è ancora), **fatto** (scritto e verde in CI). Un requisi
 | [attacco] | da fare | Un amministratore tenta di cancellare un atto pubblicato | bloccato: nessuna esenzione |
 | [attacco, statico] | da fare | Si cerca ogni rotta REST o AJAX registrata senza nonce o `permission_callback` | nessuna |
 
-**ALBO-22 non ha righe qui, e non è una dimenticanza.** È una decisione incompleta: mancano
-le transizioni consentite, chi può compierle e cosa accade a una transizione rifiutata.
-Finché quei tre pezzi non sono decisi il requisito non è verificabile, e una riga scritta
-adesso misurerebbe quello che il codice avrà fatto invece di quello che deve fare. Vedi la
-nota in `requisiti.md`, che contiene anche il vincolo che il flusso non potrà contraddire:
-lo stato memorizzato non è la condizione di scadenza.
+**ALBO-22 ha ora le sue righe**, perché la decisione è stata chiusa il 2026-09-21: le
+transizioni consentite, chi le compie e cosa accade a una rifiutata stanno nella nota in
+`requisiti.md`, il diagramma in `architettura.md`. Le righe sono **da fare**: il codice non
+esiste ancora, e nascono prima di esso come prescrive il processo.
+
+**Due sotto-decisioni restano aperte**, ed è visibile nelle righe. Se un atto annullato prima
+della scadenza resti visibile al pubblico non è deciso, quindi **non ha riga**: scriverla
+adesso significherebbe misurare quello che il codice avrà fatto. Chi possa disporre la
+defissione anticipata è attribuito a chi pubblica in via provvisoria, e la riga lo prova in
+quella forma dichiarandola tale.
 
 **ALBO-07 e ALBO-08 hanno righe qui ma sono ipotesi**, non impegni: poggiano sulla prassi e
 non su una fonte, e le unità che li costruiscono sono bloccate dalla conferma. Le righe
