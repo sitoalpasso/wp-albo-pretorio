@@ -37,11 +37,19 @@ stato memorizzato a "defisso", e se per un guasto non gira, quel passaggio non a
 **non cambia nulla di ciò che il pubblico vede**. Nessuna decisione sulla visibilità si
 prende leggendo lo stato memorizzato: si prende leggendo la data.
 
-**Attenzione, qui c'e' una decisione ancora aperta.** Quali transizioni siano consentite fra
-quali stati, chi possa compierle e cosa accada a una transizione rifiutata fa parte di
-ALBO-22, che e' incompleta: vedi la nota in `requisiti.md`. Anche i nomi definitivi degli
-stati si chiudono li'. Fino ad allora questo elenco e' il perimetro, non la specifica, e
-`architettura.md` non contiene ancora nessun diagramma delle transizioni.
+**Quali passaggi siano consentiti fra questi stati, chi possa compierli e cosa accada a un
+passaggio rifiutato** è ALBO-22, chiuso il 2026-09-21: la tabella delle transizioni sta nella
+nota in `requisiti.md`, il diagramma in `architettura.md`. Chi redige e chi pubblica possono
+essere la stessa persona se possiede entrambi i permessi; i due passaggi restano due, e il
+controllo sui dati personali sta nel secondo.
+
+**Un atto in verifica non è modificabile**, né da chi redige né da chi pubblica: se va
+corretto torna in bozza con una motivazione, perché quello che è stato verificato è quello
+che esce.
+
+Due sotto-decisioni restano aperte e sono marcate nella nota: se un atto annullato prima
+della scadenza resti visibile al pubblico, e chi disponga la defissione anticipata, che qui
+è attribuita a chi pubblica in via provvisoria.
 
 ## Le risposte alle domande di controllo
 
