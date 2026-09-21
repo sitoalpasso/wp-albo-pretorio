@@ -88,6 +88,67 @@ ATTO
          [da costruire]
 ```
 
+## I passaggi fra le cinque situazioni
+
+Il diagramma qui sopra racconta la vita di un atto come la vede chi lo consulta. Questo dice
+**chi lo fa muovere**, ed è la decisione ALBO-22, chiusa il 2026-09-21 prima di costruire il
+flusso di pubblicazione. La tabella completa, con le condizioni di ciascun passaggio e il
+criterio con cui il disegno è stato scelto fra tre possibili, sta nella nota in
+`requisiti.md`.
+
+```
+  BOZZA  ------------------------------------>  IN VERIFICA
+         chi redige, e solo se ci sono tutti i dati che
+         la pubblicazione pretende, data di fine compresa
+
+  IN VERIFICA  ------------------------------>  BOZZA
+         chi pubblica, con motivazione obbligatoria.
+         L'atto torna modificabile
+
+  IN VERIFICA  ------------------------------>  PUBBLICATO
+         chi pubblica, dopo la conferma esplicita del
+         controllo sui dati personali. Tutto o niente
+
+  PUBBLICATO  ------------------------------->  DEFISSO
+         il compito pianificato, alla scadenza.
+         REGISTRAZIONE, NON INTERRUTTORE: l'atto era gia'
+         invisibile dalla mezzanotte per opera del filtro
+         in lettura, e se il compito non gira non cambia
+         niente di cio' che il pubblico vede
+
+  PUBBLICATO  ------------------------------->  DEFISSO
+         chi pubblica, con motivazione, e soltanto su un
+         atto NON ancora scaduto: su uno scaduto non c'e'
+         niente da anticipare
+
+  PUBBLICATO o DEFISSO  ---------------------->  ANNULLATO
+         chi pubblica, con motivazione. L'atto conserva
+         numero, stato e motivo
+
+  VIETATO, e non per omissione:
+    BOZZA --> PUBBLICATO              saltare la verifica
+    PUBBLICATO --> BOZZA              tornare indietro, per chiunque e da
+    PUBBLICATO --> IN VERIFICA        ogni ingresso, amministratore compreso
+    DEFISSO --> tutto tranne ANNULLATO
+    ANNULLATO --> qualsiasi cosa      e' terminale
+    cancellare un atto PUBBLICATO, DEFISSO o ANNULLATO
+```
+
+**Chi redige e chi pubblica possono essere la stessa persona**, se possiede entrambi i
+permessi: i passaggi restano due e il controllo sui dati personali sta nel secondo. Un ente
+che vuole due firme distinte ottiene esattamente quel comportamento non assegnando a nessuno
+entrambi i permessi, con il meccanismo dei ruoli che il componente già possiede. È il motivo
+per cui il disegno non impone la separazione: imporla avrebbe cablato qui una regola
+organizzativa che cambia da ente a ente, e reso il componente inservibile dove una persona
+sola fa tutto il lavoro.
+
+**Un atto in verifica non è modificabile da nessuno.** Se va corretto torna in bozza con la
+sua motivazione: quello che è stato verificato è quello che esce.
+
+**Una transizione rifiutata non lascia stati intermedi.** L'atto resta dov'era e la riga
+nella banca dati non attraversa mai lo stato richiesto: nessuna riparazione tardiva, perché
+uno stato corretto dopo il fatto è indistinguibile da uno stato mai scritto.
+
 ## Le parti del plugin
 
 **Una sola parte esiste oggi**, ed è quella che dichiara la sezione e le sue politiche. Le
