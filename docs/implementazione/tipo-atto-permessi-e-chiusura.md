@@ -184,7 +184,7 @@ Sette prove, raccolte nel documento di collaudo di rilascio del progetto.
 | 3 | Sullo stesso atto premere Pubblica | resta in bozza e compare l'avviso che dice che la pubblicazione non è aperta e perché | se l'atto risulta pubblicato, il rilascio si annulla |
 | 4 | Creare un utente con il solo ruolo Autore ed entrare con quello | non si vedono gli atti, e aprendo a mano l'indirizzo di creazione WordPress rifiuta | i permessi non sono separati da quelli degli articoli |
 | 5 | Creare un utente con il ruolo Responsabile della pubblicazione all'albo ed entrare con quello | si vedono gli atti e si può creare una bozza | il ruolo proprio non è configurato |
-| 6 | Aprire `/wp-json/wp/v2/albo-atti` da un browser senza accesso | **rotta non trovata** | l'esposizione per programmi non è spenta: il rilascio si annulla |
+| 6 | Aprire `/wp-json/wp/v2/types/atto_albo` da un browser senza accesso | **non trovato (404)** | quella rotta risponde 200 se l'esposizione per programmi è accesa, 404 se è spenta: se risponde 200 il rilascio si annulla |
 | 7 | Togliere i permessi dell'albo a tutti i ruoli e ricaricare la bacheca da amministratore | compare l'avviso, che nomina il ruolo che dovrebbe averli. Poi si ripristina | la condizione verrebbe scambiata per un guasto |
 
 ## Prova di non vacuità
