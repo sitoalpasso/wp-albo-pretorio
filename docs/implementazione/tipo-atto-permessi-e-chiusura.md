@@ -31,13 +31,13 @@ all'attivazione. La chiusura della pubblicazione è un elenco ordinato di regole
 solo sbarramento, agganciato al punto in cui WordPress prepara la scrittura di un
 contenuto: oggi la lista contiene una regola sola.
 
-**Come si prova, e cosa lo farebbe diventare rosso.** Le prove sono settanta in
+**Come si prova, e cosa lo farebbe diventare rosso.** Le prove sono settantaquattro in
 tutto, su tre avvii separati della suite. Rileggono lo stato invece di fidarsi di quello
 che una funzione risponde: il tipo risulta registrato chiedendolo al meccanismo comune, i
 permessi risultano addosso ai ruoli chiedendo il permesso a utenti veri, e l'atto risulta
 irraggiungibile facendo una richiesta pubblica al suo indirizzo. La prova di non vacuità è
-stata eseguita a parte, con ventitre guasti introdotti uno per volta in una copia usa e
-getta: la tabella in fondo dice quale guasto ha fatto cadere quale prova.
+stata eseguita a parte, con ventiquattro guasti introdotti uno per volta in una copia usa
+e getta: la tabella in fondo dice quale guasto ha fatto cadere quale prova.
 
 ## I nove punti
 
@@ -52,6 +52,7 @@ getta: la tabella in fondo dice quale guasto ha fatto cadere quale prova.
 | `includes/class-chiusura-pubblicazione.php` | lo sbarramento e la sua unica regola attuale |
 | `includes/class-rifiuti.php` | i due posti in cui finisce il motivo di un rifiuto |
 | `tests/TipoAttoTest.php`, `tests/StaticoTest.php`, `tests/PermessiTest.php`, `tests/AggiornamentoTest.php`, `tests/ChiusuraPubblicazioneTest.php`, `tests/InerziaTest.php`, `tests/CollisioniTest.php` | le prove |
+| `tests/SenzaCoreTest.php` | preesistente, esteso dalla sesta revisione: è il solo avvio della suite dove la corrispondenza dei permessi manca davvero |
 | `tests/ambiente-albo.php` | l'azzeramento dell'ambiente condiviso, comune alle prove |
 | `phpcs.xml.dist` | una esclusione per i test, motivata sul posto |
 | `docs/collaudo.md`, `docs/requisiti.md`, `docs/architettura.md`, `docs/dati.md` | contratto e mappa aggiornati nello stesso ramo |
@@ -126,7 +127,7 @@ filtro di scadenza del meccanismo comune. In questa fase la prima da sola la imp
 
 ### 7. Prove aggiunte
 
-Righe A-11..A-27 del catalogo, cioè quelle della prima stesura; le righe A-28..A-46 sono
+Righe A-11..A-27 del catalogo, cioè quelle della prima stesura; le righe A-28..A-47 sono
 nate nelle revisioni e ciascuna è spiegata nella sezione del giro che l'ha prodotta. Le tre
 categorie restano distinte anche nelle prove: A-23 e
 A-24 valgono sui **tre ingressi supportati**, A-15 verifica l'**assenza** delle tre rotte,
@@ -191,9 +192,10 @@ Sette prove, raccolte nel documento di collaudo di rilascio del progetto.
 ## Prova di non vacuità
 
 Eseguita in una copia presa fuori dal controllo di versione, quindi senza la possibilità
-materiale di committare codice rotto. Ventitre guasti in tutto, uno per volta, ogni volta
-con ripristino verificato: quattro nella prima stesura, cinque dopo la prima revisione, sei
-dopo la seconda, tre dopo la terza, cinque dopo la quarta.
+materiale di committare codice rotto. Ventiquattro guasti in tutto, uno per volta, ogni
+volta con ripristino verificato: quattro nella prima stesura, cinque dopo la prima
+revisione, sei dopo la seconda, tre dopo la terza, cinque dopo la quarta, uno dopo la
+quinta.
 
 | Guasto introdotto | Prova diventata rossa | Come è caduta |
 |---|---|---|
@@ -220,8 +222,9 @@ dopo la seconda, tre dopo la terza, cinque dopo la quarta.
 | L'avviso del tentativo non si toglie alla postcondizione completa | A-46, seconda direzione | in bacheca resta un errore che descrive uno stato non più vero |
 | Al recupero si cancellano tutti gli avvisi invece dei tre per chiave | A-46, controllo di non indiscriminatezza | sparisce anche l'avviso di un'altra superficie, che era ancora vero |
 | La versione si riallinea a mano prima della richiesta di recupero | A-43, sito già installato | l'installazione esce perché non ha niente da fare, e il ritentativo non viene provato |
+| Il ripiego alla corrispondenza vuota torna al posto dell'errore | A-47, ramo negativo, mentre **il controllo positivo resta verde** | i due elenchi nascono lo stesso, con i permessi predefiniti di WordPress |
 
-Prima dei guasti e dopo ogni ripristino: settanta prove verdi, cioè sessantaquattro, quattro
+Prima dei guasti e dopo ogni ripristino: settantaquattro prove verdi, cioè sessantasei, sei
 e due sui tre avvii della suite. Al termine la copia è stata cancellata e l'albero
 di lavoro non presentava differenze.
 
@@ -442,3 +445,61 @@ l'installazione venga **davvero** rieseguita e che la versione avanzi a quella c
 **Qui non c'era nessun difetto nel codice**, che già ritentava correttamente: c'era una prova
 che non lo dimostrava. Vale la pena dirlo, perché una prova che passa per il motivo sbagliato
 è indistinguibile da una che passa per quello giusto finché qualcuno non la rompe apposta.
+
+## La sesta revisione: un ripiego che sbagliava nella direzione che apre
+
+Un difetto solo, e non stava su un percorso raggiungibile: stava su un percorso che non
+deve esistere.
+
+### Il ripiego che consegnava il vocabolario a chi gestisce le categorie
+
+I permessi dei due elenchi di voci si ricavano da quelli del tipo, e la funzione che li
+ricava dichiarava nel proprio commento la ragione per cui esiste: agganciarli ai permessi
+delle categorie li renderebbe governabili da chi non ha niente a che fare con l'albo.
+Poi, quando la corrispondenza non era disponibile, restituiva una corrispondenza vuota.
+
+**Una corrispondenza vuota non lascia l'elenco senza permessi.** WordPress, quando non gli
+si dice niente, mette i propri predefiniti: `manage_categories` per amministrare,
+modificare e cancellare le voci, `edit_posts` per assegnarle. Cioè esattamente i permessi
+delle categorie e degli articoli che quel commento dichiarava di voler evitare. Il ripiego
+sembrava la scelta prudente e faceva l'opposto: fra i due modi di sbagliare, chiudere
+troppo e aprire troppo, sceglieva quello che **apre**.
+
+Il ramo era irraggiungibile, e lo è ancora: la corrispondenza manca soltanto quando il
+meccanismo comune non è caricato, e in quel caso la precondizione sulla paternità della
+sezione ferma `registra()` prima di arrivare agli elenchi. Non è una ragione per tenerlo.
+Un ramo scritto per il caso di guasto è la parte di codice che qualcuno leggerà proprio
+quando qualcosa è andato storto, e un ramo che in quel momento consegna il vocabolario
+dell'albo a chi amministra le categorie non deve esistere, nemmeno se oggi nessuno ci
+arriva. Adesso quel ramo restituisce un errore, e la registrazione degli elenchi si ferma
+**prima di chiamare `register_taxonomy`**: nessun elenco nasce.
+
+### Il ramo negativo, e come si raggiunge senza barare
+
+La domanda posta prima di scrivere la prova era: si può mettere quel ramo nella sua
+condizione vera senza aggiungere al componente un gancio che serve soltanto alle prove?
+
+Sì, in un posto solo. Dei tre avvii della suite, quello **senza il meccanismo comune** è
+l'unico in cui la corrispondenza manca davvero: le funzioni di quel componente non
+esistono, e non è una simulazione. Là dentro la funzione si chiama per riflessione, che è
+una cosa che fa la prova e non tocca il codice di produzione. La condizione osservata è
+reale; artificiale è solo il punto di ingresso.
+
+Quello che resta artificiale va detto invece che nascosto, e per questo la riga A-47 ha una
+seconda prova nello stesso avvio: `registra()` chiamata per la via normale si ferma prima,
+con il proprio errore, e nemmeno così nasce un elenco. Senza quella seconda prova, la prima
+lascerebbe credere che la corrispondenza mancante sia una condizione che il componente
+incontra passando dal flusso normale. Non la incontra.
+
+**Il controllo positivo era la parte mancante da più tempo.** Nessuna delle settanta
+prove leggeva i permessi con cui i due elenchi sono registrati: A-14 ne rileggeva sette
+argomenti e non quello. Restavano quindi indistinguibili due esiti molto diversi, elenchi
+con i nomi derivati dal tipo ed elenchi con i predefiniti di WordPress. Adesso A-47 chiede
+i nomi attesi al meccanismo comune, che è quello che li deriva, invece di scriverli a mano,
+e nega esplicitamente i quattro predefiniti.
+
+**Il controllo positivo da solo non avrebbe scoperto niente**, e la prova di non vacuità lo
+mostra: rimesso il ripiego alla corrispondenza vuota, il ramo negativo di A-47 diventa
+rosso e il controllo positivo **resta verde**, perché nella suite con il meccanismo comune
+la corrispondenza c'è e il ripiego non viene mai preso. Le due direzioni servono tutte e
+due.

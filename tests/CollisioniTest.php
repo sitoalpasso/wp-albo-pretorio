@@ -823,4 +823,82 @@ class CollisioniTest extends WP_UnitTestCase {
 			'L\'avviso di un\'altra superficie, che e\' ancora vero, deve continuare a comparire.'
 		);
 	}
+
+	/**
+	 * A-47: i permessi degli elenchi di voci sono quelli derivati dal tipo.
+	 *
+	 * **Controllo positivo, e senza di esso il ramo negativo sarebbe
+	 * soddisfacibile registrando gli elenchi con qualunque cosa.** WordPress,
+	 * quando la corrispondenza dei permessi non gli viene data, non lascia
+	 * l'elenco senza permessi: ricade sui propri predefiniti, `manage_categories`
+	 * per amministrare, modificare e cancellare le voci, `edit_posts` per
+	 * assegnarle. Il vocabolario dell'albo finirebbe a chi gestisce le categorie
+	 * del sito, che con l'albo non ha niente a che fare.
+	 *
+	 * I nomi attesi non si scrivono qui: si chiedono al meccanismo comune, che
+	 * e' quello che li deriva. Scriverli a mano vorrebbe dire provare la prova
+	 * contro se stessa.
+	 *
+	 * @dataProvider i_due_elenchi_di_voci
+	 *
+	 * @param string $elenco Identificativo dell'elenco di voci da rileggere.
+	 */
+	public function test_a47_permessi_degli_elenchi_derivati_dal_tipo( string $elenco ): void {
+		$this->preparaTipo();
+
+		$mappa = conformita_core_capacita_tipo( \AlboPretorioPa\TIPO );
+
+		$this->assertIsArray( $mappa, 'Precondizione: la corrispondenza dei permessi deve essere disponibile.' );
+
+		$oggetto = get_taxonomy( $elenco );
+
+		$this->assertNotFalse( $oggetto, 'Precondizione: l\'elenco di voci deve essere registrato.' );
+
+		$attesi = array(
+			'manage_terms' => $mappa['publish_posts'],
+			'edit_terms'   => $mappa['publish_posts'],
+			'delete_terms' => $mappa['publish_posts'],
+			'assign_terms' => $mappa['edit_posts'],
+		);
+
+		foreach ( $attesi as $chiave => $atteso ) {
+			$this->assertSame(
+				$atteso,
+				$oggetto->cap->$chiave,
+				'Il permesso ' . $chiave . ' deve essere il nome derivato dal tipo.'
+			);
+		}
+
+		/*
+		 * La negazione esplicita dei predefiniti. Le asserzioni qui sopra da sole
+		 * sarebbero vere anche se il meccanismo comune derivasse per caso proprio
+		 * quei nomi, e allora non direbbero niente sulla separazione dall'albo.
+		 */
+		$predefiniti = array(
+			'manage_terms' => 'manage_categories',
+			'edit_terms'   => 'manage_categories',
+			'delete_terms' => 'manage_categories',
+			'assign_terms' => 'edit_posts',
+		);
+
+		foreach ( $predefiniti as $chiave => $predefinito ) {
+			$this->assertNotSame(
+				$predefinito,
+				$oggetto->cap->$chiave,
+				'Il permesso ' . $chiave . ' non deve essere quello predefinito di WordPress.'
+			);
+		}
+	}
+
+	/**
+	 * I due elenchi di voci dell'atto.
+	 *
+	 * @return array<string, array<int, string>>
+	 */
+	public function i_due_elenchi_di_voci(): array {
+		return array(
+			'tipo di atto' => array( \AlboPretorioPa\TASSONOMIA_TIPO_ATTO ),
+			'organo'       => array( \AlboPretorioPa\TASSONOMIA_ORGANO ),
+		);
+	}
 }

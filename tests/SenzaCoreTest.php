@@ -14,6 +14,8 @@ declare( strict_types = 1 );
 namespace AlboPretorioPa\Tests;
 
 use AlboPretorioPa\Avvio;
+use AlboPretorioPa\Permessi;
+use AlboPretorioPa\TipoAtto;
 use WP_UnitTestCase;
 
 /**
@@ -48,6 +50,21 @@ class SenzaCoreTest extends WP_UnitTestCase {
 		update_option( 'active_plugins', array( $this->componente ) );
 
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+	}
+
+	/**
+	 * Registri condivisi riportati allo stato iniziale dopo ogni prova.
+	 *
+	 * Gli elenchi di voci vivono in un registro che dura quanto il processo:
+	 * uno lasciato dietro renderebbe verde o rossa la prova successiva per un
+	 * motivo che non c'entra con quello che verifica. L'aiuto comune delle altre
+	 * prove qui non si puo' usare, perche' chiede al meccanismo comune di
+	 * azzerare i propri registri e quel componente non e' caricato.
+	 */
+	public function tear_down(): void {
+		TipoAtto::azzera();
+
+		parent::tear_down();
 	}
 
 	/**
@@ -154,5 +171,95 @@ class SenzaCoreTest extends WP_UnitTestCase {
 			$this->avvisi_in_bacheca(),
 			'Chi non puo\' attivare i componenti non deve vedere l\'avviso.'
 		);
+	}
+
+	/**
+	 * A-47: senza la corrispondenza dei permessi nessun elenco di voci nasce.
+	 *
+	 * **Perche' la prova sta in questo avvio della suite.** La corrispondenza fra
+	 * nomi generici e permessi derivati manca in un caso solo, quando il
+	 * meccanismo comune non e' caricato, e questo e' l'unico dei tre avvii dove
+	 * quella condizione e' reale invece che simulata: le sue funzioni non
+	 * esistono proprio.
+	 *
+	 * **Perche' si entra nella funzione per riflessione.** Dal flusso di
+	 * `registra()` il ramo non si raggiunge: la precondizione sulla paternita'
+	 * della sezione ferma prima, e lo dimostra la prova qui sotto. Le alternative
+	 * erano due, e nessuna delle due va bene: aggiungere al codice di produzione
+	 * un gancio che serve solo alle prove, oppure lasciare il ramo senza
+	 * dimostrazione. La riflessione non tocca il componente e mette la funzione
+	 * nella condizione vera in cui la guardia deve reggere.
+	 *
+	 * Cio' che si osserva non e' soltanto l'errore: e' che **nessun elenco
+	 * nasce**. Registrare con una corrispondenza vuota non lascia gli elenchi
+	 * senza permessi, li consegna ai predefiniti di WordPress.
+	 */
+	public function test_a47_senza_corrispondenza_nessun_elenco_nasce(): void {
+		$this->assertWPError(
+			Permessi::mappa(),
+			'Precondizione: senza il meccanismo comune la corrispondenza dei permessi non e\' disponibile.'
+		);
+
+		foreach ( $this->elenchi_di_voci() as $elenco ) {
+			$this->assertFalse(
+				taxonomy_exists( $elenco ),
+				'Precondizione: l\'elenco ' . $elenco . ' non deve esistere prima della chiamata.'
+			);
+		}
+
+		$registra = new \ReflectionMethod( TipoAtto::class, 'registra_elenchi_di_voci' );
+
+		$registra->setAccessible( true );
+
+		$esito = $registra->invoke( null );
+
+		$this->assertWPError( $esito, 'Senza la corrispondenza dei permessi la registrazione deve fallire.' );
+		$this->assertSame(
+			'albo_permessi_degli_elenchi_non_disponibili',
+			$esito->get_error_code(),
+			'L\'errore deve essere quello dedicato alla corrispondenza mancante.'
+		);
+
+		foreach ( $this->elenchi_di_voci() as $elenco ) {
+			$this->assertFalse(
+				taxonomy_exists( $elenco ),
+				'Nessun elenco deve nascere: ' . $elenco . ' e\' stato registrato lo stesso.'
+			);
+		}
+	}
+
+	/**
+	 * A-47: per la via normale il ramo non si raggiunge, e va detto.
+	 *
+	 * Senza questa prova la precedente lascerebbe credere che la corrispondenza
+	 * mancante sia una condizione che il componente incontra davvero passando
+	 * da `registra()`. Non la incontra: si ferma prima, con il proprio errore, e
+	 * nemmeno cosi' nasce un elenco.
+	 */
+	public function test_a47_la_via_normale_si_ferma_prima(): void {
+		$esito = TipoAtto::registra();
+
+		$this->assertWPError( $esito, 'Senza il meccanismo comune la registrazione non prosegue.' );
+		$this->assertSame(
+			'albo_sezione_non_nostra',
+			$esito->get_error_code(),
+			'La precondizione sulla paternita\' della sezione ferma prima di ogni registrazione.'
+		);
+
+		foreach ( $this->elenchi_di_voci() as $elenco ) {
+			$this->assertFalse(
+				taxonomy_exists( $elenco ),
+				'Nessun elenco deve nascere per la via normale: ' . $elenco . ' e\' stato registrato lo stesso.'
+			);
+		}
+	}
+
+	/**
+	 * I due elenchi di voci dell'atto.
+	 *
+	 * @return array<int, string>
+	 */
+	private function elenchi_di_voci(): array {
+		return array( \AlboPretorioPa\TASSONOMIA_TIPO_ATTO, \AlboPretorioPa\TASSONOMIA_ORGANO );
 	}
 }

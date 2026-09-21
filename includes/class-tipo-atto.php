@@ -412,6 +412,12 @@ final class TipoAtto {
 	 * @return true|\WP_Error Vero se entrambi risultano registrati e agganciati al tipo.
 	 */
 	private static function registra_elenchi_di_voci() {
+		$permessi = self::permessi_elenchi();
+
+		if ( is_wp_error( $permessi ) ) {
+			return $permessi;
+		}
+
 		$comuni = array(
 			'public'             => false,
 			'publicly_queryable' => false,
@@ -425,7 +431,7 @@ final class TipoAtto {
 			'rewrite'            => false,
 			'query_var'          => false,
 			'meta_box_cb'        => false,
-			'capabilities'       => self::permessi_elenchi(),
+			'capabilities'       => $permessi,
 		);
 
 		$elenchi = array(
@@ -487,13 +493,29 @@ final class TipoAtto {
 	 * redigere lo usa. Agganciarli ai permessi delle categorie li renderebbe
 	 * governabili da chi non ha niente a che fare con l'albo.
 	 *
-	 * @return array<string, string>
+	 * **Senza la corrispondenza si restituisce un errore, non una
+	 * corrispondenza vuota.** Il ripiego sembrava prudente e faceva l'opposto:
+	 * `register_taxonomy` con i permessi vuoti non lascia l'elenco senza
+	 * permessi, ricade sui predefiniti di WordPress, cioe' proprio i permessi
+	 * delle categorie e degli articoli che questa funzione dichiara di voler
+	 * evitare. Fra i due modi di sbagliare quello era il modo che **apre**, e
+	 * un ramo che in caso di guasto consegna il vocabolario dell'albo a chi
+	 * gestisce le categorie non deve esistere, nemmeno irraggiungibile.
+	 *
+	 * @return array<string, string>|\WP_Error
 	 */
-	private static function permessi_elenchi(): array {
+	private static function permessi_elenchi() {
 		$mappa = Permessi::mappa();
 
 		if ( is_wp_error( $mappa ) ) {
-			return array();
+			return new \WP_Error(
+				'albo_permessi_degli_elenchi_non_disponibili',
+				sprintf(
+					/* translators: %s: messaggio di errore sulla corrispondenza dei permessi. */
+					__( 'Elenchi di voci non registrati: i nomi dei permessi derivati dal tipo non sono disponibili, e registrarli senza farebbe ricadere WordPress sui permessi delle categorie. %s', 'albo-pretorio-pa' ),
+					$mappa->get_error_message()
+				)
+			);
 		}
 
 		return array(
