@@ -162,7 +162,8 @@ meccanismo comune, che non esiste, e senza di essa un file caricato risponde al 
 indirizzo diretto, indipendentemente dallo stato dell'atto. Nessuna esposizione per
 programmi. Nessun divieto di modifica o cancellazione dell'atto pubblicato. Nessun numero
 di repertorio, nessun referto, nessuna durata configurabile, nessun controllo sui dati
-personali.
+personali. Nessuna disinstallazione: alla rimozione del componente restano sul sito il
+ruolo proprio e i permessi assegnati.
 
 **Gli stati dell'atto non sono governati**, ed è diverso dal dire che ne esistono soltanto
 tre. A2a rifiuta due richieste, quella di pubblicare e quella di programmare; tutti gli altri

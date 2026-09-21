@@ -461,10 +461,12 @@ final class Permessi {
 	/**
 	 * Toglie i permessi del tipo da tutti i ruoli e rimuove il ruolo proprio.
 	 *
-	 * Serve alla suite di prove e alla disinstallazione. **Si tolgono soltanto i
-	 * permessi che nominano il tipo**: la corrispondenza del meccanismo comune
-	 * contiene anche voci che valgono per tutto WordPress, e toglierle da ogni
-	 * ruolo sarebbe un danno vero.
+	 * Serve alla suite di prove. La disinstallazione è una lavorazione successiva:
+	 * non esiste ancora né `uninstall.php` né un aggancio a
+	 * `register_uninstall_hook()`. **Si tolgono soltanto i permessi che nominano
+	 * il tipo**: la corrispondenza del meccanismo comune contiene anche voci che
+	 * valgono per tutto WordPress, e toglierle da ogni ruolo sarebbe un danno
+	 * vero.
 	 */
 	public static function azzera(): void {
 		$mappa = self::mappa();
