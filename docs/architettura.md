@@ -97,6 +97,14 @@ criterio con cui il disegno è stato scelto fra tre possibili, sta nella nota in
 `requisiti.md`.
 
 ```
+  (nuovo)  ---------------------------------->  BOZZA
+         chi redige, senza condizioni: una bozza nasce
+         anche incompleta
+
+  BOZZA  ------------------------------------>  BOZZA
+         chi redige, senza condizioni: una bozza si
+         risalva tutte le volte che serve
+
   BOZZA  ------------------------------------>  IN VERIFICA
          chi redige, e solo se ci sono tutti i dati che
          la pubblicazione pretende, data di fine compresa
@@ -140,9 +148,10 @@ criterio con cui il disegno è stato scelto fra tre possibili, sta nella nota in
     cancellare un atto PUBBLICATO, DEFISSO o ANNULLATO
 
     e in generale OGNI coppia che non compare fra i passaggi consentiti
-    qui sopra, autotransizioni comprese: l'elenco dei consentiti e'
-    chiuso, e questo elenco nomina le coppie che qualcuno potrebbe
-    credere permesse, non quelle che restano
+    qui sopra: quell'elenco e' chiuso, e comprende le due permanenze
+    nello stesso stato che sono lecite, cioe' il risalvataggio della
+    bozza. Questo elenco di divieti nomina le coppie che qualcuno
+    potrebbe credere permesse, non tutte quelle che restano
 ```
 
 **Chi redige e chi pubblica possono essere la stessa persona**, se possiede entrambi i
