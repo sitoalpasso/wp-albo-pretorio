@@ -40,7 +40,7 @@ scoperto.
 | Sigla | Fonte | Cosa fissa per l'albo |
 |---|---|---|
 | L69 | Legge 18 giugno 2009, n. 69, art. 32 | la pubblicazione sul sito ha effetto di pubblicità legale; l'articolo rinvia ai requisiti tecnici di accessibilità dell'art. 11 della legge 4/2004 |
-| TUEL | D.lgs. 18 agosto 2000, n. 267, art. 124 | quindici giorni consecutivi per le deliberazioni di comuni e province, salvo specifiche disposizioni di legge |
+| TUEL | D.lgs. 18 agosto 2000, n. 267, artt. 124 e 134 | quindici giorni consecutivi per le deliberazioni di comuni e province, salvo specifiche disposizioni di legge (art. 124); esecutività della deliberazione dopo il decimo giorno dalla pubblicazione, e dichiarazione di immediata eseguibilità in caso di urgenza (art. 134) |
 | GAR | Garante per la protezione dei dati personali, deliberazione 15 maggio 2014, n. 243, in GU n. 134 del 12 giugno 2014 | linee guida sul trattamento di dati personali contenuti in atti pubblicati per finalità di pubblicità e trasparenza: durata limitata, niente indicizzazione, minimizzazione |
 | GDPR | Regolamento (UE) 2016/679, artt. 5 e 6 | principi del trattamento e base giuridica |
 | COD | D.lgs. 30 giugno 2003, n. 196, artt. 2-ter e 2-septies | condizioni perché un soggetto pubblico possa trattare dati particolari e giudiziari |
@@ -84,11 +84,18 @@ compare in quella citazione, e nemmeno il richiamo ai requisiti tecnici di acces
 dell'art. 11 della legge 4/2004: restano da confermare sul testo dell'articolo. Il richiamo
 all'accessibilità non è un dettaglio, perché è l'unico aggancio normativo di ALBO-13.
 
-### TUEL art. 124: la durata esiste, ma non è una sola
+### TUEL artt. 124 e 134: la durata esiste, non è una sola, e serve a qualcosa
 
 Quindici giorni consecutivi per le deliberazioni **di comuni e province**, salvo specifiche
 disposizioni di legge. Non è una durata universale, e trattarla come tale rende il
 componente inservibile su un ente di tipo diverso.
+
+Il testo vigente, letto il 22 settembre 2026, cambia una parola rispetto alla citazione del
+2014 su cui questo documento poggiava: le deliberazioni sono pubblicate "mediante
+pubblicazione all'albo pretorio", dove il testo originario diceva "mediante affissione".
+La sostanza resta identica, compreso "per quindici giorni consecutivi, salvo specifiche
+disposizioni di legge", ma è il segno che l'articolo è stato allineato alla pubblicazione
+online e non è rimasto fermo al 2000.
 
 **Il comma 2 dice una cosa che il catalogo non aveva registrato**, e che riguarda proprio
 gli enti diversi dai comuni: le deliberazioni degli altri enti locali si pubblicano all'albo
@@ -98,9 +105,19 @@ caso, previsto dalla legge, in cui l'atto di un ente compare sull'albo di un alt
 catalogo lo sfiora soltanto, nominando fra i tipi di atto quelli "di altro ente ospitato",
 ma nessun requisito dice chi ne governa la scadenza e chi risponde dei dati personali.
 
+**L'art. 134 dice a cosa serve quella durata**, ed è l'articolo che mancava per rispondere
+alla domanda se il termine si possa accorciare. Il comma 3: le deliberazioni non soggette a
+controllo "diventano esecutive dopo il decimo giorno dalla loro pubblicazione". Il comma 4:
+in caso di urgenza il consiglio o la giunta possono dichiarare la deliberazione
+immediatamente eseguibile, con il voto della maggioranza dei componenti. I commi 1 e 2
+riguardano il controllo del comitato regionale, che la riforma costituzionale del 2001 ha
+lasciato senza fondamento: il comma 3 è quindi oggi la regola generale e non il caso
+residuale, ed è una lettura da confermare, non un dato letto.
+
 | Obbligo | Requisiti | Copertura |
 |---|---|---|
 | La pubblicazione ha una durata, e la durata dipende dal tipo di atto e dalla norma applicabile | ALBO-04 | scoperto |
+| La data di pubblicazione fa decorrere un termine con effetti propri fuori dal componente: l'atto diventa esecutivo al decimo giorno (art. 134 c. 3) | ALBO-01, ALBO-07 | scoperto, ed è una conseguenza scoperta oggi: non tocca al componente calcolare l'esecutività, ma la data di inizio che registra e il referto che ne attesta le date diventano il presupposto di un effetto giuridico, non due campi qualsiasi |
 
 Due righe di `collaudo.md` chiudono ALBO-04 ed entrambe sono "da fare": la pubblicazione di
 un tipo senza durata configurata deve essere bloccata, e un controllo statico deve
@@ -249,14 +266,36 @@ informazioni sui siti web istituzionali per finalità di trasparenza di cui all'
 lgs. n. 33/2013". L'oscuramento anticipato appartiene a quell'arco e a quel regime: non è
 una regola dell'albo e non si importa.
 
-Va detto cosa resta non verificato, perché è la parte che renderebbe la risposta
-definitiva invece che prudente. L'art. 124 è letto nella citazione che ne fa un documento
-del 2014, quindi una modifica successiva non si vedrebbe. E l'articolo che trasformerebbe la
-durata in un meccanismo con effetti propri, cioè l'art. 134 del TUEL sull'esecutività delle
-deliberazioni, non l'ho letto: è il testo da cercare per primo quando arriverà il TUEL.
-Fino ad allora vale la regola di cantiere sui dubbi, che è scegliere la lettura più
-prudente: **accorciare il termine di un atto regolare non è una funzione che il componente
-offre**, e nessuna maschera deve permettere di farlo come normale operazione di redazione.
+Il quarto appoggio è arrivato dopo, ed è quello che trasforma la risposta da prudente in
+confermata. L'art. 134 del TUEL, letto nel testo vigente il 22 settembre 2026, dice al comma
+3 che le deliberazioni non soggette a controllo "diventano esecutive dopo il decimo giorno
+dalla loro pubblicazione". La durata della pubblicazione non è quindi un contenitore vuoto
+che si può accorciare quando la finalità sembra raggiunta: è l'orologio da cui decorre un
+effetto giuridico. Chi togliesse l'atto al settimo giorno toglierebbe il presupposto di un
+termine ancora in corso.
+
+Due dettagli dello stesso articolo rendono la conclusione più solida di quanto un solo comma
+farebbe pensare. Il primo: i due termini hanno lunghezza diversa e partono insieme, dieci
+giorni per l'esecutività e quindici per la pubblicazione. Se il termine fosse un tetto da
+abbassare una volta servito lo scopo, il decimo giorno sarebbe il taglio naturale, e la
+legge invece lascia correre la pubblicazione fino al quindicesimo. I cinque giorni in più
+non sono un residuo: sono la parte di pubblicazione che serve alla conoscibilità e ai
+termini per impugnare, non all'efficacia. Il secondo: l'urgenza ha già la sua valvola, ed è
+il comma 4, cioè la dichiarazione di immediata eseguibilità votata dalla maggioranza dei
+componenti. Opera sull'**efficacia dell'atto**, non sulla durata della pubblicazione, che
+resta quella. L'ordinamento ha quindi previsto il caso "serve che valga subito" e vi ha
+risposto senza toccare l'albo. Un componente che offrisse di accorciare il termine
+offrirebbe una scorciatoia a un problema che la legge risolve altrove.
+
+Resta una sola incertezza, e riguarda il peso del comma 3, non il suo contenuto. I commi 1 e
+2 dell'art. 134 parlano del controllo preventivo del comitato regionale, che la riforma
+costituzionale del 2001 ha privato di fondamento: se è così, oggi quasi tutte le
+deliberazioni ricadono nel comma 3, che da caso residuale diventa la regola. Questa parte è
+una lettura mia e va confermata, ma rafforza la conclusione invece di indebolirla.
+
+Conclusione operativa, ora senza il "per prudenza": **accorciare il termine di un atto
+regolare non è una funzione che il componente offre**, e nessuna maschera deve permettere di
+farlo come normale operazione di redazione.
 
 **Seconda domanda: quali rimozioni anticipate sono invece pacifiche?**
 
@@ -315,6 +354,36 @@ riga va discussa con chi la deve approvare.
 | Obbligo | Requisiti | Copertura |
 |---|---|---|
 | Un soggetto pubblico tratta dati particolari e giudiziari solo alle condizioni previste, e la pubblicazione è un trattamento | ALBO-11 | scoperto |
+| La pubblicazione su una pagina aperta a chiunque è "diffusione" ai sensi dell'art. 2-ter comma 4 lettera b, e la diffusione da parte di un soggetto pubblico ha bisogno di una base fra le tre del comma 1 | ALBO-11 | scoperto |
+
+**L'art. 2-ter è stato letto nel testo vigente il 22 settembre 2026, e sposta l'appoggio di
+ALBO-11.** Il comma 4 lettera b definisce "diffusione" il dare conoscenza di dati personali
+a soggetti indeterminati, in qualunque forma: pubblicare un atto sull'albo è diffusione
+nel senso proprio del termine, e questo non era mai stato scritto nero su bianco qui.
+
+Il comma 1 dice poi che la base giuridica dell'art. 6 paragrafo 3 lettera b del GDPR è
+costituita "da una norma di legge o di regolamento o da atti amministrativi generali". Sono
+tre canali, non due. GAR e i provvedimenti citano invece il vecchio art. 19 comma 3 del
+Codice, che diceva "norma di legge o di regolamento" e basta, e che la riforma del 2018 ha
+abrogato. La regola dell'albo non cambia di segno, ma il suo appoggio oggi è un altro
+articolo con una formula più larga, e ALBO-11 va scritto contro quella e non contro la
+citazione del 2014.
+
+Qui però si apre una domanda che vale la pena tenere aperta invece che risolvere in fretta,
+perché è esattamente il punto su cui P-5 ha sanzionato. Se un atto amministrativo generale
+basta come base giuridica, sembrerebbe che il regolamento dell'ente possa reggere la
+pubblicazione. P-5 dice di no dove la materia è già regolata in modo uniforme a livello
+nazionale, perché non sono ammessi livelli di tutela diversi da un ente all'altro. Le due
+cose stanno insieme, ma solo se ALBO-11 chiede all'ente **quale** norma o atto invoca e non
+si accontenta di una spunta: il canale esiste, non è libero, e la differenza fra i due casi
+non la può decidere il componente.
+
+Un avvertimento su cosa non è stato verificato. Il comma 1-bis, aggiunto nel 2021, consente
+alle amministrazioni il trattamento necessario a un compito di interesse pubblico anche
+fuori dai tre canali del comma 1, e il comma 3 vi collega una diffusione verso terzi
+subordinata a un avviso al Garante dieci giorni prima. Riguarda la diffusione per finalità
+**diverse** da quella originaria, quindi non sembra toccare la pubblicazione istituzionale
+dell'albo, ma la lettura è mia e non è confermata da nessun provvedimento fra quelli letti.
 
 È l'obbligo che P-1 sanziona. ALBO-11 non decide al posto dell'ente: impone un passaggio
 che chiede una conferma esplicita e mostra i casi in cui un atto rivela dati delicati senza
@@ -504,7 +573,10 @@ vuol dire che la fonte va letta prima di decidere se produce un obbligo per il c
    è **nel futuro**: il componente comune conosce la sola data di fine, quindi oggi un atto
    pubblicato con inizio futuro sarebbe visibile subito. Va deciso se è un caso che esiste
    (pubblicazione preparata in anticipo) e, se esiste, chiuso dentro ALBO-22 insieme alle
-   transizioni.
+   transizioni. L'art. 134 comma 3 del TUEL, letto il 22 settembre 2026, alza il prezzo di
+   questo buco: è dalla data di pubblicazione che decorre il decimo giorno oltre il quale la
+   deliberazione diventa esecutiva. Una data di inizio sbagliata non produce solo una pagina
+   visibile nel momento sbagliato, sposta la data in cui un atto acquista efficacia.
 6. **Defissione anticipata: tracciata ma non definita, buco, con la parte normativa ora
    risolta.** ALBO-10 chiede che il registro contenga chi ha disposto una defissione
    anticipata e perché. Nessun requisito definisce la defissione anticipata come funzione:
@@ -583,8 +655,10 @@ colonna lo dice.
 | LG-DOC, determinazioni | **non verificate**. Né le pagine di AgID né i PDF citano la determinazione 407/2020 o la 371/2021, e la data del 1 gennaio 2022 non compare da nessuna parte: le linee guida fissano un termine mobile di duecentosettanta giorni | cercate sul sito di AgID. Per chiudere il punto serve l'albo delle determinazioni di AgID |
 | ACC, determinazioni | **verificate**. Le linee guida sull'accessibilità sono state adottate con la determinazione n. 437/2019 del 20 dicembre 2019 e rettificate con la n. 354 del 22 dicembre 2022; la n. 117/2022 adotta quelle per i soggetti privati | dalla determinazione n. 117/2022, fornita in copia, che cita le altre |
 | ACC | **confermata e da riscrivere**. L'art. 11 è stato sostituito nel 2018 e oggi rinvia alle linee guida AgID: i requisiti tecnici non sono più in un decreto ministeriale | lette le pagine di AgID sull'accessibilità e il capitolo primo delle linee guida |
-| GDPR, COD | **confermati per via indiretta**. Gli articoli citati dal catalogo sono gli stessi che i provvedimenti del Garante del 2024, 2025 e 2026 applicano e dichiarano violati, compreso il divieto di diffondere dati sulla salute dell'art. 2-septies comma 8 | dalle pagine dei provvedimenti. **Il testo degli articoli non è stato letto**: Normattiva non è consultabile con gli strumenti di questa sessione |
-| TUEL | **confermato, con un comma in più**. I commi 1 e 2 dell'art. 124 sono citati alla lettera dentro GAR, e il termine dei quindici giorni è richiamato come vigente nei provvedimenti del 2024, 2025 e 2026. Il comma 2, sugli enti locali diversi dai comuni, non era nel catalogo | citazione dentro GAR, più le pagine dei provvedimenti. **Il testo sul portale ufficiale non è stato letto**, quindi eventuali modifiche successive al 2014 non sono escluse |
+| GDPR, COD | **confermati per via indiretta**. Gli articoli citati dal catalogo sono gli stessi che i provvedimenti del Garante del 2024, 2025 e 2026 applicano e dichiarano violati, compreso il divieto di diffondere dati sulla salute dell'art. 2-septies comma 8 | dalle pagine dei provvedimenti. **Il testo dell'art. 2-septies non è stato letto** |
+| COD art. 2-ter | **letto nel testo vigente, e cambia l'appoggio di ALBO-11**. La definizione di diffusione del comma 4 e i tre canali della base giuridica del comma 1 sostituiscono il vecchio art. 19 comma 3 che GAR cita | testo vigente da Normattiva, fornito in copia |
+| TUEL art. 124 | **letto nel testo vigente e confermato, con un comma in più e una parola cambiata**. I commi 1 e 2 dicono quello che GAR ne citava, salvo "pubblicazione" al posto di "affissione". Il comma 2, sugli enti locali diversi dai comuni, non era nel catalogo | testo vigente da Normattiva, fornito in copia |
+| TUEL art. 134 | **letto, ed è la fonte che mancava**. Il comma 3 lega l'esecutività al decimo giorno dalla pubblicazione, il comma 4 dà all'urgenza una valvola che non tocca la durata della pubblicazione. Rende confermata la risposta sul termine che prima era solo prudente | testo vigente da Normattiva, fornito in copia. I commi 1 e 2 riguardano un controllo regionale che si ritiene superato dal 2001: quella parte è una lettura, non un dato |
 | L69 | **confermata a metà**. I commi 1 e 5, cioè le date del 2010 e del 2011, sono citati alla lettera dentro GAR. Restano da confermare la terza data, quella del 2013, e il richiamo ai requisiti di accessibilità dell'art. 11 della legge 4/2004 | citazione dentro GAR. Normattiva e la Gazzetta Ufficiale non rispondono agli strumenti automatici, e il testo dell'articolo non è stato letto |
 | TRASP | **confermata per via indiretta**, con due articoli in più che il catalogo non nominava: il 7-bis comma 3 e l'8 comma 3 | dalle pagine dei provvedimenti |
 
@@ -598,15 +672,22 @@ scritto.
 
 ## Cosa manca a questo documento
 
-- Il testo di L69 art. 32, dell'art. 124 del TUEL e degli artt. 2-ter e 2-septies del Codice
-  non è stato letto sul portale ufficiale. Dei primi due esiste una citazione alla lettera
-  dentro GAR, che però è del 2014: una modifica successiva non si vedrebbe. Servono i tre
-  articoli in testo vigente.
-- **L'art. 134 del TUEL non è stato letto**, ed è quello che decide se la durata della
-  pubblicazione sia un adempimento con effetti propri o un tetto massimo. La risposta data
-  nella sezione dedicata regge senza di esso, perché poggia sul testo dell'art. 124 e
-  sull'art. 32 della legge 69/2009, ma resta una lettura prudente finché quell'articolo non
-  si legge. È il primo testo da cercare quando arriverà il TUEL.
+- **Mancano due testi in vigore: l'art. 32 della legge 69/2009 e l'art. 2-septies del
+  Codice.** Del primo esiste una citazione alla lettera dei commi 1 e 5 dentro GAR, che però
+  è del 2014: restano da confermare la terza data e il richiamo ai requisiti di
+  accessibilità dell'art. 11 della legge 4/2004, che è l'unico appoggio normativo di
+  ALBO-13. Del secondo serve il comma 8, cioè il divieto di diffondere i dati sulla salute:
+  oggi lo conosco solo perché i provvedimenti del Garante lo applicano e lo dichiarano
+  violato, non perché ne abbia letto il testo.
+- Letti invece nel testo vigente il 22 settembre 2026, e non più in elenco qui: gli artt. 124
+  e 134 del TUEL e l'art. 2-ter del Codice.
+- Nell'art. 134 i commi 1 e 2 parlano del controllo preventivo del comitato regionale. Che la
+  riforma costituzionale del 2001 li abbia privati di fondamento, e che quindi il comma 3 sia
+  oggi la regola generale, è una lettura che regge la sezione sul termine e **non è
+  verificata**: va confermata su una fonte, non data per buona.
+- Il comma 1-bis dell'art. 2-ter apre una strada al trattamento pubblico fuori dai tre canali
+  della base giuridica. Si ritiene che non tocchi la pubblicazione istituzionale dell'albo,
+  ma nessuno dei provvedimenti letti lo dice: è la lettura più fragile del documento.
 - Non sono censiti gli artt. 17 e 21 del GDPR, cioè il diritto alla cancellazione e il
   diritto di opposizione, che sono la fonte della richiesta dell'interessato: è il caso
   lasciato fuori dall'elenco chiuso delle rimozioni anticipate.
