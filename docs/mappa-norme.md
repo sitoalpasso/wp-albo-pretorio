@@ -211,6 +211,89 @@ con dati personali. Non dice niente sull'accessibilità: il bilanciamento fra le
 che è il contenuto di ALBO-14, è una decisione nostra fra un consiglio del Garante e un
 obbligo di legge, e va scritto così.
 
+### Se la durata si possa accorciare, e quando un atto si toglie prima
+
+Due domande arrivate dal lavoro su ALBO-22, cioè dalla decisione ancora aperta sugli stati
+dell'atto. Sono qui e non lì perché la risposta non è una scelta di prodotto: dipende da
+cosa dicono le norme, ed è questo il documento che le legge.
+
+**Prima domanda: un ente può accorciare la pubblicazione di un atto regolare?**
+
+Dai testi disponibili la risposta è no, e la durata va letta come un adempimento che
+produce effetti propri, non come un tetto massimo che il redattore può abbassare. Tre
+appoggi, in ordine di solidità.
+
+Il primo è il testo dell'art. 124 del TUEL, che GAR cita per esteso: le deliberazioni "sono
+pubblicate mediante affissione all'albo pretorio ... per quindici giorni consecutivi, salvo
+specifiche disposizioni di legge". La frase prescrive una durata, non un limite: "sono
+pubblicate per quindici giorni" non è "possono restare fino a quindici giorni", e
+"consecutivi" esclude che il periodo si interrompa. La valvola di sfogo esiste ma è
+intestata ad altri: "salvo specifiche disposizioni di legge" ammette che **un'altra norma**
+fissi un termine diverso, non che lo accorci l'amministrazione che pubblica.
+
+Il secondo è l'art. 32 della legge 69/2009: gli obblighi di pubblicazione con effetto di
+pubblicità legale "si intendono assolti con la pubblicazione nei propri siti informatici".
+Il verbo è quello di un adempimento, e un adempimento interrotto a metà non è assolto.
+È anche la ragione per cui questa domanda non è la stessa che si pone sulla trasparenza:
+lì la pubblicazione **è** la finalità, qui la pubblicazione è la forma con cui un atto
+produce i suoi effetti verso i terzi.
+
+Il terzo serve soprattutto a chiudere una porta che sembrava aperta. Nella parte prima, al
+paragrafo 7, GAR scrive che i dati personali pubblicati per finalità di trasparenza "devono
+essere oscurati, anche prima del termine di cinque anni, quando sono stati raggiunti gli
+scopi per i quali essi sono stati resi pubblici e gli atti stessi hanno prodotto i loro
+effetti". Letta fuori contesto sembra la regola che autorizza a togliere prima. Non lo è
+per l'albo, e lo dice GAR stessa nel paragrafo 3.a: "alle pubblicazioni nell'albo pretorio
+online non si applica l'arco temporale dei cinque anni previsto per la pubblicità di dati e
+informazioni sui siti web istituzionali per finalità di trasparenza di cui all'art. 8 del d.
+lgs. n. 33/2013". L'oscuramento anticipato appartiene a quell'arco e a quel regime: non è
+una regola dell'albo e non si importa.
+
+Va detto cosa resta non verificato, perché è la parte che renderebbe la risposta
+definitiva invece che prudente. L'art. 124 è letto nella citazione che ne fa un documento
+del 2014, quindi una modifica successiva non si vedrebbe. E l'articolo che trasformerebbe la
+durata in un meccanismo con effetti propri, cioè l'art. 134 del TUEL sull'esecutività delle
+deliberazioni, non l'ho letto: è il testo da cercare per primo quando arriverà il TUEL.
+Fino ad allora vale la regola di cantiere sui dubbi, che è scegliere la lettura più
+prudente: **accorciare il termine di un atto regolare non è una funzione che il componente
+offre**, e nessuna maschera deve permettere di farlo come normale operazione di redazione.
+
+**Seconda domanda: quali rimozioni anticipate sono invece pacifiche?**
+
+Sono pacifiche per una ragione precisa, e la ragione è più utile dell'elenco: **nessuna di
+esse accorcia il termine**. Ognuna toglie dalla vista una pubblicazione che in quella forma
+non doveva esserci. Il termine dell'atto continua a correre; quello che si interrompe è una
+diffusione illecita. È la differenza che tiene insieme le due risposte.
+
+| Causa | Cosa dice la fonte | Cosa fa il sistema |
+|---|---|---|
+| Dati eccedenti, non pertinenti o non necessari | GAR 3.a richiama per l'albo il "divieto di diffondere dati personali non necessari, non pertinenti o eccedenti" della parte seconda, par. 1 | non si toglie l'atto: si sostituisce il file con la versione oscurata, e il termine continua a correre. È esattamente ALBO-12 |
+| Dati idonei a rivelare lo stato di salute | GAR 3.a richiama per l'albo anche il divieto di diffusione dei dati sulla salute, oggi nell'art. 2-septies del d.lgs. 196/2003 (testo non ancora letto) | la diffusione è vietata, quindi l'oscuramento è l'unico stato lecito. Se il documento non è oscurabile, il file esce |
+| Pubblicazione priva di base normativa | GAR 3.a: prima di pubblicare, l'ente verifica l'esistenza di una norma che prescriva l'affissione **di quell'atto** | non c'è un termine da accorciare, perché non c'era un termine: la pubblicazione non doveva iniziare |
+| Ordine di un'autorità | esterna al componente (Garante, autorità giudiziaria) | si esegue e si registra chi l'ha disposto |
+
+Fuori dall'elenco resta il caso che non è pacifico, ed è bene che resti fuori: la richiesta
+dell'interessato su un atto pubblicato legittimamente e con dati pertinenti. Lì il diritto
+alla cancellazione dell'art. 17 del GDPR incontra l'eccezione dello stesso articolo per gli
+obblighi di legge, e il bilanciamento lo fa l'ente con il suo responsabile della protezione
+dei dati. **Il componente non decide: registra la decisione e chi l'ha presa**, che è quello
+che ALBO-10 già chiede.
+
+Conseguenza per la forma stretta di ALBO-22: la rimozione anticipata non è uno stato che il
+redattore raggiunge quando vuole, ma due transizioni distinte, la sostituzione con versione
+oscurata, che non ferma il termine, e la rimozione per le tre cause in cui la pubblicazione
+non doveva esistere in quella forma. La terza possibilità, cioè accorciare il termine di un
+atto regolare, non è una transizione e non va prevista.
+
+**Conseguenza per ALBO-07.** Se una rimozione anticipata può esistere, il periodo davvero
+compiuto non coincide più con la data di fine memorizzata, e l'unico posto in cui quel
+periodo vive per intero è il registro delle operazioni. Il referto deve quindi essere
+costruito sul registro, non sulla data di fine dell'atto: altrimenti attesta un'esposizione
+che non c'è stata. Vale anche nel caso della sostituzione con versione oscurata, dove non è
+il periodo a cambiare ma il file, e il referto porta l'impronta di un file che per una parte
+del termine non era quello esposto. È un vincolo sul contenuto di ALBO-07 che si aggiunge al
+fatto che ALBO-07 è ancora un requisito da confermare.
+
 ### GDPR artt. 5 e 6
 
 | Obbligo | Requisiti | Copertura |
@@ -422,12 +505,16 @@ vuol dire che la fonte va letta prima di decidere se produce un obbligo per il c
    pubblicato con inizio futuro sarebbe visibile subito. Va deciso se è un caso che esiste
    (pubblicazione preparata in anticipo) e, se esiste, chiuso dentro ALBO-22 insieme alle
    transizioni.
-6. **Defissione anticipata: tracciata ma non definita, buco.** ALBO-10 chiede che il
-   registro contenga chi ha disposto una defissione anticipata e perché. Nessun requisito
-   definisce la defissione anticipata come funzione: chi può disporla, con quali effetti sul
-   referto, se l'atto resta consultabile all'amministrazione. È la funzione con cui l'ente
-   risponde alla richiesta di un interessato, quindi non è un dettaglio. Appartiene ad
-   ALBO-22.
+6. **Defissione anticipata: tracciata ma non definita, buco, con la parte normativa ora
+   risolta.** ALBO-10 chiede che il registro contenga chi ha disposto una defissione
+   anticipata e perché. Nessun requisito definisce la defissione anticipata come funzione:
+   chi può disporla, con quali effetti sul referto, se l'atto resta consultabile
+   all'amministrazione. La sezione "Se la durata si possa accorciare, e quando un atto si
+   toglie prima" risponde alle due domande su cui il buco poggiava: accorciare il termine di
+   un atto regolare non è una funzione da offrire, e le cause pacifiche di rimozione
+   anticipata sono quattro, elencate lì con la fonte di ciascuna. Quello che resta scoperto è
+   la parte di prodotto, cioè scrivere quelle transizioni dentro ALBO-22, con il vincolo per
+   il referto annotato nella stessa sezione.
 7. **Informativa sul trattamento, da verificare.** Le pagine dell'albo espongono dati
    personali a chiunque. Nessun requisito dice che devono portare un collegamento
    all'informativa dell'ente. Probabilmente è un obbligo dell'ente sul sito e non del
@@ -453,7 +540,7 @@ Perché la domanda giusta, davanti a un elenco di buchi, è sempre "e questo chi
 | 3. Fonte della durata | GDPR art. 5.2 | fonte verificata, ma il collegamento fra responsabilizzazione e "registrare da dove viene la durata" è una lettura prudente, non una prescrizione testuale |
 | 4. Accessibilità delle pagine | ACC, cioè oggi le linee guida AgID emanate ai sensi dell'art. 11 della legge 4/2004 | verificato il 22 settembre 2026 sul sito di AgID e sul testo delle linee guida: l'obbligo esiste, la catena delle fonti è quella descritta nella sezione ACC |
 | 5. Data di inizio | nessuna fonte esterna | incoerenza interna, verificata leggendo il codice: l'interfaccia pubblica del componente comune espone la sola data di fine |
-| 6. Defissione anticipata | ALBO-10, che la nomina senza definirla | interno al catalogo. Il diritto dell'interessato che la rende necessaria sta negli artt. 15-21 del GDPR, non censiti qui |
+| 6. Defissione anticipata | ALBO-10, che la nomina senza definirla. Per il se e il quando: art. 124 del TUEL e art. 32 della legge 69/2009 sul termine, GAR 3.a e il par. 1 della parte seconda sulle cause di rimozione | il buco resta interno al catalogo, ma non è più un dubbio normativo: le fonti sono lette e citate nella sezione dedicata. Da verificare l'art. 134 del TUEL sull'esecutività, che è quello che rende definitiva la risposta sul termine. Il diritto dell'interessato sta nell'art. 17 del GDPR, non censito nella tabella delle fonti |
 | 7. Informativa | GDPR artt. 13 e 14 | **non censiti** nella tabella delle fonti: è il punto più debole dell'elenco |
 | 8. `robots.txt` | nessuna fonte esterna | scarto fra il requisito e la sua riga di collaudo, verificato nei due documenti |
 
@@ -515,6 +602,14 @@ scritto.
   non è stato letto sul portale ufficiale. Dei primi due esiste una citazione alla lettera
   dentro GAR, che però è del 2014: una modifica successiva non si vedrebbe. Servono i tre
   articoli in testo vigente.
+- **L'art. 134 del TUEL non è stato letto**, ed è quello che decide se la durata della
+  pubblicazione sia un adempimento con effetti propri o un tetto massimo. La risposta data
+  nella sezione dedicata regge senza di esso, perché poggia sul testo dell'art. 124 e
+  sull'art. 32 della legge 69/2009, ma resta una lettura prudente finché quell'articolo non
+  si legge. È il primo testo da cercare quando arriverà il TUEL.
+- Non sono censiti gli artt. 17 e 21 del GDPR, cioè il diritto alla cancellazione e il
+  diritto di opposizione, che sono la fonte della richiesta dell'interessato: è il caso
+  lasciato fuori dall'elenco chiuso delle rimozioni anticipate.
 - GAR cita le vecchie disposizioni del Codice, cioè gli artt. 19, 20, 21 e 22, che la riforma
   del 2018 ha sostituito con gli artt. 2-ter e 2-septies. I provvedimenti recenti fanno quella
   traduzione da soli, ma nel documento conviene citare gli articoli di oggi e non quelli del
