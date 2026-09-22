@@ -71,6 +71,7 @@ di cortesia: è la pubblicazione. Da qui due obblighi.
 |---|---|---|
 | L'atto pubblicato è identificabile: l'articolo dice che gli obblighi si assolvono con la pubblicazione sul sito, non quali estremi l'atto debba portare. Quali siano è scelta di attuazione, e GAR 2.d la sostiene raccomandando i "dati di contesto" con un "dovrebbe prevedere" | ALBO-01 | scoperto |
 | La pubblicazione è effettuata applicando i requisiti tecnici di accessibilità dell'art. 11 della legge 4/2004 (comma 1, secondo periodo) | ALBO-13, ALBO-14 | scoperto, e l'obbligo è più largo dei requisiti che lo coprono: vedi qui sotto |
+| Per gli atti del comma 2, cioè procedure ad evidenza pubblica e bilanci, la pubblicazione sul sito avviene "secondo modalità stabilite con decreto del Presidente del Consiglio dei ministri" | nessuno | scoperto, e il contenuto di quel decreto non è stato ricostruito |
 | Gli adempimenti possono essere assolti sul sito di un'altra amministrazione o di una loro associazione (comma 3) | nessuno | scoperto |
 
 L'articolo contiene tre date che vanno tenute distinte quando se ne discute: dal 1 gennaio
@@ -116,6 +117,17 @@ alle delibere urbanistiche e alle loro varianti si pubblicano sul sito del comun
 allegati pesanti e per lo più grafici, cioè il caso peggiore sia per la consegna protetta
 degli allegati sia per l'accessibilità, e il legislatore li ha voluti pubblicati "senza
 nuovi o maggiori oneri".
+
+Il comma 2 porta con sé un vincolo che la ricognizione non aveva registrato. Per gli atti e
+provvedimenti che riguardano procedure ad evidenza pubblica o i bilanci, la pubblicazione
+sul sito non è libera nella forma: avviene "secondo modalità stabilite con decreto del
+Presidente del Consiglio dei ministri". Qui il documento si ferma al rinvio, perché quel
+decreto non è stato cercato né letto, e non si deducono obblighi tecnici da un testo che non
+si ha. Quello che va registrato è che per una classe di atti esistono modalità fissate
+altrove, e che nessun requisito ne tiene conto. Per completezza: il comma 4 affida a CNIPA,
+cioè l'ente poi diventato AgID, un portale di accesso ai siti. Non è un obbligo
+dell'amministrazione che pubblica e non produce requisiti, ma è l'unica parte dell'articolo
+che questo documento non traduce in niente, e conviene dirlo invece di saltarla.
 
 Il comma 3 chiude infine una domanda rimasta aperta nella sezione sul TUEL: gli adempimenti
 possono essere attuati usando il sito di un'altra amministrazione obbligata, o di una loro
@@ -257,9 +269,13 @@ dalla vista pubblica, e va bene finché l'ente vuole quel comportamento; ma se u
 la seconda strada, cioè tenere l'atto consultabile in forma deidentificata dopo la scadenza,
 nessun requisito la descrive e nessuna riga di collaudo la verifica. Non è un buco
 dell'obbligo, è un caso d'uso lecito che il catalogo non contempla, e va deciso se entra nel
-perimetro. Lo stesso paragrafo aggiunge che resta comunque possibile consultare il documento
-completo con una richiesta di accesso agli atti: è la via che sostituisce la pagina, e spiega
-perché togliere non toglie niente a nessuno.
+perimetro. Lo stesso paragrafo aggiunge che dopo la rimozione resta possibile chiedere il
+documento completo agli uffici competenti con una richiesta di accesso agli atti, ma **solo
+"laddove esistano i presupposti previsti dalla l. 7 agosto 1990, n. 241"**. Non è quindi un
+sostituto della pagina aperto a chiunque la consultasse: è una via diversa, con i suoi
+requisiti, e chi non li ha non ottiene il documento. Vale la pena scriverlo perché la
+tentazione opposta, cioè dire che togliere non toglie niente a nessuno, è comoda e non è
+vera.
 
 **Il paragrafo 2.d contiene due obblighi, e il secondo il catalogo non lo vedeva.** Il primo
 è quello già noto, mettere a disposizione soltanto dati esatti e aggiornati. Il secondo lo
@@ -546,6 +562,22 @@ nazionale, perché non sono ammessi livelli di tutela diversi da un ente all'alt
 cose stanno insieme, ma solo se ALBO-11 chiede all'ente **quale** norma o atto invoca e non
 si accontenta di una spunta: il canale esiste, non è libero, e la differenza fra i due casi
 non la può decidere il componente.
+
+**Il comma 2 tocca un caso che il documento aveva già trovato due volte senza collegarlo.**
+Dice che la comunicazione fra titolari diversi, per l'esecuzione di un compito di interesse
+pubblico, è ammessa se prevista ai sensi del comma 1. Ora: l'art. 124 comma 2 del TUEL
+manda le deliberazioni degli enti locali diversi dai comuni sull'albo del comune dove l'ente
+ha sede, e l'art. 32 comma 3 della legge 69/2009 permette in generale di assolvere gli
+adempimenti sul sito di un'altra amministrazione. In entrambi i casi un ente consegna a un
+altro ente dati personali perché li pubblichi, e i due sono titolari distinti.
+
+Se quella consegna sia una comunicazione ai sensi del comma 2, e quindi vada anch'essa
+ricondotta a una delle basi del comma 1, è una domanda che il documento pone e non risolve,
+perché richiede di stabilire chi sia titolare di quale trattamento e nessuno dei testi letti
+lo dice. Resta che il caso esiste, è previsto da due norme diverse, e il catalogo non ha un
+requisito che dica chi governa la scadenza dell'atto ospitato e chi risponde dei dati che
+contiene. È lo stesso buco già annotato nella sezione sul TUEL, e questo comma gli aggiunge
+un lato: non è solo una questione di chi preme il pulsante, è una questione di titolarità.
 
 Un avvertimento su cosa non è stato verificato. Il comma 1-bis, aggiunto nel 2021, consente
 alle amministrazioni il trattamento necessario a un compito di interesse pubblico anche
@@ -940,6 +972,23 @@ del Garante**, cercando una per una le frasi prescrittive e confrontandole con q
 documento ne aveva raccolto. Ne è uscito un quarto obbligo, che nessuna revisione aveva
 segnalato: alla scadenza il paragrafo 2.b dà due esiti alternativi, la rimozione **oppure**
 la privazione degli elementi identificativi, e il catalogo conosce solo il primo.
+
+**Un quinto giro** ha dato due rilievi, entrambi accolti. Il primo è un altro obbligo non
+raccolto, e viene dal terreno su cui il giro era stato puntato, cioè i cinque articoli di
+legge: il comma 2 dell'art. 32 vincola la pubblicazione degli atti su procedure ad evidenza
+pubblica e bilanci a modalità fissate con decreto del Presidente del Consiglio, e il
+documento non le registrava. Il secondo colpisce una frase aggiunta dalla passata del giro
+prima, dove l'accesso agli atti era presentato come una via aperta a chiunque: la fonte lo
+salva solo "laddove esistano i presupposti" della legge 241/1990. È il promemoria che anche
+una correzione scritta di getto è testo nuovo, e va trattata come tale.
+
+Anche qui la revisione è stata seguita da **una passata diretta sui cinque articoli, comma
+per comma**. Ne esce un collegamento che il documento aveva mancato pur avendone già i due
+capi: l'art. 124 comma 2 del TUEL e l'art. 32 comma 3 della legge 69/2009 descrivono un ente
+che fa pubblicare i propri atti sul sito di un altro, e il comma 2 dell'art. 2-ter sottopone
+a condizione la comunicazione di dati personali fra titolari distinti. La domanda su chi sia
+titolare di che cosa, in quel caso, resta aperta, ma il buco sull'albo ospitato adesso ha un
+lato in più.
 
 **Due avvertenze sul metodo.** La prima: Normattiva non risponde agli strumenti di questa
 sessione, quindi i cinque articoli di legge letti sono arrivati in copia, incollati dal
