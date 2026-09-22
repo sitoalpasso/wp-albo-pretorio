@@ -71,7 +71,7 @@ di cortesia: è la pubblicazione. Da qui due obblighi.
 |---|---|---|
 | L'atto pubblicato è identificabile: l'articolo dice che gli obblighi si assolvono con la pubblicazione sul sito, non quali estremi l'atto debba portare. Quali siano è scelta di attuazione, e GAR 2.d la sostiene raccomandando i "dati di contesto" con un "dovrebbe prevedere" | ALBO-01 | scoperto |
 | La pubblicazione è effettuata applicando i requisiti tecnici di accessibilità dell'art. 11 della legge 4/2004 (comma 1, secondo periodo) | ALBO-13, ALBO-14 | scoperto, e l'obbligo è più largo dei requisiti che lo coprono: vedi qui sotto |
-| Per gli atti del comma 2, cioè procedure ad evidenza pubblica e bilanci, la pubblicazione sul sito avviene "secondo modalità stabilite con decreto del Presidente del Consiglio dei ministri" | nessuno | scoperto, e il contenuto di quel decreto non è stato ricostruito |
+| Per le amministrazioni tenute a pubblicare sulla stampa quotidiana atti su procedure ad evidenza pubblica o i propri bilanci, la pubblicazione sul sito avviene "secondo modalità stabilite con decreto del Presidente del Consiglio dei ministri" (comma 2) | nessuno | scoperto, e il contenuto di quel decreto non è stato ricostruito |
 | Gli adempimenti possono essere assolti sul sito di un'altra amministrazione o di una loro associazione (comma 3) | nessuno | scoperto |
 
 L'articolo contiene tre date che vanno tenute distinte quando se ne discute: dal 1 gennaio
@@ -118,10 +118,14 @@ allegati pesanti e per lo più grafici, cioè il caso peggiore sia per la conseg
 degli allegati sia per l'accessibilità, e il legislatore li ha voluti pubblicati "senza
 nuovi o maggiori oneri".
 
-Il comma 2 porta con sé un vincolo che la ricognizione non aveva registrato. Per gli atti e
-provvedimenti che riguardano procedure ad evidenza pubblica o i bilanci, la pubblicazione
-sul sito non è libera nella forma: avviene "secondo modalità stabilite con decreto del
-Presidente del Consiglio dei ministri". Qui il documento si ferma al rinvio, perché quel
+Il comma 2 porta con sé un vincolo che la ricognizione non aveva registrato, e il suo
+perimetro va detto per intero perché non lo fissa la materia dell'atto. Riguarda "le
+amministrazioni e gli enti pubblici **tenuti a pubblicare sulla stampa quotidiana**" atti e
+provvedimenti su procedure ad evidenza pubblica o i propri bilanci: sono quelli che, oltre a
+quell'obbligo, provvedono "altresì alla pubblicazione nei siti informatici, secondo modalità
+stabilite con decreto del Presidente del Consiglio dei ministri". Il vincolo sulla forma
+segue quindi il soggetto obbligato alla pubblicazione sui quotidiani, non l'argomento
+dell'atto. Qui il documento si ferma al rinvio, perché quel
 decreto non è stato cercato né letto, e non si deducono obblighi tecnici da un testo che non
 si ha. Quello che va registrato è che per una classe di atti esistono modalità fissate
 altrove, e che nessun requisito ne tiene conto. Per completezza: il comma 4 affida a CNIPA,
@@ -563,21 +567,35 @@ cose stanno insieme, ma solo se ALBO-11 chiede all'ente **quale** norma o atto i
 si accontenta di una spunta: il canale esiste, non è libero, e la differenza fra i due casi
 non la può decidere il componente.
 
-**Il comma 2 tocca un caso che il documento aveva già trovato due volte senza collegarlo.**
-Dice che la comunicazione fra titolari diversi, per l'esecuzione di un compito di interesse
-pubblico, è ammessa se prevista ai sensi del comma 1. Ora: l'art. 124 comma 2 del TUEL
-manda le deliberazioni degli enti locali diversi dai comuni sull'albo del comune dove l'ente
-ha sede, e l'art. 32 comma 3 della legge 69/2009 permette in generale di assolvere gli
-adempimenti sul sito di un'altra amministrazione. In entrambi i casi un ente consegna a un
-altro ente dati personali perché li pubblichi, e i due sono titolari distinti.
+**Il comma 2 tocca un caso che il documento aveva già trovato due volte senza collegarlo**,
+e va riportato con le sue condizioni, che sono tre e non una. Riguarda la comunicazione fra
+titolari **diversi** dai dati delle categorie particolari dell'art. 9 e da quelli su
+condanne e reati dell'art. 10 del regolamento; è ammessa se prevista ai sensi del comma 1
+**oppure** se necessaria ai sensi del comma 1-bis; e la lettera a del comma 4 esclude
+espressamente dalla definizione di comunicazione il passaggio al responsabile del
+trattamento.
 
-Se quella consegna sia una comunicazione ai sensi del comma 2, e quindi vada anch'essa
-ricondotta a una delle basi del comma 1, è una domanda che il documento pone e non risolve,
-perché richiede di stabilire chi sia titolare di quale trattamento e nessuno dei testi letti
-lo dice. Resta che il caso esiste, è previsto da due norme diverse, e il catalogo non ha un
-requisito che dica chi governa la scadenza dell'atto ospitato e chi risponde dei dati che
-contiene. È lo stesso buco già annotato nella sezione sul TUEL, e questo comma gli aggiunge
-un lato: non è solo una questione di chi preme il pulsante, è una questione di titolarità.
+Il caso è questo. L'art. 124 comma 2 del TUEL manda le deliberazioni degli enti locali
+diversi dai comuni e dalle province sull'albo del comune dove l'ente ha sede, e l'art. 32
+comma 3 della legge 69/2009 permette in generale di assolvere gli adempimenti sul sito di
+un'altra amministrazione. In entrambi un ente fa pubblicare i propri atti sul sito di un
+altro ente, quindi ci sono due soggetti distinti e dei dati personali che passano dall'uno
+all'altro.
+
+Quello che i testi **non** dicono è quali ruoli i due abbiano nel trattamento. Due enti
+distinti non sono per ciò stesso due titolari distinti: il comune che ospita potrebbe essere
+responsabile per conto dell'ente ospitato, e in quel caso, per la lettera a del comma 4, non
+ci sarebbe nemmeno una comunicazione. Nessuna delle due norme sull'albo assegna i ruoli.
+
+La domanda giusta, allora, è condizionata e va posta in quest'ordine: si qualificano prima i
+ruoli dei due enti; se ne risulta una comunicazione fra titolari distinti per quelle
+finalità, e i dati sono quelli che il comma 2 comprende, si verifica la previsione ai sensi
+del comma 1 o la necessità ai sensi del comma 1-bis; per le categorie che il comma 2 esclude
+la disciplina va ricostruita a parte, e questo documento non la ricostruisce. Resta che il
+caso esiste, è previsto da due norme diverse, e il catalogo non ha un requisito che dica chi
+governa la scadenza dell'atto ospitato e chi risponde dei dati che contiene. È lo stesso buco
+già annotato nella sezione sul TUEL, e questo comma gli aggiunge un lato: prima di chiedersi
+chi preme il pulsante bisogna sapere chi è titolare di che cosa.
 
 Un avvertimento su cosa non è stato verificato. Il comma 1-bis, aggiunto nel 2021, consente
 alle amministrazioni il trattamento necessario a un compito di interesse pubblico anche
@@ -923,7 +941,7 @@ colonna lo dice.
 | GDPR | **confermato per via indiretta**. Gli articoli citati dal catalogo sono gli stessi che i provvedimenti del Garante del 2024, 2025 e 2026 applicano e dichiarano violati | dalle pagine dei provvedimenti. Il testo del regolamento non è stato riletto in questa sessione |
 | COD art. 2-septies | **letto nel testo vigente, ed è più largo di come il catalogo lo tratta**. Il comma 8 vieta la diffusione dei dati genetici, biometrici e relativi alla salute, senza deroghe. Il catalogo tratta "dati particolari e giudiziari" come un blocco unico | testo vigente da Normattiva, fornito in copia |
 | COD art. 2-ter | **letto nel testo vigente, e cambia l'appoggio di ALBO-11**. La definizione di diffusione del comma 4 e i tre canali della base giuridica del comma 1 sostituiscono il vecchio art. 19 comma 3 che GAR cita | testo vigente da Normattiva, fornito in copia |
-| TUEL art. 124 | **letto nel testo vigente e confermato, con un comma in più e una parola cambiata**. I commi 1 e 2 dicono quello che GAR ne citava, salvo "pubblicazione" al posto di "affissione". Il comma 2, sugli enti locali diversi dai comuni, non era nel catalogo | testo vigente da Normattiva, fornito in copia |
+| TUEL art. 124 | **letto nel testo vigente e confermato, con un comma in più e una parola cambiata**. I commi 1 e 2 dicono quello che GAR ne citava, salvo "pubblicazione" al posto di "affissione". Il comma 2, sugli enti locali diversi dai comuni e dalle province, non era nel catalogo | testo vigente da Normattiva, fornito in copia |
 | TUEL art. 134 | **letto, ed è la fonte che mancava**. Il comma 3 lega l'esecutività al decimo giorno dalla pubblicazione, il comma 4 dà all'urgenza una valvola che non tocca la durata della pubblicazione. Rende confermata la risposta sul termine che prima era solo prudente | testo vigente da Normattiva, fornito in copia. I commi 1 e 2 riguardano un controllo regionale che si ritiene superato dal 2001: quella parte è una lettura, non un dato |
 | L69 | **letta nel testo vigente e confermata, con due periodi in più**. Le tre date ci sono tutte. Il comma 1 contiene l'obbligo di applicare i requisiti di accessibilità e la rilevanza della mancata pubblicazione sulla valutazione del dirigente, che la citazione dentro GAR non riportava. Nuovi anche il comma 1-bis sugli elaborati urbanistici e il comma 3 sull'albo ospitato da un'altra amministrazione | testo vigente da Normattiva, fornito in copia |
 | TRASP | **confermata per via indiretta**, con due articoli in più che il catalogo non nominava: il 7-bis comma 3 e l'8 comma 3 | dalle pagine dei provvedimenti |
@@ -989,6 +1007,21 @@ che fa pubblicare i propri atti sul sito di un altro, e il comma 2 dell'art. 2-t
 a condizione la comunicazione di dati personali fra titolari distinti. La domanda su chi sia
 titolare di che cosa, in quel caso, resta aperta, ma il buco sull'albo ospitato adesso ha un
 lato in più.
+
+**Un sesto giro** ha dato quattro rilievi, accolti. Tre colpiscono proprio il paragrafo
+aggiunto da quella passata, ed è il dato più utile di tutta la serie: la stessa fretta che
+fa trovare una cosa nuova la fa scrivere male. Il paragrafo diceva che i due enti "sono
+titolari distinti", cioè dava per accertata la qualificazione che le righe successive
+dichiaravano irrisolta, e ometteva due pezzi del comma 2, la strada alternativa del comma
+1-bis e l'esclusione delle categorie degli artt. 9 e 10. Riscritto con le condizioni nel
+loro ordine. Il terzo rilievo restringe il vincolo del decreto del Presidente del Consiglio
+alle amministrazioni tenute alla pubblicazione sui quotidiani, che è il perimetro del comma
+2, e non alla materia dell'atto.
+
+Il quarto è un errore che il documento si portava dalla prima stesura: il comma 2 dell'art.
+124 riguarda gli enti locali diversi dai comuni **e dalle province**, perché il comma 1
+nomina entrambi. Scritto "diversi dai comuni", includeva le province fra gli enti che
+pubblicano sull'albo di qualcun altro, il che è il contrario di quello che la norma dice.
 
 **Due avvertenze sul metodo.** La prima: Normattiva non risponde agli strumenti di questa
 sessione, quindi i cinque articoli di legge letti sono arrivati in copia, incollati dal
