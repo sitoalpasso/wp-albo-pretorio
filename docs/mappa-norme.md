@@ -11,9 +11,10 @@ nasconde: gli obblighi che **nessun requisito traduce**. Stanno nella sezione "O
 domande senza requisito", che è la parte di questo documento che vale la pena leggere per
 prima.
 
-Le fonti sono state ricontrollate sui siti che le pubblicano il 22 settembre 2026. La
-sezione finale dice, per ciascuna, che cosa si è potuto leggere e che cosa no: sono due
-risposte diverse e la seconda non va nascosta.
+Le fonti sono state ricontrollate sui siti che le pubblicano il 22 settembre 2026, e i
+cinque articoli di legge su cui il documento poggia sono stati letti nel testo vigente lo
+stesso giorno. La sezione finale dice, per ciascuna fonte, che cosa si è potuto leggere e
+che cosa no: sono due risposte diverse e la seconda non va nascosta.
 
 ## Come si legge la copertura
 
@@ -39,11 +40,11 @@ scoperto.
 
 | Sigla | Fonte | Cosa fissa per l'albo |
 |---|---|---|
-| L69 | Legge 18 giugno 2009, n. 69, art. 32 | la pubblicazione sul sito ha effetto di pubblicità legale; l'articolo rinvia ai requisiti tecnici di accessibilità dell'art. 11 della legge 4/2004 |
+| L69 | Legge 18 giugno 2009, n. 69, art. 32 | la pubblicazione sul sito ha effetto di pubblicità legale; la pubblicazione si effettua applicando i requisiti tecnici di accessibilità dell'art. 11 della legge 4/2004, e la mancata pubblicazione in quei termini rileva sulla valutazione del dirigente responsabile; gli adempimenti possono essere assolti sul sito di un'altra amministrazione |
 | TUEL | D.lgs. 18 agosto 2000, n. 267, artt. 124 e 134 | quindici giorni consecutivi per le deliberazioni di comuni e province, salvo specifiche disposizioni di legge (art. 124); esecutività della deliberazione dopo il decimo giorno dalla pubblicazione, e dichiarazione di immediata eseguibilità in caso di urgenza (art. 134) |
 | GAR | Garante per la protezione dei dati personali, deliberazione 15 maggio 2014, n. 243, in GU n. 134 del 12 giugno 2014 | linee guida sul trattamento di dati personali contenuti in atti pubblicati per finalità di pubblicità e trasparenza: durata limitata, niente indicizzazione, minimizzazione |
 | GDPR | Regolamento (UE) 2016/679, artt. 5 e 6 | principi del trattamento e base giuridica |
-| COD | D.lgs. 30 giugno 2003, n. 196, artt. 2-ter e 2-septies | condizioni perché un soggetto pubblico possa trattare dati particolari e giudiziari |
+| COD | D.lgs. 30 giugno 2003, n. 196, artt. 2-ter e 2-septies | cosa è diffusione e su quali basi un soggetto pubblico può diffondere (2-ter); divieto assoluto di diffondere dati genetici, biometrici e relativi alla salute (2-septies comma 8) |
 | LG-DOC | AgID, linee guida sulla formazione, gestione e conservazione dei documenti informatici. Il testo pubblicato porta in copertina "Maggio 2021" e gli allegati sono datati 27 giugno 2024. Le linee guida si applicano dal duecentosettantesimo giorno dopo la loro entrata in vigore, senza una data di calendario nel testo | integrità del documento informatico, metadati (allegato 5), formati di file (allegato 2), versamento in conservazione |
 | ACC | Legge 9 gennaio 2004, n. 4, art. 11, richiamato da L69 art. 32. L'articolo è stato **sostituito** dall'art. 1 comma 10 del d.lgs. 106/2018 e oggi rinvia alle linee guida AgID sull'accessibilità degli strumenti informatici, adottate con determinazione n. 437/2019 del 20 dicembre 2019, nella versione del 21 dicembre 2022 rettificata con determinazione DG n. 354 del 22 dicembre 2022. Per i soggetti privati dell'art. 3 comma 1-bis valgono linee guida distinte, adottate con determinazione n. 117/2022 | requisiti tecnici di accessibilità dei contenuti e dei documenti pubblicati, ancorati alla norma armonizzata EN 301 549 e al livello AA delle WCAG 2.1 |
 | TRASP | D.lgs. 14 marzo 2013, n. 33 | l'amministrazione trasparente è un obbligo distinto, con finalità e durate proprie |
@@ -69,20 +70,47 @@ di cortesia: è la pubblicazione. Da qui due obblighi.
 | Obbligo | Requisiti | Copertura |
 |---|---|---|
 | L'atto pubblicato è identificabile e completo dei suoi estremi | ALBO-01 | scoperto |
-| I documenti pubblicati rispettano i requisiti tecnici di accessibilità (rinvio ad ACC) | ALBO-13, ALBO-14 | scoperto |
+| La pubblicazione è effettuata applicando i requisiti tecnici di accessibilità dell'art. 11 della legge 4/2004 (comma 1, secondo periodo) | ALBO-13, ALBO-14 | scoperto, e l'obbligo è più largo dei requisiti che lo coprono: vedi qui sotto |
+| Gli adempimenti possono essere assolti sul sito di un'altra amministrazione o di una loro associazione (comma 3) | nessuno | scoperto |
 
 L'articolo contiene tre date che vanno tenute distinte quando se ne discute: dal 1 gennaio
 2010 gli obblighi di pubblicità legale si assolvono sui siti; dal 1 gennaio 2011 la
 pubblicazione cartacea perde quell'effetto; dal 1 gennaio 2013 lo stesso vale per gli atti
-per cui era prevista la pubblicazione su quotidiani. Restano fuori gli obblighi in Gazzetta
-Ufficiale e nella Gazzetta dell'Unione europea, che l'articolo fa salvi.
+per cui era prevista la pubblicazione su quotidiani. Tutte e tre sono ora verificate sul
+testo vigente, letto il 22 settembre 2026. Restano fuori gli obblighi in Gazzetta Ufficiale
+e nella Gazzetta dell'Unione europea, che il comma 7 fa salvi insieme a quelli sul sito del
+Ministero delle infrastrutture e dell'osservatorio dei contratti pubblici.
 
-**Di queste tre date, due sono verificate e una no.** GAR cita alla lettera i commi 1 e 5
-dell'articolo, quindi il 2010 e il 2011 sono confermati da una fonte che li riporta fra
-virgolette. La terza data, quella del 2013 sugli atti che andavano sui quotidiani, non
-compare in quella citazione, e nemmeno il richiamo ai requisiti tecnici di accessibilità
-dell'art. 11 della legge 4/2004: restano da confermare sul testo dell'articolo. Il richiamo
-all'accessibilità non è un dettaglio, perché è l'unico aggancio normativo di ALBO-13.
+**La lettura del testo ha però trovato nel comma 1 due periodi che la citazione dentro GAR
+non riportava, e sono la parte più importante dell'articolo per noi.**
+
+Il primo: "La pubblicazione è effettuata nel rispetto dei principi di eguaglianza e di non
+discriminazione, applicando i requisiti tecnici di accessibilità di cui all'articolo 11
+della legge 9 gennaio 2004, n. 4". Non è un obbligo di accessibilità del sito posato accanto
+all'albo: è una qualità **dell'atto del pubblicare**. La norma che istituisce la pubblicità
+legale online dice come va fatta, e il come include l'accessibilità. Chi pubblica è il
+componente.
+
+Il secondo: "La mancata pubblicazione nei termini di cui al periodo precedente è altresì
+rilevante ai fini della misurazione e della valutazione della performance individuale dei
+dirigenti responsabili". Qui va detto che la frase si presta a due letture, perché "termini"
+può voler dire scadenze oppure modi. Riferita al periodo precedente, che parla di modi e non
+di scadenze, la lettura naturale è che **una pubblicazione non accessibile conti come
+pubblicazione mancata**, con una conseguenza sulla valutazione del dirigente. Per la regola
+di cantiere sui dubbi si tiene la lettura più prudente, che è questa: l'accessibilità non è
+un abbellimento della pubblicazione, è una condizione perché la pubblicazione valga.
+
+Il comma 1-bis aggiunge un caso che il catalogo non aveva: gli elaborati tecnici allegati
+alle delibere urbanistiche e alle loro varianti si pubblicano sul sito del comune. Sono
+allegati pesanti e per lo più grafici, cioè il caso peggiore sia per la consegna protetta
+degli allegati sia per l'accessibilità, e il legislatore li ha voluti pubblicati "senza
+nuovi o maggiori oneri".
+
+Il comma 3 chiude infine una domanda rimasta aperta nella sezione sul TUEL: gli adempimenti
+possono essere attuati usando il sito di un'altra amministrazione obbligata, o di una loro
+associazione. Il caso dell'atto di un ente ospitato sull'albo di un altro non è quindi una
+stranezza dell'art. 124 comma 2, è una facoltà generale. Nessun requisito dice chi, in quel
+caso, governa la scadenza e chi risponde dei dati personali.
 
 ### TUEL artt. 124 e 134: la durata esiste, non è una sola, e serve a qualcosa
 
@@ -307,7 +335,7 @@ diffusione illecita. È la differenza che tiene insieme le due risposte.
 | Causa | Cosa dice la fonte | Cosa fa il sistema |
 |---|---|---|
 | Dati eccedenti, non pertinenti o non necessari | GAR 3.a richiama per l'albo il "divieto di diffondere dati personali non necessari, non pertinenti o eccedenti" della parte seconda, par. 1 | non si toglie l'atto: si sostituisce il file con la versione oscurata, e il termine continua a correre. È esattamente ALBO-12 |
-| Dati idonei a rivelare lo stato di salute | GAR 3.a richiama per l'albo anche il divieto di diffusione dei dati sulla salute, oggi nell'art. 2-septies del d.lgs. 196/2003 (testo non ancora letto) | la diffusione è vietata, quindi l'oscuramento è l'unico stato lecito. Se il documento non è oscurabile, il file esce |
+| Dati genetici, biometrici o relativi alla salute | art. 2-septies comma 8 del d.lgs. 196/2003, letto nel testo vigente: "I dati personali di cui al comma 1 non possono essere diffusi". Divieto assoluto, senza rinvio a norme che lo deroghino. GAR 3.a richiama per l'albo lo stesso divieto nella formulazione del Codice di allora | la diffusione è vietata, quindi l'oscuramento è l'unico stato lecito. Se il documento non è oscurabile, il file esce |
 | Pubblicazione priva di base normativa | GAR 3.a: prima di pubblicare, l'ente verifica l'esistenza di una norma che prescriva l'affissione **di quell'atto** | non c'è un termine da accorciare, perché non c'era un termine: la pubblicazione non doveva iniziare |
 | Ordine di un'autorità | esterna al componente (Garante, autorità giudiziaria) | si esegue e si registra chi l'ha disposto |
 
@@ -355,6 +383,7 @@ riga va discussa con chi la deve approvare.
 |---|---|---|
 | Un soggetto pubblico tratta dati particolari e giudiziari solo alle condizioni previste, e la pubblicazione è un trattamento | ALBO-11 | scoperto |
 | La pubblicazione su una pagina aperta a chiunque è "diffusione" ai sensi dell'art. 2-ter comma 4 lettera b, e la diffusione da parte di un soggetto pubblico ha bisogno di una base fra le tre del comma 1 | ALBO-11 | scoperto |
+| I dati genetici, biometrici e relativi alla salute **non possono essere diffusi** (art. 2-septies comma 8), senza eccezioni e senza rinvio a una norma che li autorizzi | ALBO-11, ALBO-12 | scoperto |
 
 **L'art. 2-ter è stato letto nel testo vigente il 22 settembre 2026, e sposta l'appoggio di
 ALBO-11.** Il comma 4 lettera b definisce "diffusione" il dare conoscenza di dati personali
@@ -384,6 +413,33 @@ fuori dai tre canali del comma 1, e il comma 3 vi collega una diffusione verso t
 subordinata a un avviso al Garante dieci giorni prima. Riguarda la diffusione per finalità
 **diverse** da quella originaria, quindi non sembra toccare la pubblicazione istituzionale
 dell'albo, ma la lettura è mia e non è confermata da nessun provvedimento fra quelli letti.
+
+**L'art. 2-septies è stato letto nel testo vigente il 22 settembre 2026, e il comma 8 è una
+riga sola che vale più di tutto il resto della sezione**: "I dati personali di cui al comma 1
+non possono essere diffusi". Il comma 1 sono i dati genetici, biometrici e relativi alla
+salute. Il divieto è assoluto: non dice "salvo che una norma lo preveda", che è invece la
+struttura di tutto il resto del Codice.
+
+La conseguenza su ALBO-11 è che il requisito non può avere una logica sola. Ne servono tre,
+per tre categorie di dati.
+
+| Categoria | Cosa deve verificare ALBO-11 |
+|---|---|
+| Dati comuni | che esista una delle tre basi dell'art. 2-ter comma 1, cioè una norma di legge, di regolamento o un atto amministrativo generale che prescriva la pubblicazione di quell'atto |
+| Dati genetici, biometrici, relativi alla salute | niente da verificare, perché la risposta è sempre no: non si diffondono. L'unica pubblicazione possibile è quella oscurata, e se il documento non è oscurabile non si pubblica |
+| Altre categorie particolari dell'art. 9 del GDPR e dati su condanne e reati dell'art. 10 | restano fuori dal divieto del comma 8 e tornano alla regola generale della base giuridica |
+
+Questa distinzione oggi non c'è, né in ALBO-11 né nella sua riga di collaudo, e non è un
+raffinamento: il catalogo tratta "dati particolari e giudiziari" come un blocco unico, cioè
+come se per tutti bastasse trovare la norma giusta. Per una delle tre categorie non basta
+mai. Ed è esattamente il caso che P-1 ha sanzionato, dove l'atto rivelava dati sulla salute
+per il richiamo a una norma sul collocamento mirato.
+
+Un secondo punto dello stesso articolo, che non riguarda la pubblicazione ma va saputo: il
+comma 1 subordina il trattamento di questi dati anche alle misure di garanzia che il Garante
+adotta con cadenza almeno biennale. Sono un atto che cambia nel tempo e che il componente
+non può inseguire, il che è un'altra ragione per non scrivere politiche sui dati delicati
+dentro il codice.
 
 È l'obbligo che P-1 sanziona. ALBO-11 non decide al posto dell'ente: impone un passaggio
 che chiede una conferma esplicita e mostra i casi in cui un atto rivela dati delicati senza
@@ -459,6 +515,18 @@ segnala un indizio (sembra una scansione, manca la struttura), la pubblicazione 
 possibile. È una scelta prudente, perché un controllo automatico sull'accessibilità di un
 PDF produce falsi negativi, e bloccare su un indizio significherebbe impedire la
 pubblicazione di un atto valido.
+
+**L'accessibilità dell'albo non arriva da fuori, sta dentro la norma che istituisce
+l'albo.** È la scoperta del 22 settembre 2026, leggendo il testo vigente dell'art. 32 della
+legge 69/2009: il comma 1 dice che la pubblicazione "è effettuata ... applicando i requisiti
+tecnici di accessibilità di cui all'articolo 11 della legge 9 gennaio 2004, n. 4", e
+aggiunge che la mancata pubblicazione in quei termini pesa sulla valutazione del dirigente
+responsabile. Cambia due cose. La prima: l'accessibilità non è un obbligo generale del sito
+che per caso ospita anche l'albo, è un modo di fare la pubblicazione, quindi riguarda tutto
+ciò che il componente pubblica e non i soli PDF. La seconda: il catalogo dell'albo copre
+oggi solo i documenti allegati (ALBO-13, ALBO-14) e la consultazione da tastiera (ALBO-16).
+Le pagine che il componente genera, cioè l'elenco degli atti e la scheda del singolo atto,
+non le copre nessuno. Vedi il punto 4 dei buchi.
 
 **Citare l'art. 11 e fermarsi lì non basta più.** Quell'articolo è stato sostituito nel
 2018 e oggi non contiene nessun requisito tecnico: dice che è AgID a emanare le linee
@@ -556,8 +624,14 @@ vuol dire che la fonte va letta prima di decidere se produce un obbligo per il c
    Senza, l'ente ha un numero in una casella e non ha come dimostrare da dove viene, che è
    proprio ciò che l'art. 5.2 del GDPR gli chiede. Costa poco: un campo di testo accanto
    alla durata, riportato nell'esportazione della configurazione.
-4. **Accessibilità delle pagine prodotte dal componente, assegnazione mancante.** L'obbligo
-   esiste e non è in discussione: ACC copre le pagine web, non solo i documenti allegati.
+4. **Accessibilità delle pagine prodotte dal componente, assegnazione mancante, e il
+   prezzo è salito.** L'obbligo non è in discussione e ora ha un appoggio diretto invece che
+   generale: l'art. 32 comma 1 della legge 69/2009, letto il 22 settembre 2026, dice che la
+   pubblicazione "è effettuata ... applicando i requisiti tecnici di accessibilità"
+   dell'art. 11 della legge 4/2004, e che la mancata pubblicazione in quei termini rileva
+   sulla valutazione del dirigente responsabile. Non è l'obbligo di accessibilità del sito
+   applicato anche all'albo: è una condizione del pubblicare, e chi pubblica è il componente.
+   Detto altrimenti, ACC copre le pagine web, non solo i documenti allegati.
    Nel catalogo dell'albo l'accessibilità compare però solo sui PDF (ALBO-13, ALBO-14) e
    come vincolo della ricerca (ALBO-16). L'elenco degli atti e la scheda del singolo atto
    sono pagine generate dal componente, e nessuna riga dice se ne risponde il componente o
@@ -610,7 +684,7 @@ Perché la domanda giusta, davanti a un elenco di buchi, è sempre "e questo chi
 | 1. Versione oscurata | ALBO-09 e ALBO-12 letti insieme, ALBO-07 come unico appiglio, e il campo di verifica dell'allegato 5 di LG-DOC | incoerenza interna al catalogo, più una fonte esterna letta il 22 settembre 2026 che dice dove va registrata la risposta |
 | 2. Metadati di conservazione | LG-DOC, allegato 5, riletto il 22 settembre 2026 | fonte verificata e contenuto letto: l'insieme obbligatorio esiste ed è elencato nella sezione LG-DOC |
 | 3. Fonte della durata | GDPR art. 5.2 | fonte verificata, ma il collegamento fra responsabilizzazione e "registrare da dove viene la durata" è una lettura prudente, non una prescrizione testuale |
-| 4. Accessibilità delle pagine | ACC, cioè oggi le linee guida AgID emanate ai sensi dell'art. 11 della legge 4/2004 | verificato il 22 settembre 2026 sul sito di AgID e sul testo delle linee guida: l'obbligo esiste, la catena delle fonti è quella descritta nella sezione ACC |
+| 4. Accessibilità delle pagine | art. 32 comma 1 della legge 69/2009, che rinvia all'art. 11 della legge 4/2004, cioè oggi alle linee guida AgID | **l'appoggio più solido dell'elenco dopo la lettura del 22 settembre 2026**: l'obbligo di applicare i requisiti di accessibilità sta nella norma stessa che istituisce la pubblicità legale online, letta nel testo vigente. Resta una lettura la portata del periodo sulla valutazione del dirigente, discussa nella sezione L69 |
 | 5. Data di inizio | nessuna fonte esterna | incoerenza interna, verificata leggendo il codice: l'interfaccia pubblica del componente comune espone la sola data di fine |
 | 6. Defissione anticipata | ALBO-10, che la nomina senza definirla. Per il se e il quando: art. 124 del TUEL e art. 32 della legge 69/2009 sul termine, GAR 3.a e il par. 1 della parte seconda sulle cause di rimozione | il buco resta interno al catalogo, ma non è più un dubbio normativo: le fonti sono lette e citate nella sezione dedicata. Da verificare l'art. 134 del TUEL sull'esecutività, che è quello che rende definitiva la risposta sul termine. Il diritto dell'interessato sta nell'art. 17 del GDPR, non censito nella tabella delle fonti |
 | 7. Informativa | GDPR artt. 13 e 14 | **non censiti** nella tabella delle fonti: è il punto più debole dell'elenco |
@@ -655,32 +729,30 @@ colonna lo dice.
 | LG-DOC, determinazioni | **non verificate**. Né le pagine di AgID né i PDF citano la determinazione 407/2020 o la 371/2021, e la data del 1 gennaio 2022 non compare da nessuna parte: le linee guida fissano un termine mobile di duecentosettanta giorni | cercate sul sito di AgID. Per chiudere il punto serve l'albo delle determinazioni di AgID |
 | ACC, determinazioni | **verificate**. Le linee guida sull'accessibilità sono state adottate con la determinazione n. 437/2019 del 20 dicembre 2019 e rettificate con la n. 354 del 22 dicembre 2022; la n. 117/2022 adotta quelle per i soggetti privati | dalla determinazione n. 117/2022, fornita in copia, che cita le altre |
 | ACC | **confermata e da riscrivere**. L'art. 11 è stato sostituito nel 2018 e oggi rinvia alle linee guida AgID: i requisiti tecnici non sono più in un decreto ministeriale | lette le pagine di AgID sull'accessibilità e il capitolo primo delle linee guida |
-| GDPR, COD | **confermati per via indiretta**. Gli articoli citati dal catalogo sono gli stessi che i provvedimenti del Garante del 2024, 2025 e 2026 applicano e dichiarano violati, compreso il divieto di diffondere dati sulla salute dell'art. 2-septies comma 8 | dalle pagine dei provvedimenti. **Il testo dell'art. 2-septies non è stato letto** |
+| GDPR | **confermato per via indiretta**. Gli articoli citati dal catalogo sono gli stessi che i provvedimenti del Garante del 2024, 2025 e 2026 applicano e dichiarano violati | dalle pagine dei provvedimenti. Il testo del regolamento non è stato riletto in questa sessione |
+| COD art. 2-septies | **letto nel testo vigente, ed è più largo di come il catalogo lo tratta**. Il comma 8 vieta la diffusione dei dati genetici, biometrici e relativi alla salute, senza deroghe. Il catalogo tratta "dati particolari e giudiziari" come un blocco unico | testo vigente da Normattiva, fornito in copia |
 | COD art. 2-ter | **letto nel testo vigente, e cambia l'appoggio di ALBO-11**. La definizione di diffusione del comma 4 e i tre canali della base giuridica del comma 1 sostituiscono il vecchio art. 19 comma 3 che GAR cita | testo vigente da Normattiva, fornito in copia |
 | TUEL art. 124 | **letto nel testo vigente e confermato, con un comma in più e una parola cambiata**. I commi 1 e 2 dicono quello che GAR ne citava, salvo "pubblicazione" al posto di "affissione". Il comma 2, sugli enti locali diversi dai comuni, non era nel catalogo | testo vigente da Normattiva, fornito in copia |
 | TUEL art. 134 | **letto, ed è la fonte che mancava**. Il comma 3 lega l'esecutività al decimo giorno dalla pubblicazione, il comma 4 dà all'urgenza una valvola che non tocca la durata della pubblicazione. Rende confermata la risposta sul termine che prima era solo prudente | testo vigente da Normattiva, fornito in copia. I commi 1 e 2 riguardano un controllo regionale che si ritiene superato dal 2001: quella parte è una lettura, non un dato |
-| L69 | **confermata a metà**. I commi 1 e 5, cioè le date del 2010 e del 2011, sono citati alla lettera dentro GAR. Restano da confermare la terza data, quella del 2013, e il richiamo ai requisiti di accessibilità dell'art. 11 della legge 4/2004 | citazione dentro GAR. Normattiva e la Gazzetta Ufficiale non rispondono agli strumenti automatici, e il testo dell'articolo non è stato letto |
+| L69 | **letta nel testo vigente e confermata, con due periodi in più**. Le tre date ci sono tutte. Il comma 1 contiene l'obbligo di applicare i requisiti di accessibilità e la rilevanza della mancata pubblicazione sulla valutazione del dirigente, che la citazione dentro GAR non riportava. Nuovi anche il comma 1-bis sugli elaborati urbanistici e il comma 3 sull'albo ospitato da un'altra amministrazione | testo vigente da Normattiva, fornito in copia |
 | TRASP | **confermata per via indiretta**, con due articoli in più che il catalogo non nominava: il 7-bis comma 3 e l'8 comma 3 | dalle pagine dei provvedimenti |
 
-**Due avvertenze sul metodo.** La prima: Normattiva risponde ma serve solo il guscio della
-pagina, quindi in questa sessione nessun testo di legge è stato letto alla lettera. Dove
-sopra c'è scritto "per via indiretta" vuol dire che la norma è citata e applicata da un
-provvedimento del Garante recente, il che prova che è vigente e come viene interpretata, non
-che qualcuno ne abbia riletto il testo. La seconda: su alcune pagine lunghe lo strumento ha
+**Due avvertenze sul metodo.** La prima: Normattiva non risponde agli strumenti di questa
+sessione, quindi i cinque articoli di legge letti sono arrivati in copia, incollati dal
+portale. Sono testo vigente con la data di vigenza in testa, ed è la ragione per cui la
+colonna "come" lo dice riga per riga. Dove invece c'è scritto "per via indiretta" vuol dire
+che la norma è citata e applicata da un provvedimento del Garante recente, il che prova che
+è vigente e come viene interpretata, non che qualcuno ne abbia riletto il testo. La seconda: su alcune pagine lunghe lo strumento ha
 restituito la prima parte alla lettera e il resto in sintesi. Dove la differenza conta è
 scritto.
 
 ## Cosa manca a questo documento
 
-- **Mancano due testi in vigore: l'art. 32 della legge 69/2009 e l'art. 2-septies del
-  Codice.** Del primo esiste una citazione alla lettera dei commi 1 e 5 dentro GAR, che però
-  è del 2014: restano da confermare la terza data e il richiamo ai requisiti di
-  accessibilità dell'art. 11 della legge 4/2004, che è l'unico appoggio normativo di
-  ALBO-13. Del secondo serve il comma 8, cioè il divieto di diffondere i dati sulla salute:
-  oggi lo conosco solo perché i provvedimenti del Garante lo applicano e lo dichiarano
-  violato, non perché ne abbia letto il testo.
-- Letti invece nel testo vigente il 22 settembre 2026, e non più in elenco qui: gli artt. 124
-  e 134 del TUEL e l'art. 2-ter del Codice.
+- **I cinque articoli che mancavano sono stati letti** nel testo vigente il 22 settembre
+  2026: gli artt. 124 e 134 del TUEL, l'art. 32 della legge 69/2009, gli artt. 2-ter e
+  2-septies del Codice. Nessun testo di legge centrale a questo documento resta non letto.
+  Quello che resta aperto qui sotto sono letture da confermare e fonti secondarie, non
+  articoli mancanti.
 - Nell'art. 134 i commi 1 e 2 parlano del controllo preventivo del comitato regionale. Che la
   riforma costituzionale del 2001 li abbia privati di fondamento, e che quindi il comma 3 sia
   oggi la regola generale, è una lettura che regge la sezione sul termine e **non è
