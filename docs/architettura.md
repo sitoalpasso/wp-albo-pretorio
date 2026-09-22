@@ -170,7 +170,10 @@ indietro la data di fine pubblicazione, e l'atto sparisce per la ragione di semp
 in lettura trova una data passata. Siccome la fine della pubblicazione e' un giorno civile e
 la scadenza scatta dalla mezzanotte del giorno dopo, la data scritta e' quella del giorno
 precedente a quello in cui la defissione viene disposta. Scrivere la data di oggi lascerebbe
-l'atto visibile fino a stanotte, che e' l'errore che questa riga esiste per impedire.
+l'atto visibile fino a stanotte, che e' l'errore che questa riga esiste per impedire. Il
+diagramma dice come il passaggio avviene, non quando sia legittimo compierlo: quali cause
+legittimino la defissione anticipata e' una sotto-decisione ancora aperta, descritta nella
+nota in `requisiti.md`.
 
 **Una transizione rifiutata non lascia stati intermedi.** L'atto resta dov'era e la riga
 nella banca dati non attraversa mai lo stato richiesto: nessuna riparazione tardiva, perché

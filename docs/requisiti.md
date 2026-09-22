@@ -185,7 +185,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-19 | da fare | Battito di controllo con avviso | **prodotto**, motivato dal guasto silenzioso sanzionato nel provv. Garante marzo 2026 |
 | ALBO-20 | da fare | L'atto defisso non viene più servito a nessuno | **norma** il risultato (Garante). **Prodotto** esclusione dalla memoria di pagina oppure invalidazione immediata: due strade, la scelta è nostra |
 | ALBO-21 | da fare | Scadenza sull'ora civile italiana | **prodotto**: correttezza tecnica, nessuna fonte esterna |
-| ALBO-22 | da fare | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto**, decisione chiusa il 2026-09-21: la tabella delle transizioni è nella nota qui sotto. Tre sotto-decisioni restano aperte e non bloccano l'unità |
+| ALBO-22 | da fare | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto**, decisione chiusa il 2026-09-21: la tabella delle transizioni è nella nota qui sotto. Quattro sotto-decisioni restano aperte e non bloccano l'unità, e la quarta riguarda le cause che legittimano la defissione anticipata |
 | ALBO-23 | fatto | All'attivazione l'insieme minimo di permessi sul tipo atto arriva all'amministratore | **prodotto** |
 | ALBO-24 | fatto | A ogni aggiornamento i permessi nuovi arrivano ai ruoli che avevano già gli altri | **prodotto** |
 | ALBO-25 | fatto | Se nessun ruolo possiede i permessi del tipo atto, l'amministrazione lo segnala | **prodotto** |
@@ -211,7 +211,7 @@ Fino al 2026-09-11 questa colonna aveva una categoria sola, e formule come "pras
 pubblicità legale" o "operativo" stavano accanto al GDPR: facevano sembrare obblighi di legge
 delle decisioni progettuali nostre.
 
-### Nota su ALBO-22: la decisione, e le tre sotto-decisioni che restano aperte
+### Nota su ALBO-22: la decisione, e le quattro sotto-decisioni che restano aperte
 
 Era una decisione presa a metà, ed è stata chiusa il **2026-09-21**, prima di aprire l'unità
 che costruisce il flusso di pubblicazione e non insieme a essa. Il motivo dell'ordine resta
@@ -310,9 +310,13 @@ a quello in cui la si dispone**, e la riga di collaudo lo verifica guardando l'o
 lo stato.
 
 La data di fine pianificata non va perduta: la modifica finisce nel registro delle operazioni
-(ALBO-10), che è solo in aggiunta, insieme a chi l'ha disposta, quando e perché.
+(ALBO-10), che è solo in aggiunta, insieme a chi l'ha disposta, quando e perché. Da qui
+discende un vincolo che l'unità del referto eredita: il referto di pubblicazione (ALBO-07)
+attesta il periodo effettivamente compiuto, e dopo una defissione anticipata quel periodo non
+coincide più con la data di fine memorizzata. Il referto va quindi costruito sul registro e
+non sul metadato.
 
-#### Tre sotto-decisioni restano aperte, e non bloccano l'unità
+#### Quattro sotto-decisioni restano aperte, e non bloccano l'unità
 
 1. **Un atto annullato prima della scadenza resta visibile al pubblico, con lo stato
    dichiarato?** Negli albi la pubblicazione dell'annullamento ha una sua funzione
@@ -330,9 +334,27 @@ La data di fine pianificata non va perduta: la modifica finisce nel registro del
    perché fra le due direzioni sbaglia in quella che toglie l'atto dalla vista invece che
    lasciarcelo.
 
+4. **Quali cause legittimano la defissione anticipata.** Va scritto qui perché nessun'altra
+   riga di questo documento lo dice: **nessun requisito da ALBO-01 a ALBO-26 chiede la
+   defissione anticipata**, e la fonte di ALBO-22 è "prodotto". La transizione è entrata
+   disegnando la macchina degli stati, non perché una norma la reclami. Sotto quel nome
+   stanno però due casi che non si equivalgono. Togliere un atto che non doveva stare lì,
+   per dati eccedenti, per pubblicazione erronea o per ordine dell'autorità, è coperto da
+   ALBO-11 e ALBO-12 e la funzione deve esistere: lasciare esposto un atto che diffonde dati
+   illeciti è a sua volta un illecito. Abbreviare invece la pubblicazione di un atto regolare
+   è un'altra cosa, perché dove la durata è fissata dalla norma non è un tetto massimo ma un
+   adempimento con effetti propri (TUEL art. 124 per le deliberazioni degli enti locali), e
+   nessuna fonte finora consultata afferma che l'amministrazione possa accorciarla. **Finché
+   la verifica non è fatta si tiene la forma più stretta**: la motivazione non è testo libero
+   ma una causa scelta da un elenco chiuso, e chi possa disporla lo dice il regolamento
+   dell'amministrazione. La riga di collaudo prova la forma provvisoria e la dichiara tale.
+
 Le prime due si chiudono guardando come si comportano albi pretorio già in esercizio, la
 seconda anche contro il regolamento dell'amministrazione. La terza si chiude quando si decide
-se il meccanismo comune debba tenere un termine più fine del giorno civile.
+se il meccanismo comune debba tenere un termine più fine del giorno civile. La quarta non si
+chiude guardando la prassi: chiede una verifica sulla norma e sul regolamento, ed è la sola
+delle quattro che potrebbe **restringere** una transizione già dichiarata invece di limitarsi
+a precisarne il titolare.
 
 ### Come si legge la colonna Stato
 

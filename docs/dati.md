@@ -39,7 +39,7 @@ lì e resta una scelta separata.
 | Documento principale | sì per pubblicare | file in cartella protetta più impronta (hash) in metadato | redattore prima della pubblicazione, poi bloccato. È uno e uno solo |
 | Allegati ulteriori | no | come sopra | redattore. Possono non esserci: un atto con il solo documento principale si pubblica |
 | Motivo di annullamento | quando ricorre | metadato più voce di registro | chi possiede `defissione atti`, che oggi fa parte dell'insieme di chi pubblica. Obbligatorio: senza, il passaggio è rifiutato |
-| Motivo di defissione anticipata | quando ricorre | metadato più voce di registro | come sopra, ma **in via provvisoria**: se la defissione anticipata vada riservata a un responsabile distinto è una sotto-decisione ancora aperta, e la capability separata è ciò che permetterà di riservarla senza toccare il codice |
+| Motivo di defissione anticipata | quando ricorre | metadato più voce di registro | come sopra, ma **in via provvisoria** su due fronti aperti: se la defissione anticipata vada riservata a un responsabile distinto, e se il motivo debba essere testo libero oppure una causa scelta da un elenco chiuso. La capability separata è ciò che permetterà di riservarla senza toccare il codice |
 
 Gli **stati** possibili: bozza, in verifica, pubblicato, defisso, annullato.
 
@@ -69,10 +69,12 @@ giorno precedente a quello in cui la defissione è disposta: scrivere la data di
 lascerebbe l'atto visibile fino a stanotte. La data pianificata non si perde, perché la
 modifica finisce nel registro delle operazioni insieme a chi l'ha disposta e perché.
 
-Tre sotto-decisioni restano aperte e sono marcate nella nota: se un atto annullato prima
+Quattro sotto-decisioni restano aperte e sono marcate nella nota: se un atto annullato prima
 della scadenza resti visibile al pubblico; chi disponga la defissione anticipata, che qui
-è attribuita a chi pubblica in via provvisoria; e se il giorno civile basti come
-granularità del termine, o serva chiedere al meccanismo comune qualcosa di più fine.
+è attribuita a chi pubblica in via provvisoria; se il giorno civile basti come
+granularità del termine, o serva chiedere al meccanismo comune qualcosa di più fine; e quali
+cause legittimino la defissione anticipata, che nessun requisito chiede e su cui manca
+ancora una verifica sulla norma.
 
 ## Le risposte alle domande di controllo
 
