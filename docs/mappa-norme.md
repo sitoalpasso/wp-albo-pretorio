@@ -69,7 +69,7 @@ di cortesia: è la pubblicazione. Da qui due obblighi.
 
 | Obbligo | Requisiti | Copertura |
 |---|---|---|
-| L'atto pubblicato è identificabile e completo dei suoi estremi | ALBO-01 | scoperto |
+| L'atto pubblicato è identificabile: l'articolo dice che gli obblighi si assolvono con la pubblicazione sul sito, non quali estremi l'atto debba portare. Quali siano è scelta di attuazione, e GAR 2.d la sostiene raccomandando i "dati di contesto" con un "dovrebbe prevedere" | ALBO-01 | scoperto |
 | La pubblicazione è effettuata applicando i requisiti tecnici di accessibilità dell'art. 11 della legge 4/2004 (comma 1, secondo periodo) | ALBO-13, ALBO-14 | scoperto, e l'obbligo è più largo dei requisiti che lo coprono: vedi qui sotto |
 | Gli adempimenti possono essere assolti sul sito di un'altra amministrazione o di una loro associazione (comma 3) | nessuno | scoperto |
 
@@ -131,8 +131,10 @@ Il testo vigente, letto il 22 settembre 2026, cambia una parola rispetto alla ci
 2014 su cui questo documento poggiava: le deliberazioni sono pubblicate "mediante
 pubblicazione all'albo pretorio", dove il testo originario diceva "mediante affissione".
 La sostanza resta identica, compreso "per quindici giorni consecutivi, salvo specifiche
-disposizioni di legge", ma è il segno che l'articolo è stato allineato alla pubblicazione
-online e non è rimasto fermo al 2000.
+disposizioni di legge". Qui il documento si ferma: la differenza fra i due testi è un fatto,
+il perché e il quando no. La pagina consultata porta l'intestazione "testo in vigore dal
+13-10-2000" e non nomina l'atto che ha cambiato la parola, quindi qualunque ricostruzione
+sull'allineamento alla pubblicazione online sarebbe un'ipotesi e non si scrive.
 
 **Il comma 2 dice una cosa che il catalogo non aveva registrato**, e che riguarda proprio
 gli enti diversi dai comuni: le deliberazioni degli altri enti locali si pubblicano all'albo
@@ -201,9 +203,10 @@ Cosa vuol dire "avviato", qui, in concreto.
   indica due accorgimenti tecnici, i metatag `noindex` **e `noarchive`** nelle intestazioni
   delle pagine, oppure le regole di esclusione nel file `robots.txt` secondo il Robot
   Exclusion Protocol, e raccomanda di privilegiare la ricerca interna al sito invece di quella
-  dei motori. ALBO-06 nomina il solo `noindex`. Avverte anche che nessuno dei due
-  accorgimenti agisce su ciò che è già stato indicizzato, la cui rimozione va chiesta al
-  singolo motore: è una cosa che l'ente deve sapere e che nessun requisito oggi gli dice.
+  dei motori. ALBO-06 nomina il solo `noindex`. Avverte anche che quegli accorgimenti non
+  sono immediatamente efficaci su ciò che è già stato indicizzato, e che la rimozione potrà
+  avvenire secondo le modalità previste da ciascun motore: è una cosa che l'ente deve sapere
+  e che nessun requisito oggi gli dice.
 
 **Una precisazione che cambia il peso di ALBO-06.** In P-1 l'ente aveva impedito
 l'indicizzazione per tutta la durata della pubblicazione, e il Garante lo ha sanzionato lo
@@ -242,9 +245,17 @@ Tre osservazioni che cambiano qualcosa nel catalogo.
 obbligatoria era motivata con i provvedimenti sanzionatori, che sono la prova di come va a
 finire e non la regola. Qui la regola c'è, scritta: dove la norma non fissa un termine, è
 l'amministrazione a doverne individuare uno, e non può superare il tempo necessario allo
-scopo. È esattamente il comportamento di ALBO-04, cioè una durata obbligatoria per ogni
-tipo di atto senza valore predefinito, e di ALBO-02, cioè nessun atto pubblicato senza data
-di fine.
+scopo. L'obbligo si ferma qui: individuare il periodo e rispettarlo.
+
+Il modo in cui ALBO-04 e ALBO-02 lo realizzano, cioè una durata obbligatoria per ogni tipo
+di atto, senza valore predefinito, e il blocco della pubblicazione di un atto senza data di
+fine, **non è prescritto da GAR**: è la nostra attuazione di quell'obbligo. La distinzione
+non è accademica, perché la fonte dice due volte "caso per caso", al paragrafo 2.b e al 3.a.
+Una configurazione per tipo di atto è comoda e in genere sufficiente, ma deve lasciare
+all'ente la possibilità di accorciare il periodo del singolo atto quando quel caso lo
+richiede, altrimenti impedisce proprio la valutazione che la fonte gli chiede. Da non
+confondere con la domanda sul termine di legge: qui si parla dei casi in cui **la norma un
+termine non lo fissa**, e il periodo lo sceglie l'amministrazione.
 
 **ALBO-03 e ALBO-19 non sono soltanto scelte nostre.** La nota 53 del paragrafo 2.b
 suggerisce, **a titolo esemplificativo**, sistemi di pubblicazione capaci di attribuire alla
@@ -379,7 +390,13 @@ modo che l'ente possa decidere, non decidere al suo posto.
 | Dati eccedenti, non pertinenti o non necessari | GAR 3.a richiama per l'albo il "divieto di diffondere dati personali non necessari, non pertinenti o eccedenti" della parte seconda, par. 1 | non si toglie l'atto: si sostituisce il file con la versione oscurata. È esattamente ALBO-12. Se questo basti a far compiere il termine, o se la sostituzione incida sul periodo, i testi non lo dicono |
 | Dati genetici, biometrici o relativi alla salute | art. 2-septies comma 8 del d.lgs. 196/2003, letto nel testo vigente: "I dati personali di cui al comma 1 non possono essere diffusi". Divieto assoluto, senza rinvio a norme che lo deroghino. GAR 3.a richiama per l'albo lo stesso divieto nella formulazione del Codice di allora | la diffusione è vietata, quindi l'oscuramento è l'unico stato lecito. Se il documento non è oscurabile, il file esce |
 | Pubblicazione priva di base normativa | GAR 3.a: prima di pubblicare, l'ente verifica l'esistenza di una norma che prescriva l'affissione **di quell'atto** | non c'è un termine da accorciare, perché non c'era un obbligo di pubblicare quell'atto: la pubblicazione non doveva iniziare |
+| Dati inesatti o non aggiornati | GAR 2.d: le amministrazioni "sono tenute a mettere a disposizione soltanto dati personali esatti e aggiornati". È il caso che l'elenco non aveva: un dato può essere pertinente, necessario e coperto da una base normativa, e insieme sbagliato | cessa l'esposizione della versione non conforme. Come si rettifica, cioè se si sostituisca il file o si pubblichi una correzione, lo determina l'ente secondo la disciplina dell'atto |
 | Ordine di un'autorità | esterna al componente (Garante, autorità giudiziaria). Nessuno dei testi letti la disciplina, e l'ordine può avere contenuti diversi fra loro | si esegue e si registra chi l'ha disposto. Gli effetti sul periodo li determina l'ordine, non il sistema |
+
+L'elenco è di cause pacifiche, **non è un elenco tassativo**: dice quali casi i testi letti
+sostengono senza discussione, non che altri non possano esistere. Una revisione ne ha già
+aggiunto uno che mancava, ed è la ragione per cui il quinto è arrivato dopo gli altri
+quattro.
 
 Fuori dall'elenco resta il caso che non è pacifico, ed è bene che resti fuori: la richiesta
 dell'interessato su un atto pubblicato legittimamente e con dati pertinenti. Lì il diritto
@@ -391,7 +408,8 @@ che ALBO-10 già chiede.
 Conseguenza per la forma stretta di ALBO-22: la rimozione anticipata non è uno stato che il
 redattore raggiunge quando vuole, ma due transizioni distinte, la sostituzione con versione
 oscurata e la rimozione per le cause in cui la pubblicazione non doveva esistere in quella
-forma. Entrambe chiedono una causa fra quelle dell'elenco e la registrano. Quello che nessuna
+forma. Entrambe chiedono una causa e la registrano, scelta fra quelle dell'elenco o indicata
+dall'ente quando il caso non vi rientra, perché l'elenco non è tassativo. Quello che nessuna
 delle due deve fare è decidere da sola che il termine è compiuto: l'effetto sul periodo è
 una valutazione dell'ente, quindi va chiesto e registrato, non calcolato. La terza
 possibilità, cioè accorciare il termine di un atto regolare, non è una transizione e non va
@@ -706,9 +724,14 @@ vuol dire che la fonte va letta prima di decidere se produce un obbligo per il c
    pubblicato con inizio futuro sarebbe visibile subito. Va deciso se è un caso che esiste
    (pubblicazione preparata in anticipo) e, se esiste, chiuso dentro ALBO-22 insieme alle
    transizioni. L'art. 134 comma 3 del TUEL, letto il 22 settembre 2026, alza il prezzo di
-   questo buco: è dalla data di pubblicazione che decorre il decimo giorno oltre il quale la
-   deliberazione diventa esecutiva. Una data di inizio sbagliata non produce solo una pagina
-   visibile nel momento sbagliato, sposta la data in cui un atto acquista efficacia.
+   questo buco: per le deliberazioni che quel comma indica, l'esecutività interviene dopo il
+   decimo giorno **dalla pubblicazione**. Il riferimento è quindi la pubblicazione come
+   fatto, non il valore scritto in un campo, e i due casi vanno tenuti separati. Se il campo
+   è sbagliato ma l'atto è stato esposto quando doveva, il sistema calcola e attesta male una
+   decorrenza che resta quella giusta, il che è già abbastanza grave visto che il referto di
+   ALBO-07 attesta proprio quelle date. Se invece la data sbagliata produce un'esposizione
+   anticipata o ritardata, allora cambia il fatto da cui la decorrenza parte. Nessuno dei due
+   casi è governato oggi.
 6. **Defissione anticipata: tracciata ma non definita, buco, con una parte della domanda
    normativa risolta e una ancora aperta.** ALBO-10 chiede che il registro contenga chi ha
    disposto una defissione
@@ -730,8 +753,10 @@ vuol dire che la fonte va letta prima di decidere se produce un obbligo per il c
    decidere invece di lasciarlo implicito.
 8. **Gli accorgimenti contro l'indicizzazione sono scritti a metà, scarto interno.** GAR ne
    nomina due **a titolo esemplificativo**, i metatag `noindex` e `noarchive` oppure il
-   `robots.txt` secondo il Robot Exclusion Protocol, e aggiunge che nessuno dei due tocca
-   quello che è già indicizzato. Non è quindi un elenco minimo obbligatorio, e la loro
+   `robots.txt` secondo il Robot Exclusion Protocol, e aggiunge che nessuno dei due è
+   **immediatamente efficace** su ciò che è già indicizzato, la cui rimozione potrà avvenire
+   secondo le modalità previste da ciascun motore. Non è quindi un elenco minimo
+   obbligatorio, e la loro
    assenza non è di per sé una lacuna rispetto alla fonte: è uno scarto fra quello che
    ALBO-06 promette e quello che la sua riga di collaudo verifica.
    ALBO-06 nomina il solo `noindex`, la sua riga di collaudo ispeziona il meta robots e la
@@ -815,6 +840,15 @@ dicono che una diffusione vietata deve cessare e tacciono sugli effetti sul peri
 restano una valutazione dell'ente. Sono state inoltre marcate come non verificate due
 affermazioni fatte a memoria, l'abrogazione del vecchio art. 19 del Codice e la
 corrispondenza fra i vecchi artt. 19-22 e gli attuali 2-ter e 2-septies.
+
+**Un secondo giro** sul testo corretto ha dato altri sei rilievi, accolti anch'essi. Cinque
+sono della stessa famiglia: una scelta di attuazione scritta come se la dettasse la fonte,
+questa volta gli estremi obbligatori dell'atto, il modello di configurazione delle durate e
+l'effetto di una data registrata male. Il sesto è diverso e vale da solo il giro: **mancava
+una causa di rimozione anticipata**. GAR 2.d chiede di mettere a disposizione "soltanto dati
+personali esatti e aggiornati", e un dato può essere pertinente, necessario, coperto da una
+base normativa e insieme sbagliato: nessuna delle quattro cause elencate lo comprendeva. È
+anche la ragione per cui l'elenco ora dice di sé che non è tassativo.
 
 **Due avvertenze sul metodo.** La prima: Normattiva non risponde agli strumenti di questa
 sessione, quindi i cinque articoli di legge letti sono arrivati in copia, incollati dal
