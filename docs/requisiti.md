@@ -385,7 +385,9 @@ non sul metadato.
    La domanda è stata portata alla lettura delle fonti, che ha risposto il 2026-09-22, e la
    risposta cambia la forma della transizione invece di limitarsi a nominarne il titolare.
    **Accorciare la pubblicazione di un atto regolare non è una funzione che il componente
-   offre.** L'art. 124 del TUEL prescrive per le deliberazioni degli enti locali quindici
+   offre**, e la frase vale per un solo tipo di durata, cioè quando il termine è fissato
+   dalla disciplina applicabile all'atto. L'art. 124 del TUEL prescrive per le deliberazioni
+   degli enti locali quindici
    giorni **consecutivi**, e intesta a "specifiche disposizioni di legge", cioè a un'altra
    norma e non all'amministrazione che pubblica, la facoltà di fissare un termine diverso.
    L'art. 32 della legge 69/2009 parla di obblighi che **si intendono assolti** con la
@@ -423,6 +425,19 @@ non sul metadato.
    sola, il motivo non è testo libero ma una causa scelta fra quelle dell'elenco, e nessuna
    maschera consente di accorciare il termine di un atto regolare come normale operazione di
    redazione.
+
+   **Il caso opposto esiste e non va confuso con questo.** Dove la norma un termine non lo
+   fissa, il periodo lo individua l'amministrazione, e il Garante dice che quel periodo non
+   può superare quello ritenuto necessario, valutato caso per caso. Lì la durata configurata
+   per il tipo di atto è un massimale che l'ente si è dato, non un termine di legge, e
+   sceglierne uno più breve **sul singolo atto, prima di pubblicarlo**, è esattamente la
+   valutazione che la fonte gli chiede. La regola in una riga: si può accorciare ciò che
+   l'ente ha scelto, non ciò che la norma ha prescritto. Riguarda la scelta della data di
+   fine prima della pubblicazione e non tocca nulla di quanto detto sopra, che vale a
+   pubblicazione avvenuta. **Se ALBO-04 debba quindi portare, per ogni durata configurata,
+   l'indicazione di dove viene, se da una norma o da una scelta dell'ente, è una decisione
+   aperta al 2026-09-22**: senza quell'indicazione il componente non sa quale dei due casi
+   ha davanti.
 
    L'art. 134 del TUEL, letto nel testo vigente il 2026-09-22, corrobora questa conclusione
    senza però disciplinare gli effetti di un'interruzione della pubblicazione, che nessun testo
