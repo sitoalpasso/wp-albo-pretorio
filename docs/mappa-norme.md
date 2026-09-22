@@ -75,8 +75,10 @@ di cortesia: è la pubblicazione. Da qui due obblighi.
 
 L'articolo contiene tre date che vanno tenute distinte quando se ne discute: dal 1 gennaio
 2010 gli obblighi di pubblicità legale si assolvono sui siti; dal 1 gennaio 2011 la
-pubblicazione cartacea perde quell'effetto; dal 1 gennaio 2013 lo stesso vale per gli atti
-per cui era prevista la pubblicazione su quotidiani. Tutte e tre sono ora verificate sul
+pubblicazione cartacea perde quell'effetto; dal 1 gennaio 2013 lo stesso vale "nei casi di
+cui al comma 2", cioè per gli atti e provvedimenti che riguardano procedure ad evidenza
+pubblica o i bilanci, non per qualunque atto pubblicato sui quotidiani. Tutte e tre sono ora
+verificate sul
 testo vigente, letto il 22 settembre 2026. Restano fuori gli obblighi in Gazzetta Ufficiale
 e nella Gazzetta dell'Unione europea, che il comma 7 fa salvi insieme a quelli sul sito del
 Ministero delle infrastrutture e dell'osservatorio dei contratti pubblici.
@@ -232,12 +234,25 @@ pena leggerne le regole una per una, perché quasi ognuna corrisponde a un requi
 | Cosa dice GAR 3.a | Requisiti |
 |---|---|
 | Prima di pubblicare un atto con dati personali l'ente verifica che esista una norma che prescriva l'affissione di **quell'atto**, e per i dati particolari e giudiziari deve essere una norma di legge | ALBO-11 |
+| Per i dati sensibili e giudiziari gli enti locali **devono agire nel rispetto del proprio regolamento** sul trattamento di quei dati, adottato in conformità agli schemi tipo Anci, Upi e Uncem su cui il Garante ha dato parere favorevole nel 2005 | nessuno |
 | Trascorso il periodo di pubblicazione, gli enti locali **non possono continuare a diffondere** i dati personali contenuti negli atti | ALBO-05, ALBO-18 |
 | La permanenza oltre i quindici giorni può integrare una violazione, se non esiste un diverso parametro che preveda quella diffusione | ALBO-04 |
 | Se la norma non indica una durata, l'amministrazione **deve individuare un congruo periodo**, non superiore a quello necessario allo scopo per cui l'atto è stato adottato | ALBO-02, ALBO-04 |
 | All'albo **non si applica** l'arco dei cinque anni della trasparenza | ALBO-15 |
 | Se l'ente vuole tenere gli atti nel sito dopo la scadenza, per esempio in una sezione di archivio, deve oscurare i dati che identificano anche indirettamente le persone | ALBO-05 |
 | Si **consiglia** di adottare accorgimenti tecnici per evitare l'indicizzazione nei motori generalisti, perché la reperibilità indiscriminata è sproporzionata rispetto alla finalità | ALBO-06 |
+
+**La riga senza requisito è quella sul regolamento dell'ente**, ed è un precetto espresso
+della fonte, non una raccomandazione: per i dati sensibili e giudiziari l'ente locale deve
+agire nel rispetto del proprio regolamento adottato sugli schemi tipo. Nessun requisito lo
+traduce e nessuna riga di collaudo lo verifica. Due avvertenze prima di farne un requisito.
+La prima: è il contenuto di un documento del 2014, e quei regolamenti nascevano dagli
+articoli del Codice di allora; se e come l'obbligo sopravviva alla riforma del 2018 va
+verificato, e non si può dare per scontato che gli artt. 2-ter e 2-septies lo abbiano
+semplicemente assorbito. La seconda: qualunque sia la risposta, non è il componente a
+rispettare un regolamento, è l'ente. Quello che il componente può fare è chiedere che il
+regolamento sia indicato e registrarlo accanto alla verifica di ALBO-11, che è la stessa
+forma della registrazione della fonte della durata già proposta al punto 3 dei buchi.
 
 Tre osservazioni che cambiano qualcosa nel catalogo.
 
@@ -361,12 +376,23 @@ costituzionale del 2001 ha privato di fondamento: se è così, oggi quasi tutte 
 deliberazioni ricadono nel comma 3, che da caso residuale diventa la regola. Questa parte è
 una lettura mia e va confermata, ma rafforza la conclusione invece di indebolirla.
 
-Conclusione operativa: **accorciare il termine di un atto regolare non è una funzione che il
-componente offre**, e nessuna maschera deve permettere di farlo come normale operazione di
-redazione. Regge in primo luogo sull'art. 124, che è testo vigente letto e non citazione di
-seconda mano: "sono pubblicate ... per quindici giorni consecutivi". Gli altri appoggi la
-circondano, e quello sull'oscuramento anticipato vale meno degli altri, per la ragione detta
-sopra.
+Conclusione operativa, e va enunciata con precisione perché **vale per un solo tipo di
+durata**: quando il termine è fissato dalla disciplina applicabile all'atto, **abbreviarlo
+non è una funzione che il componente offre**, e nessuna maschera deve permettere di farlo
+come normale operazione di redazione. Regge in primo luogo sull'art. 124, che è testo
+vigente letto e non citazione di seconda mano: "sono pubblicate ... per quindici giorni
+consecutivi". Gli altri appoggi la circondano, e quello sull'oscuramento anticipato vale
+meno degli altri, per la ragione detta sopra.
+
+**Il caso opposto esiste e va tenuto distinto**, altrimenti il divieto scritto largo
+impedisce una cosa che la fonte chiede. Dove la norma un termine non lo fissa, il periodo lo
+individua l'amministrazione, e GAR 2.b dice che quel periodo "non può essere superiore al
+periodo ritenuto, **caso per caso**, necessario". Lì il periodo configurato per il tipo di
+atto è un massimale che l'ente si è dato, non un termine di legge, e accorciarlo sul singolo
+atto è esattamente la valutazione che la fonte gli chiede: il sistema deve permetterlo, con
+una motivazione registrata. La regola pratica, in una riga: si può accorciare ciò che
+l'ente ha scelto, non ciò che la norma ha prescritto, e il componente deve sapere quale dei
+due casi è quello dell'atto che ha davanti.
 
 **Seconda domanda: quali rimozioni anticipate sono invece pacifiche?**
 
@@ -412,8 +438,10 @@ forma. Entrambe chiedono una causa e la registrano, scelta fra quelle dell'elenc
 dall'ente quando il caso non vi rientra, perché l'elenco non è tassativo. Quello che nessuna
 delle due deve fare è decidere da sola che il termine è compiuto: l'effetto sul periodo è
 una valutazione dell'ente, quindi va chiesto e registrato, non calcolato. La terza
-possibilità, cioè accorciare il termine di un atto regolare, non è una transizione e non va
-prevista.
+possibilità, cioè abbreviare un termine **fissato dalla norma** su un atto regolare, non è
+una transizione e non va prevista. Diverso è ridurre sul singolo atto un periodo che l'ente
+si era dato in assenza di un termine normativo: quello è consentito e va registrato con la
+motivazione, per la ragione spiegata nella sezione sul termine.
 
 **Conseguenza per ALBO-07.** Se una rimozione anticipata può esistere, il periodo davvero
 compiuto non coincide più con la data di fine memorizzata, e l'unico posto in cui quel
@@ -498,7 +526,7 @@ per tre categorie di dati.
 |---|---|
 | Dati comuni | che esista una delle basi elencate dall'art. 2-ter comma 1, cioè una norma di legge, di regolamento o un atto amministrativo generale che prescriva la pubblicazione di quell'atto. Resta aperto se la strada dei commi 1-bis e 3 valga anche per l'albo: finché non è chiarita, ALBO-11 non può trattare quelle tre come l'elenco completo |
 | Dati genetici, biometrici, relativi alla salute | niente da verificare, perché la risposta è sempre no: non si diffondono. L'unica pubblicazione possibile è quella oscurata, e se il documento non è oscurabile non si pubblica |
-| Altre categorie particolari dell'art. 9 del GDPR e dati su condanne e reati dell'art. 10 | restano fuori dal divieto specifico del comma 8, il che **non vuol dire** che basti la base giuridica generale: hanno condizioni e cautele proprie, che GAR 3.a richiama per l'albo chiedendo una norma di legge per i dati allora detti sensibili e giudiziari. Questa lettura non le ricostruisce, e ALBO-11 non può equipararle ai dati comuni |
+| Altre categorie particolari dell'art. 9 del GDPR e dati su condanne e reati dell'art. 10 | restano fuori dal divieto specifico del comma 8, il che **non vuol dire** che basti la base giuridica generale: hanno condizioni e cautele proprie, che GAR 3.a richiama per l'albo chiedendo una norma di legge e il rispetto del regolamento dell'ente sui dati sensibili e giudiziari. Questa lettura non le ricostruisce, e ALBO-11 non può equipararle ai dati comuni |
 
 Questa distinzione oggi non c'è, né in ALBO-11 né nella sua riga di collaudo, e non è un
 raffinamento: il catalogo tratta "dati particolari e giudiziari" come un blocco unico, cioè
@@ -849,6 +877,15 @@ una causa di rimozione anticipata**. GAR 2.d chiede di mettere a disposizione "s
 personali esatti e aggiornati", e un dato può essere pertinente, necessario, coperto da una
 base normativa e insieme sbagliato: nessuna delle quattro cause elencate lo comprendeva. È
 anche la ragione per cui l'elenco ora dice di sé che non è tassativo.
+
+**Un terzo giro** ha dato tre rilievi, accolti. Uno era una contraddizione introdotta dalle
+correzioni del secondo: il divieto di accorciare il termine, scritto per i termini di legge,
+copriva anche i periodi che l'amministrazione si dà quando una norma non ne fissa uno, che
+sono proprio quelli che la fonte le chiede di valutare caso per caso. Ora i due casi sono
+distinti. Il secondo riportava la data del 2013 al perimetro del comma 2 dell'art. 32, cioè
+procedure ad evidenza pubblica e bilanci. Il terzo è di nuovo un obbligo non raccolto: GAR
+3.a prescrive agli enti locali di agire nel rispetto del **proprio regolamento** sui dati
+sensibili e giudiziari, e nessun requisito lo traduce.
 
 **Due avvertenze sul metodo.** La prima: Normattiva non risponde agli strumenti di questa
 sessione, quindi i cinque articoli di legge letti sono arrivati in copia, incollati dal
