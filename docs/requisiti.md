@@ -185,7 +185,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-19 | da fare | Battito di controllo con avviso | **prodotto**, motivato dal guasto silenzioso sanzionato nel provv. Garante marzo 2026 |
 | ALBO-20 | da fare | L'atto defisso non viene più servito a nessuno | **norma** il risultato (Garante). **Prodotto** esclusione dalla memoria di pagina oppure invalidazione immediata: due strade, la scelta è nostra |
 | ALBO-21 | da fare | Scadenza sull'ora civile italiana | **prodotto**: correttezza tecnica, nessuna fonte esterna |
-| ALBO-22 | da fare | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto**, decisione chiusa il 2026-09-21: la tabella delle transizioni è nella nota qui sotto. Quattro sotto-decisioni restano aperte e non bloccano l'unità, e la quarta riguarda le cause che legittimano la defissione anticipata |
+| ALBO-22 | da fare | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto**, decisione chiusa il 2026-09-21: la tabella delle transizioni è nella nota qui sotto. Quattro sotto-decisioni ne sono seguite, di cui **tre restano aperte** e nessuna blocca l'unità; la quarta, sulle cause che legittimano la defissione anticipata, è chiusa il 2026-09-22 |
 | ALBO-23 | fatto | All'attivazione l'insieme minimo di permessi sul tipo atto arriva all'amministratore | **prodotto** |
 | ALBO-24 | fatto | A ogni aggiornamento i permessi nuovi arrivano ai ruoli che avevano già gli altri | **prodotto** |
 | ALBO-25 | fatto | Se nessun ruolo possiede i permessi del tipo atto, l'amministrazione lo segnala | **prodotto** |
@@ -211,7 +211,7 @@ Fino al 2026-09-11 questa colonna aveva una categoria sola, e formule come "pras
 pubblicità legale" o "operativo" stavano accanto al GDPR: facevano sembrare obblighi di legge
 delle decisioni progettuali nostre.
 
-### Nota su ALBO-22: la decisione, e le quattro sotto-decisioni che restano aperte
+### Nota su ALBO-22: la decisione, e le sotto-decisioni che ne sono seguite
 
 Era una decisione presa a metà, ed è stata chiusa il **2026-09-21**, prima di aprire l'unità
 che costruisce il flusso di pubblicazione e non insieme a essa. Il motivo dell'ordine resta
@@ -316,7 +316,7 @@ attesta il periodo effettivamente compiuto, e dopo una defissione anticipata que
 coincide più con la data di fine memorizzata. Il referto va quindi costruito sul registro e
 non sul metadato.
 
-#### Quattro sotto-decisioni restano aperte, e non bloccano l'unità
+#### Quattro sotto-decisioni, di cui tre restano aperte, e nessuna blocca l'unità
 
 1. **Un atto annullato prima della scadenza resta visibile al pubblico, con lo stato
    dichiarato?** Negli albi la pubblicazione dell'annullamento ha una sua funzione
@@ -334,7 +334,7 @@ non sul metadato.
    perché fra le due direzioni sbaglia in quella che toglie l'atto dalla vista invece che
    lasciarcelo.
 
-4. **Quali cause legittimano la defissione anticipata.** Va scritto qui perché nessun'altra
+4. **Quali cause legittimano la defissione anticipata. Chiusa il 2026-09-22.** Va scritto qui perché nessun'altra
    riga di questo documento lo dice: **nessun requisito da ALBO-01 a ALBO-26 chiede la
    defissione anticipata**, e la fonte di ALBO-22 è "prodotto". La transizione è entrata
    disegnando la macchina degli stati, non perché una norma la reclami.
@@ -381,19 +381,24 @@ non sul metadato.
    durata della pubblicazione: l'ordinamento ha previsto il caso "serve che valga subito" e
    vi ha risposto senza toccare l'albo.
 
-   La sotto-decisione resta comunque aperta, ma per una ragione più stretta di prima: non
-   perché la risposta sia dubbia, ma perché renderla esigibile chiede righe di collaudo che
-   restringono una transizione già dichiarata, e quella è una scelta di perimetro.
+   **La sotto-decisione è chiusa il 2026-09-22**, ed è chiusa nel solo modo che conta: la
+   riga di collaudo che rifiuta una defissione anticipata con una causa fuori elenco è
+   scritta, quindi la restrizione non vive più soltanto in questa nota.
+
+   Resta invece aperta, e non appartiene ad ALBO-22, una contraddizione che questa risposta
+   ha portato alla luce. La lettura delle fonti propone, per il caso dei dati eccedenti, di
+   sostituire il file esposto con la versione oscurata lasciando correre il termine. Ma
+   ALBO-09 prescrive l'immodificabilità del documento pubblicato e la rettifica come atto
+   nuovo, e il catalogo di collaudo lo verifica proprio sull'allegato di un atto pubblicato.
+   Le due prescrizioni non stanno insieme, e scegliere quale cede è una decisione su ALBO-09
+   e ALBO-12.
 
 Le prime due si chiudono guardando come si comportano albi pretorio già in esercizio, la
 seconda anche contro il regolamento dell'amministrazione. La terza si chiude quando si decide
-se il meccanismo comune debba tenere un termine più fine del giorno civile. La quarta non si
-chiude guardando la prassi e ha già la sua risposta dalle fonti, confermata sul testo
-vigente degli artt. 124 e 134 del TUEL. È la sola delle quattro che **restringe** una
-transizione già dichiarata invece di limitarsi a precisarne il titolare, e per questo la
-riga di collaudo che rende la restrizione esigibile, cioè il rifiuto di una causa fuori
-elenco, è una scelta di perimetro e non una rifinitura del catalogo: si chiude quando quella
-scelta è presa.
+se il meccanismo comune debba tenere un termine più fine del giorno civile. La quarta non si è
+chiusa guardando la prassi ma sul testo vigente degli artt. 124 e 134 del TUEL, ed è la sola
+delle quattro che ha **ristretto** una transizione già dichiarata invece di limitarsi a
+precisarne il titolare.
 
 ### Come si legge la colonna Stato
 
