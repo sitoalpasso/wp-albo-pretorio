@@ -362,24 +362,38 @@ non sul metadato.
    della protezione dei dati, e il componente registra la decisione e chi l'ha presa
    (ALBO-10).
 
-   **La forma provvisoria da tenere è quindi questa**: la transizione da pubblicato a
-   defisso resta una sola, il motivo non è testo libero ma una causa scelta fra quelle
-   dell'elenco, e nessuna maschera consente di accorciare il termine di un atto regolare
-   come normale operazione di redazione. La sotto-decisione resta aperta perché la risposta
-   è prudente e non definitiva: l'art. 124 è letto nella citazione che ne fa un documento
-   del 2014, quindi una modifica successiva non si vedrebbe, e l'art. 134 del TUEL
-   sull'esecutività delle deliberazioni, che trasformerebbe la durata in un meccanismo con
-   effetti propri, non è ancora stato letto.
+   **La forma da tenere è quindi questa**: la transizione da pubblicato a defisso resta una
+   sola, il motivo non è testo libero ma una causa scelta fra quelle dell'elenco, e nessuna
+   maschera consente di accorciare il termine di un atto regolare come normale operazione di
+   redazione.
+
+   L'art. 134 del TUEL, letto nel testo vigente il 2026-09-22, toglie a questa conclusione
+   il carattere prudente che aveva quando è stata scritta. Il comma 3 dice che le
+   deliberazioni non soggette a controllo diventano esecutive **dopo il decimo giorno dalla
+   loro pubblicazione**: la durata non è un contenitore che si svuota quando la finalità
+   sembra raggiunta, è l'orologio da cui decorre un effetto giuridico, e chi togliesse
+   l'atto al settimo giorno toglierebbe il presupposto di un termine ancora in corso. Due
+   dettagli dello stesso articolo lo confermano. I due termini partono insieme e hanno
+   lunghezza diversa, dieci giorni e quindici: se il termine fosse un tetto da abbassare a
+   scopo raggiunto, il decimo giorno sarebbe il taglio naturale, e la legge invece lascia
+   correre fino al quindicesimo. E l'urgenza ha già la sua valvola nel comma 4, la
+   dichiarazione di immediata eseguibilità, che opera sull'efficacia dell'atto e non sulla
+   durata della pubblicazione: l'ordinamento ha previsto il caso "serve che valga subito" e
+   vi ha risposto senza toccare l'albo.
+
+   La sotto-decisione resta comunque aperta, ma per una ragione più stretta di prima: non
+   perché la risposta sia dubbia, ma perché renderla esigibile chiede righe di collaudo che
+   restringono una transizione già dichiarata, e quella è una scelta di perimetro.
 
 Le prime due si chiudono guardando come si comportano albi pretorio già in esercizio, la
 seconda anche contro il regolamento dell'amministrazione. La terza si chiude quando si decide
 se il meccanismo comune debba tenere un termine più fine del giorno civile. La quarta non si
-chiude guardando la prassi e ha già una risposta prudente dalle fonti: si chiuderà quando
-saranno letti l'art. 124 nel testo vigente e l'art. 134 del TUEL. È la sola delle quattro
-che **restringe** una transizione già dichiarata invece di limitarsi a precisarne il
-titolare, e per questo la riga di collaudo che rende la restrizione esigibile, cioè il
-rifiuto di una causa fuori elenco, è una scelta di perimetro e non una rifinitura del
-catalogo.
+chiude guardando la prassi e ha già la sua risposta dalle fonti, confermata sul testo
+vigente degli artt. 124 e 134 del TUEL. È la sola delle quattro che **restringe** una
+transizione già dichiarata invece di limitarsi a precisarne il titolare, e per questo la
+riga di collaudo che rende la restrizione esigibile, cioè il rifiuto di una causa fuori
+elenco, è una scelta di perimetro e non una rifinitura del catalogo: si chiude quando quella
+scelta è presa.
 
 ### Come si legge la colonna Stato
 

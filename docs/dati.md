@@ -74,8 +74,8 @@ della scadenza resti visibile al pubblico; chi disponga la defissione anticipata
 è attribuita a chi pubblica in via provvisoria; se il giorno civile basti come
 granularità del termine, o serva chiedere al meccanismo comune qualcosa di più fine; e quali
 cause legittimino la defissione anticipata, che nessun requisito chiede e su cui la lettura
-delle fonti ha già risposto in via prudente che il termine di un atto regolare non si
-accorcia.
+delle fonti ha già risposto, sul testo vigente del TUEL, che il termine di un atto regolare
+non si accorcia.
 
 ## Le risposte alle domande di controllo
 

@@ -100,8 +100,10 @@ aperto allo stesso modo: le righe provano la forma provvisoria, cioè il giorno 
 e non vincolano la scelta se un giorno il meccanismo comune tenesse un termine più fine.
 Quali cause legittimino la defissione anticipata è la quarta, e **non ha riga propria**: la
 riga qui sopra prova il meccanismo, non il titolo per usarlo. La lettura delle fonti del
-2026-09-22 ha già risposto in via prudente, cioè che accorciare il termine di un atto
-regolare non è una funzione del componente e che le cause pacifiche sono quelle in cui la
+2026-09-22 ha già risposto, e sul testo vigente degli artt. 124 e 134 del TUEL: accorciare
+il termine di un atto regolare non è una funzione del componente, perché dal decimo giorno
+di pubblicazione decorre l'esecutività della deliberazione e togliere l'atto prima
+toglierebbe il presupposto di un termine in corso. Le cause pacifiche sono quelle in cui la
 pubblicazione non doveva esistere in quella forma. Renderlo esigibile chiede **due righe
 nuove**: una che rifiuti una causa fuori elenco, e una che provi che la sostituzione con la
 versione oscurata di ALBO-12 **non** ferma il termine. Nessuna delle due è scritta qui,
