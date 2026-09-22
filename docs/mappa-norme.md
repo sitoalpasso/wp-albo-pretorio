@@ -178,10 +178,12 @@ rilasciare il componente.
 | Obbligo | Requisiti | Copertura |
 |---|---|---|
 | Alla scadenza del periodo la diffusione cessa. Che ciò avvenga da solo e senza dipendere dal traffico del sito è scelta di prodotto: la nota 53 di GAR 2.b propone la rimozione automatica "a titolo esemplificativo" e contempla, in sua assenza, verifiche periodiche | ALBO-02 per l'obbligo, ALBO-03 e ALBO-19 per il modo scelto | avviato per ALBO-02, scoperto per gli altri due |
-| L'atto scaduto esce dalla vista pubblica su ogni percorso, allegati compresi | ALBO-05, ALBO-18, ALBO-20 | avviato per ALBO-05 e ALBO-18, scoperto per ALBO-20 |
+| Trascorso il periodo, i documenti **sono rimossi dal sito oppure privati degli elementi identificativi** degli interessati e di quanto possa consentirne l'identificazione (GAR 2.b). Sono due esiti alternativi, non uno solo | ALBO-05, ALBO-18, ALBO-20 | avviato per ALBO-05 e ALBO-18, scoperto per ALBO-20 |
 | Si adottano accorgimenti idonei a evitare l'indicizzazione nei motori generalisti. GAR 3.a lo "consiglia" e GAR 2.a dice "ove possibile": è una raccomandazione, e le misure concrete sono scelta di prodotto | ALBO-06 | avviato, solo per la parte dichiarativa |
 | I dati eccedenti non finiscono nella versione pubblica | ALBO-12 | scoperto |
 | Il regime di pubblicità non autorizza da solo a pubblicare qualunque atto | ALBO-11 | scoperto |
+| Si mettono a disposizione **soltanto dati esatti e aggiornati** (GAR 2.d) | nessuno | scoperto |
+| Si adottano **idonee misure per eliminare o ridurre il rischio di cancellazioni, modifiche, alterazioni o decontestualizzazioni** dei documenti pubblicati (GAR 2.d). È un obbligo preventivo, distinto dal precedente | ALBO-09 solo in parte | scoperto |
 
 Cosa vuol dire "avviato", qui, in concreto.
 
@@ -241,6 +243,42 @@ pena leggerne le regole una per una, perché quasi ognuna corrisponde a un requi
 | All'albo **non si applica** l'arco dei cinque anni della trasparenza | ALBO-15 |
 | Se l'ente vuole tenere gli atti nel sito dopo la scadenza, per esempio in una sezione di archivio, deve oscurare i dati che identificano anche indirettamente le persone | ALBO-05 |
 | Si **consiglia** di adottare accorgimenti tecnici per evitare l'indicizzazione nei motori generalisti, perché la reperibilità indiscriminata è sproporzionata rispetto alla finalità | ALBO-06 |
+
+**Alla scadenza la fonte dà due strade, e il catalogo ne conosce una.** Il paragrafo 2.b
+dice che trascorso il periodo i documenti "devono essere rimossi dal sito web **oppure**
+devono essere privati degli elementi identificativi degli interessati e delle altre
+informazioni che possano consentirne l'identificazione". L'obbligo non è che la pagina
+sparisca: è che smettano di essere diffusi i dati che identificano una persona. Togliere il
+documento è un modo di ottenerlo, sostituirlo con una versione priva di quegli elementi è
+l'altro, ed è lo stesso meccanismo che GAR 3.a descrive per l'archivio degli atti.
+
+Per il componente la differenza è concreta. Oggi ALBO-05 e ALBO-18 sono scritti come uscita
+dalla vista pubblica, e va bene finché l'ente vuole quel comportamento; ma se un ente sceglie
+la seconda strada, cioè tenere l'atto consultabile in forma deidentificata dopo la scadenza,
+nessun requisito la descrive e nessuna riga di collaudo la verifica. Non è un buco
+dell'obbligo, è un caso d'uso lecito che il catalogo non contempla, e va deciso se entra nel
+perimetro. Lo stesso paragrafo aggiunge che resta comunque possibile consultare il documento
+completo con una richiesta di accesso agli atti: è la via che sostituisce la pagina, e spiega
+perché togliere non toglie niente a nessuno.
+
+**Il paragrafo 2.d contiene due obblighi, e il secondo il catalogo non lo vedeva.** Il primo
+è quello già noto, mettere a disposizione soltanto dati esatti e aggiornati. Il secondo lo
+precede ed è preventivo: "occorre adottare idonee misure per eliminare o ridurre il rischio
+di cancellazioni, modifiche, alterazioni o decontestualizzazioni delle informazioni e dei
+documenti resi disponibili". Le misure che GAR poi propone, cioè indicare le fonti
+attendibili fra i dati di contesto e firmare digitalmente il documento pubblicato, sono
+esempi, e la firma è espressamente rimessa alla valutazione dell'amministrazione.
+
+Il catalogo lo copre a metà. ALBO-09 tiene il registro non modificabile, quindi risponde
+della parte su cancellazioni, modifiche e alterazioni **dentro il sistema**. Non risponde
+della decontestualizzazione, che è un rischio diverso: un file letto altrove, in un altro
+momento, senza la pagina che gli dava senso. La misura che GAR indica per quella è
+l'inserimento dei dati di contesto dentro il documento, cioè data di aggiornamento, periodo
+di validità, amministrazione, segnatura di protocollo o dell'albo. Nessun requisito la
+nomina. Non è detto che tocchi al componente inserirli in un PDF che riceve già fatto, ma è
+il solo che conosce quei valori, quindi è una domanda che va posta e non lasciata cadere: è
+la stessa forma del punto 1 dei buchi, dove il legame fra la versione oscurata e l'atto
+adottato resta senza titolare.
 
 **La riga senza requisito è quella sul regolamento dell'ente**, ed è un precetto espresso
 della fonte, non una raccomandazione: per i dati sensibili e giudiziari l'ente locale deve
@@ -389,8 +427,10 @@ impedisce una cosa che la fonte chiede. Dove la norma un termine non lo fissa, i
 individua l'amministrazione, e GAR 2.b dice che quel periodo "non può essere superiore al
 periodo ritenuto, **caso per caso**, necessario". Lì il periodo configurato per il tipo di
 atto è un massimale che l'ente si è dato, non un termine di legge, e accorciarlo sul singolo
-atto è esattamente la valutazione che la fonte gli chiede: il sistema deve permetterlo, con
-una motivazione registrata. La regola pratica, in una riga: si può accorciare ciò che
+atto è esattamente la valutazione che la fonte gli chiede. Da qui in poi è attuazione e va
+detto: che il sistema consenta di variare quel periodo sul singolo atto, e che ne registri la
+motivazione, sono due scelte di prodotto. La fonte chiede la valutazione caso per caso, non
+un campo in cui scriverla. La regola pratica, in una riga: si può accorciare ciò che
 l'ente ha scelto, non ciò che la norma ha prescritto, e il componente deve sapere quale dei
 due casi è quello dell'atto che ha davanti.
 
@@ -440,8 +480,9 @@ delle due deve fare è decidere da sola che il termine è compiuto: l'effetto su
 una valutazione dell'ente, quindi va chiesto e registrato, non calcolato. La terza
 possibilità, cioè abbreviare un termine **fissato dalla norma** su un atto regolare, non è
 una transizione e non va prevista. Diverso è ridurre sul singolo atto un periodo che l'ente
-si era dato in assenza di un termine normativo: quello è consentito e va registrato con la
-motivazione, per la ragione spiegata nella sezione sul termine.
+si era dato in assenza di un termine normativo: quello resta possibile, per la ragione
+spiegata nella sezione sul termine, e che lo si faccia dentro il sistema registrandone la
+motivazione è scelta nostra, non prescrizione della fonte.
 
 **Conseguenza per ALBO-07.** Se una rimozione anticipata può esistere, il periodo davvero
 compiuto non coincide più con la data di fine memorizzata, e l'unico posto in cui quel
@@ -886,6 +927,19 @@ distinti. Il secondo riportava la data del 2013 al perimetro del comma 2 dell'ar
 procedure ad evidenza pubblica e bilanci. Il terzo è di nuovo un obbligo non raccolto: GAR
 3.a prescrive agli enti locali di agire nel rispetto del **proprio regolamento** sui dati
 sensibili e giudiziari, e nessun requisito lo traduce.
+
+**Un quarto giro** ha dato due rilievi. Uno era ancora una scelta di attuazione scritta come
+conseguenza della fonte, cioè la motivazione registrata quando l'ente accorcia un periodo che
+si era dato da sé. L'altro è il terzo obbligo non raccolto: il paragrafo 2.d ne contiene due,
+e quello preventivo, cioè adottare idonee misure contro cancellazioni, modifiche, alterazioni
+e decontestualizzazioni, il catalogo lo copre solo per metà con ALBO-09.
+
+Quel rilievo ha anche cambiato il metodo, perché tre dei rilievi più utili erano dello stesso
+tipo e tutti dentro tabelle già lette. È stata quindi fatta **una passata diretta sul testo
+del Garante**, cercando una per una le frasi prescrittive e confrontandole con quello che il
+documento ne aveva raccolto. Ne è uscito un quarto obbligo, che nessuna revisione aveva
+segnalato: alla scadenza il paragrafo 2.b dà due esiti alternativi, la rimozione **oppure**
+la privazione degli elementi identificativi, e il catalogo conosce solo il primo.
 
 **Due avvertenze sul metodo.** La prima: Normattiva non risponde agli strumenti di questa
 sessione, quindi i cinque articoli di legge letti sono arrivati in copia, incollati dal
