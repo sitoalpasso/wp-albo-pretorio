@@ -45,7 +45,7 @@ scoperto.
 | GDPR | Regolamento (UE) 2016/679, artt. 5 e 6 | principi del trattamento e base giuridica |
 | COD | D.lgs. 30 giugno 2003, n. 196, artt. 2-ter e 2-septies | condizioni perché un soggetto pubblico possa trattare dati particolari e giudiziari |
 | LG-DOC | AgID, linee guida sulla formazione, gestione e conservazione dei documenti informatici. Il testo pubblicato porta in copertina "Maggio 2021" e gli allegati sono datati 27 giugno 2024. Le linee guida si applicano dal duecentosettantesimo giorno dopo la loro entrata in vigore, senza una data di calendario nel testo | integrità del documento informatico, metadati (allegato 5), formati di file (allegato 2), versamento in conservazione |
-| ACC | Legge 9 gennaio 2004, n. 4, art. 11, richiamato da L69 art. 32. L'articolo è stato **sostituito** dall'art. 1 comma 10 del d.lgs. 106/2018 e oggi rinvia alle linee guida AgID sull'accessibilità degli strumenti informatici, nella versione del 21 dicembre 2022 rettificata con determinazione DG n. 354 del 22 dicembre 2022 | requisiti tecnici di accessibilità dei contenuti e dei documenti pubblicati, ancorati alla norma armonizzata EN 301 549 e al livello AA delle WCAG 2.1 |
+| ACC | Legge 9 gennaio 2004, n. 4, art. 11, richiamato da L69 art. 32. L'articolo è stato **sostituito** dall'art. 1 comma 10 del d.lgs. 106/2018 e oggi rinvia alle linee guida AgID sull'accessibilità degli strumenti informatici, adottate con determinazione n. 437/2019 del 20 dicembre 2019, nella versione del 21 dicembre 2022 rettificata con determinazione DG n. 354 del 22 dicembre 2022. Per i soggetti privati dell'art. 3 comma 1-bis valgono linee guida distinte, adottate con determinazione n. 117/2022 | requisiti tecnici di accessibilità dei contenuti e dei documenti pubblicati, ancorati alla norma armonizzata EN 301 549 e al livello AA delle WCAG 2.1 |
 | TRASP | D.lgs. 14 marzo 2013, n. 33 | l'amministrazione trasparente è un obbligo distinto, con finalità e durate proprie |
 | P-1 | Garante, provvedimento 12 marzo 2026, doc. web 10240362 | atti su una procedura di mobilità che rivelavano dati sulla salute per il richiamo alla legge 68/1999, senza una base giuridica che ne autorizzasse la pubblicazione |
 | P-2 | Garante, provvedimento 26 marzo 2026, doc. web 10246037 | dati reddituali e patrimoniali rimasti online oltre un anno e mezzo, oltre il termine dell'art. 124 del TUEL |
@@ -77,11 +77,26 @@ pubblicazione cartacea perde quell'effetto; dal 1 gennaio 2013 lo stesso vale pe
 per cui era prevista la pubblicazione su quotidiani. Restano fuori gli obblighi in Gazzetta
 Ufficiale e nella Gazzetta dell'Unione europea, che l'articolo fa salvi.
 
+**Di queste tre date, due sono verificate e una no.** GAR cita alla lettera i commi 1 e 5
+dell'articolo, quindi il 2010 e il 2011 sono confermati da una fonte che li riporta fra
+virgolette. La terza data, quella del 2013 sugli atti che andavano sui quotidiani, non
+compare in quella citazione, e nemmeno il richiamo ai requisiti tecnici di accessibilità
+dell'art. 11 della legge 4/2004: restano da confermare sul testo dell'articolo. Il richiamo
+all'accessibilità non è un dettaglio, perché è l'unico aggancio normativo di ALBO-13.
+
 ### TUEL art. 124: la durata esiste, ma non è una sola
 
 Quindici giorni consecutivi per le deliberazioni **di comuni e province**, salvo specifiche
 disposizioni di legge. Non è una durata universale, e trattarla come tale rende il
 componente inservibile su un ente di tipo diverso.
+
+**Il comma 2 dice una cosa che il catalogo non aveva registrato**, e che riguarda proprio
+gli enti diversi dai comuni: le deliberazioni degli altri enti locali si pubblicano all'albo
+pretorio **del comune dove l'ente ha sede**, sempre per quindici giorni consecutivi, salvo
+specifiche disposizioni. Per un componente riusabile la conseguenza è concreta: esiste un
+caso, previsto dalla legge, in cui l'atto di un ente compare sull'albo di un altro ente. Il
+catalogo lo sfiora soltanto, nominando fra i tipi di atto quelli "di altro ente ospitato",
+ma nessun requisito dice chi ne governa la scadenza e chi risponde dei dati personali.
 
 | Obbligo | Requisiti | Copertura |
 |---|---|---|
@@ -150,6 +165,51 @@ diffusi i dati personali, non che l'indirizzo smetta di rispondere. Rendere l'at
 irraggiungibile è una scelta nostra, più prudente di quanto la norma pretenda, e la riga di
 `requisiti.md` che marca ALBO-05 come "norma" andrebbe ristretta al risultato vero,
 lasciando `irraggiungibile` nella parte di prodotto.
+
+### Il paragrafo di GAR dedicato proprio all'albo pretorio
+
+GAR ha, nella parte seconda, un paragrafo 3.a intitolato "Albo pretorio online degli enti
+locali". È il testo più vicino al componente che esista in tutta la normativa, e vale la
+pena leggerne le regole una per una, perché quasi ognuna corrisponde a un requisito.
+
+| Cosa dice GAR 3.a | Requisiti |
+|---|---|
+| Prima di pubblicare un atto con dati personali l'ente verifica che esista una norma che prescriva l'affissione di **quell'atto**, e per i dati particolari e giudiziari deve essere una norma di legge | ALBO-11 |
+| Trascorso il periodo di pubblicazione, gli enti locali **non possono continuare a diffondere** i dati personali contenuti negli atti | ALBO-05, ALBO-18 |
+| La permanenza oltre i quindici giorni può integrare una violazione, se non esiste un diverso parametro che preveda quella diffusione | ALBO-04 |
+| Se la norma non indica una durata, l'amministrazione **deve individuare un congruo periodo**, non superiore a quello necessario allo scopo per cui l'atto è stato adottato | ALBO-02, ALBO-04 |
+| All'albo **non si applica** l'arco dei cinque anni della trasparenza | ALBO-15 |
+| Se l'ente vuole tenere gli atti nel sito dopo la scadenza, per esempio in una sezione di archivio, deve oscurare i dati che identificano anche indirettamente le persone | ALBO-05 |
+| Si **consiglia** di adottare accorgimenti tecnici per evitare l'indicizzazione nei motori generalisti, perché la reperibilità indiscriminata è sproporzionata rispetto alla finalità | ALBO-06 |
+
+Tre osservazioni che cambiano qualcosa nel catalogo.
+
+**ALBO-02 e ALBO-04 hanno finalmente una fonte diretta.** Finora la data di fine
+obbligatoria era motivata con i provvedimenti sanzionatori, che sono la prova di come va a
+finire e non la regola. Qui la regola c'è, scritta: dove la norma non fissa un termine, è
+l'amministrazione a doverne individuare uno, e non può superare il tempo necessario allo
+scopo. È esattamente il comportamento di ALBO-04, cioè una durata obbligatoria per ogni
+tipo di atto senza valore predefinito, e di ALBO-02, cioè nessun atto pubblicato senza data
+di fine.
+
+**ALBO-03 e ALBO-19 non sono soltanto scelte nostre.** La nota 53 del paragrafo 2.b
+suggerisce sistemi di pubblicazione capaci di attribuire alla documentazione un intervallo
+di permanenza tramite metadati, con rimozione anche automatica, e aggiunge che **in assenza
+di meccanismi automatizzati** vanno previste procedure di verifica periodica della validità
+temporale. Sono, nell'ordine, il compito pianificato e il battito di controllo. Restano
+scelte di prodotto nella forma, perché il Garante non impone un cron di sistema, ma la
+coppia "rimozione automatica, e se non c'è verifica periodica" è raccomandata dalla fonte,
+e la colonna di `requisiti.md` che dà ALBO-19 come solo prodotto va corretta.
+
+**L'indicizzazione è raccomandata, non imposta.** GAR usa "si consiglia", e la ragione data
+è la sproporzione. Questo non indebolisce ALBO-06, lo colloca: è una misura che riduce il
+danno, mentre l'obbligo vero e proprio è smettere di diffondere. Va letto insieme al
+provvedimento in cui l'ente aveva impedito l'indicizzazione ed è stato sanzionato lo stesso.
+
+Una nota su ALBO-14. Il paragrafo 2.c chiede di ostacolare la duplicazione massiva dei file
+con dati personali. Non dice niente sull'accessibilità: il bilanciamento fra le due cose,
+che è il contenuto di ALBO-14, è una decisione nostra fra un consiglio del Garante e un
+obbligo di legge, e va scritto così.
 
 ### GDPR artt. 5 e 6
 
@@ -424,19 +484,21 @@ Il verso opposto, per non far passare per obbligo di legge quello che è una dec
 
 Ogni fonte della prima tabella è stata ricontrollata. La colonna dell'esito dice cosa si è
 potuto leggere davvero, perché "verificato" e "non sono riuscito a leggerlo" sono due
-risposte diverse e la seconda non va nascosta.
+risposte diverse e la seconda non va nascosta. Dove una fonte è arrivata in copia, la
+colonna lo dice.
 
 | Fonte | Esito | Come |
 |---|---|---|
-| GAR | **confermata e ancora applicabile**. Pubblicata sul sito del Garante senza note di superamento, nessun provvedimento la sostituisce, e un provvedimento del maggio 2026 la dichiara in corso di aggiornamento ma ancora attuale nella parte sostanziale | letta la pagina del provvedimento sul sito del Garante. I paragrafi sull'indicizzazione e sull'oscuramento sono arrivati in sintesi e non alla lettera: prima di citarli in un atto vanno riletti sul PDF ufficiale, che non è scaricabile in automatico |
+| GAR | **confermata, ancora applicabile e letta per intero**. Nessun provvedimento la sostituisce, e uno del maggio 2026 la dichiara in corso di aggiornamento ma ancora attuale nella parte sostanziale. Contiene un paragrafo, il 3.a della parte seconda, dedicato proprio all'albo pretorio | letto il PDF ufficiale di 47 pagine, fornito in copia perché il sito ne blocca lo scaricamento automatico. I paragrafi 2.a, 2.b, 2.c, 3.a e 8 sono stati letti alla lettera |
 | P-1, P-2 | **confermati, ma erano descritti al contrario**. Il 12 marzo 2026 riguarda dati sulla salute, il 26 marzo dati reddituali rimasti online oltre un anno e mezzo | lette per intero le due pagine del Garante |
 | P-3, P-4, P-5 | **fonti nuove**, che l'elenco non aveva. P-3 è più recente di tutte le altre | lette le tre pagine del Garante |
 | LG-DOC | **confermata nella sostanza, imprecisa nella scheda**. Il testo pubblicato porta in copertina maggio 2021 e gli allegati sono datati giugno 2024. I formati di file sono nell'allegato 2, non nel 6 | letto il PDF delle linee guida e per intero l'allegato 5 |
 | LG-DOC, determinazioni | **non verificate**. Né le pagine di AgID né i PDF citano la determinazione 407/2020 o la 371/2021, e la data del 1 gennaio 2022 non compare da nessuna parte: le linee guida fissano un termine mobile di duecentosettanta giorni | cercate sul sito di AgID. Per chiudere il punto serve l'albo delle determinazioni di AgID |
+| ACC, determinazioni | **verificate**. Le linee guida sull'accessibilità sono state adottate con la determinazione n. 437/2019 del 20 dicembre 2019 e rettificate con la n. 354 del 22 dicembre 2022; la n. 117/2022 adotta quelle per i soggetti privati | dalla determinazione n. 117/2022, fornita in copia, che cita le altre |
 | ACC | **confermata e da riscrivere**. L'art. 11 è stato sostituito nel 2018 e oggi rinvia alle linee guida AgID: i requisiti tecnici non sono più in un decreto ministeriale | lette le pagine di AgID sull'accessibilità e il capitolo primo delle linee guida |
 | GDPR, COD | **confermati per via indiretta**. Gli articoli citati dal catalogo sono gli stessi che i provvedimenti del Garante del 2024, 2025 e 2026 applicano e dichiarano violati, compreso il divieto di diffondere dati sulla salute dell'art. 2-septies comma 8 | dalle pagine dei provvedimenti. **Il testo degli articoli non è stato letto**: Normattiva non è consultabile con gli strumenti di questa sessione |
-| TUEL | **confermato per via indiretta**. Il termine di quindici giorni consecutivi dell'art. 124 comma 1 è richiamato come vigente nei provvedimenti del 2024, 2025 e 2026 | come sopra. **Il testo dell'articolo non è stato letto** |
-| L69 | **non verificata**. È l'unica fonte del gruppo su cui la riverifica non ha aggiunto niente | Normattiva e la Gazzetta Ufficiale non rispondono agli strumenti automatici, e le altre vie tentate sono fallite. Resta la verifica su testo primario della sessione di studio |
+| TUEL | **confermato, con un comma in più**. I commi 1 e 2 dell'art. 124 sono citati alla lettera dentro GAR, e il termine dei quindici giorni è richiamato come vigente nei provvedimenti del 2024, 2025 e 2026. Il comma 2, sugli enti locali diversi dai comuni, non era nel catalogo | citazione dentro GAR, più le pagine dei provvedimenti. **Il testo sul portale ufficiale non è stato letto**, quindi eventuali modifiche successive al 2014 non sono escluse |
+| L69 | **confermata a metà**. I commi 1 e 5, cioè le date del 2010 e del 2011, sono citati alla lettera dentro GAR. Restano da confermare la terza data, quella del 2013, e il richiamo ai requisiti di accessibilità dell'art. 11 della legge 4/2004 | citazione dentro GAR. Normattiva e la Gazzetta Ufficiale non rispondono agli strumenti automatici, e il testo dell'articolo non è stato letto |
 | TRASP | **confermata per via indiretta**, con due articoli in più che il catalogo non nominava: il 7-bis comma 3 e l'8 comma 3 | dalle pagine dei provvedimenti |
 
 **Due avvertenze sul metodo.** La prima: Normattiva risponde ma serve solo il guscio della
@@ -450,8 +512,16 @@ scritto.
 ## Cosa manca a questo documento
 
 - Il testo di L69 art. 32, dell'art. 124 del TUEL e degli artt. 2-ter e 2-septies del Codice
-  non è stato riletto alla lettera. Serve una lettura su Normattiva fatta a mano, oppure una
-  copia dei testi coordinati.
+  non è stato letto sul portale ufficiale. Dei primi due esiste una citazione alla lettera
+  dentro GAR, che però è del 2014: una modifica successiva non si vedrebbe. Servono i tre
+  articoli in testo vigente.
+- GAR cita le vecchie disposizioni del Codice, cioè gli artt. 19, 20, 21 e 22, che la riforma
+  del 2018 ha sostituito con gli artt. 2-ter e 2-septies. I provvedimenti recenti fanno quella
+  traduzione da soli, ma nel documento conviene citare gli articoli di oggi e non quelli del
+  testo del 2014.
+- GAR rinvia a un vademecum di DigitPA del luglio 2011 sulle modalità di pubblicazione dei
+  documenti nell'albo online. Non è censito e ha quindici anni: va guardato una volta, se
+  esiste ancora, perché è l'unico documento tecnico dedicato all'albo.
 - Le determinazioni con cui le linee guida AgID sui documenti informatici sono state adottate
   e aggiornate vanno trovate sull'albo delle determinazioni di AgID.
 - Il punto 7 poggia sugli artt. 13 e 14 del GDPR, che non sono nella tabella delle fonti qui
