@@ -226,49 +226,73 @@ Questa è la parte che la tabella per requisito non può mostrare. Ogni voce dic
 e quanto è solida: **buco** vuol dire che l'obbligo esiste ed è scoperto, **da verificare**
 vuol dire che la fonte va letta prima di decidere se produce un obbligo per il componente.
 
-1. **Firma digitale e oscuramento, da verificare.** Gli atti pubblicati sono di norma firmati
-   digitalmente. Nessun ALBO-xx dice cosa fa il componente della firma: se la verifica, se la
-   conserva, se la espone. Il punto concreto è ALBO-12: una versione oscurata è un file
-   diverso dall'originale, quindi **la firma dell'originale non vale più su di essa**, e oggi
-   nessuna riga dice come si attesta che la versione pubblicata corrisponde all'atto adottato.
-   Fonti da leggere: d.lgs. 82/2005 (codice dell'amministrazione digitale), in particolare gli
-   articoli sul documento informatico e sulle copie, e il regolamento (UE) 910/2014. Da
-   chiudere prima dell'unità che costruisce ALBO-12.
-2. **Metadati per la conservazione, buco parziale.** ALBO-17 dice "formato aperto" e non dice
-   quali metadati. Vedi la sezione LG-DOC.
-3. **La fonte della durata non si registra, buco.** ALBO-04 rende la durata configurabile per
-   tipo di atto, ed è giusto. Nessun requisito chiede però di registrare **perché** quella
-   durata è quella: quale norma o quale articolo del regolamento la giustifica. Senza, l'ente
-   ha un numero in una casella e non ha come dimostrare da dove viene, che è proprio ciò che
-   l'art. 5.2 del GDPR gli chiede. Costa poco: un campo di testo accanto alla durata, riportato
-   nell'esportazione della configurazione.
-4. **Accessibilità delle pagine dell'albo, buco.** ACC è tradotta in requisiti sui PDF
-   (ALBO-13, ALBO-14) e come vincolo della ricerca (ALBO-16). L'elenco degli atti e la scheda
-   del singolo atto, che sono pagine web prodotte dal componente, non hanno un requisito di
-   accessibilità proprio. Serve almeno una riga che imponga la verifica sulle due pagine
-   pubbliche prodotte dal plugin.
-5. **La data di inizio non è governata da niente, domanda aperta.** ALBO-01 elenca la data di
-   inizio fra i dati dell'atto, e `dati.md` dice che il sistema la propone e il redattore la
-   conferma. Nessun requisito e nessuna riga di collaudo dice cosa succede se quella data è
-   **nel futuro**: il componente comune conosce la sola data di fine, quindi oggi un atto
+1. **Versione oscurata e corrispondenza con l'atto adottato, buco.** Gli atti pubblicati
+   sono di norma firmati digitalmente, ma apporre o verificare una firma non è compito del
+   componente: la firma è un atto dell'ente e resta fuori dal sistema. Il punto scoperto è
+   un altro. ALBO-12 prevede di pubblicare una versione oscurata, che è **un file diverso**
+   dall'originale, quindi la firma apposta sull'originale non vale su di essa. L'unica cosa
+   che oggi legherebbe il file esposto all'atto adottato è l'impronta del file pubblicato,
+   che sta dentro ALBO-07, cioè dentro un requisito **da confermare**: se ALBO-07 non viene
+   confermato, ALBO-12 pubblica un documento che nessun elemento del sistema lega
+   all'originale. Non serve codice nuovo per chiuderlo, serve decidere se la coppia
+   originale più oscurata la governa una procedura dell'ente, e scriverlo dentro ALBO-12.
+2. **Metadati per la conservazione, buco parziale.** ALBO-17 dice "formato aperto" e non
+   dice quali metadati. Vedi la sezione LG-DOC.
+3. **La fonte della durata non si registra, buco.** ALBO-04 rende la durata configurabile
+   per tipo di atto, ed è giusto. Nessun requisito chiede però di registrare **perché**
+   quella durata è quella: quale norma o quale articolo del regolamento la giustifica.
+   Senza, l'ente ha un numero in una casella e non ha come dimostrare da dove viene, che è
+   proprio ciò che l'art. 5.2 del GDPR gli chiede. Costa poco: un campo di testo accanto
+   alla durata, riportato nell'esportazione della configurazione.
+4. **Accessibilità delle pagine prodotte dal componente, assegnazione mancante.** L'obbligo
+   esiste e non è in discussione: ACC copre le pagine web, non solo i documenti allegati.
+   Nel catalogo dell'albo l'accessibilità compare però solo sui PDF (ALBO-13, ALBO-14) e
+   come vincolo della ricerca (ALBO-16). L'elenco degli atti e la scheda del singolo atto
+   sono pagine generate dal componente, e nessuna riga dice se ne risponde il componente o
+   il tema del sito che lo ospita. Non è una norma che manca, è un'assegnazione che manca, e
+   finché non c'è al collaudo non la verifica nessuno dei due. Nota sulle fonti: i requisiti
+   di accessibilità hanno fonti più recenti dell'art. 11 della legge 4/2004 richiamato qui,
+   a partire dalle linee guida AgID e dalla norma tecnica europea. Questo documento non le
+   censisce perché l'accessibilità si specifica una volta sola per tutti i componenti, non
+   una volta per ciascuno.
+5. **La data di inizio non è governata da niente, domanda aperta.** ALBO-01 elenca la data
+   di inizio fra i dati dell'atto, e `dati.md` dice che il sistema la propone e il redattore
+   la conferma. Nessun requisito e nessuna riga di collaudo dice cosa succede se quella data
+   è **nel futuro**: il componente comune conosce la sola data di fine, quindi oggi un atto
    pubblicato con inizio futuro sarebbe visibile subito. Va deciso se è un caso che esiste
    (pubblicazione preparata in anticipo) e, se esiste, chiuso dentro ALBO-22 insieme alle
    transizioni.
-6. **Defissione anticipata: tracciata ma non definita, buco.** ALBO-10 chiede che il registro
-   contenga chi ha disposto una defissione anticipata e perché. Nessun requisito definisce la
-   defissione anticipata come funzione: chi può disporla, con quali effetti sul referto, se
-   l'atto resta consultabile all'amministrazione. È la funzione con cui l'ente risponde alla
-   richiesta di un interessato, quindi non è un dettaglio. Appartiene ad ALBO-22.
-7. **Informativa sul trattamento, da verificare.** Le pagine dell'albo espongono dati personali
-   a chiunque. Nessun requisito dice che devono portare un collegamento all'informativa
-   dell'ente. Probabilmente è un obbligo dell'ente sul sito e non del componente, ma il
-   componente è l'unico che sa quali pagine espongono atti: vale la pena decidere invece di
-   lasciarlo implicito.
+6. **Defissione anticipata: tracciata ma non definita, buco.** ALBO-10 chiede che il
+   registro contenga chi ha disposto una defissione anticipata e perché. Nessun requisito
+   definisce la defissione anticipata come funzione: chi può disporla, con quali effetti sul
+   referto, se l'atto resta consultabile all'amministrazione. È la funzione con cui l'ente
+   risponde alla richiesta di un interessato, quindi non è un dettaglio. Appartiene ad
+   ALBO-22.
+7. **Informativa sul trattamento, da verificare.** Le pagine dell'albo espongono dati
+   personali a chiunque. Nessun requisito dice che devono portare un collegamento
+   all'informativa dell'ente. Probabilmente è un obbligo dell'ente sul sito e non del
+   componente, ma il componente è l'unico che sa quali pagine espongono atti: vale la pena
+   decidere invece di lasciarlo implicito.
 8. **Il blocco in `robots.txt` non è verificato da nessuna riga, buco piccolo.** La riga di
    collaudo di ALBO-06 ispeziona il meta robots e la mappa per i motori. Il `robots.txt` non
    compare. Non è la misura più importante, perché un motore che ignora `robots.txt`
-   rispetta comunque il `noindex`, ma se il requisito lo prevede la riga deve esserci, e se non
-   lo prevede va scritto che non lo prevede.
+   rispetta comunque il `noindex`, ma se il requisito lo prevede la riga deve esserci, e se
+   non lo prevede va scritto che non lo prevede.
+
+### Su cosa poggia ciascuno dei punti qui sopra
+
+Perché la domanda giusta, davanti a un elenco di buchi, è sempre "e questo chi lo dice".
+
+| Punto | Fonte | Stato della fonte |
+|---|---|---|
+| 1. Versione oscurata | ALBO-09 e ALBO-12 letti insieme, più ALBO-07 come unico appiglio | interno al catalogo, verificabile rileggendo le tre righe. Nessuna fonte esterna serve, perché il componente non firma |
+| 2. Metadati di conservazione | LG-DOC, allegato 5 | la fonte è nella tabella delle fonti; **il contenuto dell'allegato non è stato riletto**, quindi l'insieme minimo di metadati va confermato sul testo |
+| 3. Fonte della durata | GDPR art. 5.2 | fonte verificata, ma il collegamento fra responsabilizzazione e "registrare da dove viene la durata" è una lettura prudente, non una prescrizione testuale |
+| 4. Accessibilità delle pagine | ACC, legge 4/2004 art. 11, richiamata da L69 art. 32 | fonte verificata. Le fonti tecniche più recenti (linee guida AgID, norma europea) non sono censite qui |
+| 5. Data di inizio | nessuna fonte esterna | incoerenza interna, verificata leggendo il codice: l'interfaccia pubblica del componente comune espone la sola data di fine |
+| 6. Defissione anticipata | ALBO-10, che la nomina senza definirla | interno al catalogo. Il diritto dell'interessato che la rende necessaria sta negli artt. 15-21 del GDPR, non censiti qui |
+| 7. Informativa | GDPR artt. 13 e 14 | **non censiti** nella tabella delle fonti: è il punto più debole dell'elenco |
+| 8. `robots.txt` | nessuna fonte esterna | scarto fra il requisito e la sua riga di collaudo, verificato nei due documenti |
 
 ## Requisiti che non vengono da una norma
 
@@ -298,8 +322,11 @@ Il verso opposto, per non far passare per obbligo di legge quello che è una dec
 - Le fonti della prima tabella sono quelle già verificate su testo primario. Vanno
   riverificate prima di ogni rilascio, perché una linea guida AgID o una deliberazione del
   Garante possono essere sostituite senza che cambi nulla nel codice.
-- Il gruppo di candidati del punto 1 (codice dell'amministrazione digitale, regolamento
-  eIDAS) **non è verificato**: è segnalato come domanda, non come obbligo.
+- Il punto 7 poggia sugli artt. 13 e 14 del GDPR, che non sono nella tabella delle fonti qui
+  sopra: è segnalato come domanda, non come obbligo accertato.
+- Il codice dell'amministrazione digitale (d.lgs. 82/2005) e il regolamento (UE) 910/2014 non
+  sono censiti. Per la firma non servono, perché il componente non firma, ma vanno letti prima
+  di dire che l'albo non ha niente a che fare con la validità del documento informatico.
 - Le norme di settore che fissano termini propri per singoli tipi di atto non sono censite.
   ALBO-04 le rende configurabili, quindi il componente non ha bisogno di conoscerle, ma l'ente
   sì, e un elenco di partenza renderebbe la configurazione un lavoro di mezz'ora invece che di
