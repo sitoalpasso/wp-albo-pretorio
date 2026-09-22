@@ -11,6 +11,10 @@ nasconde: gli obblighi che **nessun requisito traduce**. Stanno nella sezione "O
 domande senza requisito", che è la parte di questo documento che vale la pena leggere per
 prima.
 
+Le fonti sono state ricontrollate sui siti che le pubblicano il 22 settembre 2026. La
+sezione finale dice, per ciascuna, che cosa si è potuto leggere e che cosa no: sono due
+risposte diverse e la seconda non va nascosta.
+
 ## Come si legge la copertura
 
 Tre valori. Il criterio è lo stato delle righe di `collaudo.md`, non l'impressione di chi
@@ -41,7 +45,7 @@ scoperto.
 | GDPR | Regolamento (UE) 2016/679, artt. 5 e 6 | principi del trattamento e base giuridica |
 | COD | D.lgs. 30 giugno 2003, n. 196, artt. 2-ter e 2-septies | condizioni perché un soggetto pubblico possa trattare dati particolari e giudiziari |
 | LG-DOC | AgID, linee guida sulla formazione, gestione e conservazione dei documenti informatici. Il testo pubblicato porta in copertina "Maggio 2021" e gli allegati sono datati 27 giugno 2024. Le linee guida si applicano dal duecentosettantesimo giorno dopo la loro entrata in vigore, senza una data di calendario nel testo | integrità del documento informatico, metadati (allegato 5), formati di file (allegato 2), versamento in conservazione |
-| ACC | Legge 9 gennaio 2004, n. 4, art. 11, richiamato da L69 art. 32 | requisiti tecnici di accessibilità dei contenuti e dei documenti pubblicati |
+| ACC | Legge 9 gennaio 2004, n. 4, art. 11, richiamato da L69 art. 32. L'articolo è stato **sostituito** dall'art. 1 comma 10 del d.lgs. 106/2018 e oggi rinvia alle linee guida AgID sull'accessibilità degli strumenti informatici, nella versione del 21 dicembre 2022 rettificata con determinazione DG n. 354 del 22 dicembre 2022 | requisiti tecnici di accessibilità dei contenuti e dei documenti pubblicati, ancorati alla norma armonizzata EN 301 549 e al livello AA delle WCAG 2.1 |
 | TRASP | D.lgs. 14 marzo 2013, n. 33 | l'amministrazione trasparente è un obbligo distinto, con finalità e durate proprie |
 | P-1 | Garante, provvedimento 12 marzo 2026, doc. web 10240362 | atti su una procedura di mobilità che rivelavano dati sulla salute per il richiamo alla legge 68/1999, senza una base giuridica che ne autorizzasse la pubblicazione |
 | P-2 | Garante, provvedimento 26 marzo 2026, doc. web 10246037 | dati reddituali e patrimoniali rimasti online oltre un anno e mezzo, oltre il termine dell'art. 124 del TUEL |
@@ -224,7 +228,7 @@ La conseguenza pratica è una dipendenza che oggi non è scritta da nessuna part
 non è un requisito a valle, vincola ALBO-01**. I formati di file, PDF compresi, stanno
 nell'allegato 2 e non nel 6, che riguarda invece lo scambio di documenti protocollati.
 
-### ACC legge 4/2004 art. 11
+### ACC legge 4/2004 art. 11, che oggi vuol dire linee guida AgID
 
 | Obbligo | Requisiti | Copertura |
 |---|---|---|
@@ -243,6 +247,15 @@ segnala un indizio (sembra una scansione, manca la struttura), la pubblicazione 
 possibile. È una scelta prudente, perché un controllo automatico sull'accessibilità di un
 PDF produce falsi negativi, e bloccare su un indizio significherebbe impedire la
 pubblicazione di un atto valido.
+
+**Citare l'art. 11 e fermarsi lì non basta più.** Quell'articolo è stato sostituito nel
+2018 e oggi non contiene nessun requisito tecnico: dice che è AgID a emanare le linee
+guida, e sono quelle a fissare i requisiti, le metodologie di verifica, il modello di
+dichiarazione, il monitoraggio e i casi di onere sproporzionato. Il decreto ministeriale
+dell'8 luglio 2005, che conteneva i requisiti tecnici, è abrogato. Per l'albo la
+conseguenza è pratica: il criterio di ALBO-13 sui documenti allegati è il capitolo della
+norma armonizzata europea dedicato ai documenti non web, non un articolo di legge, e chi
+scriverà quel collaudo deve avere davanti le linee guida, non la legge 4/2004.
 
 ### TRASP d.lgs. 33/2013
 
@@ -378,7 +391,7 @@ Perché la domanda giusta, davanti a un elenco di buchi, è sempre "e questo chi
 | 1. Versione oscurata | ALBO-09 e ALBO-12 letti insieme, ALBO-07 come unico appiglio, e il campo di verifica dell'allegato 5 di LG-DOC | incoerenza interna al catalogo, più una fonte esterna letta il 22 settembre 2026 che dice dove va registrata la risposta |
 | 2. Metadati di conservazione | LG-DOC, allegato 5, riletto il 22 settembre 2026 | fonte verificata e contenuto letto: l'insieme obbligatorio esiste ed è elencato nella sezione LG-DOC |
 | 3. Fonte della durata | GDPR art. 5.2 | fonte verificata, ma il collegamento fra responsabilizzazione e "registrare da dove viene la durata" è una lettura prudente, non una prescrizione testuale |
-| 4. Accessibilità delle pagine | ACC, legge 4/2004 art. 11, richiamata da L69 art. 32 | fonte verificata. Le fonti tecniche più recenti (linee guida AgID, norma europea) non sono censite qui |
+| 4. Accessibilità delle pagine | ACC, cioè oggi le linee guida AgID emanate ai sensi dell'art. 11 della legge 4/2004 | verificato il 22 settembre 2026 sul sito di AgID e sul testo delle linee guida: l'obbligo esiste, la catena delle fonti è quella descritta nella sezione ACC |
 | 5. Data di inizio | nessuna fonte esterna | incoerenza interna, verificata leggendo il codice: l'interfaccia pubblica del componente comune espone la sola data di fine |
 | 6. Defissione anticipata | ALBO-10, che la nomina senza definirla | interno al catalogo. Il diritto dell'interessato che la rende necessaria sta negli artt. 15-21 del GDPR, non censiti qui |
 | 7. Informativa | GDPR artt. 13 e 14 | **non censiti** nella tabella delle fonti: è il punto più debole dell'elenco |
@@ -407,11 +420,40 @@ Il verso opposto, per non far passare per obbligo di legge quello che è una dec
    indietro rispetto alla tabella.
 2. ALBO-06 e `robots.txt`: vedi il punto 8 della sezione precedente.
 
+## Le verifiche del 22 settembre 2026
+
+Ogni fonte della prima tabella è stata ricontrollata. La colonna dell'esito dice cosa si è
+potuto leggere davvero, perché "verificato" e "non sono riuscito a leggerlo" sono due
+risposte diverse e la seconda non va nascosta.
+
+| Fonte | Esito | Come |
+|---|---|---|
+| GAR | **confermata e ancora applicabile**. Pubblicata sul sito del Garante senza note di superamento, nessun provvedimento la sostituisce, e un provvedimento del maggio 2026 la dichiara in corso di aggiornamento ma ancora attuale nella parte sostanziale | letta la pagina del provvedimento sul sito del Garante. I paragrafi sull'indicizzazione e sull'oscuramento sono arrivati in sintesi e non alla lettera: prima di citarli in un atto vanno riletti sul PDF ufficiale, che non è scaricabile in automatico |
+| P-1, P-2 | **confermati, ma erano descritti al contrario**. Il 12 marzo 2026 riguarda dati sulla salute, il 26 marzo dati reddituali rimasti online oltre un anno e mezzo | lette per intero le due pagine del Garante |
+| P-3, P-4, P-5 | **fonti nuove**, che l'elenco non aveva. P-3 è più recente di tutte le altre | lette le tre pagine del Garante |
+| LG-DOC | **confermata nella sostanza, imprecisa nella scheda**. Il testo pubblicato porta in copertina maggio 2021 e gli allegati sono datati giugno 2024. I formati di file sono nell'allegato 2, non nel 6 | letto il PDF delle linee guida e per intero l'allegato 5 |
+| LG-DOC, determinazioni | **non verificate**. Né le pagine di AgID né i PDF citano la determinazione 407/2020 o la 371/2021, e la data del 1 gennaio 2022 non compare da nessuna parte: le linee guida fissano un termine mobile di duecentosettanta giorni | cercate sul sito di AgID. Per chiudere il punto serve l'albo delle determinazioni di AgID |
+| ACC | **confermata e da riscrivere**. L'art. 11 è stato sostituito nel 2018 e oggi rinvia alle linee guida AgID: i requisiti tecnici non sono più in un decreto ministeriale | lette le pagine di AgID sull'accessibilità e il capitolo primo delle linee guida |
+| GDPR, COD | **confermati per via indiretta**. Gli articoli citati dal catalogo sono gli stessi che i provvedimenti del Garante del 2024, 2025 e 2026 applicano e dichiarano violati, compreso il divieto di diffondere dati sulla salute dell'art. 2-septies comma 8 | dalle pagine dei provvedimenti. **Il testo degli articoli non è stato letto**: Normattiva non è consultabile con gli strumenti di questa sessione |
+| TUEL | **confermato per via indiretta**. Il termine di quindici giorni consecutivi dell'art. 124 comma 1 è richiamato come vigente nei provvedimenti del 2024, 2025 e 2026 | come sopra. **Il testo dell'articolo non è stato letto** |
+| L69 | **non verificata**. È l'unica fonte del gruppo su cui la riverifica non ha aggiunto niente | Normattiva e la Gazzetta Ufficiale non rispondono agli strumenti automatici, e le altre vie tentate sono fallite. Resta la verifica su testo primario della sessione di studio |
+| TRASP | **confermata per via indiretta**, con due articoli in più che il catalogo non nominava: il 7-bis comma 3 e l'8 comma 3 | dalle pagine dei provvedimenti |
+
+**Due avvertenze sul metodo.** La prima: Normattiva risponde ma serve solo il guscio della
+pagina, quindi in questa sessione nessun testo di legge è stato letto alla lettera. Dove
+sopra c'è scritto "per via indiretta" vuol dire che la norma è citata e applicata da un
+provvedimento del Garante recente, il che prova che è vigente e come viene interpretata, non
+che qualcuno ne abbia riletto il testo. La seconda: su alcune pagine lunghe lo strumento ha
+restituito la prima parte alla lettera e il resto in sintesi. Dove la differenza conta è
+scritto.
+
 ## Cosa manca a questo documento
 
-- Le fonti della prima tabella sono quelle già verificate su testo primario. Vanno
-  riverificate prima di ogni rilascio, perché una linea guida AgID o una deliberazione del
-  Garante possono essere sostituite senza che cambi nulla nel codice.
+- Il testo di L69 art. 32, dell'art. 124 del TUEL e degli artt. 2-ter e 2-septies del Codice
+  non è stato riletto alla lettera. Serve una lettura su Normattiva fatta a mano, oppure una
+  copia dei testi coordinati.
+- Le determinazioni con cui le linee guida AgID sui documenti informatici sono state adottate
+  e aggiornate vanno trovate sull'albo delle determinazioni di AgID.
 - Il punto 7 poggia sugli artt. 13 e 14 del GDPR, che non sono nella tabella delle fonti qui
   sopra: è segnalato come domanda, non come obbligo accertato.
 - Il codice dell'amministrazione digitale (d.lgs. 82/2005) e il regolamento (UE) 910/2014 non
