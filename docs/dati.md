@@ -9,13 +9,26 @@ introduce un dato nuovo.
 
 ## L'atto
 
-Un atto è un contenuto WordPress di tipo dedicato (`atto`), con questi dati:
+Un atto è un contenuto WordPress di tipo dedicato (`atto_albo`), con questi dati. Il nome
+non è `atto` e basta: da quell'identificativo il meccanismo comune ricava i nomi dei
+permessi, e un nome generico è un nome che un altro componente può avere già preso, nel
+qual caso la registrazione verrebbe rifiutata. L'indirizzo pubblico degli atti non viene da
+lì e resta una scelta separata.
+
+> **Quello che esiste oggi è meno di questa tabella.** Sono costruiti il tipo, i due
+> elenchi di voci per il tipo di atto (`albo_tipo_atto`) e per l'organo (`albo_organo`), i
+> permessi e il ruolo proprio. **I campi dell'atto non sono ancora registrati** e non c'è
+> ancora la schermata in cui si compilano. **Documento principale e allegati non esistono
+> affatto**, e non è un rinvio per comodità: senza la consegna protetta del meccanismo
+> comune un file caricato risponde al proprio indirizzo diretto, e lo stato dell'atto non lo
+> protegge. Chiedere di caricare lì un documento con dati personali non sarebbe accettabile.
+> La tabella descrive il perimetro deciso, non la disponibilità.
 
 | Dato | Obbligatorio | Dove sta | Chi lo scrive |
 |---|---|---|---|
 | Oggetto (titolo) | sì | contenuto WordPress | redattore |
-| Tipo di atto | sì | tassonomia dedicata | redattore, scelto tra i tipi configurati |
-| Organo che ha adottato | sì | tassonomia dedicata | redattore |
+| Tipo di atto | sì | elenco di voci dedicato, `albo_tipo_atto` | redattore, scelto tra i tipi configurati |
+| Organo che ha adottato | sì | elenco di voci dedicato, `albo_organo` | redattore |
 | Numero proprio dell'atto (es. determina 45/2026) | no | metadato | redattore. È il numero dell'atto, non quello di pubblicazione |
 | Data di adozione | sì | metadato | redattore |
 | Data di inizio pubblicazione | sì | metadato | proposta dal sistema, confermata dal redattore |
@@ -70,9 +83,22 @@ pubblicato o riportarlo a bozza.
 
 Gli atti usano permessi dedicati, non quelli generici degli articoli. Li **ricava il
 meccanismo comune** dall'identificativo del tipo, ma non li assegna a nessuno: **è questo
-componente che li assegna ai ruoli**, e la corrispondenza è configurabile
-dall'amministrazione. Finché l'assegnazione non avviene, **nessun ruolo può gestire il tipo
-atto dall'amministrazione di WordPress**: non lo vede nei menu e non può crearne.
+componente che li assegna ai ruoli**. Finché l'assegnazione non avviene, **nessun ruolo può
+gestire il tipo atto dall'amministrazione di WordPress**: non lo vede nei menu e non può
+crearne, e in quel caso la bacheca lo dice a chi può rimediare.
+
+**Quando avviene l'assegnazione.** Non all'attivazione, ma ogni volta che la versione
+memorizzata sul sito è diversa da quella del codice. Copre così con una sola riga la prima
+attivazione e ogni aggiornamento successivo: un componente che assegna solo all'attivazione
+lascia scoperti i siti già installati il giorno in cui una versione nuova aggiunge un
+permesso. L'assegnazione è additiva e non toglie mai niente, nemmeno un permesso che
+l'amministrazione avesse aggiunto per conto suo. Sui ruoli che il componente non nomina
+guarda il permesso distintivo dell'insieme: chi possiede quello per pubblicare riceve
+l'insieme di chi pubblica, chi possiede solo quello per redigere riceve l'insieme di chi
+redige, così completare i permessi mancanti non promuove nessuno.
+
+Il componente crea inoltre un **ruolo proprio**, Responsabile della pubblicazione all'albo,
+che riceve l'insieme di chi pubblica e nessuno dei permessi degli articoli.
 
 **Attenzione a cosa questi permessi non governano**, perché è la parte che si tende a dare
 per compresa: governano la gestione del contenuto, non la sua consultazione pubblica. Un

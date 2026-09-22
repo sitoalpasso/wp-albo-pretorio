@@ -72,6 +72,18 @@
 	</rule>
 
 	<!--
+		Una prova ricostruisce il registro dei ruoli e l'oggetto della richiesta
+		perche' e' l'unico modo di osservare quello che WordPress fa davvero:
+		i ruoli vivono in un oggetto globale che sopravvive alla transazione
+		della prova, e una richiesta pubblica fedele si ottiene solo con
+		un'istanza pulita. Il divieto di sovrascrivere le variabili globali di
+		WordPress riguarda il codice del componente, che infatti non lo fa.
+	-->
+	<rule ref="WordPress.WP.GlobalVariablesOverride">
+		<exclude-pattern>/tests/*</exclude-pattern>
+	</rule>
+
+	<!--
 		Un avvio della suite definisce la costante della versione di interfaccia
 		del componente comune prima che quel componente si carichi: e' il solo modo
 		di far vedere alla guardia una versione diversa da quella reale, e la
