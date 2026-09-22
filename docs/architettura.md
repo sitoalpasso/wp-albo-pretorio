@@ -151,14 +151,29 @@ uno stato corretto dopo il fatto è indistinguibile da uno stato mai scritto.
 
 ## Le parti del plugin
 
-**Una sola parte esiste oggi**, ed è quella che dichiara la sezione e le sue politiche. Le
-altre sono previste e non costruite: la colonna a destra lo dice riga per riga, perché una
-tabella letta al presente farebbe credere disponibili funzioni che nessuno ha ancora
-scritto.
+**Quattro parti esistono oggi.** L'avvio, che dichiara la sezione e le sue politiche; il
+tipo atto con i suoi due elenchi di voci; i permessi con il ruolo proprio e il meccanismo di
+aggiornamento; e lo sbarramento che tiene chiusa la pubblicazione. Le altre sono previste e
+non costruite: la colonna a destra lo dice riga per riga, perché una tabella letta al
+presente farebbe credere disponibili funzioni che nessuno ha ancora scritto.
+
+**Il tipo atto esiste e non è pubblico**, e le due cose vanno lette insieme. Un atto si
+crea e si salva in bozza dall'amministrazione; il suo indirizzo non risponde a nessuno, il
+tipo è fuori dalla ricerca interna e dalla mappa per i motori, e non ha nessuna rotta
+nell'interfaccia per programmi. Il motivo non è prudenza generica: il documento principale
+di un atto ha bisogno della consegna protetta del meccanismo comune, che non esiste ancora,
+e senza di essa un file caricato risponde al proprio indirizzo diretto anche dopo la
+defissione. La pubblicazione si aprirà tutta insieme, in una lavorazione dedicata, quando i
+controlli che impediscono un'esposizione oltre il termine esisteranno davvero.
 
 | Parte prevista | Responsabilità | Requisiti | Esiste oggi |
 |---|---|---|---|
-| `TipoContenutoAtto` | Registra il tipo di contenuto "atto": campi obbligatori, validazione al salvataggio, capability dedicate, dichiarazione esplicita dell'esposizione REST | ALBO-01, ALBO-02 | no |
+| `TipoAtto` | Registra il tipo di contenuto dell'atto attraverso il meccanismo comune, dentro la sezione dell'albo, e con esso i due elenchi di voci per il tipo di atto e per l'organo. Dichiara esplicitamente l'esposizione per programmi, oggi spenta, e tiene il tipo visibile in amministrazione e non interrogabile dal pubblico. **Non registra ancora i campi dell'atto e non li valida**: quello arriva con la schermata di compilazione | base di ALBO-01 | **sì** |
+| `Permessi` | Insiemi di permessi del tipo, ruolo proprio del componente per chi pubblica, assegnazione additiva e ripetibile, avviso quando nessun ruolo li possiede. I nomi dei permessi non li sceglie: li chiede al meccanismo comune, che li ricava dall'identificativo del tipo | ALBO-23, ALBO-25, ALBO-26 | **sì** |
+| `Installazione` | Confronta la versione memorizzata sul sito con quella del codice e, se differiscono, rifà il lavoro di installazione. È il motivo per cui un permesso nuovo arriva anche ai siti già installati, dove nessuna attivazione avviene | ALBO-24 | **sì** |
+| `ChiusuraPubblicazione` | Elenco ordinato di regole che decide se uno stato richiesto è concesso. Oggi ne contiene una sola, che nega la pubblicazione e la programmazione. Le lavorazioni successive aggiungono la regola sui campi e tolgono questa | nessuno: impedisce di prometterne uno non mantenibile | **sì** |
+| Campi dell'atto e schermata di compilazione | I dati dell'atto, il riquadro in cui si compilano, e il controllo campo per campo prima della pubblicazione | ALBO-01, ALBO-02 | no |
+| Documento principale e allegati | I file dell'atto, la loro cardinalità e la loro impronta. Dipende dalla consegna protetta del meccanismo comune | ALBO-01 | no |
 | `Avvio` | Verifica che il meccanismo comune sia caricato e compatibile, poi gli dichiara la sezione dell'albo con le due politiche per intero: indicizzazione `vietata`, scadenza `irraggiungibile`. Non chiude nessun requisito da sola: è il piano su cui ALBO-05 e ALBO-06 poggeranno. Se una qualsiasi delle tre condizioni non regge il componente resta attivo e inerte e lo segnala in bacheca, tranne nel caso della versione incompatibile, in cui è il meccanismo comune a disattivarlo | base di ALBO-05, ALBO-06 | **sì** |
 | Durate di pubblicazione | Le durate per tipo di atto, lette dalla configurazione e senza nessun valore predefinito. Erano scritte nella riga qui sopra e ne sono state separate quando quella riga è stata costruita: la dichiarazione delle politiche esiste, le durate no | ALBO-04 | no |
 | `Repertorio` | Assegna il numero progressivo annuale al primo passaggio in pubblicazione, in modo atomico; blocca ogni modifica manuale del numero. **Ipotesi da confermare**, unita' di lavoro bloccata dalla conferma | ALBO-08 | no |

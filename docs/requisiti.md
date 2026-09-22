@@ -186,10 +186,10 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-20 | da fare | L'atto defisso non viene più servito a nessuno | **norma** il risultato (Garante). **Prodotto** esclusione dalla memoria di pagina oppure invalidazione immediata: due strade, la scelta è nostra |
 | ALBO-21 | da fare | Scadenza sull'ora civile italiana | **prodotto**: correttezza tecnica, nessuna fonte esterna |
 | ALBO-22 | da fare | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto**, decisione chiusa il 2026-09-21: la tabella delle transizioni è nella nota qui sotto. Due sotto-decisioni restano aperte e non bloccano l'unità |
-| ALBO-23 | da fare | All'attivazione l'insieme minimo di permessi sul tipo atto arriva all'amministratore | **prodotto** |
-| ALBO-24 | da fare | A ogni aggiornamento i permessi nuovi arrivano ai ruoli che avevano già gli altri | **prodotto** |
-| ALBO-25 | da fare | Se nessun ruolo possiede i permessi del tipo atto, l'amministrazione lo segnala | **prodotto** |
-| ALBO-26 | da fare | Il componente crea e configura un proprio ruolo per la pubblicazione | **prodotto** |
+| ALBO-23 | fatto | All'attivazione l'insieme minimo di permessi sul tipo atto arriva all'amministratore | **prodotto** |
+| ALBO-24 | fatto | A ogni aggiornamento i permessi nuovi arrivano ai ruoli che avevano già gli altri | **prodotto** |
+| ALBO-25 | fatto | Se nessun ruolo possiede i permessi del tipo atto, l'amministrazione lo segnala | **prodotto** |
+| ALBO-26 | fatto | Il componente crea e configura un proprio ruolo per la pubblicazione | **prodotto** |
 
 ### Come si legge la colonna delle fonti
 
@@ -305,5 +305,7 @@ contro il regolamento dell'amministrazione.
 Tre valori: **da fare** (il requisito esiste come impegno, il codice no), **in corso** (il
 codice e i test esistono ma non risultano verdi nella verifica continua), **fatto** (verde
 nella verifica continua). Un requisito passa a "fatto" solo quando tutte le sue righe di
-`collaudo.md` sono "fatto". Oggi il componente è all'avvio della costruzione: **tutti i
-requisiti sono a "da fare"**.
+`collaudo.md` sono "fatto". Oggi sono a **"fatto" ALBO-23, ALBO-24, ALBO-25 e ALBO-26**,
+chiusi dall'unità che ha costruito il tipo atto, i permessi e il ruolo proprio. **Tutti gli
+altri sono a "da fare"**: il componente registra gli atti e li tiene chiusi, e non ne
+pubblica ancora nessuno.
