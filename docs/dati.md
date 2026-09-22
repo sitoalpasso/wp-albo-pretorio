@@ -121,8 +121,14 @@ che riceve l'insieme di chi pubblica e nessuno dei permessi degli articoli.
 **Attenzione a cosa questi permessi non governano**, perché è la parte che si tende a dare
 per compresa: governano la gestione del contenuto, non la sua consultazione pubblica. Un
 atto pubblicato e non scaduto resta consultabile da chiunque anche quando nessun ruolo ha
-ricevuto i permessi, perché la visibilità pubblica discende dalla politica della sezione e
-dallo stato del contenuto, non dai permessi.
+ricevuto i permessi, perché ad aprire l'atto al pubblico sono la politica della sezione e
+l'avvenuta pubblicazione, non i permessi. **Il venir meno della consultabilità per scadenza
+è un'altra cosa e segue un'altra regola**: dipende dalla data di fine letta nell'istante
+della richiesta, mai dallo stato memorizzato, come è fissato più sopra. Le due frasi non si
+contraddicono perché parlano di due momenti diversi: un atto non ancora pubblicato non è mai
+arrivato al pubblico, un atto scaduto ne esce per effetto della data e non perché qualcuno
+abbia scritto "defisso". Che cosa il pubblico veda di un atto **annullato** prima della
+scadenza resta la sotto-decisione aperta, e non la decide questo paragrafo.
 
 Questa è la mappa delle azioni:
 
