@@ -129,9 +129,20 @@ criterio con cui il disegno è stato scelto fra tre possibili, sta nella nota in
     BOZZA --> PUBBLICATO              saltare la verifica
     PUBBLICATO --> BOZZA              tornare indietro, per chiunque e da
     PUBBLICATO --> IN VERIFICA        ogni ingresso, amministratore compreso
+    BOZZA --> DEFISSO                 defiggere o annullare cio' che non
+    BOZZA --> ANNULLATO               e' mai stato pubblicato
+    IN VERIFICA --> DEFISSO
+    IN VERIFICA --> ANNULLATO
+    IN VERIFICA --> IN VERIFICA       modificare un atto in verifica
+    PUBBLICATO --> PUBBLICATO         modificare un atto pubblicato
     DEFISSO --> tutto tranne ANNULLATO
     ANNULLATO --> qualsiasi cosa      e' terminale
     cancellare un atto PUBBLICATO, DEFISSO o ANNULLATO
+
+    e in generale OGNI coppia che non compare fra i passaggi consentiti
+    qui sopra, autotransizioni comprese: l'elenco dei consentiti e'
+    chiuso, e questo elenco nomina le coppie che qualcuno potrebbe
+    credere permesse, non quelle che restano
 ```
 
 **Chi redige e chi pubblica possono essere la stessa persona**, se possiede entrambi i
@@ -144,6 +155,13 @@ sola fa tutto il lavoro.
 
 **Un atto in verifica non è modificabile da nessuno.** Se va corretto torna in bozza con la
 sua motivazione: quello che è stato verificato è quello che esce.
+
+**La defissione anticipata non toglie l'atto dalla vista cambiandogli stato.** Gli riporta
+indietro la data di fine pubblicazione, e l'atto sparisce per la ragione di sempre: il filtro
+in lettura trova una data passata. Siccome la fine della pubblicazione e' un giorno civile e
+la scadenza scatta dalla mezzanotte del giorno dopo, la data scritta e' quella del giorno
+precedente a quello in cui la defissione viene disposta. Scrivere la data di oggi lascerebbe
+l'atto visibile fino a stanotte, che e' l'errore che questa riga esiste per impedire.
 
 **Una transizione rifiutata non lascia stati intermedi.** L'atto resta dov'era e la riga
 nella banca dati non attraversa mai lo stato richiesto: nessuna riparazione tardiva, perché
