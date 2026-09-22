@@ -337,24 +337,49 @@ non sul metadato.
 4. **Quali cause legittimano la defissione anticipata.** Va scritto qui perché nessun'altra
    riga di questo documento lo dice: **nessun requisito da ALBO-01 a ALBO-26 chiede la
    defissione anticipata**, e la fonte di ALBO-22 è "prodotto". La transizione è entrata
-   disegnando la macchina degli stati, non perché una norma la reclami. Sotto quel nome
-   stanno però due casi che non si equivalgono. Togliere un atto che non doveva stare lì,
-   per dati eccedenti, per pubblicazione erronea o per ordine dell'autorità, è coperto da
-   ALBO-11 e ALBO-12 e la funzione deve esistere: lasciare esposto un atto che diffonde dati
-   illeciti è a sua volta un illecito. Abbreviare invece la pubblicazione di un atto regolare
-   è un'altra cosa, perché dove la durata è fissata dalla norma non è un tetto massimo ma un
-   adempimento con effetti propri (TUEL art. 124 per le deliberazioni degli enti locali), e
-   nessuna fonte finora consultata afferma che l'amministrazione possa accorciarla. **Finché
-   la verifica non è fatta si tiene la forma più stretta**: la motivazione non è testo libero
-   ma una causa scelta da un elenco chiuso, e chi possa disporla lo dice il regolamento
-   dell'amministrazione. La riga di collaudo prova la forma provvisoria e la dichiara tale.
+   disegnando la macchina degli stati, non perché una norma la reclami.
+
+   La domanda è stata portata alla lettura delle fonti, che ha risposto il 2026-09-22, e la
+   risposta cambia la forma della transizione invece di limitarsi a nominarne il titolare.
+   **Accorciare la pubblicazione di un atto regolare non è una funzione che il componente
+   offre.** L'art. 124 del TUEL prescrive per le deliberazioni degli enti locali quindici
+   giorni **consecutivi**, e intesta a "specifiche disposizioni di legge", cioè a un'altra
+   norma e non all'amministrazione che pubblica, la facoltà di fissare un termine diverso.
+   L'art. 32 della legge 69/2009 parla di obblighi che **si intendono assolti** con la
+   pubblicazione, e un adempimento interrotto a metà non è assolto. La regola
+   dell'oscuramento prima del termine appartiene al regime della trasparenza e al suo arco
+   di cinque anni, che il Garante esclude espressamente per l'albo.
+
+   Restano pacifiche le rimozioni anticipate che **non accorciano il termine**, perché
+   tolgono dalla vista una pubblicazione che in quella forma non doveva esserci: dati idonei
+   a rivelare lo stato di salute, quando il documento non è oscurabile; pubblicazione priva
+   di una norma che prescriva l'affissione di quell'atto, dove un termine non era mai
+   cominciato; ordine di un'autorità. Il caso dei dati eccedenti **non è una rimozione**: si
+   sostituisce il file con la versione oscurata e il termine continua a correre, ed è
+   ALBO-12, non una transizione di questa tabella. Resta fuori dall'elenco, ed è bene che
+   resti fuori, la richiesta dell'interessato su un atto pubblicato legittimamente e con
+   dati pertinenti: quel bilanciamento lo fa l'amministrazione con il proprio responsabile
+   della protezione dei dati, e il componente registra la decisione e chi l'ha presa
+   (ALBO-10).
+
+   **La forma provvisoria da tenere è quindi questa**: la transizione da pubblicato a
+   defisso resta una sola, il motivo non è testo libero ma una causa scelta fra quelle
+   dell'elenco, e nessuna maschera consente di accorciare il termine di un atto regolare
+   come normale operazione di redazione. La sotto-decisione resta aperta perché la risposta
+   è prudente e non definitiva: l'art. 124 è letto nella citazione che ne fa un documento
+   del 2014, quindi una modifica successiva non si vedrebbe, e l'art. 134 del TUEL
+   sull'esecutività delle deliberazioni, che trasformerebbe la durata in un meccanismo con
+   effetti propri, non è ancora stato letto.
 
 Le prime due si chiudono guardando come si comportano albi pretorio già in esercizio, la
 seconda anche contro il regolamento dell'amministrazione. La terza si chiude quando si decide
 se il meccanismo comune debba tenere un termine più fine del giorno civile. La quarta non si
-chiude guardando la prassi: chiede una verifica sulla norma e sul regolamento, ed è la sola
-delle quattro che potrebbe **restringere** una transizione già dichiarata invece di limitarsi
-a precisarne il titolare.
+chiude guardando la prassi e ha già una risposta prudente dalle fonti: si chiuderà quando
+saranno letti l'art. 124 nel testo vigente e l'art. 134 del TUEL. È la sola delle quattro
+che **restringe** una transizione già dichiarata invece di limitarsi a precisarne il
+titolare, e per questo la riga di collaudo che rende la restrizione esigibile, cioè il
+rifiuto di una causa fuori elenco, è una scelta di perimetro e non una rifinitura del
+catalogo.
 
 ### Come si legge la colonna Stato
 
