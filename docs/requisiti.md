@@ -401,13 +401,23 @@ non sul metadato.
    tolgono dalla vista una pubblicazione che in quella forma non doveva esserci: dati idonei
    a rivelare lo stato di salute, quando il documento non è oscurabile; pubblicazione priva
    di una norma che prescriva l'affissione di quell'atto, dove un termine non era mai
-   cominciato; ordine di un'autorità. Il caso dei dati eccedenti **non è una rimozione**: si
-   sostituisce il file con la versione oscurata e il termine continua a correre, ed è
-   ALBO-12, non una transizione di questa tabella. Resta fuori dall'elenco, ed è bene che
-   resti fuori, la richiesta dell'interessato su un atto pubblicato legittimamente e con
-   dati pertinenti: quel bilanciamento lo fa l'amministrazione con il proprio responsabile
-   della protezione dei dati, e il componente registra la decisione e chi l'ha presa
-   (ALBO-10).
+   cominciato; dati inesatti o non aggiornati, perché l'amministrazione mette a disposizione
+   soltanto dati esatti e aggiornati, e un dato può essere pertinente, necessario, coperto da
+   una base normativa e insieme sbagliato; ordine di un'autorità. Il caso dei dati eccedenti
+   **non è una rimozione**: si sostituisce il file con la versione oscurata e il termine
+   continua a correre, ed è ALBO-12, non una transizione di questa tabella. Resta fuori
+   dall'elenco, ed è bene che resti fuori, la richiesta dell'interessato su un atto pubblicato
+   legittimamente e con dati pertinenti: quel bilanciamento lo fa l'amministrazione con il
+   proprio responsabile della protezione dei dati, e il componente registra la decisione e chi
+   l'ha presa (ALBO-10).
+
+   **Che natura ha questo elenco.** È un elenco di cause pacifiche, cioè di casi che i testi
+   letti sostengono senza discussione, e non un elenco tassativo: dire che altre cause non
+   possano esistere non lo dice nessuna fonte, e la quinta voce è arrivata dopo le altre
+   quattro proprio perché mancava. Che nel componente l'elenco resti **chiuso** è quindi una
+   scelta di prodotto, ampliabile per configurazione senza toccare il codice, e vale finché
+   qualcuno non chiede il contrario: serve a impedire che "accorciare il termine" rientri
+   dalla porta di servizio come motivazione scritta a mano.
 
    **La forma da tenere è quindi questa**: la transizione da pubblicato a defisso resta una
    sola, il motivo non è testo libero ma una causa scelta fra quelle dell'elenco, e nessuna
@@ -435,20 +445,23 @@ non sul metadato.
    riga di collaudo che rifiuta una defissione anticipata con una causa fuori elenco è
    scritta, quindi la restrizione non vive più soltanto in questa nota.
 
-   Resta invece aperta, e non appartiene ad ALBO-22, una contraddizione che questa risposta
-   ha portato alla luce. La lettura delle fonti impone, per il caso dei dati eccedenti, che la
-   diffusione vietata cessi, e la risposta scelta è sostituire il file esposto con la versione
-   oscurata; che il termine continui a correre è invece scelta del componente, perché le fonti
-   tacciono. Ma
-   ALBO-09 prescrive l'immodificabilità del documento pubblicato e la rettifica come atto
-   nuovo, e il catalogo di collaudo lo verifica proprio sull'allegato di un atto pubblicato.
-   Le due prescrizioni non stanno insieme, e scegliere quale cede è una decisione su ALBO-09
-   e ALBO-12.
+   Questa risposta aveva portato alla luce una contraddizione, **risolta poi lo stesso
+   2026-09-22** e qui conservata perché spiega da dove viene l'eccezione. Le fonti impongono,
+   per il caso dei dati eccedenti, che la diffusione vietata cessi, e la risposta scelta è
+   sostituire il file esposto con la versione oscurata; che il termine continui a correre è
+   invece scelta del componente, perché le fonti tacciono. Ma ALBO-09 prescriveva
+   l'immodificabilità del documento pubblicato e la rettifica come atto nuovo, e il catalogo
+   di collaudo lo verificava proprio sull'allegato di un atto pubblicato. Le due prescrizioni
+   non stavano insieme. La decisione presa è che cede ALBO-09, con **un'unica eccezione
+   dichiarata** e non con un'apertura generale: la sostituzione vale solo per oscurare, non
+   fa ripartire il termine, non cambia il numero di repertorio, ed è descritta in ALBO-12 con
+   le proprie righe di collaudo.
 
 Le prime due si chiudono guardando come si comportano albi pretorio già in esercizio, la
 seconda anche contro il regolamento dell'amministrazione. La terza si chiude quando si decide
 se il meccanismo comune debba tenere un termine più fine del giorno civile. La quarta non si è
-chiusa guardando la prassi ma sul testo vigente degli artt. 124 e 134 del TUEL, ed è la sola
+chiusa guardando la prassi ma sul testo vigente dell'art. 124 del TUEL, con l'art. 134 come
+argomento interpretativo e non come disciplina dell'interruzione, ed è la sola
 delle quattro che ha **ristretto** una transizione già dichiarata invece di limitarsi a
 precisarne il titolare.
 

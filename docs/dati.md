@@ -39,7 +39,7 @@ lì e resta una scelta separata.
 | Documento principale | sì per pubblicare | file in cartella protetta più impronta (hash) in metadato | redattore prima della pubblicazione, poi bloccato. È uno e uno solo |
 | Allegati ulteriori | no | come sopra | redattore. Possono non esserci: un atto con il solo documento principale si pubblica |
 | Motivo di annullamento | quando ricorre | metadato più voce di registro | chi possiede `defissione atti`, che oggi fa parte dell'insieme di chi pubblica. Obbligatorio: senza, il passaggio è rifiutato |
-| Motivo di defissione anticipata | quando ricorre | metadato più voce di registro | **non è testo libero**: è una causa scelta da un elenco chiuso, perché accorciare il termine di un atto regolare non è consentito (art. 124 del TUEL, confermato dall'art. 134). Resta **in via provvisoria** su un solo fronte, cioè se la defissione anticipata vada riservata a un responsabile distinto, e la capability separata è ciò che permetterà di riservarla senza toccare il codice |
+| Motivo di defissione anticipata | quando ricorre | metadato più voce di registro | **non è testo libero**: è una causa scelta da un elenco chiuso, perché accorciare il termine di un atto regolare non è consentito (art. 124 del TUEL; l'art. 134 offre un argomento interpretativo e non disciplina gli effetti di un'interruzione). L'elenco è chiuso per scelta di prodotto, ampliabile per configurazione: le fonti dicono quali cause sono pacifiche, non che altre non possano esistere. Resta **in via provvisoria** su un solo fronte, cioè se la defissione anticipata vada riservata a un responsabile distinto, e la capability separata è ciò che permetterà di riservarla senza toccare il codice |
 
 Gli **stati** possibili: bozza, in verifica, pubblicato, defisso, annullato.
 
@@ -74,8 +74,9 @@ della scadenza resti visibile al pubblico; chi disponga la defissione anticipata
 è attribuita a chi pubblica in via provvisoria; e se il giorno civile basti come
 granularità del termine, o serva chiedere al meccanismo comune qualcosa di più fine. Una
 quarta, su quali cause legittimino la defissione anticipata, è chiusa il 2026-09-22
-sull'art. 124 del TUEL, con l'art. 134 a conferma: il termine di un atto regolare non si
-accorcia, e la restrizione ha la sua riga di collaudo.
+sull'art. 124 del TUEL, con l'art. 134 come argomento interpretativo e non come disciplina
+degli effetti di un'interruzione: il termine di un atto regolare non si accorcia, e la
+restrizione ha la sua riga di collaudo.
 
 ## Le risposte alle domande di controllo
 
