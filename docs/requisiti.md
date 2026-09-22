@@ -408,10 +408,13 @@ non sul metadato.
    una base normativa e insieme sbagliato; ordine di un'autorità. Il caso dei dati eccedenti
    **non è una rimozione**: si sostituisce il file con la versione oscurata e il termine
    continua a correre, ed è ALBO-12, non una transizione di questa tabella. Resta fuori
-   dall'elenco, ed è bene che resti fuori, la richiesta dell'interessato su un atto pubblicato
-   legittimamente e con dati pertinenti: quel bilanciamento lo fa l'amministrazione con il
-   proprio responsabile della protezione dei dati, e il componente registra la decisione e chi
-   l'ha presa (ALBO-10).
+   dall'elenco, ed è bene che resti fuori, la richiesta dell'interessato che **non porti con sé
+   nessuna delle cause ammesse**, cioè su dati pertinenti, esatti e aggiornati: quel
+   bilanciamento lo fa l'amministrazione con il proprio responsabile della protezione dei dati,
+   e il componente registra la decisione e chi l'ha presa (ALBO-10). Da chi arrivi la
+   segnalazione non cambia niente: se l'interessato segnala un dato inesatto o non aggiornato,
+   la causa è quella e sta nell'elenco, perché a legittimare la rimozione è il difetto del
+   dato e non la via per cui se ne è venuti a conoscenza.
 
    **Che natura ha questo elenco.** È un elenco di cause pacifiche, cioè di casi che i testi
    letti sostengono senza discussione, e non un elenco tassativo: dire che altre cause non
