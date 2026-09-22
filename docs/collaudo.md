@@ -44,7 +44,7 @@ il comportamento non c'è ancora), **fatto** (scritto e verde in CI). Un requisi
 | ALBO-01 | da fare | Si salva una **bozza** con dati mancanti | riesce. Controllo positivo: impedisce di soddisfare la riga seguente rifiutando tutto |
 | ALBO-01 | da fare | Si prova a **pubblicare** senza uno dei dati necessari, uno per volta | bloccato ogni volta, con il nome del dato che manca. Il numero di repertorio non è fra questi: lo assegna il sistema |
 | ALBO-01 | da fare | Documento principale e allegati ulteriori | il principale è uno e uno solo e serve per pubblicare; gli ulteriori sono facoltativi e un atto senza nessuno di essi si pubblica |
-| ALBO-02 | da fare | Si prova a **pubblicare** senza data di fine dai **tre ingressi supportati**: schermata, inserimento e aggiornamento da codice, richiesta di programmazione | sempre bloccato. In bozza la data può mancare. **L'interfaccia per programmi non è fra gli ingressi** perché non esiste: il tipo la dichiara spenta e le sue rotte sono assenti (A-15). Citarla qui farebbe scrivere un test su una superficie che non c'è |
+| ALBO-02 | da fare | Si prova a **pubblicare** senza data di fine dai **due ingressi da cui una pubblicazione può concludersi**: schermata, inserimento e aggiornamento da codice | sempre bloccato, e il rifiuto **nomina la data di fine mancante**. In bozza la data può mancare. **La richiesta di programmazione non è fra gli ingressi di questa riga**: ALBO-27 la rifiuta comunque, quindi da lì il blocco arriverebbe per un'altra ragione e la riga sarebbe verde senza dimostrare niente sulla data di fine. **L'interfaccia per programmi non è fra gli ingressi** perché non esiste: il tipo la dichiara spenta e le sue rotte sono assenti (A-15) |
 | ALBO-03 | da fare | Si invoca il compito dall'esterno con il cron interno di WordPress disattivato | defissione eseguita, e **voce nel registro delle modifiche del meccanismo comune**. Il comportamento dipende da **due** lavorazioni del meccanismo comune, il compito pianificato e il registro, non dal solo compito |
 | ALBO-04 | da fare | Si prova a pubblicare un atto di un tipo senza durata configurata; si cambia la durata di un tipo senza toccare codice | pubblicazione bloccata; cambio possibile |
 | ALBO-04 | da fare | [attacco, statico] si cerca la costante 15 usata come durata nel codice | assente |
@@ -53,10 +53,13 @@ il comportamento non c'è ancora), **fatto** (scritto e verde in CI). Un requisi
 | ALBO-07 **ipotesi** | da fare | Si genera il referto di un atto defisso. **Requisito da confermare**: poggia sulla prassi, non su una fonte, e l'unità che lo costruisce è bloccata dalla conferma | contiene numero, date effettive, impronta del file, autore; ristampato, è identico |
 | ALBO-08 **ipotesi** | da fare | Si pubblicano più atti in parallelo (test di concorrenza). **Requisito da confermare**, come ALBO-07 | ogni atto ottiene un numero unico, progressivo, assegnato una sola volta e mai riutilizzato, neanche dopo un'operazione fallita a metà. L'assenza di buchi non è fra le garanzie |
 | ALBO-08 **ipotesi** | da fare | [attacco] si invia una richiesta manipolata che tenta di scrivere il numero di repertorio. **Requisito da confermare** | il numero resta quello del sistema |
-| ALBO-09 | da fare | Si tenta di sostituire l'allegato di un atto pubblicato | bloccato; la rettifica è un nuovo atto |
+| ALBO-09 | da fare | Si tenta di sostituire l'allegato di un atto pubblicato **dichiarando una causa diversa dall'oscuramento**, e si tenta di cambiarne i dati di scheda | bloccato in tutti e due i casi; la rettifica è un nuovo atto che rinvia al precedente. **Controllo positivo**: la stessa sostituzione dichiarata come oscuramento riesce (righe di ALBO-12 qui sotto), altrimenti la riga sarebbe soddisfatta rifiutando ogni sostituzione e l'unica eccezione dichiarata non esisterebbe |
 | ALBO-10 | da fare | Si pubblica e si defigge in anticipo con motivo | due voci di registro: chi, quando, perché |
 | ALBO-11 | da fare | Si percorre il flusso di pubblicazione saltando la conferma sui dati personali | il flusso non si conclude; la schermata elenca i casi di rivelazione indiretta |
 | ALBO-12 | da fare | Si pubblica un atto con versione oscurata | il pubblico vede solo l'oscurata; l'originale richiede il permesso |
+| ALBO-12 | da fare | **Sostituzione per oscuramento** su un atto pubblicato e non scaduto: si sostituisce l'allegato con la sua versione oscurata dichiarando quella causa | riesce, e **il contatore dei giorni non riparte**: data di fine invariata, numero di repertorio invariato, stato ancora pubblicato. Si guarda l'orologio e non lo stato. È la riga che distingue questa operazione dal togliere e ripubblicare, che farebbe ripartire il termine e cambiare il repertorio |
+| ALBO-12 | da fare | Dopo una sostituzione per oscuramento si rileggono le tracce | restano registrate **le impronte di tutte e due le versioni**, quella uscente e quella entrante, con chi l'ha disposta e quando (ALBO-10). Il file uscente **non è più scaricabile dal pubblico** da nessun percorso. Senza le due impronte il referto non potrebbe dire quale file era esposto in quale periodo (ALBO-07) |
+| ALBO-12 | da fare | [attacco] Si tenta la sostituzione per oscuramento da chi non possiede il permesso di pubblicare, e su un atto **annullato** | rifiutata in tutti e due i casi, e l'allegato resta quello di prima. **Controllo positivo**: chi pubblica la compie su un atto pubblicato, altrimenti la riga sarebbe vera anche con una funzione che non esiste |
 | ALBO-13 | da fare | Si carica un PDF che sembra una scansione | avviso al redattore, dichiarato come indizio; pubblicare resta possibile |
 | ALBO-14 | da fare | Si legge un atto pubblicato con una sonda di accessibilità | testo vero, niente immagini al posto del testo, niente blocchi di copia |
 | ALBO-15 | da fare | Lo stesso documento sta in albo e in trasparenza | due esposizioni, cicli di vita indipendenti, un solo file |
@@ -71,7 +74,7 @@ il comportamento non c'è ancora), **fatto** (scritto e verde in CI). Un requisi
 | ALBO-22 | da fare | Il passaggio da in verifica a pubblicato tentato da chi possiede **il solo permesso di redazione** | rifiutato, e l'atto resta in verifica. **Due controlli positivi**: chi possiede il permesso di pubblicare lo compie; e **una stessa persona che possiede entrambi i permessi** compie i due passaggi di fila, con la conferma sui dati personali nel secondo. Senza il primo controllo la riga sarebbe vera anche con uno sbarramento che nega a tutti; senza il secondo imporrebbe la separazione fra le due figure, che la decisione **non** impone. Il soggetto va nominato per i permessi che ha e non per il suo ruolo, altrimenti la riga chiede di respingere una persona autorizzata |
 | ALBO-22 | da fare | Si rimanda in bozza un atto in verifica, **senza** motivazione e **con** motivazione | senza, rifiutato e l'atto resta in verifica; con, riesce, l'atto torna modificabile e la motivazione finisce nel registro delle modifiche |
 | ALBO-22 | da fare | Si tenta di modificare un atto **in verifica**, prima da chi redige e poi da chi pubblica | bloccato in entrambi i casi: quello che è stato verificato è quello che esce. Per correggerlo si torna in bozza, che è una transizione tracciata |
-| ALBO-22 | da fare | [attacco] Si tenta di pubblicare **saltando la verifica**, da ogni ingresso: schermata, inserimento e aggiornamento da codice, richiesta di programmazione | sempre bloccato, l'atto resta in bozza. Si osserva il valore **scritto** nella tabella dei contenuti: non attraversa mai lo stato pubblicato |
+| ALBO-22 | da fare | [attacco] Si tenta di pubblicare **saltando la verifica**, da ogni ingresso da cui una pubblicazione può concludersi: schermata, inserimento e aggiornamento da codice | sempre bloccato, l'atto resta in bozza. Si osserva il valore **scritto** nella tabella dei contenuti: non attraversa mai lo stato pubblicato. La richiesta di programmazione non compare qui per la stessa ragione per cui non compare in ALBO-02: ALBO-27 la rifiuta comunque, quindi da lì il blocco non direbbe niente sulla verifica saltata |
 | ALBO-22 | da fare | [attacco] Si tenta di riportare indietro un atto **pubblicato**, a bozza e a in verifica, da ogni ingresso e per ogni ruolo, **amministratore compreso** | sempre bloccato: una correzione è un atto nuovo che rinvia al precedente (ALBO-09). Nessuna esenzione per nessuno |
 | ALBO-22 | da fare | **Annullamento** da chi pubblica, **senza** e **con** motivazione, e da entrambi gli stati di partenza: un atto pubblicato e uno defisso | senza motivazione, rifiutato e l'atto resta dov'era; con motivazione, riesce da tutti e due, e la motivazione finisce nel registro (ALBO-10). Dopo il passaggio si rilegge l'atto: **conserva il numero di repertorio**, risulta annullato e il motivo resta registrato su di esso. Che cosa il pubblico veda di un atto annullato e' la sotto-decisione aperta, e non la decide questa riga. Provarlo dal solo stato pubblicato lascerebbe scoperta la seconda transizione, che la tabella delle transizioni dichiara e nessun'altra riga tocca |
 | ALBO-22 | da fare | [attacco] Si tenta ogni passaggio a partire da **annullato** | sempre bloccato: annullato è terminale, e lo si verifica su tutte e **cinque** le destinazioni possibili invece che su una sola. La quinta è annullato stesso: risalvare un atto annullato lasciandogli lo stato che ha è pur sempre modificarlo, e va rifiutato come gli altri quattro (ALBO-09) |
@@ -80,6 +83,9 @@ il comportamento non c'è ancora), **fatto** (scritto e verde in CI). Un requisi
 | ALBO-22 | da fare | Il compito pianificato porta un atto scaduto da pubblicato a defisso, e si verifica che **la visibilità al pubblico non dipenda da quello stato** | con il compito **spento** e la data passata, l'atto è già irraggiungibile su ogni percorso mentre nell'archivio risulta ancora pubblicato; eseguito il compito, lo stato diventa defisso e **non cambia nulla di ciò che il pubblico vede**. È la riga che impedisce di trattare "defisso" come l'interruttore della visibilità. L'invariante riguarda **la visibilità e non il flusso**: le transizioni consentite dipendono eccome dallo stato, tanto che il compito pianificato può portare a defisso solo un atto pubblicato. Ciò che non può dipendere dallo stato è che il pubblico veda l'atto |
 | ALBO-22 | da fare | **Defissione anticipata con una causa fuori elenco**: si chiede la defissione anticipata di un atto regolare e non ancora scaduto indicando come motivo la sola volontà dell'amministrazione | rifiutata: l'atto resta pubblicato e raggiungibile, con la data di fine invariata. **Controllo positivo**: la stessa richiesta, sullo stesso atto, con una causa dell'elenco riesce, altrimenti la riga sarebbe soddisfatta rifiutando ogni defissione anticipata. È la riga che rende esigibile il vincolo degli artt. 124 e 134 del TUEL: il termine di pubblicazione non è un tetto che l'amministrazione può abbassare, perché da esso decorre l'esecutività della deliberazione |
 | ALBO-22 | da fare | [attacco] Una transizione rifiutata non lascia **stati intermedi** | si osserva il valore scritto nella tabella dei contenuti, non quello che si rilegge alla fine: non attraversa mai lo stato richiesto e rifiutato. Uno stato corretto dopo una riparazione tardiva sarebbe indistinguibile da uno stato mai scritto |
+| ALBO-27 | da fare | Si prova a **pubblicare con una data di inizio nel futuro**, dai due ingressi da cui una pubblicazione può concludersi e dalla richiesta di programmazione | sempre rifiutato, e l'atto resta in bozza: la pubblicazione non si programma. Si osserva il valore **scritto** nella tabella dei contenuti, che non attraversa mai lo stato pubblicato né quello programmato. **Controllo positivo**: la stessa pubblicazione senza data di inizio nel futuro riesce, altrimenti la riga sarebbe soddisfatta rifiutando ogni pubblicazione |
+| ALBO-27 | da fare | Si pubblica un atto e si rilegge la **data di inizio** | è quella dell'istante in cui la transizione è avvenuta, confrontata con l'orologio, e non un valore che chi pubblica ha potuto scegliere. Da questa data decorrono termini di legge, quindi una data scelta a mano sarebbe una dichiarazione falsa e non una comodità |
+| ALBO-27 | da fare | [attacco] Si tenta di cambiare la data di inizio di un atto **pubblicato**, da ogni ingresso e per ogni ruolo, **amministratore compreso** | sempre bloccato, come ogni altra modifica di un atto pubblicato (ALBO-09). Nessuna esenzione per nessuno |
 | ALBO-23 | fatto | Si attiva il componente su un sito pulito | l'amministratore riceve l'insieme minimo di permessi del tipo atto. Si verifica **dopo** l'attivazione e non nel codice: un amministratore vede la voce di menu e riesce a creare un atto |
 | ALBO-24 | fatto | Si aggiorna il componente a una versione che introduce permessi nuovi | i permessi nuovi arrivano ai ruoli che avevano già gli altri. Un aggiornamento che li assegna solo alla prima attivazione lascia scoperti i siti già installati |
 | ALBO-25 | fatto | Nessun ruolo possiede i permessi del tipo atto | avviso in amministrazione che lo dice, con il nome del ruolo mancante |
@@ -107,14 +113,23 @@ cause pacifiche sono quelle in cui la pubblicazione non doveva esistere in quell
 riga che rifiuta una defissione anticipata con una causa fuori elenco è scritta qui sopra,
 ed è ciò che rende la restrizione esigibile invece di lasciarla vivere in una nota.
 
-Una riga che sarebbe servita accanto a quella **resta non scritta**, e non per prudenza:
-quella che proverebbe che la sostituzione del file con la versione oscurata **non** ferma il
-termine. La lettura delle fonti propone la sostituzione come risposta al caso dei dati
-eccedenti, ma la riga di ALBO-09 qui sopra prescrive l'opposto: sostituire l'allegato di un
-atto pubblicato è bloccato, e la rettifica è un atto nuovo. Le due prescrizioni non possono stare insieme, e
-scegliere quale delle due cede è una decisione su ALBO-09 e ALBO-12, non su ALBO-22. Finché
-non è presa, questo catalogo continua a dire quello che ha sempre detto, cioè che un atto
-pubblicato non si tocca.
+La riga che le sta accanto, quella che prova che la sostituzione del file con la versione
+oscurata **non** ferma il termine, è stata scritta il 2026-09-22 fra le righe di ALBO-12.
+Fino a quel giorno non poteva esistere: la lettura delle fonti proponeva la sostituzione
+come risposta al caso dei dati eccedenti, mentre la riga di ALBO-09 prescriveva l'opposto,
+cioè che sostituire l'allegato di un atto pubblicato fosse bloccato. Le due prescrizioni non
+potevano stare insieme, ed è stato deciso quale cede: l'immodificabilità di ALBO-09 conserva
+**un'unica eccezione dichiarata**, che toglie informazione e non ne aggiunge, e la riga di
+ALBO-09 la nomina come proprio controllo positivo.
+
+**Che cosa queste righe non provano, e nessuna riga potrebbe provare.** Il componente non
+può verificare che il file entrante sia davvero la versione oscurata di quello uscente: per
+un programma restano due file diversi, e nessuna prova automatica distingue un oscuramento
+da una sostituzione di contenuto. Quello che le righe pretendono è tutto ciò che è
+verificabile, cioè la causa dichiarata, il rifiuto di ogni altra, le due impronte, la traccia
+di chi e quando, e il termine che continua a correre. La responsabilità di che cosa contenga
+il file entrante resta di chi dispone la sostituzione, ed è la ragione per cui l'operazione
+è tracciata invece che impedita.
 
 **ALBO-07 e ALBO-08 hanno righe qui ma sono ipotesi**, non impegni: poggiano sulla prassi e
 non su una fonte, e le unità che li costruiscono sono bloccate dalla conferma. Le righe
@@ -183,9 +198,14 @@ quella consegna non c'è, il tipo è visibile in amministrazione e non interroga
 pubblico, e la pubblicazione si apre in una lavorazione dedicata, tutta insieme, quando i
 controlli che impediscono un'esposizione oltre il termine esistono davvero.
 
-**Perché viene respinta anche la programmazione.** Conservare una pubblicazione programmata
-che sappiamo non potersi concludere sarebbe una promessa non mantenibile: la richiesta viene
-respinta come quella di pubblicazione e l'atto resta in bozza.
+**Perché viene respinta anche la programmazione.** In questa lavorazione il motivo era
+provvisorio: conservare una pubblicazione programmata che sappiamo non potersi concludere
+sarebbe una promessa non mantenibile, quindi la richiesta viene respinta come quella di
+pubblicazione e l'atto resta in bozza. Dal 2026-09-22 il motivo è diventato definitivo ed è
+ALBO-27: la pubblicazione non si programma, perché l'albo sostituisce la bacheca di carta e
+lì programmare non era possibile. Quando la pubblicazione si aprirà, questo rifiuto resterà,
+e le righe che lo provano sono quelle di ALBO-27 e non queste, che misurano una lavorazione
+in cui la pubblicazione era chiusa per tutti.
 
 | # | Stato | Il test, in parole | Esito atteso |
 |---|---|---|---|

@@ -31,7 +31,7 @@ lì e resta una scelta separata.
 | Organo che ha adottato | sì | elenco di voci dedicato, `albo_organo` | redattore |
 | Numero proprio dell'atto (es. determina 45/2026) | no | metadato | redattore. È il numero dell'atto, non quello di pubblicazione |
 | Data di adozione | sì | metadato | redattore |
-| Data di inizio pubblicazione | sì | metadato | proposta dal sistema, confermata dal redattore |
+| Data di inizio pubblicazione | sì | metadato | **solo il sistema**, al passaggio a pubblicato, e mai nel futuro: la pubblicazione non si programma (ALBO-27). Non è modificabile dopo, perché da essa decorrono termini di legge |
 | Data di fine pubblicazione | sì per pubblicare | metadato | calcolata dalla durata configurata per il tipo; il sistema rifiuta la **pubblicazione** senza, non il salvataggio della bozza. **Una defissione anticipata la riporta indietro**, ed è così, e non cambiando stato, che l'atto esce dalla vista |
 | Numero di repertorio (es. 123/2026). **Ipotesi da confermare** | dalla pubblicazione | metadato più contatore in tabella dedicata | **solo il sistema**, alla prima pubblicazione, in modo atomico |
 | Stato | sì | stato del contenuto | il flusso di pubblicazione, mai a mano nel database |
@@ -84,9 +84,14 @@ di inizio e fine **previste** sono metadati dell'atto; le date **effettive** ven
 congelate nel referto alla defissione. Se per un guasto la defissione avviene in ritardo,
 il referto riporta la verità, non la previsione.
 
-**Cosa succede se cambio un documento già pubblicato?** Non si può. L'atto pubblicato è
-immodificabile per chiunque, amministratore compreso: la strada giusta è creare un nuovo
-atto di rettifica che rinvia al precedente.
+**Cosa succede se cambio un documento già pubblicato?** Non si può, salvo un caso solo.
+L'atto pubblicato è immodificabile per chiunque, amministratore compreso, e la strada giusta
+è creare un nuovo atto di rettifica che rinvia al precedente. L'unica eccezione è la
+**sostituzione di un allegato con la sua versione oscurata** (ALBO-12): si dichiara come
+oscuramento, il termine continua a correre, il numero di repertorio non cambia, e restano
+registrate le impronte del file uscente e di quello entrante. Serve al caso dell'atto già
+esposto che diffonde dati che non potevano essere diffusi, dove togliere e ripubblicare
+guasterebbe l'adempimento per rimediare alla diffusione.
 
 **Cosa succede agli allegati?** Vengono caricati in una cartella protetta, non
 raggiungibile per URL diretto: si scaricano solo attraverso l'endpoint di consegna di
@@ -94,7 +99,9 @@ core, che a ogni richiesta ricontrolla che l'atto sia visibile. Alla defissione 
 non si cancella e la sua impronta sta nel referto, ma **non e' piu' scaricabile dal
 pubblico**: l'endpoint rifa' i controlli e l'atto e' scaduto. Resta raggiungibile
 dall'amministrazione, e in futuro da un archivio riservato. Il resto del referto sta nel
-referto. Sostituire l'allegato di un atto pubblicato è vietato come modificare l'atto.
+referto. Sostituire l'allegato di un atto pubblicato è vietato come modificare l'atto,
+tranne che per oscurarlo: quella sostituzione conserva l'impronta di tutte e due le
+versioni, perché il referto deve poter dire quale file era esposto in quale periodo.
 
 **Chi può cambiare lo stato?** Solo chi ha la capability della transizione, e solo lungo
 le transizioni permesse. Nessuno, nemmeno l'amministratore, può cancellare un atto

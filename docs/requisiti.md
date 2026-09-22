@@ -1,7 +1,7 @@
 # Requisiti: cosa deve fare l'albo pretorio
 
 Questo documento spiega in linguaggio semplice cosa il plugin deve fare e perché. Ogni
-requisito ha un identificativo (ALBO-01 fino ad ALBO-26): è lo stesso usato nei test, nei
+requisito ha un identificativo (ALBO-01 fino ad ALBO-27): è lo stesso usato nei test, nei
 commit e nelle discussioni, così si può sempre risalire dal codice al motivo per cui
 esiste. In fondo c'è il **catalogo corrente dei requisiti**, con le fonti normative e le
 decisioni aperte marcate esplicitamente. Non è una specifica completa e non lo sarà finché
@@ -30,7 +30,8 @@ nessuno se ne ricorda, anche se il sito non riceve visite.
 Un atto non è un PDF buttato in una pagina: è una scheda con i suoi dati (tipo, oggetto,
 organo che l'ha adottato, data di adozione, data di inizio e di fine pubblicazione) più il
 **documento principale**, che è uno e uno solo, e gli **allegati ulteriori**, che sono
-facoltativi e possono non esserci affatto (ALBO-01).
+facoltativi e possono non esserci affatto (ALBO-01). Delle due date, quella di inizio non si
+sceglie: la scrive il sistema nel momento in cui l'atto diventa pubblico (ALBO-27).
 
 **Salvare e pubblicare sono due momenti diversi, e il requisito vale sul secondo.** Una
 bozza si salva anche incompleta: è così che si lavora a un atto prima di avere tutti i
@@ -101,7 +102,11 @@ questo la politica di indicizzazione è un parametro dichiarato, mai un default.
   decisione se pagarla non è nostra.
 - Un atto pubblicato è **immodificabile**: una rettifica è un atto nuovo che rinvia al
   precedente, mai una correzione silenziosa (ALBO-09). La cancellazione di un atto
-  pubblicato è vietata per tutti, amministratore compreso.
+  pubblicato è vietata per tutti, amministratore compreso. **Esiste una sola eccezione**,
+  decisa il 2026-09-22 e descritta in ALBO-12: la sostituzione di un allegato con la sua
+  versione oscurata, che toglie informazione e non ne aggiunge, non fa ripartire il termine
+  e non cambia il numero di repertorio. Serve a un caso che la norma non lascia aperto, cioè
+  un atto già esposto che diffonde dati che non potevano essere diffusi.
 - Ogni operazione rilevante finisce nel **log**: chi ha pubblicato, quando, chi ha
   disposto una defissione anticipata e perché (ALBO-10).
 
@@ -116,6 +121,26 @@ fretta: senza conferma la pubblicazione non si conclude. Il sistema permette ino
 pubblicare una **versione oscurata** dell'atto tenendo l'originale integro fuori dalla
 vista pubblica (ALBO-12). La valutazione su cosa pubblicare resta dell'ente: il plugin
 fornisce il passaggio obbligato, non la decisione.
+
+**Quando l'oscuramento arriva tardi.** Il caso in cui un atto è già esposto e diffonde dati
+che non potevano essere diffusi non si risolve né lasciandolo lì né togliendolo: l'art.
+2-septies comma 8 del d.lgs. 196/2003 vieta in modo assoluto la diffusione dei dati
+genetici, biometrici e relativi alla salute, ma l'obbligo di pubblicare quell'atto non
+sparisce per questo, e toglierlo per ripubblicarlo corretto farebbe ripartire il termine e
+cambiare il numero di repertorio, cioè guasterebbe un adempimento per rimediare a un altro.
+La strada decisa il 2026-09-22 è quindi la **sostituzione dell'allegato con la sua versione
+oscurata**, a termine che continua a correre: è l'unica eccezione all'immodificabilità di
+ALBO-09, vale solo per oscurare e non per cambiare il contenuto, ed è registrata con le
+impronte di tutte e due le versioni.
+
+Va detto con chiarezza che cosa il componente può garantire di questa regola e che cosa no.
+**Può** pretendere che la sostituzione sia dichiarata come oscuramento e non come modifica,
+rifiutare ogni altra causa, conservare l'impronta del file uscente e di quello entrante,
+registrare chi l'ha disposta e quando, lasciare intatti repertorio e date, e far sì che il
+referto dica quale file era esposto in quale periodo. **Non può** verificare che il file
+entrante sia davvero la versione oscurata di quello uscente: due PDF diversi restano due
+PDF diversi anche per il computer più attento. Quella responsabilità è di chi dispone la
+sostituzione, ed è la ragione per cui l'operazione è tracciata invece che impedita.
 
 ### Accessibilità (ALBO-13, ALBO-14)
 
@@ -172,10 +197,10 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-06 | da fare | Le pagine dell'atto non vengono indicizzate | **norma** il risultato (Garante, che raccomanda i metatag). **Prodotto** `noindex`, esclusione dalla mappa e politica dichiarata |
 | ALBO-07 | da fare | Referto di pubblicazione congelato | **da confermare**: la prassi non è una fonte. Contenuto e obbligatorietà vanno verificati contro il regolamento, e l'unità è bloccata da quella conferma |
 | ALBO-08 | da fare | Repertorio progressivo annuale, assegnato dal sistema. Unico, progressivo, assegnato una sola volta, mai riutilizzato | **da confermare**: la prassi non è una fonte. L'assenza assoluta di buchi non è promessa e dipende dal regolamento. L'unità è bloccata da quella conferma |
-| ALBO-09 | da fare | Integrità del documento pubblicato | **norma** il risultato (linee guida AgID doc. informatici). **Prodotto** immodificabilità assoluta e rettifica come atto nuovo |
+| ALBO-09 | da fare | Integrità del documento pubblicato | **norma** il risultato (linee guida AgID doc. informatici). **Prodotto** immodificabilità e rettifica come atto nuovo, con **un'unica eccezione dichiarata**, la sostituzione per oscuramento di ALBO-12 |
 | ALBO-10 | da fare | Tracciabilità delle operazioni sugli atti | **norma** responsabilizzazione e tracciabilità (GDPR art. 5). **Prodotto** il registro solo in aggiunta del meccanismo comune è la soluzione scelta, non l'unica |
 | ALBO-11 | da fare | Liceità del trattamento dei dati particolari | **norma** il risultato (d.lgs. 196/2003 artt. 2-ter, 2-septies). **Prodotto** il passaggio obbligato con conferma esplicita |
-| ALBO-12 | da fare | I dati eccedenti non finiscono nella versione pubblica | **norma** minimizzazione, l'originale non va esposto (GDPR art. 5.1.c). **Prodotto** la coppia originale riservato più versione oscurata |
+| ALBO-12 | da fare | I dati eccedenti non finiscono nella versione pubblica, e se ci sono finiti si sostituisce l'allegato con la versione oscurata senza far ripartire il termine | **norma** minimizzazione, l'originale non va esposto (GDPR art. 5.1.c); divieto assoluto di diffondere dati genetici, biometrici e sulla salute (d.lgs. 196/2003 art. 2-septies c. 8). **Prodotto** la coppia originale riservato più versione oscurata, e la sostituzione come unica eccezione a ALBO-09 |
 | ALBO-13 | da fare | I documenti pubblicati sono accessibili | **norma** il risultato (l. 69/2009 art. 32 che rinvia a l. 4/2004 art. 11). **Prodotto** l'avviso euristico al caricamento, che segnala un indizio e non blocca |
 | ALBO-14 | da fare | Niente anti copia che rompa l'accessibilità | **norma** l'accessibilità non si comprime per ostacolare il prelievo (Garante, l. 4/2004) |
 | ALBO-15 | da fare | Separazione dall'amministrazione trasparente | **norma** finalità e durate diverse (d.lgs. 33/2013, Garante). **Prodotto** due esposizioni indipendenti con un file solo |
@@ -186,6 +211,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-20 | da fare | L'atto defisso non viene più servito a nessuno | **norma** il risultato (Garante). **Prodotto** esclusione dalla memoria di pagina oppure invalidazione immediata: due strade, la scelta è nostra |
 | ALBO-21 | da fare | Scadenza sull'ora civile italiana | **prodotto**: correttezza tecnica, nessuna fonte esterna |
 | ALBO-22 | da fare | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto**, decisione chiusa il 2026-09-21: la tabella delle transizioni è nella nota qui sotto. Quattro sotto-decisioni ne sono seguite, di cui **tre restano aperte** e nessuna blocca l'unità; la quarta, sulle cause che legittimano la defissione anticipata, è chiusa il 2026-09-22 |
+| ALBO-27 | da fare | **La pubblicazione non si programma.** La data di inizio la scrive il sistema al passaggio a pubblicato, non è modificabile e non può stare nel futuro | **prodotto**, deciso il 2026-09-22. L'albo sostituisce la bacheca di carta, dove programmare non era possibile. Se un'amministrazione lo chiederà, si costruirà allora |
 | ALBO-23 | fatto | All'attivazione l'insieme minimo di permessi sul tipo atto arriva all'amministratore | **prodotto** |
 | ALBO-24 | fatto | A ogni aggiornamento i permessi nuovi arrivano ai ruoli che avevano già gli altri | **prodotto** |
 | ALBO-25 | fatto | Se nessun ruolo possiede i permessi del tipo atto, l'amministrazione lo segnala | **prodotto** |
@@ -335,7 +361,7 @@ non sul metadato.
    lasciarcelo.
 
 4. **Quali cause legittimano la defissione anticipata. Chiusa il 2026-09-22.** Va scritto qui perché nessun'altra
-   riga di questo documento lo dice: **nessun requisito da ALBO-01 a ALBO-26 chiede la
+   riga di questo documento lo dice: **nessun requisito del catalogo chiede la
    defissione anticipata**, e la fonte di ALBO-22 è "prodotto". La transizione è entrata
    disegnando la macchina degli stati, non perché una norma la reclami.
 

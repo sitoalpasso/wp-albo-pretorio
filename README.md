@@ -30,10 +30,13 @@ controllo segnalerà il suo stallo, ma la visibilità pubblica non dipenderà ma
 **L'atto.** Tipo di contenuto dedicato, con i suoi dati, un documento principale e
 allegati ulteriori facoltativi. Una bozza si potrà salvare incompleta; **la data di fine
 pubblicazione sarà richiesta per pubblicare**, e non esisterà l'atto pubblicato a tempo
-indeterminato. La durata sarà configurabile per tipo di atto, senza durate cablate nel
+indeterminato. La **data di inizio** non si sceglie: la scrive il sistema quando l'atto
+diventa pubblico, e la pubblicazione non si programma. La durata sarà configurabile per tipo di atto, senza durate cablate nel
 codice e senza valori predefiniti silenziosi.
 
-**Le regole che non si negoziano.** Immodificabilità dell'atto pubblicato, esclusione
+**Le regole che non si negoziano.** Immodificabilità dell'atto pubblicato, con un'unica
+eccezione dichiarata, cioè la sostituzione di un allegato con la sua versione oscurata, che
+toglie informazione e non ne aggiunge e non fa ripartire il termine; esclusione
 dall'indicizzazione dei motori di ricerca (per questo componente è la politica imposta, non
 un'opzione), separazione dagli obblighi di pubblicazione del d.lgs. 33/2013, con finalità,
 durate e cicli di vita distinti.

@@ -64,6 +64,8 @@ ATTO
  +--> resta esposto fino alla data di fine
  |       visibile in elenco, scheda, ricerca; noindex su ogni pagina
  |       immodificabile: la rettifica e' un nuovo atto che rinvia a questo
+ |       un'eccezione sola: l'allegato si sostituisce con la sua versione
+ |       oscurata, senza far ripartire il termine (ALBO-12)
  |       [core: MotoreScadenza (filtro in lettura), core: Indicizzazione]
  |
  +--> viene defisso alla scadenza (o prima, con motivo)
@@ -201,7 +203,7 @@ controlli che impediscono un'esposizione oltre il termine esisteranno davvero.
 | `TipoAtto` | Registra il tipo di contenuto dell'atto attraverso il meccanismo comune, dentro la sezione dell'albo, e con esso i due elenchi di voci per il tipo di atto e per l'organo. Dichiara esplicitamente l'esposizione per programmi, oggi spenta, e tiene il tipo visibile in amministrazione e non interrogabile dal pubblico. **Non registra ancora i campi dell'atto e non li valida**: quello arriva con la schermata di compilazione | base di ALBO-01 | **sì** |
 | `Permessi` | Insiemi di permessi del tipo, ruolo proprio del componente per chi pubblica, assegnazione additiva e ripetibile, avviso quando nessun ruolo li possiede. I nomi dei permessi non li sceglie: li chiede al meccanismo comune, che li ricava dall'identificativo del tipo | ALBO-23, ALBO-25, ALBO-26 | **sì** |
 | `Installazione` | Confronta la versione memorizzata sul sito con quella del codice e, se differiscono, rifà il lavoro di installazione. È il motivo per cui un permesso nuovo arriva anche ai siti già installati, dove nessuna attivazione avviene | ALBO-24 | **sì** |
-| `ChiusuraPubblicazione` | Elenco ordinato di regole che decide se uno stato richiesto è concesso. Oggi ne contiene una sola, che nega la pubblicazione e la programmazione. Le lavorazioni successive aggiungono la regola sui campi e tolgono questa | nessuno: impedisce di prometterne uno non mantenibile | **sì** |
+| `ChiusuraPubblicazione` | Elenco ordinato di regole che decide se uno stato richiesto è concesso. Oggi ne contiene una sola, che nega la pubblicazione e la programmazione. Le lavorazioni successive aggiungono la regola sui campi e tolgono questa, **ma non il diniego della programmazione**, che dal 2026-09-22 è una regola sua (ALBO-27) e resta quando la pubblicazione si apre | nessuno: impedisce di prometterne uno non mantenibile | **sì** |
 | Campi dell'atto e schermata di compilazione | I dati dell'atto, il riquadro in cui si compilano, e il controllo campo per campo prima della pubblicazione | ALBO-01, ALBO-02 | no |
 | Documento principale e allegati | I file dell'atto, la loro cardinalità e la loro impronta. Dipende dalla consegna protetta del meccanismo comune | ALBO-01 | no |
 | `Avvio` | Verifica che il meccanismo comune sia caricato e compatibile, poi gli dichiara la sezione dell'albo con le due politiche per intero: indicizzazione `vietata`, scadenza `irraggiungibile`. Non chiude nessun requisito da sola: è il piano su cui ALBO-05 e ALBO-06 poggeranno. Se una qualsiasi delle tre condizioni non regge il componente resta attivo e inerte e lo segnala in bacheca, tranne nel caso della versione incompatibile, in cui è il meccanismo comune a disattivarlo | base di ALBO-05, ALBO-06 | **sì** |
