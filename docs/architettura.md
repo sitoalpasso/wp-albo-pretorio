@@ -148,8 +148,8 @@ criterio con cui il disegno è stato scelto fra tre possibili, sta nella nota in
     cancellare un atto PUBBLICATO, DEFISSO o ANNULLATO
 
     e in generale OGNI coppia che non compare fra i passaggi consentiti
-    qui sopra: quell'elenco e' chiuso, e comprende le due permanenze
-    nello stesso stato che sono lecite, cioe' il risalvataggio della
+    qui sopra: quell'elenco e' chiuso, e comprende l'unica permanenza
+    nello stesso stato che sia lecita, cioe' il risalvataggio della
     bozza. Questo elenco di divieti nomina le coppie che qualcuno
     potrebbe credere permesse, non tutte quelle che restano
 ```
