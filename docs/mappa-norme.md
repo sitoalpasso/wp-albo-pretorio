@@ -88,17 +88,26 @@ Il primo: "La pubblicazione è effettuata nel rispetto dei principi di eguaglian
 discriminazione, applicando i requisiti tecnici di accessibilità di cui all'articolo 11
 della legge 9 gennaio 2004, n. 4". Non è un obbligo di accessibilità del sito posato accanto
 all'albo: è una qualità **dell'atto del pubblicare**. La norma che istituisce la pubblicità
-legale online dice come va fatta, e il come include l'accessibilità. Chi pubblica è il
-componente.
+legale online dice come va fatta, e il come include l'accessibilità. Il destinatario
+dell'obbligo restano però "le amministrazioni e gli enti pubblici obbligati", che è quello
+che l'articolo dice: la norma non ripartisce il lavoro fra plugin, tema e infrastruttura.
+Che il componente debba rispondere dell'accessibilità delle pagine che genera è quindi una
+scelta di attuazione, non una conseguenza del testo, e va presa come scelta.
 
 Il secondo: "La mancata pubblicazione nei termini di cui al periodo precedente è altresì
 rilevante ai fini della misurazione e della valutazione della performance individuale dei
 dirigenti responsabili". Qui va detto che la frase si presta a due letture, perché "termini"
 può voler dire scadenze oppure modi. Riferita al periodo precedente, che parla di modi e non
 di scadenze, la lettura naturale è che **una pubblicazione non accessibile conti come
-pubblicazione mancata**, con una conseguenza sulla valutazione del dirigente. Per la regola
-di cantiere sui dubbi si tiene la lettura più prudente, che è questa: l'accessibilità non è
-un abbellimento della pubblicazione, è una condizione perché la pubblicazione valga.
+pubblicazione mancata ai fini di quella valutazione**. Per la regola di cantiere sui dubbi
+si tiene questa lettura, dichiarandola.
+
+Attenzione a dove si ferma. La norma collega quella mancanza alla valutazione della
+performance del dirigente, e non dice altro: **nessuno dei testi letti dice che un difetto
+di accessibilità privi la pubblicazione dei suoi effetti di pubblicità legale**. Il primo
+periodo rende quindi l'accessibilità un requisito obbligatorio del pubblicare, con una
+conseguenza sul dirigente; che cosa succeda alla validità della pubblicazione è una domanda
+a cui questi testi non rispondono, e che non va data per risolta.
 
 Il comma 1-bis aggiunge un caso che il catalogo non aveva: gli elaborati tecnici allegati
 alle delibere urbanistiche e alle loro varianti si pubblicano sul sito del comune. Sono
@@ -145,7 +154,7 @@ residuale, ed è una lettura da confermare, non un dato letto.
 | Obbligo | Requisiti | Copertura |
 |---|---|---|
 | La pubblicazione ha una durata, e la durata dipende dal tipo di atto e dalla norma applicabile | ALBO-04 | scoperto |
-| La data di pubblicazione fa decorrere un termine con effetti propri fuori dal componente: l'atto diventa esecutivo al decimo giorno (art. 134 c. 3) | ALBO-01, ALBO-07 | scoperto, ed è una conseguenza scoperta oggi: non tocca al componente calcolare l'esecutività, ma la data di inizio che registra e il referto che ne attesta le date diventano il presupposto di un effetto giuridico, non due campi qualsiasi |
+| La data di pubblicazione fa decorrere un termine con effetti propri fuori dal componente: per le deliberazioni indicate dall'art. 134 comma 3, cioè quelle non soggette a controllo necessario né sottoposte a controllo eventuale, l'esecutività interviene dopo il decimo giorno dalla pubblicazione. Distinta l'immediata eseguibilità del comma 4 | ALBO-01, ALBO-07 | scoperto, ed è una conseguenza scoperta oggi: non tocca al componente calcolare l'esecutività, ma la data di inizio che registra e il referto che ne attesta le date diventano il presupposto di un effetto giuridico, non due campi qualsiasi |
 
 Due righe di `collaudo.md` chiudono ALBO-04 ed entrambe sono "da fare": la pubblicazione di
 un tipo senza durata configurata deve essere bloccata, e un controllo statico deve
@@ -164,9 +173,9 @@ rilasciare il componente.
 
 | Obbligo | Requisiti | Copertura |
 |---|---|---|
-| La pubblicazione ha un termine e finisce da sola, senza dipendere dal traffico del sito | ALBO-02, ALBO-03, ALBO-19 | avviato per ALBO-02, scoperto per gli altri due |
+| Alla scadenza del periodo la diffusione cessa. Che ciò avvenga da solo e senza dipendere dal traffico del sito è scelta di prodotto: la nota 53 di GAR 2.b propone la rimozione automatica "a titolo esemplificativo" e contempla, in sua assenza, verifiche periodiche | ALBO-02 per l'obbligo, ALBO-03 e ALBO-19 per il modo scelto | avviato per ALBO-02, scoperto per gli altri due |
 | L'atto scaduto esce dalla vista pubblica su ogni percorso, allegati compresi | ALBO-05, ALBO-18, ALBO-20 | avviato per ALBO-05 e ALBO-18, scoperto per ALBO-20 |
-| Le pagine dell'atto non vengono indicizzate | ALBO-06 | avviato, solo per la parte dichiarativa |
+| Si adottano accorgimenti idonei a evitare l'indicizzazione nei motori generalisti. GAR 3.a lo "consiglia" e GAR 2.a dice "ove possibile": è una raccomandazione, e le misure concrete sono scelta di prodotto | ALBO-06 | avviato, solo per la parte dichiarativa |
 | I dati eccedenti non finiscono nella versione pubblica | ALBO-12 | scoperto |
 | Il regime di pubblicità non autorizza da solo a pubblicare qualunque atto | ALBO-11 | scoperto |
 
@@ -238,23 +247,31 @@ tipo di atto senza valore predefinito, e di ALBO-02, cioè nessun atto pubblicat
 di fine.
 
 **ALBO-03 e ALBO-19 non sono soltanto scelte nostre.** La nota 53 del paragrafo 2.b
-suggerisce sistemi di pubblicazione capaci di attribuire alla documentazione un intervallo
-di permanenza tramite metadati, con rimozione anche automatica, e aggiunge che **in assenza
-di meccanismi automatizzati** vanno previste procedure di verifica periodica della validità
-temporale. Sono, nell'ordine, il compito pianificato e il battito di controllo. Restano
-scelte di prodotto nella forma, perché il Garante non impone un cron di sistema, ma la
-coppia "rimozione automatica, e se non c'è verifica periodica" è raccomandata dalla fonte,
-e la colonna di `requisiti.md` che dà ALBO-19 come solo prodotto va corretta.
+suggerisce, **a titolo esemplificativo**, sistemi di pubblicazione capaci di attribuire alla
+documentazione un intervallo di permanenza tramite metadati, con rimozione anche automatica,
+e aggiunge che in assenza di meccanismi automatizzati vanno previste procedure di verifica
+periodica della validità temporale.
+
+Va letta per quello che è. L'obbligo della fonte è uno solo, cioè che alla scadenza la
+diffusione cessi; l'automatismo e la verifica periodica sono due modi alternativi di
+arrivarci, proposti come esempio. La nota non impone quindi né il compito pianificato né il
+battito di controllo, e soprattutto non impone la coppia: nel testo del Garante la verifica
+periodica è l'alternativa a chi l'automatismo non ce l'ha, non il controllore
+dell'automatismo altrui. ALBO-03 e ALBO-19 restano scelte di prodotto, e la colonna di
+`requisiti.md` che li dà come tali va lasciata com'è. Quello che la nota aggiunge è che la
+scelta non è eccentrica: la fonte la contempla.
 
 **L'indicizzazione è raccomandata, non imposta.** GAR usa "si consiglia", e la ragione data
 è la sproporzione. Questo non indebolisce ALBO-06, lo colloca: è una misura che riduce il
 danno, mentre l'obbligo vero e proprio è smettere di diffondere. Va letto insieme al
 provvedimento in cui l'ente aveva impedito l'indicizzazione ed è stato sanzionato lo stesso.
 
-Una nota su ALBO-14. Il paragrafo 2.c chiede di ostacolare la duplicazione massiva dei file
-con dati personali. Non dice niente sull'accessibilità: il bilanciamento fra le due cose,
-che è il contenuto di ALBO-14, è una decisione nostra fra un consiglio del Garante e un
-obbligo di legge, e va scritto così.
+Una nota su ALBO-14. Il paragrafo 2.c è prescrittivo e non consultivo: "Devono essere
+adottate opportune cautele per ostacolare operazioni di duplicazione massiva dei file
+contenenti dati personali". Quello che resta aperto è **quali** cautele, perché il Garante
+non impone una misura tecnica e fa esempi. Il paragrafo non dice niente sull'accessibilità,
+quindi il bilanciamento fra le due cose, che è il contenuto di ALBO-14, è una decisione
+nostra fra due obblighi, non fra un consiglio e un obbligo, e va scritto così.
 
 ### Se la durata si possa accorciare, e quando un atto si toglie prima
 
@@ -287,28 +304,40 @@ Il terzo serve soprattutto a chiudere una porta che sembrava aperta. Nella parte
 paragrafo 7, GAR scrive che i dati personali pubblicati per finalità di trasparenza "devono
 essere oscurati, anche prima del termine di cinque anni, quando sono stati raggiunti gli
 scopi per i quali essi sono stati resi pubblici e gli atti stessi hanno prodotto i loro
-effetti". Letta fuori contesto sembra la regola che autorizza a togliere prima. Non lo è
-per l'albo, e lo dice GAR stessa nel paragrafo 3.a: "alle pubblicazioni nell'albo pretorio
-online non si applica l'arco temporale dei cinque anni previsto per la pubblicità di dati e
-informazioni sui siti web istituzionali per finalità di trasparenza di cui all'art. 8 del d.
-lgs. n. 33/2013". L'oscuramento anticipato appartiene a quell'arco e a quel regime: non è
-una regola dell'albo e non si importa.
+effetti". Letta fuori contesto sembra la regola che autorizza a togliere prima.
+
+Quella regola è però formulata per la trasparenza, dentro il paragrafo che governa la durata
+quinquennale dell'art. 8 del d.lgs. 33/2013, e GAR 3.a dice che all'albo quell'arco dei
+cinque anni non si applica. Questo basta a dire che la regola **non si trasferisce da sola**
+all'albo: non basta a dire che sull'albo un oscuramento anticipato sia escluso. La ragione
+che GAR dà al paragrafo 7 non è il calendario ma la necessità e la proporzionalità, che sono
+principi generali, quindi l'esclusione del quinquennio non chiude la questione. Il rapporto
+fra il termine di legge dell'albo e un oscuramento anticipato **resta aperto**, e questo
+appoggio vale meno degli altri tre: serve a togliere di mezzo un'obiezione, non a fondare la
+conclusione.
 
 Il quarto appoggio è arrivato dopo, ed è quello che trasforma la risposta da prudente in
 confermata. L'art. 134 del TUEL, letto nel testo vigente il 22 settembre 2026, dice al comma
-3 che le deliberazioni non soggette a controllo "diventano esecutive dopo il decimo giorno
-dalla loro pubblicazione". La durata della pubblicazione non è quindi un contenitore vuoto
-che si può accorciare quando la finalità sembra raggiunta: è l'orologio da cui decorre un
-effetto giuridico. Chi togliesse l'atto al settimo giorno toglierebbe il presupposto di un
-termine ancora in corso.
+3 che le deliberazioni "non soggette a controllo necessario o non sottoposte a controllo
+eventuale" diventano esecutive "dopo il decimo giorno dalla loro pubblicazione". Va preso
+per quello che dice, senza allargarlo: **la pubblicazione è il riferimento temporale di un
+effetto giuridico**, quindi la durata non è un contenitore vuoto e indifferente. L'obbligo
+di tenere l'atto esposto quindici giorni resta però fondato sull'art. 124, non su questo
+comma, perché l'art. 134 non dice nulla su che cosa accada se la pubblicazione si
+interrompe.
 
-Due dettagli dello stesso articolo rendono la conclusione più solida di quanto un solo comma
-farebbe pensare. Il primo: i due termini hanno lunghezza diversa e partono insieme, dieci
-giorni per l'esecutività e quindici per la pubblicazione. Se il termine fosse un tetto da
-abbassare una volta servito lo scopo, il decimo giorno sarebbe il taglio naturale, e la
-legge invece lascia correre la pubblicazione fino al quindicesimo. I cinque giorni in più
-non sono un residuo: sono la parte di pubblicazione che serve alla conoscibilità e ai
-termini per impugnare, non all'efficacia. Il secondo: l'urgenza ha già la sua valvola, ed è
+Un argomento e un fatto rendono la conclusione più solida di quanto un solo comma farebbe
+pensare, e conviene tenerli distinti perché il primo è ragionamento e il secondo è testo.
+
+L'argomento, che è di chi scrive e non di una fonte: i due termini partono insieme e hanno
+lunghezza diversa, dieci giorni per l'esecutività e quindici per la pubblicazione. Se la
+durata fosse un tetto da abbassare una volta servito lo scopo, il decimo giorno sarebbe il
+taglio naturale, e la legge invece lascia correre la pubblicazione fino al quindicesimo. A
+che cosa servano quei cinque giorni in più i testi letti non lo dicono, e qui non si
+inventa: quello che l'argomento mostra è che la durata non coincide con il tempo necessario
+all'efficacia, non quale sia la sua funzione.
+
+Il fatto, che sta nel testo: l'urgenza ha già la sua valvola, ed è
 il comma 4, cioè la dichiarazione di immediata eseguibilità votata dalla maggioranza dei
 componenti. Opera sull'**efficacia dell'atto**, non sulla durata della pubblicazione, che
 resta quella. L'ordinamento ha quindi previsto il caso "serve che valga subito" e vi ha
@@ -321,23 +350,36 @@ costituzionale del 2001 ha privato di fondamento: se è così, oggi quasi tutte 
 deliberazioni ricadono nel comma 3, che da caso residuale diventa la regola. Questa parte è
 una lettura mia e va confermata, ma rafforza la conclusione invece di indebolirla.
 
-Conclusione operativa, ora senza il "per prudenza": **accorciare il termine di un atto
-regolare non è una funzione che il componente offre**, e nessuna maschera deve permettere di
-farlo come normale operazione di redazione.
+Conclusione operativa: **accorciare il termine di un atto regolare non è una funzione che il
+componente offre**, e nessuna maschera deve permettere di farlo come normale operazione di
+redazione. Regge in primo luogo sull'art. 124, che è testo vigente letto e non citazione di
+seconda mano: "sono pubblicate ... per quindici giorni consecutivi". Gli altri appoggi la
+circondano, e quello sull'oscuramento anticipato vale meno degli altri, per la ragione detta
+sopra.
 
 **Seconda domanda: quali rimozioni anticipate sono invece pacifiche?**
 
-Sono pacifiche per una ragione precisa, e la ragione è più utile dell'elenco: **nessuna di
-esse accorcia il termine**. Ognuna toglie dalla vista una pubblicazione che in quella forma
-non doveva esserci. Il termine dell'atto continua a correre; quello che si interrompe è una
-diffusione illecita. È la differenza che tiene insieme le due risposte.
+Sono pacifiche per una ragione precisa, e la ragione è più utile dell'elenco: **in nessuna
+di esse la rimozione è una scelta di durata**. Ognuna toglie dalla vista una pubblicazione
+che in quella forma non doveva esserci, e lo fa perché una diffusione vietata deve cessare,
+non perché si sia deciso che quindici giorni erano troppi. È la differenza che tiene insieme
+le due risposte.
+
+Va però detto subito dove questa ricostruzione si ferma, perché il confine è sottile. I
+testi letti dicono che quelle diffusioni devono cessare. **Non dicono che cosa accada al
+periodo di pubblicazione**: se continui a correre, se resti sospeso, se l'atto vada
+ripubblicato in forma corretta per compiere il termine. Su questo non c'è fonte fra quelle
+lette, e non è una domanda che il componente possa risolvere per conto dell'ente: la
+risposta dipende dalla disciplina applicabile all'atto o, nel caso dell'ordine, dal suo
+contenuto. Quello che il componente deve fare è registrare l'interruzione e la sua causa in
+modo che l'ente possa decidere, non decidere al suo posto.
 
 | Causa | Cosa dice la fonte | Cosa fa il sistema |
 |---|---|---|
-| Dati eccedenti, non pertinenti o non necessari | GAR 3.a richiama per l'albo il "divieto di diffondere dati personali non necessari, non pertinenti o eccedenti" della parte seconda, par. 1 | non si toglie l'atto: si sostituisce il file con la versione oscurata, e il termine continua a correre. È esattamente ALBO-12 |
+| Dati eccedenti, non pertinenti o non necessari | GAR 3.a richiama per l'albo il "divieto di diffondere dati personali non necessari, non pertinenti o eccedenti" della parte seconda, par. 1 | non si toglie l'atto: si sostituisce il file con la versione oscurata. È esattamente ALBO-12. Se questo basti a far compiere il termine, o se la sostituzione incida sul periodo, i testi non lo dicono |
 | Dati genetici, biometrici o relativi alla salute | art. 2-septies comma 8 del d.lgs. 196/2003, letto nel testo vigente: "I dati personali di cui al comma 1 non possono essere diffusi". Divieto assoluto, senza rinvio a norme che lo deroghino. GAR 3.a richiama per l'albo lo stesso divieto nella formulazione del Codice di allora | la diffusione è vietata, quindi l'oscuramento è l'unico stato lecito. Se il documento non è oscurabile, il file esce |
-| Pubblicazione priva di base normativa | GAR 3.a: prima di pubblicare, l'ente verifica l'esistenza di una norma che prescriva l'affissione **di quell'atto** | non c'è un termine da accorciare, perché non c'era un termine: la pubblicazione non doveva iniziare |
-| Ordine di un'autorità | esterna al componente (Garante, autorità giudiziaria) | si esegue e si registra chi l'ha disposto |
+| Pubblicazione priva di base normativa | GAR 3.a: prima di pubblicare, l'ente verifica l'esistenza di una norma che prescriva l'affissione **di quell'atto** | non c'è un termine da accorciare, perché non c'era un obbligo di pubblicare quell'atto: la pubblicazione non doveva iniziare |
+| Ordine di un'autorità | esterna al componente (Garante, autorità giudiziaria). Nessuno dei testi letti la disciplina, e l'ordine può avere contenuti diversi fra loro | si esegue e si registra chi l'ha disposto. Gli effetti sul periodo li determina l'ordine, non il sistema |
 
 Fuori dall'elenco resta il caso che non è pacifico, ed è bene che resti fuori: la richiesta
 dell'interessato su un atto pubblicato legittimamente e con dati pertinenti. Lì il diritto
@@ -348,9 +390,12 @@ che ALBO-10 già chiede.
 
 Conseguenza per la forma stretta di ALBO-22: la rimozione anticipata non è uno stato che il
 redattore raggiunge quando vuole, ma due transizioni distinte, la sostituzione con versione
-oscurata, che non ferma il termine, e la rimozione per le tre cause in cui la pubblicazione
-non doveva esistere in quella forma. La terza possibilità, cioè accorciare il termine di un
-atto regolare, non è una transizione e non va prevista.
+oscurata e la rimozione per le cause in cui la pubblicazione non doveva esistere in quella
+forma. Entrambe chiedono una causa fra quelle dell'elenco e la registrano. Quello che nessuna
+delle due deve fare è decidere da sola che il termine è compiuto: l'effetto sul periodo è
+una valutazione dell'ente, quindi va chiesto e registrato, non calcolato. La terza
+possibilità, cioè accorciare il termine di un atto regolare, non è una transizione e non va
+prevista.
 
 **Conseguenza per ALBO-07.** Se una rimozione anticipata può esistere, il periodo davvero
 compiuto non coincide più con la data di fine memorizzata, e l'unico posto in cui quel
@@ -382,7 +427,7 @@ riga va discussa con chi la deve approvare.
 | Obbligo | Requisiti | Copertura |
 |---|---|---|
 | Un soggetto pubblico tratta dati particolari e giudiziari solo alle condizioni previste, e la pubblicazione è un trattamento | ALBO-11 | scoperto |
-| La pubblicazione su una pagina aperta a chiunque è "diffusione" ai sensi dell'art. 2-ter comma 4 lettera b, e la diffusione da parte di un soggetto pubblico ha bisogno di una base fra le tre del comma 1 | ALBO-11 | scoperto |
+| La pubblicazione su una pagina aperta a chiunque è "diffusione" ai sensi dell'art. 2-ter comma 4 lettera b. Le basi che il comma 1 elenca sono la norma di legge, quella di regolamento e l'atto amministrativo generale; i commi 1-bis e 3 ne aggiungono un'altra per casi la cui applicabilità all'albo resta da chiarire | ALBO-11 | scoperto |
 | I dati genetici, biometrici e relativi alla salute **non possono essere diffusi** (art. 2-septies comma 8), senza eccezioni e senza rinvio a una norma che li autorizzi | ALBO-11, ALBO-12 | scoperto |
 
 **L'art. 2-ter è stato letto nel testo vigente il 22 settembre 2026, e sposta l'appoggio di
@@ -392,11 +437,19 @@ nel senso proprio del termine, e questo non era mai stato scritto nero su bianco
 
 Il comma 1 dice poi che la base giuridica dell'art. 6 paragrafo 3 lettera b del GDPR è
 costituita "da una norma di legge o di regolamento o da atti amministrativi generali". Sono
-tre canali, non due. GAR e i provvedimenti citano invece il vecchio art. 19 comma 3 del
-Codice, che diceva "norma di legge o di regolamento" e basta, e che la riforma del 2018 ha
-abrogato. La regola dell'albo non cambia di segno, ma il suo appoggio oggi è un altro
-articolo con una formula più larga, e ALBO-11 va scritto contro quella e non contro la
-citazione del 2014.
+tre canali, non due: GAR cita per l'albo una formula che si ferma a legge e regolamento,
+quella del vecchio art. 19 comma 3 del Codice. Che quell'articolo sia stato abrogato nel
+2018 **non risulta dai testi letti**, ed è un'affermazione fatta a memoria: qui si dice solo
+che la formula citata da un documento del 2014 e quella del comma 1 vigente sono diverse, e
+che ALBO-11 va scritto contro la seconda.
+
+Il comma 1 non è però l'elenco chiuso di ogni diffusione pubblica, e presentarlo così
+sarebbe lo stesso errore. Il comma 3 aggiunge "o se necessarie ai sensi del comma 1-bis",
+con notizia al Garante almeno dieci giorni prima, e riguarda la diffusione e la
+comunicazione "a soggetti che intendono trattarli per altre finalità". Che questa strada non
+copra la pubblicazione istituzionale dell'albo è la lettura di chi scrive, non confermata da
+nessun provvedimento fra quelli letti, ed è annotata come tale anche più avanti: non può
+quindi diventare una regola certa nella tabella né dentro ALBO-11.
 
 Qui però si apre una domanda che vale la pena tenere aperta invece che risolvere in fretta,
 perché è esattamente il punto su cui P-5 ha sanzionato. Se un atto amministrativo generale
@@ -425,9 +478,9 @@ per tre categorie di dati.
 
 | Categoria | Cosa deve verificare ALBO-11 |
 |---|---|
-| Dati comuni | che esista una delle tre basi dell'art. 2-ter comma 1, cioè una norma di legge, di regolamento o un atto amministrativo generale che prescriva la pubblicazione di quell'atto |
+| Dati comuni | che esista una delle basi elencate dall'art. 2-ter comma 1, cioè una norma di legge, di regolamento o un atto amministrativo generale che prescriva la pubblicazione di quell'atto. Resta aperto se la strada dei commi 1-bis e 3 valga anche per l'albo: finché non è chiarita, ALBO-11 non può trattare quelle tre come l'elenco completo |
 | Dati genetici, biometrici, relativi alla salute | niente da verificare, perché la risposta è sempre no: non si diffondono. L'unica pubblicazione possibile è quella oscurata, e se il documento non è oscurabile non si pubblica |
-| Altre categorie particolari dell'art. 9 del GDPR e dati su condanne e reati dell'art. 10 | restano fuori dal divieto del comma 8 e tornano alla regola generale della base giuridica |
+| Altre categorie particolari dell'art. 9 del GDPR e dati su condanne e reati dell'art. 10 | restano fuori dal divieto specifico del comma 8, il che **non vuol dire** che basti la base giuridica generale: hanno condizioni e cautele proprie, che GAR 3.a richiama per l'albo chiedendo una norma di legge per i dati allora detti sensibili e giudiziari. Questa lettura non le ricostruisce, e ALBO-11 non può equipararle ai dati comuni |
 
 Questa distinzione oggi non c'è, né in ALBO-11 né nella sua riga di collaudo, e non è un
 raffinamento: il catalogo tratta "dati particolari e giudiziari" come un blocco unico, cioè
@@ -563,11 +616,11 @@ qualunque sia, sarebbe quello sbagliato per metà dei componenti.
 |---|---|---|
 | L'atto è identificabile e completo | ALBO-01 | scoperto |
 | La pubblicazione ha un termine | ALBO-02 | avviato |
-| Il termine si applica da solo e in tempo | ALBO-03, ALBO-19 | scoperto |
+| Il termine si applica da solo e in tempo, che è il modo scelto e non un obbligo della fonte | ALBO-03, ALBO-19 | scoperto |
 | Esiste una durata, dipendente dal tipo di atto | ALBO-04 | scoperto |
 | L'atto scaduto esce dalla vista pubblica | ALBO-05, ALBO-18 | avviato, manca il percorso dell'allegato |
 | L'atto defisso non resta servito da una cache | ALBO-20 | scoperto |
-| Le pagine dell'atto non sono indicizzate | ALBO-06 | avviato solo nella dichiarazione |
+| Si adottano accorgimenti contro l'indicizzazione, che la fonte raccomanda | ALBO-06 | avviato solo nella dichiarazione |
 | Il documento pubblicato è integro | ALBO-09 | scoperto |
 | Le operazioni sono tracciate | ALBO-10 | scoperto |
 | I dati particolari hanno una base giuridica dichiarata | ALBO-11 | scoperto |
@@ -630,8 +683,13 @@ vuol dire che la fonte va letta prima di decidere se produce un obbligo per il c
    pubblicazione "è effettuata ... applicando i requisiti tecnici di accessibilità"
    dell'art. 11 della legge 4/2004, e che la mancata pubblicazione in quei termini rileva
    sulla valutazione del dirigente responsabile. Non è l'obbligo di accessibilità del sito
-   applicato anche all'albo: è una condizione del pubblicare, e chi pubblica è il componente.
-   Detto altrimenti, ACC copre le pagine web, non solo i documenti allegati.
+   applicato anche all'albo: è un requisito del pubblicare, e riguarda quindi tutto ciò che
+   si pubblica, non i soli PDF. Due precisazioni che il rilievo di una revisione ha imposto.
+   L'obbligo grava sull'amministrazione, non sul software: che il componente risponda
+   dell'accessibilità delle pagine che genera è una scelta di attuazione da fare, e la
+   ripartizione fra componente, tema e infrastruttura va definita, non dedotta dalla norma.
+   E la norma collega la mancanza alla valutazione del dirigente: che cosa accada alla
+   validità della pubblicazione questi testi non lo dicono.
    Nel catalogo dell'albo l'accessibilità compare però solo sui PDF (ALBO-13, ALBO-14) e
    come vincolo della ricerca (ALBO-16). L'elenco degli atti e la scheda del singolo atto
    sono pagine generate dal componente, e nessuna riga dice se ne risponde il componente o
@@ -651,24 +709,30 @@ vuol dire che la fonte va letta prima di decidere se produce un obbligo per il c
    questo buco: è dalla data di pubblicazione che decorre il decimo giorno oltre il quale la
    deliberazione diventa esecutiva. Una data di inizio sbagliata non produce solo una pagina
    visibile nel momento sbagliato, sposta la data in cui un atto acquista efficacia.
-6. **Defissione anticipata: tracciata ma non definita, buco, con la parte normativa ora
-   risolta.** ALBO-10 chiede che il registro contenga chi ha disposto una defissione
+6. **Defissione anticipata: tracciata ma non definita, buco, con una parte della domanda
+   normativa risolta e una ancora aperta.** ALBO-10 chiede che il registro contenga chi ha disposto una defissione
    anticipata e perché. Nessun requisito definisce la defissione anticipata come funzione:
    chi può disporla, con quali effetti sul referto, se l'atto resta consultabile
    all'amministrazione. La sezione "Se la durata si possa accorciare, e quando un atto si
    toglie prima" risponde alle due domande su cui il buco poggiava: accorciare il termine di
    un atto regolare non è una funzione da offrire, e le cause pacifiche di rimozione
-   anticipata sono quattro, elencate lì con la fonte di ciascuna. Quello che resta scoperto è
-   la parte di prodotto, cioè scrivere quelle transizioni dentro ALBO-22, con il vincolo per
-   il referto annotato nella stessa sezione.
+   anticipata sono quattro, elencate lì con la fonte di ciascuna. Resta aperta la domanda
+   che viene dopo, e che nessuno dei testi letti risolve: che cosa accada al periodo di
+   pubblicazione quando una diffusione vietata viene interrotta. È una valutazione dell'ente,
+   quindi il sistema deve registrarla e non calcolarla. Resta poi la parte di prodotto, cioè
+   scrivere quelle transizioni dentro ALBO-22, con il vincolo per il referto annotato nella
+   stessa sezione.
 7. **Informativa sul trattamento, da verificare.** Le pagine dell'albo espongono dati
    personali a chiunque. Nessun requisito dice che devono portare un collegamento
    all'informativa dell'ente. Probabilmente è un obbligo dell'ente sul sito e non del
    componente, ma il componente è l'unico che sa quali pagine espongono atti: vale la pena
    decidere invece di lasciarlo implicito.
-8. **Gli accorgimenti contro l'indicizzazione sono scritti a metà, buco con fonte.** GAR ne
-   indica due, i metatag `noindex` e `noarchive` oppure il `robots.txt` secondo il Robot
-   Exclusion Protocol, e aggiunge che nessuno dei due tocca quello che è già indicizzato.
+8. **Gli accorgimenti contro l'indicizzazione sono scritti a metà, scarto interno.** GAR ne
+   nomina due **a titolo esemplificativo**, i metatag `noindex` e `noarchive` oppure il
+   `robots.txt` secondo il Robot Exclusion Protocol, e aggiunge che nessuno dei due tocca
+   quello che è già indicizzato. Non è quindi un elenco minimo obbligatorio, e la loro
+   assenza non è di per sé una lacuna rispetto alla fonte: è uno scarto fra quello che
+   ALBO-06 promette e quello che la sua riga di collaudo verifica.
    ALBO-06 nomina il solo `noindex`, la sua riga di collaudo ispeziona il meta robots e la
    mappa per i motori, e di `noarchive`, di `robots.txt` e della rimozione di ciò che è già
    stato indicizzato non parla nessuno. Non è la misura più importante, perché la rimozione
@@ -684,9 +748,9 @@ Perché la domanda giusta, davanti a un elenco di buchi, è sempre "e questo chi
 | 1. Versione oscurata | ALBO-09 e ALBO-12 letti insieme, ALBO-07 come unico appiglio, e il campo di verifica dell'allegato 5 di LG-DOC | incoerenza interna al catalogo, più una fonte esterna letta il 22 settembre 2026 che dice dove va registrata la risposta |
 | 2. Metadati di conservazione | LG-DOC, allegato 5, riletto il 22 settembre 2026 | fonte verificata e contenuto letto: l'insieme obbligatorio esiste ed è elencato nella sezione LG-DOC |
 | 3. Fonte della durata | GDPR art. 5.2 | fonte verificata, ma il collegamento fra responsabilizzazione e "registrare da dove viene la durata" è una lettura prudente, non una prescrizione testuale |
-| 4. Accessibilità delle pagine | art. 32 comma 1 della legge 69/2009, che rinvia all'art. 11 della legge 4/2004, cioè oggi alle linee guida AgID | **l'appoggio più solido dell'elenco dopo la lettura del 22 settembre 2026**: l'obbligo di applicare i requisiti di accessibilità sta nella norma stessa che istituisce la pubblicità legale online, letta nel testo vigente. Resta una lettura la portata del periodo sulla valutazione del dirigente, discussa nella sezione L69 |
+| 4. Accessibilità delle pagine | art. 32 comma 1 della legge 69/2009, che rinvia all'art. 11 della legge 4/2004, cioè oggi alle linee guida AgID | **l'obbligo è solido**, perché sta nella norma stessa che istituisce la pubblicità legale online, letta nel testo vigente. È invece scelta di attuazione, e non conseguenza del testo, che ne risponda il componente: la norma si rivolge alle amministrazioni. E gli effetti di un difetto di accessibilità sulla validità della pubblicazione non sono determinati da questi testi |
 | 5. Data di inizio | nessuna fonte esterna | incoerenza interna, verificata leggendo il codice: l'interfaccia pubblica del componente comune espone la sola data di fine |
-| 6. Defissione anticipata | ALBO-10, che la nomina senza definirla. Per il se e il quando: art. 124 del TUEL e art. 32 della legge 69/2009 sul termine, GAR 3.a e il par. 1 della parte seconda sulle cause di rimozione | il buco resta interno al catalogo, ma non è più un dubbio normativo: le fonti sono lette e citate nella sezione dedicata. Da verificare l'art. 134 del TUEL sull'esecutività, che è quello che rende definitiva la risposta sul termine. Il diritto dell'interessato sta nell'art. 17 del GDPR, non censito nella tabella delle fonti |
+| 6. Defissione anticipata | ALBO-10, che la nomina senza definirla. Per il se e il quando: artt. 124 e 134 del TUEL e art. 32 della legge 69/2009 sul termine, GAR 3.a e il par. 1 della parte seconda sulle cause di rimozione | fonti lette nel testo vigente e citate nella sezione dedicata. Regge la parte sul se, cioè che il termine non si accorcia; **non è coperta da nessuna fonte letta** la parte sugli effetti che una rimozione produce sul periodo di pubblicazione, e la sezione ora lo dice. Il diritto dell'interessato sta nell'art. 17 del GDPR, non censito nella tabella delle fonti |
 | 7. Informativa | GDPR artt. 13 e 14 | **non censiti** nella tabella delle fonti: è il punto più debole dell'elenco |
 | 8. `robots.txt` | nessuna fonte esterna | scarto fra il requisito e la sua riga di collaudo, verificato nei due documenti |
 
@@ -737,6 +801,20 @@ colonna lo dice.
 | L69 | **letta nel testo vigente e confermata, con due periodi in più**. Le tre date ci sono tutte. Il comma 1 contiene l'obbligo di applicare i requisiti di accessibilità e la rilevanza della mancata pubblicazione sulla valutazione del dirigente, che la citazione dentro GAR non riportava. Nuovi anche il comma 1-bis sugli elaborati urbanistici e il comma 3 sull'albo ospitato da un'altra amministrazione | testo vigente da Normattiva, fornito in copia |
 | TRASP | **confermata per via indiretta**, con due articoli in più che il catalogo non nominava: il 7-bis comma 3 e l'8 comma 3 | dalle pagine dei provvedimenti |
 
+**Il documento è stato passato a una revisione indipendente** il 22 settembre 2026, con i
+testi di legge allegati e la consegna di cercare le affermazioni che quei testi non
+reggono. Ha prodotto dodici rilievi, accolti tutti. Sei riguardavano la stessa cosa: una
+conseguenza ragionevole presentata come se stesse nel testo. Le correzioni più pesanti sono
+tre. L'esclusione dell'oscuramento anticipato dall'albo non discende dall'esclusione
+dell'arco dei cinque anni, quindi quell'appoggio è stato ridimensionato e la questione
+dichiarata aperta. Dalla rilevanza sulla valutazione del dirigente non discende che una
+pubblicazione non accessibile sia priva di effetti, e il documento non lo dice più. E le
+quattro cause di rimozione anticipata non provano che il termine continui a correre: i testi
+dicono che una diffusione vietata deve cessare e tacciono sugli effetti sul periodo, che
+restano una valutazione dell'ente. Sono state inoltre marcate come non verificate due
+affermazioni fatte a memoria, l'abrogazione del vecchio art. 19 del Codice e la
+corrispondenza fra i vecchi artt. 19-22 e gli attuali 2-ter e 2-septies.
+
 **Due avvertenze sul metodo.** La prima: Normattiva non risponde agli strumenti di questa
 sessione, quindi i cinque articoli di legge letti sono arrivati in copia, incollati dal
 portale. Sono testo vigente con la data di vigenza in testa, ed è la ragione per cui la
@@ -763,10 +841,12 @@ scritto.
 - Non sono censiti gli artt. 17 e 21 del GDPR, cioè il diritto alla cancellazione e il
   diritto di opposizione, che sono la fonte della richiesta dell'interessato: è il caso
   lasciato fuori dall'elenco chiuso delle rimozioni anticipate.
-- GAR cita le vecchie disposizioni del Codice, cioè gli artt. 19, 20, 21 e 22, che la riforma
-  del 2018 ha sostituito con gli artt. 2-ter e 2-septies. I provvedimenti recenti fanno quella
-  traduzione da soli, ma nel documento conviene citare gli articoli di oggi e non quelli del
-  testo del 2014.
+- GAR cita le vecchie disposizioni del Codice, cioè gli artt. 19, 20, 21 e 22, e il Codice di
+  oggi ha invece gli artt. 2-ter e 2-septies, che questo documento ha letto. **Che i primi
+  siano stati abrogati o sostituiti dai secondi non risulta da nessuno dei testi letti**: è
+  un'affermazione fatta a memoria, e la corrispondenza articolo per articolo non è
+  ricostruita. Quello che si può dire è che le formule sono diverse e che i provvedimenti
+  recenti applicano gli articoli di oggi, quindi il documento cita questi ultimi.
 - GAR rinvia a un vademecum di DigitPA del luglio 2011 sulle modalità di pubblicazione dei
   documenti nell'albo online. Non è censito e ha quindici anni: va guardato una volta, se
   esiste ancora, perché è l'unico documento tecnico dedicato all'albo.
