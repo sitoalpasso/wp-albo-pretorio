@@ -710,7 +710,8 @@ vuol dire che la fonte va letta prima di decidere se produce un obbligo per il c
    deliberazione diventa esecutiva. Una data di inizio sbagliata non produce solo una pagina
    visibile nel momento sbagliato, sposta la data in cui un atto acquista efficacia.
 6. **Defissione anticipata: tracciata ma non definita, buco, con una parte della domanda
-   normativa risolta e una ancora aperta.** ALBO-10 chiede che il registro contenga chi ha disposto una defissione
+   normativa risolta e una ancora aperta.** ALBO-10 chiede che il registro contenga chi ha
+   disposto una defissione
    anticipata e perché. Nessun requisito definisce la defissione anticipata come funzione:
    chi può disporla, con quali effetti sul referto, se l'atto resta consultabile
    all'amministrazione. La sezione "Se la durata si possa accorciare, e quando un atto si
@@ -820,7 +821,8 @@ sessione, quindi i cinque articoli di legge letti sono arrivati in copia, incoll
 portale. Sono testo vigente con la data di vigenza in testa, ed è la ragione per cui la
 colonna "come" lo dice riga per riga. Dove invece c'è scritto "per via indiretta" vuol dire
 che la norma è citata e applicata da un provvedimento del Garante recente, il che prova che
-è vigente e come viene interpretata, non che qualcuno ne abbia riletto il testo. La seconda: su alcune pagine lunghe lo strumento ha
+è vigente e come viene interpretata, non che qualcuno ne abbia riletto il testo. La seconda:
+su alcune pagine lunghe lo strumento ha
 restituito la prima parte alla lettera e il resto in sintesi. Dove la differenza conta è
 scritto.
 
