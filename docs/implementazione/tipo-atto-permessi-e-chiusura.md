@@ -1,6 +1,6 @@
 # Tipo atto, permessi e chiusura della pubblicazione
 
-Scheda di lavorazione, verbi al passato. Righe di collaudo A-11..A-27, più ALBO-23,
+Scheda di lavorazione, verbi al passato. Righe di collaudo A-11..A-47, più ALBO-23,
 ALBO-24, ALBO-25 e ALBO-26.
 
 ## In tre paragrafi
