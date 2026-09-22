@@ -172,7 +172,13 @@ responsabilità che pesa sulla valutazione di chi dirige, non un vizio dell'atto
   dell'art. 124 del TUEL valgono per le deliberazioni di comuni e province, non per
   tutti gli enti e non per tutti gli atti. Nel codice non esiste la costante 15: ogni
   tipo di atto ha la sua durata in configurazione, e un tipo senza durata non si
-  pubblica.
+  pubblica. Ogni durata configurata dichiara inoltre **da dove viene**, se da una norma
+  o da una scelta dell'amministrazione, e la dichiarazione è obbligatoria quanto il
+  numero di giorni: è ciò che permette al componente di sapere quale delle due regole
+  ha davanti, perché una durata prescritta da una norma non si accorcia, mentre una che
+  l'amministrazione si è data è un massimale che va valutato caso per caso sul singolo
+  atto. Quando l'origine è una norma, la configurazione ne porta gli estremi, così che
+  la scelta sia verificabile da chi legge e non solo dichiarata.
 - **Referto di pubblicazione** (ALBO-07), *da confermare come sopra*: alla defissione il sistema scatta una
   fotografia immutabile (numero, date effettive, impronta del file, chi ha pubblicato)
   che attesta cosa è stato esposto e quando. Si congela, non si rigenera.
@@ -208,7 +214,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-01 | da fare | Scheda atto: dati, documento principale `[1..1]`, allegati ulteriori `[0..n]`. La bozza si salva incompleta, la pubblicazione no | **norma** l'atto pubblicato dev'essere identificabile e completo dei suoi estremi (l. 69/2009 art. 32). **Prodotto** l'elenco preciso dei campi e la separazione fra salvataggio e pubblicazione |
 | ALBO-02 | da fare | Data di fine **obbligatoria per pubblicare**. In bozza può mancare | **norma** nessuna pubblicazione a tempo indeterminato (Garante, provv. marzo 2026). **Prodotto** la data come dato che il sistema pretende al passaggio a pubblicato |
 | ALBO-03 | da fare | L'atto scaduto smette di essere pubblico tempestivamente | **norma** il risultato, senza dipendere dal traffico del sito (Garante). **Prodotto** i tre strati, cron esterno, filtro e battito: architettura nostra, non un obbligo |
-| ALBO-04 | da fare | Durate per tipo di atto, configurabili, senza default | **norma** l'esistenza di una durata (TUEL art. 124, valido per comuni e province, non universale). **Prodotto** la configurabilità per tipo. **Da confermare** le durate dei singoli tipi, che dipendono dal regolamento |
+| ALBO-04 | da fare | Durate per tipo di atto, configurabili, senza default, **ciascuna con l'origine dichiarata**: norma, con i suoi estremi, oppure scelta dell'amministrazione | **norma** l'esistenza di una durata (TUEL art. 124, valido per comuni e province, non universale), e la distinzione fra termine prescritto e periodo scelto dall'amministrazione, che il Garante vuole valutato caso per caso. **Prodotto** la configurabilità per tipo e la forma in cui l'origine è dichiarata, decisa il 2026-09-22. **Da confermare** le durate dei singoli tipi, che dipendono dal regolamento |
 | ALBO-05 | da fare | L'atto defisso esce dalla vista pubblica | **norma** il risultato (Garante, provvedimenti). **Prodotto** la politica `irraggiungibile` dichiarata al meccanismo comune |
 | ALBO-06 | da fare | Le pagine dell'atto non vengono indicizzate | **norma** il risultato (Garante, che raccomanda i metatag). **Prodotto** `noindex`, esclusione dalla mappa e politica dichiarata |
 | ALBO-07 | da fare | Referto di pubblicazione congelato | **da confermare**: la prassi non è una fonte. Contenuto e obbligatorietà vanno verificati contro il regolamento, e l'unità è bloccata da quella conferma |
@@ -437,10 +443,12 @@ non sul metadato.
    valutazione che la fonte gli chiede. La regola in una riga: si può accorciare ciò che
    l'ente ha scelto, non ciò che la norma ha prescritto. Riguarda la scelta della data di
    fine prima della pubblicazione e non tocca nulla di quanto detto sopra, che vale a
-   pubblicazione avvenuta. **Se ALBO-04 debba quindi portare, per ogni durata configurata,
-   l'indicazione di dove viene, se da una norma o da una scelta dell'ente, è una decisione
-   aperta al 2026-09-22**: senza quell'indicazione il componente non sa quale dei due casi
-   ha davanti.
+   pubblicazione avvenuta. **ALBO-04 porta quindi, per ogni durata configurata,
+   l'indicazione di dove viene, se da una norma o da una scelta dell'amministrazione**,
+   deciso il 2026-09-22: senza quell'indicazione il componente non saprebbe quale dei due
+   casi ha davanti, e finirebbe per vietare tutto o per permettere tutto. Una durata di
+   origine normativa porta anche gli estremi della norma, perché un'origine dichiarata e
+   non verificabile vale quanto un'origine assente.
 
    L'art. 134 del TUEL, letto nel testo vigente il 2026-09-22, corrobora questa conclusione
    senza però disciplinare gli effetti di un'interruzione della pubblicazione, che nessun testo

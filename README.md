@@ -32,7 +32,10 @@ allegati ulteriori facoltativi. Una bozza si potrà salvare incompleta; **la dat
 pubblicazione sarà richiesta per pubblicare**, e non esisterà l'atto pubblicato a tempo
 indeterminato. La **data di inizio** non si sceglie: la scrive il sistema quando l'atto
 diventa pubblico, e la pubblicazione non si programma. La durata sarà configurabile per tipo di atto, senza durate cablate nel
-codice e senza valori predefiniti silenziosi.
+codice e senza valori predefiniti silenziosi, e ogni durata dichiarerà da dove viene, se da una
+norma o da una scelta dell'amministrazione: un termine prescritto da una norma non si
+accorcia, un periodo che l'amministrazione si è data va valutato sul singolo atto prima di
+pubblicarlo.
 
 **Le regole che non si negoziano.** Immodificabilità dell'atto pubblicato, con un'unica
 eccezione dichiarata, cioè la sostituzione di un allegato con la sua versione oscurata, che
