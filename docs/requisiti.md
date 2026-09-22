@@ -5,7 +5,7 @@ requisito ha un identificativo (ALBO-01 fino ad ALBO-26): è lo stesso usato nei
 commit e nelle discussioni, così si può sempre risalire dal codice al motivo per cui
 esiste. In fondo c'è il **catalogo corrente dei requisiti**, con le fonti normative e le
 decisioni aperte marcate esplicitamente. Non è una specifica completa e non lo sarà finché
-ALBO-22 resta una decisione incompleta e ALBO-07 e ALBO-08 restano da confermare.
+ALBO-07 e ALBO-08 restano da confermare.
 
 ## L'idea in dieci righe
 
@@ -185,7 +185,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-19 | da fare | Battito di controllo con avviso | **prodotto**, motivato dal guasto silenzioso sanzionato nel provv. Garante marzo 2026 |
 | ALBO-20 | da fare | L'atto defisso non viene più servito a nessuno | **norma** il risultato (Garante). **Prodotto** esclusione dalla memoria di pagina oppure invalidazione immediata: due strade, la scelta è nostra |
 | ALBO-21 | da fare | Scadenza sull'ora civile italiana | **prodotto**: correttezza tecnica, nessuna fonte esterna |
-| ALBO-22 | da fare | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto, decisione incompleta**: vedi la nota qui sotto |
+| ALBO-22 | da fare | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto**, decisione chiusa il 2026-09-21: la tabella delle transizioni è nella nota qui sotto. Quattro sotto-decisioni restano aperte e non bloccano l'unità, e la quarta riguarda le cause che legittimano la defissione anticipata |
 | ALBO-23 | fatto | All'attivazione l'insieme minimo di permessi sul tipo atto arriva all'amministratore | **prodotto** |
 | ALBO-24 | fatto | A ogni aggiornamento i permessi nuovi arrivano ai ruoli che avevano già gli altri | **prodotto** |
 | ALBO-25 | fatto | Se nessun ruolo possiede i permessi del tipo atto, l'amministrazione lo segnala | **prodotto** |
@@ -211,35 +211,182 @@ Fino al 2026-09-11 questa colonna aveva una categoria sola, e formule come "pras
 pubblicità legale" o "operativo" stavano accanto al GDPR: facevano sembrare obblighi di legge
 delle decisioni progettuali nostre.
 
-### Nota su ALBO-22: decisione incompleta
+### Nota su ALBO-22: la decisione, e le quattro sotto-decisioni che restano aperte
 
-Non è un requisito con il testo ancora da battere a macchina: è una **decisione che non è
-stata presa fino in fondo**, e va chiusa **prima** di aprire l'unità che costruisce il flusso
-di pubblicazione, non insieme a essa. Chi implementa un flusso mentre lo sta specificando
-sceglie la strada che il codice gli rende comoda, e la specifica diventa il resoconto di
-quello che è uscito.
+Era una decisione presa a metà, ed è stata chiusa il **2026-09-21**, prima di aprire l'unità
+che costruisce il flusso di pubblicazione e non insieme a essa. Il motivo dell'ordine resta
+quello di sempre: chi implementa un flusso mentre lo sta specificando sceglie la strada che
+il codice gli rende comoda, e la specifica diventa il resoconto di quello che è uscito.
 
-**Cosa è già deciso**: gli stati sono bozza, in verifica, pubblicato, defisso, annullato; la
-restituzione in bozza richiede una motivazione; la pubblicazione è tutto o niente; chi
-prepara e chi pubblica sono permessi distinti.
+**Le cinque situazioni** restano quelle già decise: bozza, in verifica, pubblicato, defisso,
+annullato.
 
-**Una cosa che il flusso non può contraddire.** Lo **stato memorizzato** e la **condizione di
-scadenza** sono due cose diverse. Alla mezzanotte del giorno dopo la data di fine l'atto
-diventa **immediatamente invisibile al pubblico**, per opera del filtro in lettura, anche se
-nella banca dati risulta ancora "pubblicato". Il compito pianificato porterà poi lo stato
-memorizzato a "defisso", e se non gira quel passaggio non avviene, senza che cambi nulla di
-ciò che il pubblico vede. Il flusso non può quindi trattare "defisso" come lo stato che rende
-invisibile un atto: la conformità non dipende da uno stato scritto da qualcuno, e questo è già
-costruito e collaudato nel meccanismo comune.
+#### Il criterio con cui il disegno è stato scelto
 
-**Cosa manca**: quali transizioni sono consentite fra quali stati, chi può compiere ciascuna,
-e cosa succede a una transizione rifiutata. Senza questi tre pezzi il requisito non è
-verificabile, e per questo non ha righe in `collaudo.md`.
+Erano possibili tre disegni, che si distinguono su due domande: se il passaggio in verifica
+sia obbligatorio, e se chi pubblica possa essere la stessa persona che ha preparato l'atto.
+
+1. verifica obbligatoria e **due persone necessariamente diverse**;
+2. verifica obbligatoria, **una persona sola ammessa** se possiede entrambi i permessi;
+3. **verifica facoltativa**, con la possibilità di pubblicare direttamente da bozza.
+
+È stato scelto il **secondo**. Il primo è contenuto nel secondo: un ente che vuole le due
+firme distinte ottiene esattamente quel comportamento non assegnando a nessuno entrambi i
+permessi, e il meccanismo dei ruoli del componente lo consente già senza una riga di codice
+in più. Imporlo a tutti avrebbe invece cablato nel componente una regola organizzativa che
+cambia da ente a ente, proprio ciò che le regole di sviluppo vietano, e reso il componente
+inservibile dove una persona sola fa tutto il lavoro. Il terzo è stato scartato perché
+sposterebbe il controllo sui dati personali (ALBO-11) da un passaggio obbligato a una
+conferma dentro l'azione di pubblicazione: un punto solo invece di due, sul requisito che
+nasce dai provvedimenti del Garante del marzo 2026.
+
+#### Le transizioni consentite, e chi le compie
+
+| Da | A | Chi | Condizioni |
+|---|---|---|---|
+| (nuovo) | bozza | chi redige | nessuna: la bozza si salva incompleta |
+| bozza | bozza | chi redige | nessuna |
+| bozza | in verifica | chi redige | devono esserci tutti i dati che la pubblicazione pretende, data di fine compresa (ALBO-01, ALBO-02) |
+| in verifica | bozza | chi pubblica | motivazione obbligatoria, che finisce nel registro (ALBO-10). L'atto torna modificabile |
+| in verifica | pubblicato | chi pubblica | conferma esplicita del controllo sui dati personali (ALBO-11). Tutto o niente |
+| pubblicato | defisso | il compito pianificato | alla scadenza. È una registrazione, non un interruttore: vedi il vincolo più sotto |
+| pubblicato | defisso | chi pubblica | motivazione obbligatoria, e **soltanto su un atto non ancora scaduto** |
+| pubblicato | annullato | chi pubblica | motivazione obbligatoria. L'atto conserva numero, stato e motivo |
+| defisso | annullato | chi pubblica | come sopra |
+
+**"Chi pubblica" vuol dire chi possiede l'insieme di permessi di chi pubblica**, non una
+persona sola nominata da qualche parte. Dentro quell'insieme la defissione e l'annullamento
+hanno una capability propria, distinta da quella per pubblicare: oggi arriva insieme alle
+altre, ed è ciò che permetterà di riservare la defissione anticipata a un responsabile
+distinto, se la sotto-decisione aperta si chiuderà in quel senso, senza toccare il codice.
+La mappa delle capability sta in `dati.md`.
+
+**Chi redige e chi pubblica possono essere la stessa persona**, se possiede entrambi i
+permessi. I due passaggi restano due, e il controllo sui dati personali sta nel secondo.
+
+**Un atto in verifica non è modificabile**, né da chi redige né da chi pubblica. Se va
+corretto torna in bozza con la sua motivazione. L'invariante è: **quello che è stato
+verificato è quello che esce.**
+
+**Tutto il resto è vietato, e non per omissione.** In particolare: non si pubblica saltando
+la verifica; non si torna indietro da pubblicato, defisso o annullato, per nessuno e da
+nessun ingresso, amministratore compreso; annullato è terminale; un atto pubblicato, defisso
+o annullato non si cancella (ALBO-09).
+
+**Cosa succede a una transizione rifiutata.** L'atto resta nello stato in cui era, e la riga
+nella banca dati non attraversa mai lo stato richiesto: nessuna riparazione tardiva. Chi ha
+tentato da una schermata riceve il motivo; chi ha tentato da un programma riceve la
+segnalazione destinata a chi scrive codice.
+
+#### Il vincolo che il flusso non può contraddire
+
+Lo **stato memorizzato** e la **condizione di scadenza** sono due cose diverse. Alla
+mezzanotte del giorno dopo la data di fine l'atto diventa **immediatamente invisibile al
+pubblico**, per opera del filtro in lettura, anche se nella banca dati risulta ancora
+"pubblicato". Il compito pianificato porterà poi lo stato memorizzato a "defisso", e se non
+gira quel passaggio non avviene, senza che cambi nulla di ciò che il pubblico vede. Nessuna
+transizione della tabella può quindi essere usata come condizione di visibilità, e "defisso"
+in particolare è una registrazione contabile: la conformità non dipende da uno stato scritto
+da qualcuno, e questo è già costruito e collaudato nel meccanismo comune.
+
+Da qui discende la condizione sulla defissione anticipata: si dispone **solo su un atto non
+ancora scaduto**, perché su uno scaduto non c'è niente da anticipare. È già invisibile, e il
+compito pianificato lo registrerà.
+
+**Come fa sparire l'atto la defissione anticipata, visto che il filtro guarda la data.** È la
+domanda che il vincolo qui sopra rende obbligatoria, e ammette una risposta sola: la
+defissione anticipata **riporta indietro la data di fine pubblicazione**, e da quel momento
+l'atto sparisce per la ragione di sempre, cioè perché il filtro legge una data passata. Lo
+stato "defisso" resta la registrazione di quello che è accaduto e non diventa mai la causa
+dell'invisibilità. Ogni altra soluzione farebbe consultare lo stato al filtro in lettura, che
+è esattamente ciò che questo componente esiste per evitare.
+
+Da quella risposta discende un dettaglio facile da sbagliare, che va scritto qui perché chi
+implementa non lo dedurrebbe da solo: il meccanismo comune tiene la fine della pubblicazione
+come **giorno civile** e considera scaduto il contenuto **dalla mezzanotte del giorno dopo**.
+Scrivere la data di oggi quindi non toglie niente dalla vista fino a stanotte. Per far
+sparire l'atto nell'istante in cui la defissione è disposta si scrive **il giorno precedente
+a quello in cui la si dispone**, e la riga di collaudo lo verifica guardando l'orologio e non
+lo stato.
+
+La data di fine pianificata non va perduta: la modifica finisce nel registro delle operazioni
+(ALBO-10), che è solo in aggiunta, insieme a chi l'ha disposta, quando e perché. Da qui
+discende un vincolo che l'unità del referto eredita: il referto di pubblicazione (ALBO-07)
+attesta il periodo effettivamente compiuto, e dopo una defissione anticipata quel periodo non
+coincide più con la data di fine memorizzata. Il referto va quindi costruito sul registro e
+non sul metadato.
+
+#### Quattro sotto-decisioni restano aperte, e non bloccano l'unità
+
+1. **Un atto annullato prima della scadenza resta visibile al pubblico, con lo stato
+   dichiarato?** Negli albi la pubblicazione dell'annullamento ha una sua funzione
+   informativa. La transizione si costruisce comunque: che cosa il pubblico veda di un atto
+   annullato è una domanda sul filtro in lettura, separata da chi può compiere il passaggio.
+   Finché non è decisa non ha riga in `collaudo.md`.
+2. **Chi dispone la defissione anticipata.** Qui è attribuita a chi pubblica, **in via
+   provvisoria**. Alcuni enti la riservano a un responsabile nominato, che sarebbe una terza
+   figura. La riga di collaudo prova la forma provvisoria e la marca come tale.
+3. **Se il giorno civile sia una granularità sufficiente.** Scrivere il giorno precedente
+   toglie l'atto dalla vista subito, ma lascia memorizzata una data di fine che per un giorno
+   non dice il vero, e il fatto esatto resta solo nel registro. L'alternativa è chiedere al
+   meccanismo comune un termine più fine del giorno intero, che però è una modifica di quel
+   componente e non di questo. Qui si tiene il giorno precedente, **in via provvisoria**,
+   perché fra le due direzioni sbaglia in quella che toglie l'atto dalla vista invece che
+   lasciarcelo.
+
+4. **Quali cause legittimano la defissione anticipata.** Va scritto qui perché nessun'altra
+   riga di questo documento lo dice: **nessun requisito da ALBO-01 a ALBO-26 chiede la
+   defissione anticipata**, e la fonte di ALBO-22 è "prodotto". La transizione è entrata
+   disegnando la macchina degli stati, non perché una norma la reclami.
+
+   La domanda è stata portata alla lettura delle fonti, che ha risposto il 2026-09-22, e la
+   risposta cambia la forma della transizione invece di limitarsi a nominarne il titolare.
+   **Accorciare la pubblicazione di un atto regolare non è una funzione che il componente
+   offre.** L'art. 124 del TUEL prescrive per le deliberazioni degli enti locali quindici
+   giorni **consecutivi**, e intesta a "specifiche disposizioni di legge", cioè a un'altra
+   norma e non all'amministrazione che pubblica, la facoltà di fissare un termine diverso.
+   L'art. 32 della legge 69/2009 parla di obblighi che **si intendono assolti** con la
+   pubblicazione, e un adempimento interrotto a metà non è assolto. La regola
+   dell'oscuramento prima del termine appartiene al regime della trasparenza e al suo arco
+   di cinque anni, che il Garante esclude espressamente per l'albo.
+
+   Restano pacifiche le rimozioni anticipate che **non accorciano il termine**, perché
+   tolgono dalla vista una pubblicazione che in quella forma non doveva esserci: dati idonei
+   a rivelare lo stato di salute, quando il documento non è oscurabile; pubblicazione priva
+   di una norma che prescriva l'affissione di quell'atto, dove un termine non era mai
+   cominciato; ordine di un'autorità. Il caso dei dati eccedenti **non è una rimozione**: si
+   sostituisce il file con la versione oscurata e il termine continua a correre, ed è
+   ALBO-12, non una transizione di questa tabella. Resta fuori dall'elenco, ed è bene che
+   resti fuori, la richiesta dell'interessato su un atto pubblicato legittimamente e con
+   dati pertinenti: quel bilanciamento lo fa l'amministrazione con il proprio responsabile
+   della protezione dei dati, e il componente registra la decisione e chi l'ha presa
+   (ALBO-10).
+
+   **La forma provvisoria da tenere è quindi questa**: la transizione da pubblicato a
+   defisso resta una sola, il motivo non è testo libero ma una causa scelta fra quelle
+   dell'elenco, e nessuna maschera consente di accorciare il termine di un atto regolare
+   come normale operazione di redazione. La sotto-decisione resta aperta perché la risposta
+   è prudente e non definitiva: l'art. 124 è letto nella citazione che ne fa un documento
+   del 2014, quindi una modifica successiva non si vedrebbe, e l'art. 134 del TUEL
+   sull'esecutività delle deliberazioni, che trasformerebbe la durata in un meccanismo con
+   effetti propri, non è ancora stato letto.
+
+Le prime due si chiudono guardando come si comportano albi pretorio già in esercizio, la
+seconda anche contro il regolamento dell'amministrazione. La terza si chiude quando si decide
+se il meccanismo comune debba tenere un termine più fine del giorno civile. La quarta non si
+chiude guardando la prassi e ha già una risposta prudente dalle fonti: si chiuderà quando
+saranno letti l'art. 124 nel testo vigente e l'art. 134 del TUEL. È la sola delle quattro
+che **restringe** una transizione già dichiarata invece di limitarsi a precisarne il
+titolare, e per questo la riga di collaudo che rende la restrizione esigibile, cioè il
+rifiuto di una causa fuori elenco, è una scelta di perimetro e non una rifinitura del
+catalogo.
 
 ### Come si legge la colonna Stato
 
 Tre valori: **da fare** (il requisito esiste come impegno, il codice no), **in corso** (il
 codice e i test esistono ma non risultano verdi nella verifica continua), **fatto** (verde
 nella verifica continua). Un requisito passa a "fatto" solo quando tutte le sue righe di
-`collaudo.md` sono "fatto". Oggi il componente è all'avvio della costruzione: **tutti i
-requisiti sono a "da fare"**.
+`collaudo.md` sono "fatto". Oggi sono a **"fatto" ALBO-23, ALBO-24, ALBO-25 e ALBO-26**,
+chiusi dall'unità che ha costruito il tipo atto, i permessi e il ruolo proprio. **Tutti gli
+altri sono a "da fare"**: il componente registra gli atti e li tiene chiusi, e non ne
+pubblica ancora nessuno.

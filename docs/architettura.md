@@ -88,6 +88,97 @@ ATTO
          [da costruire]
 ```
 
+## I passaggi fra le cinque situazioni
+
+Il diagramma qui sopra racconta la vita di un atto come la vede chi lo consulta. Questo dice
+**chi lo fa muovere**, ed è la decisione ALBO-22, chiusa il 2026-09-21 prima di costruire il
+flusso di pubblicazione. La tabella completa, con le condizioni di ciascun passaggio e il
+criterio con cui il disegno è stato scelto fra tre possibili, sta nella nota in
+`requisiti.md`.
+
+```
+  (nuovo)  ---------------------------------->  BOZZA
+         chi redige, senza condizioni: una bozza nasce
+         anche incompleta
+
+  BOZZA  ------------------------------------>  BOZZA
+         chi redige, senza condizioni: una bozza si
+         risalva tutte le volte che serve
+
+  BOZZA  ------------------------------------>  IN VERIFICA
+         chi redige, e solo se ci sono tutti i dati che
+         la pubblicazione pretende, data di fine compresa
+
+  IN VERIFICA  ------------------------------>  BOZZA
+         chi pubblica, con motivazione obbligatoria.
+         L'atto torna modificabile
+
+  IN VERIFICA  ------------------------------>  PUBBLICATO
+         chi pubblica, dopo la conferma esplicita del
+         controllo sui dati personali. Tutto o niente
+
+  PUBBLICATO  ------------------------------->  DEFISSO
+         il compito pianificato, alla scadenza.
+         REGISTRAZIONE, NON INTERRUTTORE: l'atto era gia'
+         invisibile dalla mezzanotte per opera del filtro
+         in lettura, e se il compito non gira non cambia
+         niente di cio' che il pubblico vede
+
+  PUBBLICATO  ------------------------------->  DEFISSO
+         chi pubblica, con motivazione, e soltanto su un
+         atto NON ancora scaduto: su uno scaduto non c'e'
+         niente da anticipare
+
+  PUBBLICATO o DEFISSO  ---------------------->  ANNULLATO
+         chi pubblica, con motivazione. L'atto conserva
+         numero, stato e motivo
+
+  VIETATO, e non per omissione:
+    BOZZA --> PUBBLICATO              saltare la verifica
+    PUBBLICATO --> BOZZA              tornare indietro, per chiunque e da
+    PUBBLICATO --> IN VERIFICA        ogni ingresso, amministratore compreso
+    BOZZA --> DEFISSO                 defiggere o annullare cio' che non
+    BOZZA --> ANNULLATO               e' mai stato pubblicato
+    IN VERIFICA --> DEFISSO
+    IN VERIFICA --> ANNULLATO
+    IN VERIFICA --> IN VERIFICA       modificare un atto in verifica
+    PUBBLICATO --> PUBBLICATO         modificare un atto pubblicato
+    DEFISSO --> tutto tranne ANNULLATO
+    ANNULLATO --> qualsiasi cosa      e' terminale
+    cancellare un atto PUBBLICATO, DEFISSO o ANNULLATO
+
+    e in generale OGNI coppia che non compare fra i passaggi consentiti
+    qui sopra: quell'elenco e' chiuso, e comprende l'unica permanenza
+    nello stesso stato che sia lecita, cioe' il risalvataggio della
+    bozza. Questo elenco di divieti nomina le coppie che qualcuno
+    potrebbe credere permesse, non tutte quelle che restano
+```
+
+**Chi redige e chi pubblica possono essere la stessa persona**, se possiede entrambi i
+permessi: i passaggi restano due e il controllo sui dati personali sta nel secondo. Un ente
+che vuole due firme distinte ottiene esattamente quel comportamento non assegnando a nessuno
+entrambi i permessi, con il meccanismo dei ruoli che il componente già possiede. È il motivo
+per cui il disegno non impone la separazione: imporla avrebbe cablato qui una regola
+organizzativa che cambia da ente a ente, e reso il componente inservibile dove una persona
+sola fa tutto il lavoro.
+
+**Un atto in verifica non è modificabile da nessuno.** Se va corretto torna in bozza con la
+sua motivazione: quello che è stato verificato è quello che esce.
+
+**La defissione anticipata non toglie l'atto dalla vista cambiandogli stato.** Gli riporta
+indietro la data di fine pubblicazione, e l'atto sparisce per la ragione di sempre: il filtro
+in lettura trova una data passata. Siccome la fine della pubblicazione e' un giorno civile e
+la scadenza scatta dalla mezzanotte del giorno dopo, la data scritta e' quella del giorno
+precedente a quello in cui la defissione viene disposta. Scrivere la data di oggi lascerebbe
+l'atto visibile fino a stanotte, che e' l'errore che questa riga esiste per impedire. Il
+diagramma dice come il passaggio avviene, non quando sia legittimo compierlo: quali cause
+legittimino la defissione anticipata e' una sotto-decisione ancora aperta, descritta nella
+nota in `requisiti.md`.
+
+**Una transizione rifiutata non lascia stati intermedi.** L'atto resta dov'era e la riga
+nella banca dati non attraversa mai lo stato richiesto: nessuna riparazione tardiva, perché
+uno stato corretto dopo il fatto è indistinguibile da uno stato mai scritto.
+
 ## Le parti del plugin
 
 **Quattro parti esistono oggi.** L'avvio, che dichiara la sezione e le sue politiche; il

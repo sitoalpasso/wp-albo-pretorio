@@ -32,13 +32,14 @@ lì e resta una scelta separata.
 | Numero proprio dell'atto (es. determina 45/2026) | no | metadato | redattore. È il numero dell'atto, non quello di pubblicazione |
 | Data di adozione | sì | metadato | redattore |
 | Data di inizio pubblicazione | sì | metadato | proposta dal sistema, confermata dal redattore |
-| Data di fine pubblicazione | sì per pubblicare | metadato | calcolata dalla durata configurata per il tipo; il sistema rifiuta la **pubblicazione** senza, non il salvataggio della bozza |
+| Data di fine pubblicazione | sì per pubblicare | metadato | calcolata dalla durata configurata per il tipo; il sistema rifiuta la **pubblicazione** senza, non il salvataggio della bozza. **Una defissione anticipata la riporta indietro**, ed è così, e non cambiando stato, che l'atto esce dalla vista |
 | Numero di repertorio (es. 123/2026). **Ipotesi da confermare** | dalla pubblicazione | metadato più contatore in tabella dedicata | **solo il sistema**, alla prima pubblicazione, in modo atomico |
 | Stato | sì | stato del contenuto | il flusso di pubblicazione, mai a mano nel database |
-| Conferma del controllo dati personali | sì per pubblicare | metadato con utente e data | il redattore, tramite la schermata obbligata |
+| Conferma del controllo dati personali | sì per pubblicare | metadato con utente e data | **chi pubblica**, nel passaggio da in verifica a pubblicato, tramite la schermata obbligata. Non chi redige: il controllo sta nel secondo dei due passaggi, ed è la ragione per cui i passaggi sono due (ALBO-11) |
 | Documento principale | sì per pubblicare | file in cartella protetta più impronta (hash) in metadato | redattore prima della pubblicazione, poi bloccato. È uno e uno solo |
 | Allegati ulteriori | no | come sopra | redattore. Possono non esserci: un atto con il solo documento principale si pubblica |
-| Motivo di annullamento o defissione anticipata | quando ricorre | metadato più voce di registro | responsabile con permesso dedicato |
+| Motivo di annullamento | quando ricorre | metadato più voce di registro | chi possiede `defissione atti`, che oggi fa parte dell'insieme di chi pubblica. Obbligatorio: senza, il passaggio è rifiutato |
+| Motivo di defissione anticipata | quando ricorre | metadato più voce di registro | come sopra, ma **in via provvisoria** su due fronti aperti: se la defissione anticipata vada riservata a un responsabile distinto, e se il motivo debba essere testo libero oppure una causa scelta da un elenco chiuso. Sul secondo la lettura delle fonti propende per l'elenco chiuso, perché accorciare il termine di un atto regolare non risulta consentito. La capability separata è ciò che permetterà di riservarla senza toccare il codice |
 
 Gli **stati** possibili: bozza, in verifica, pubblicato, defisso, annullato.
 
@@ -50,11 +51,31 @@ stato memorizzato a "defisso", e se per un guasto non gira, quel passaggio non a
 **non cambia nulla di ciò che il pubblico vede**. Nessuna decisione sulla visibilità si
 prende leggendo lo stato memorizzato: si prende leggendo la data.
 
-**Attenzione, qui c'e' una decisione ancora aperta.** Quali transizioni siano consentite fra
-quali stati, chi possa compierle e cosa accada a una transizione rifiutata fa parte di
-ALBO-22, che e' incompleta: vedi la nota in `requisiti.md`. Anche i nomi definitivi degli
-stati si chiudono li'. Fino ad allora questo elenco e' il perimetro, non la specifica, e
-`architettura.md` non contiene ancora nessun diagramma delle transizioni.
+**Quali passaggi siano consentiti fra questi stati, chi possa compierli e cosa accada a un
+passaggio rifiutato** è ALBO-22, chiuso il 2026-09-21: la tabella delle transizioni sta nella
+nota in `requisiti.md`, il diagramma in `architettura.md`. Chi redige e chi pubblica possono
+essere la stessa persona se possiede entrambi i permessi; i due passaggi restano due, e il
+controllo sui dati personali sta nel secondo.
+
+**Un atto in verifica non è modificabile**, né da chi redige né da chi pubblica: se va
+corretto torna in bozza con una motivazione, perché quello che è stato verificato è quello
+che esce.
+
+**La defissione anticipata non fa sparire l'atto cambiandogli stato**: gli riporta indietro
+la data di fine pubblicazione, e l'atto esce dalla vista per la ragione di sempre, cioè
+perché il filtro legge una data passata. Siccome la fine della pubblicazione è un giorno
+civile e la scadenza scatta dalla mezzanotte del giorno dopo, la data scritta è quella del
+giorno precedente a quello in cui la defissione è disposta: scrivere la data di oggi
+lascerebbe l'atto visibile fino a stanotte. La data pianificata non si perde, perché la
+modifica finisce nel registro delle operazioni insieme a chi l'ha disposta e perché.
+
+Quattro sotto-decisioni restano aperte e sono marcate nella nota: se un atto annullato prima
+della scadenza resti visibile al pubblico; chi disponga la defissione anticipata, che qui
+è attribuita a chi pubblica in via provvisoria; se il giorno civile basti come
+granularità del termine, o serva chiedere al meccanismo comune qualcosa di più fine; e quali
+cause legittimino la defissione anticipata, che nessun requisito chiede e su cui la lettura
+delle fonti ha già risposto in via prudente che il termine di un atto regolare non si
+accorcia.
 
 ## Le risposte alle domande di controllo
 
@@ -103,8 +124,14 @@ che riceve l'insieme di chi pubblica e nessuno dei permessi degli articoli.
 **Attenzione a cosa questi permessi non governano**, perché è la parte che si tende a dare
 per compresa: governano la gestione del contenuto, non la sua consultazione pubblica. Un
 atto pubblicato e non scaduto resta consultabile da chiunque anche quando nessun ruolo ha
-ricevuto i permessi, perché la visibilità pubblica discende dalla politica della sezione e
-dallo stato del contenuto, non dai permessi.
+ricevuto i permessi, perché ad aprire l'atto al pubblico sono la politica della sezione e
+l'avvenuta pubblicazione, non i permessi. **Il venir meno della consultabilità per scadenza
+è un'altra cosa e segue un'altra regola**: dipende dalla data di fine letta nell'istante
+della richiesta, mai dallo stato memorizzato, come è fissato più sopra. Le due frasi non si
+contraddicono perché parlano di due momenti diversi: un atto non ancora pubblicato non è mai
+arrivato al pubblico, un atto scaduto ne esce per effetto della data e non perché qualcuno
+abbia scritto "defisso". Che cosa il pubblico veda di un atto **annullato** prima della
+scadenza resta la sotto-decisione aperta, e non la decide questo paragrafo.
 
 Questa è la mappa delle azioni:
 
@@ -112,7 +139,7 @@ Questa è la mappa delle azioni:
 |---|---|---|
 | Creare e modificare bozze | gestione atti | |
 | Pubblicare (con controllo dati personali) | pubblicazione atti | la conferma resta registrata con nome e data |
-| Defissione anticipata, annullamento | defissione atti | motivo obbligatorio |
+| Defissione anticipata, annullamento | defissione atti | motivo obbligatorio. **Oggi questa capability fa parte dell'insieme di chi pubblica**, ed è per questo che la tabella delle transizioni attribuisce i due passaggi a chi pubblica. Tenerla separata di nome è ciò che permetterà di riservare la defissione anticipata a un responsabile distinto, se la sotto-decisione aperta si chiuderà in quel senso, senza cambiare il codice |
 | Consultare gli atti defissi dall'amministrazione | archivio atti | **funzione successiva, oggi non costruita.** Non fa tornare a rispondere l'indirizzo pubblico dell'atto: quello resta irraggiungibile per chiunque, permessi compresi |
 | Consultare il registro delle operazioni | lettura registro (di core) | |
 | Configurare tipi di atto e durate | amministrazione albo | |

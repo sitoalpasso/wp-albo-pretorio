@@ -15,3 +15,6 @@ Schede presenti:
 - [`avvio-e-politiche.md`](avvio-e-politiche.md): avvio del componente, controllo di
   compatibilità con il meccanismo comune, registrazione della sezione e dichiarazione delle
   due politiche. Righe di collaudo A-01..A-10.
+- [`tipo-atto-permessi-e-chiusura.md`](tipo-atto-permessi-e-chiusura.md): il tipo di
+  contenuto atto, i due elenchi di voci, i permessi, il ruolo proprio del componente e lo
+  sbarramento che tiene chiusa la pubblicazione. Righe di collaudo A-11..A-47.
