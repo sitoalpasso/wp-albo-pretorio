@@ -39,7 +39,7 @@ lì e resta una scelta separata.
 | Documento principale | sì per pubblicare | file in cartella protetta più impronta (hash) in metadato | redattore prima della pubblicazione, poi bloccato. È uno e uno solo |
 | Allegati ulteriori | no | come sopra | redattore. Possono non esserci: un atto con il solo documento principale si pubblica |
 | Motivo di annullamento | quando ricorre | metadato più voce di registro | chi possiede `defissione atti`, che oggi fa parte dell'insieme di chi pubblica. Obbligatorio: senza, il passaggio è rifiutato |
-| Motivo di defissione anticipata | quando ricorre | metadato più voce di registro | **non è testo libero**: è una causa scelta da un elenco chiuso, perché accorciare il termine di un atto regolare non è consentito (artt. 124 e 134 del TUEL). Resta **in via provvisoria** su un solo fronte, cioè se la defissione anticipata vada riservata a un responsabile distinto, e la capability separata è ciò che permetterà di riservarla senza toccare il codice |
+| Motivo di defissione anticipata | quando ricorre | metadato più voce di registro | **non è testo libero**: è una causa scelta da un elenco chiuso, perché accorciare il termine di un atto regolare non è consentito (art. 124 del TUEL, confermato dall'art. 134). Resta **in via provvisoria** su un solo fronte, cioè se la defissione anticipata vada riservata a un responsabile distinto, e la capability separata è ciò che permetterà di riservarla senza toccare il codice |
 
 Gli **stati** possibili: bozza, in verifica, pubblicato, defisso, annullato.
 
@@ -73,8 +73,8 @@ Tre sotto-decisioni restano aperte e sono marcate nella nota: se un atto annulla
 della scadenza resti visibile al pubblico; chi disponga la defissione anticipata, che qui
 è attribuita a chi pubblica in via provvisoria; e se il giorno civile basti come
 granularità del termine, o serva chiedere al meccanismo comune qualcosa di più fine. Una
-quarta, su quali cause legittimino la defissione anticipata, è chiusa il 2026-09-22 sul
-testo vigente degli artt. 124 e 134 del TUEL: il termine di un atto regolare non si
+quarta, su quali cause legittimino la defissione anticipata, è chiusa il 2026-09-22
+sull'art. 124 del TUEL, con l'art. 134 a conferma: il termine di un atto regolare non si
 accorcia, e la restrizione ha la sua riga di collaudo.
 
 ## Le risposte alle domande di controllo
@@ -89,7 +89,9 @@ L'atto pubblicato è immodificabile per chiunque, amministratore compreso, e la 
 è creare un nuovo atto di rettifica che rinvia al precedente. L'unica eccezione è la
 **sostituzione di un allegato con la sua versione oscurata** (ALBO-12): si dichiara come
 oscuramento, il termine continua a correre, il numero di repertorio non cambia, e restano
-registrate le impronte del file uscente e di quello entrante. Serve al caso dell'atto già
+registrate le impronte del file uscente e di quello entrante. Che il termine continui a
+correre è una scelta di prodotto e non una regola letta in una fonte: le fonti impongono che
+la diffusione vietata cessi e sull'effetto sul periodo tacciono. Serve al caso dell'atto già
 esposto che diffonde dati che non potevano essere diffusi, dove togliere e ripubblicare
 guasterebbe l'adempimento per rimediare alla diffusione.
 

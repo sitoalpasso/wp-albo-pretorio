@@ -105,8 +105,10 @@ questo la politica di indicizzazione è un parametro dichiarato, mai un default.
   pubblicato è vietata per tutti, amministratore compreso. **Esiste una sola eccezione**,
   decisa il 2026-09-22 e descritta in ALBO-12: la sostituzione di un allegato con la sua
   versione oscurata, che toglie informazione e non ne aggiunge, non fa ripartire il termine
-  e non cambia il numero di repertorio. Serve a un caso che la norma non lascia aperto, cioè
-  un atto già esposto che diffonde dati che non potevano essere diffusi.
+  e non cambia il numero di repertorio. Che il termine non riparta è una scelta di prodotto,
+  non una conseguenza dei testi, che su questo punto tacciono. Serve a un caso che la norma
+  non lascia aperto, cioè un atto già esposto che diffonde dati che non potevano essere
+  diffusi.
 - Ogni operazione rilevante finisce nel **log**: chi ha pubblicato, quando, chi ha
   disposto una defissione anticipata e perché (ALBO-10).
 
@@ -133,6 +135,14 @@ oscurata**, a termine che continua a correre: è l'unica eccezione all'immodific
 ALBO-09, vale solo per oscurare e non per cambiare il contenuto, ed è registrata con le
 impronte di tutte e due le versioni.
 
+Di questa strada una metà viene dai testi e l'altra no, e la distinzione va tenuta. Dai testi
+viene che la diffusione vietata deve cessare. Che il periodo di pubblicazione continui a
+correre dopo l'oscuramento **non lo dice nessuna fonte**: le fonti su questo tacciono, e il
+componente sceglie la lettura che non guasta l'adempimento, cioè lasciare correre il termine
+già fissato. È quindi una scelta di prodotto, registrata come tale, e un'amministrazione che
+leggesse diversamente prende la propria determinazione e la fa registrare: il sistema non
+decide da sé che il termine è compiuto.
+
 Va detto con chiarezza che cosa il componente può garantire di questa regola e che cosa no.
 **Può** pretendere che la sostituzione sia dichiarata come oscuramento e non come modifica,
 rifiutare ogni altra causa, conservare l'impronta del file uscente e di quello entrante,
@@ -149,6 +159,12 @@ sistema esamina il file e avvisa se sembra una scansione o manca di struttura (A
 l'avviso è dichiarato come indizio, la pubblicazione resta possibile. Ed è vietata ogni
 misura anti copia che renda l'atto illeggibile a chi usa un lettore di schermo
 (ALBO-14).
+
+Una precisazione su chi risponde di che cosa. L'obbligo di accessibilità grava
+sull'amministrazione che pubblica, non sul programma: che il componente se ne faccia carico
+sulle pagine che genera è una scelta di prodotto, non una conseguenza della norma. E che una
+pubblicazione non accessibile sia per ciò solo invalida non lo dice nessun testo: è una
+responsabilità che pesa sulla valutazione di chi dirige, non un vizio dell'atto.
 
 ### Il resto (ALBO-04, ALBO-07, ALBO-15, ALBO-16, ALBO-17)
 
@@ -200,7 +216,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-09 | da fare | Integrità del documento pubblicato | **norma** il risultato (linee guida AgID doc. informatici). **Prodotto** immodificabilità e rettifica come atto nuovo, con **un'unica eccezione dichiarata**, la sostituzione per oscuramento di ALBO-12 |
 | ALBO-10 | da fare | Tracciabilità delle operazioni sugli atti | **norma** responsabilizzazione e tracciabilità (GDPR art. 5). **Prodotto** il registro solo in aggiunta del meccanismo comune è la soluzione scelta, non l'unica |
 | ALBO-11 | da fare | Liceità del trattamento dei dati particolari | **norma** il risultato (d.lgs. 196/2003 artt. 2-ter, 2-septies). **Prodotto** il passaggio obbligato con conferma esplicita |
-| ALBO-12 | da fare | I dati eccedenti non finiscono nella versione pubblica, e se ci sono finiti si sostituisce l'allegato con la versione oscurata senza far ripartire il termine | **norma** minimizzazione, l'originale non va esposto (GDPR art. 5.1.c); divieto assoluto di diffondere dati genetici, biometrici e sulla salute (d.lgs. 196/2003 art. 2-septies c. 8). **Prodotto** la coppia originale riservato più versione oscurata, e la sostituzione come unica eccezione a ALBO-09 |
+| ALBO-12 | da fare | I dati eccedenti non finiscono nella versione pubblica, e se ci sono finiti si sostituisce l'allegato con la versione oscurata senza far ripartire il termine | **norma** minimizzazione, l'originale non va esposto (GDPR art. 5.1.c); divieto assoluto di diffondere dati genetici, biometrici e sulla salute (d.lgs. 196/2003 art. 2-septies c. 8). **Prodotto** la coppia originale riservato più versione oscurata, la sostituzione come unica eccezione a ALBO-09, e la scelta che il termine non riparta: i testi impongono che la diffusione vietata cessi e tacciono sull'effetto dell'oscuramento sul periodo |
 | ALBO-13 | da fare | I documenti pubblicati sono accessibili | **norma** il risultato (l. 69/2009 art. 32 che rinvia a l. 4/2004 art. 11). **Prodotto** l'avviso euristico al caricamento, che segnala un indizio e non blocca |
 | ALBO-14 | da fare | Niente anti copia che rompa l'accessibilità | **norma** l'accessibilità non si comprime per ostacolare il prelievo (Garante, l. 4/2004) |
 | ALBO-15 | da fare | Separazione dall'amministrazione trasparente | **norma** finalità e durate diverse (d.lgs. 33/2013, Garante). **Prodotto** due esposizioni indipendenti con un file solo |
@@ -360,10 +376,11 @@ non sul metadato.
    perché fra le due direzioni sbaglia in quella che toglie l'atto dalla vista invece che
    lasciarcelo.
 
-4. **Quali cause legittimano la defissione anticipata. Chiusa il 2026-09-22.** Va scritto qui perché nessun'altra
-   riga di questo documento lo dice: **nessun requisito del catalogo chiede la
-   defissione anticipata**, e la fonte di ALBO-22 è "prodotto". La transizione è entrata
-   disegnando la macchina degli stati, non perché una norma la reclami.
+4. **Quali cause legittimano la defissione anticipata. Chiusa il 2026-09-22.** Va scritto
+   qui perché nessun'altra riga di questo documento lo dice: **nessun requisito del
+   catalogo chiede la defissione anticipata**, e la fonte di ALBO-22 è "prodotto". La
+   transizione è entrata disegnando la macchina degli stati, non perché una norma la
+   reclami.
 
    La domanda è stata portata alla lettura delle fonti, che ha risposto il 2026-09-22, e la
    risposta cambia la forma della transizione invece di limitarsi a nominarne il titolare.
@@ -372,9 +389,13 @@ non sul metadato.
    giorni **consecutivi**, e intesta a "specifiche disposizioni di legge", cioè a un'altra
    norma e non all'amministrazione che pubblica, la facoltà di fissare un termine diverso.
    L'art. 32 della legge 69/2009 parla di obblighi che **si intendono assolti** con la
-   pubblicazione, e un adempimento interrotto a metà non è assolto. La regola
-   dell'oscuramento prima del termine appartiene al regime della trasparenza e al suo arco
-   di cinque anni, che il Garante esclude espressamente per l'albo.
+   pubblicazione, e un adempimento interrotto a metà non è assolto. A questa conclusione si
+   era appoggiata anche la regola dell'oscuramento prima del termine, letta come regola
+   propria del regime della trasparenza
+   e del suo arco di cinque anni. Quell'appoggio è stato ridimensionato il 2026-09-22: al
+   paragrafo 7 il Garante motiva con la proporzionalità, che è un principio generale e non un
+   calendario, quindi la questione resta aperta e l'argomento non porta peso. La conclusione
+   regge sull'art. 124, non su questo.
 
    Restano pacifiche le rimozioni anticipate che **non accorciano il termine**, perché
    tolgono dalla vista una pubblicazione che in quella forma non doveva esserci: dati idonei
@@ -393,27 +414,32 @@ non sul metadato.
    maschera consente di accorciare il termine di un atto regolare come normale operazione di
    redazione.
 
-   L'art. 134 del TUEL, letto nel testo vigente il 2026-09-22, toglie a questa conclusione
-   il carattere prudente che aveva quando è stata scritta. Il comma 3 dice che le
+   L'art. 134 del TUEL, letto nel testo vigente il 2026-09-22, corrobora questa conclusione
+   senza però disciplinare gli effetti di un'interruzione della pubblicazione, che nessun testo
+   regola. Il comma 3 dice che le
    deliberazioni non soggette a controllo diventano esecutive **dopo il decimo giorno dalla
    loro pubblicazione**: la durata non è un contenitore che si svuota quando la finalità
    sembra raggiunta, è l'orologio da cui decorre un effetto giuridico, e chi togliesse
    l'atto al settimo giorno toglierebbe il presupposto di un termine ancora in corso. Due
-   dettagli dello stesso articolo lo confermano. I due termini partono insieme e hanno
-   lunghezza diversa, dieci giorni e quindici: se il termine fosse un tetto da abbassare a
-   scopo raggiunto, il decimo giorno sarebbe il taglio naturale, e la legge invece lascia
-   correre fino al quindicesimo. E l'urgenza ha già la sua valvola nel comma 4, la
-   dichiarazione di immediata eseguibilità, che opera sull'efficacia dell'atto e non sulla
-   durata della pubblicazione: l'ordinamento ha previsto il caso "serve che valga subito" e
-   vi ha risposto senza toccare l'albo.
+   dettagli dello stesso articolo vanno nella stessa direzione, pur senza provarla. I due
+   termini partono insieme e hanno lunghezza diversa, dieci giorni e quindici: se il termine
+   fosse un tetto da abbassare a scopo raggiunto, il decimo giorno sarebbe il taglio naturale,
+   e la legge invece lascia correre fino al quindicesimo. È un argomento difendibile e non una
+   dimostrazione, perché a che cosa servano i cinque giorni ulteriori la legge non lo dice.
+   E l'urgenza ha già la sua valvola nel comma 4, la dichiarazione di immediata
+   eseguibilità, che opera sull'efficacia dell'atto e non sulla durata della pubblicazione:
+   l'ordinamento ha previsto il caso "serve che valga subito" e vi ha risposto senza toccare
+   l'albo.
 
    **La sotto-decisione è chiusa il 2026-09-22**, ed è chiusa nel solo modo che conta: la
    riga di collaudo che rifiuta una defissione anticipata con una causa fuori elenco è
    scritta, quindi la restrizione non vive più soltanto in questa nota.
 
    Resta invece aperta, e non appartiene ad ALBO-22, una contraddizione che questa risposta
-   ha portato alla luce. La lettura delle fonti propone, per il caso dei dati eccedenti, di
-   sostituire il file esposto con la versione oscurata lasciando correre il termine. Ma
+   ha portato alla luce. La lettura delle fonti impone, per il caso dei dati eccedenti, che la
+   diffusione vietata cessi, e la risposta scelta è sostituire il file esposto con la versione
+   oscurata; che il termine continui a correre è invece scelta del componente, perché le fonti
+   tacciono. Ma
    ALBO-09 prescrive l'immodificabilità del documento pubblicato e la rettifica come atto
    nuovo, e il catalogo di collaudo lo verifica proprio sull'allegato di un atto pubblicato.
    Le due prescrizioni non stanno insieme, e scegliere quale cede è una decisione su ALBO-09
