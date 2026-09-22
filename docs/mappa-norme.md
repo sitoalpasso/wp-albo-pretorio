@@ -124,9 +124,13 @@ Cosa vuol dire "avviato", qui, in concreto.
 - **ALBO-06** è avviato solo a metà: la politica `vietata` è dichiarata e riletta (A-07),
   ma il meccanismo che la applica, cioè il `noindex` sulle pagine e l'esclusione dalla mappa
   per i motori, non esiste ancora nel componente comune. Dichiarare una politica che nessuno
-  applica non produce nessun effetto sulle pagine. Le prescrizioni sull'indicizzazione stanno
-  nella parte seconda di GAR, par. 2.a, e l'oscuramento dopo la scadenza nel par. 3.a: sono i
-  paragrafi che i provvedimenti richiamano.
+  applica non produce nessun effetto sulle pagine. **E il requisito è scritto stretto**: GAR
+  indica due accorgimenti tecnici, i metatag `noindex` **e `noarchive`** nelle intestazioni
+  delle pagine, oppure le regole di esclusione nel file `robots.txt` secondo il Robot
+  Exclusion Protocol, e raccomanda di privilegiare la ricerca interna al sito invece di quella
+  dei motori. ALBO-06 nomina il solo `noindex`. Avverte anche che nessuno dei due
+  accorgimenti agisce su ciò che è già stato indicizzato, la cui rimozione va chiesta al
+  singolo motore: è una cosa che l'ente deve sapere e che nessun requisito oggi gli dice.
 
 **Una precisazione che cambia il peso di ALBO-06.** In P-1 l'ente aveva impedito
 l'indicizzazione per tutta la durata della pubblicazione, e il Garante lo ha sanzionato lo
@@ -200,6 +204,12 @@ rileggere, non necessariamente un pacchetto che un sistema di conservazione acce
 | I documenti pubblicati sono accessibili alle tecnologie assistive | ALBO-13 | scoperto |
 | Nessuna misura anti prelievo che comprometta l'accessibilità | ALBO-14 | scoperto |
 | Le funzioni di consultazione sono usabili senza mouse | ALBO-16, che ha l'accessibilità come vincolo | scoperto |
+
+Una nota su ALBO-16, che sta qui solo per l'accessibilità ma ha una seconda ragione di
+esistere: GAR raccomanda di privilegiare la ricerca interna al sito rispetto a quella dei
+motori generalisti, proprio per gli atti pubblicati con finalità diverse dalla trasparenza.
+La ricerca interna dell'albo non è quindi soltanto una comodità, è il modo in cui si rende
+consultabile un archivio che non deve essere indicizzato.
 
 ALBO-13 è dichiarato come avviso e non come blocco: il sistema esamina il PDF caricato e
 segnala un indizio (sembra una scansione, manca la struttura), la pubblicazione resta
@@ -318,11 +328,14 @@ vuol dire che la fonte va letta prima di decidere se produce un obbligo per il c
    all'informativa dell'ente. Probabilmente è un obbligo dell'ente sul sito e non del
    componente, ma il componente è l'unico che sa quali pagine espongono atti: vale la pena
    decidere invece di lasciarlo implicito.
-8. **Il blocco in `robots.txt` non è verificato da nessuna riga, buco piccolo.** La riga di
-   collaudo di ALBO-06 ispeziona il meta robots e la mappa per i motori. Il `robots.txt` non
-   compare. Non è la misura più importante, perché un motore che ignora `robots.txt`
-   rispetta comunque il `noindex`, ma se il requisito lo prevede la riga deve esserci, e se
-   non lo prevede va scritto che non lo prevede.
+8. **Gli accorgimenti contro l'indicizzazione sono scritti a metà, buco con fonte.** GAR ne
+   indica due, i metatag `noindex` e `noarchive` oppure il `robots.txt` secondo il Robot
+   Exclusion Protocol, e aggiunge che nessuno dei due tocca quello che è già indicizzato.
+   ALBO-06 nomina il solo `noindex`, la sua riga di collaudo ispeziona il meta robots e la
+   mappa per i motori, e di `noarchive`, di `robots.txt` e della rimozione di ciò che è già
+   stato indicizzato non parla nessuno. Non è la misura più importante, perché la rimozione
+   resta l'unica cosa che conta davvero, ma qui la fonte è precisa e il requisito le sta
+   dietro.
 
 ### Su cosa poggia ciascuno dei punti qui sopra
 
