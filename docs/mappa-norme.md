@@ -43,12 +43,17 @@ scoperto.
 | LG-DOC | AgID, linee guida sulla formazione, gestione e conservazione dei documenti informatici, determinazione n. 407/2020, allegati 5 e 6 modificati con determinazione n. 371/2021, obbligo di attuazione dal 1 gennaio 2022 | integrità del documento informatico, metadati, versamento in conservazione |
 | ACC | Legge 9 gennaio 2004, n. 4, art. 11, richiamato da L69 art. 32 | requisiti tecnici di accessibilità dei contenuti e dei documenti pubblicati |
 | TRASP | D.lgs. 14 marzo 2013, n. 33 | l'amministrazione trasparente è un obbligo distinto, con finalità e durate proprie |
-| P-1 | Garante, provvedimento 12 marzo 2026, doc. web 10240362 | atti con dati reddituali rimasti online oltre diciotto mesi |
-| P-2 | Garante, provvedimento 26 marzo 2026, doc. web 10246037 | atti che rivelavano dati sulla salute senza una base giuridica che li giustificasse |
+| P-1 | Garante, provvedimento 12 marzo 2026, doc. web 10240362 | atti su una procedura di mobilità che rivelavano dati sulla salute per il richiamo alla legge 68/1999, senza una base giuridica che ne autorizzasse la pubblicazione |
+| P-2 | Garante, provvedimento 26 marzo 2026, doc. web 10246037 | dati reddituali e patrimoniali rimasti online oltre un anno e mezzo, oltre il termine dell'art. 124 del TUEL |
+| P-3 | Garante, provvedimento 14 maggio 2026, doc. web 10259523 | atti rimasti online per anni oltre il termine dei quindici giorni, e la conferma che GAR è ancora applicabile |
+| P-4 | Garante, provvedimento 6 giugno 2024, doc. web 10032683 | archivio storico degli atti sul sito: si può tenere, purché i dati personali siano oscurati |
+| P-5 | Garante, provvedimento 10 aprile 2025, doc. web 10140369 | un regolamento dell'amministrazione non è una base giuridica sufficiente per diffondere dati personali |
 
-P-1 e P-2 non sono fonti di obblighi nuovi: sono la prova di come le norme qui sopra
+I provvedimenti non sono fonti di obblighi nuovi: sono la prova di come le norme qui sopra
 vengono applicate, e dicono dove si sbaglia per davvero. Vanno letti come criterio di
-verifica, non come articoli.
+verifica, non come articoli. Sono cinque e non due perché la riverifica del 22 settembre
+2026 ne ha trovati tre che l'elenco non aveva, fra cui uno più recente di tutti gli altri:
+vedi la sezione finale sulle verifiche.
 
 ## Norma per norma
 
@@ -84,11 +89,14 @@ dimostrare che la costante 15 non compare nel codice. La seconda è la riga che 
 piedi la riusabilità del componente, perché una durata cablata non si vede finché non si
 installa il plugin su un ente che ha termini diversi.
 
-### GAR, P-1 e P-2: il tempo è la violazione
+### GAR e i provvedimenti: il tempo è la violazione
 
-È il gruppo che decide l'architettura. I due provvedimenti del marzo 2026 colpiscono la
-stessa cosa da due lati: atti rimasti esposti troppo a lungo, e atti che rivelavano dati che
-non avrebbero dovuto essere lì.
+È il gruppo che decide l'architettura. I provvedimenti colpiscono la stessa cosa da due
+lati: atti rimasti esposti troppo a lungo (P-2, P-3, P-4) e atti che rivelavano dati che non
+avrebbero dovuto essere lì (P-1, P-4). Il Garante ha dichiarato nel maggio 2026 che GAR è
+**in corso di aggiornamento ma ancora attuale nella parte sostanziale** (P-3), quindi resta
+la fonte di riferimento, e vale la pena controllare se l'aggiornamento è uscito prima di
+rilasciare il componente.
 
 | Obbligo | Requisiti | Copertura |
 |---|---|---|
@@ -96,6 +104,7 @@ non avrebbero dovuto essere lì.
 | L'atto scaduto esce dalla vista pubblica su ogni percorso, allegati compresi | ALBO-05, ALBO-18, ALBO-20 | avviato per ALBO-05 e ALBO-18, scoperto per ALBO-20 |
 | Le pagine dell'atto non vengono indicizzate | ALBO-06 | avviato, solo per la parte dichiarativa |
 | I dati eccedenti non finiscono nella versione pubblica | ALBO-12 | scoperto |
+| Il regime di pubblicità non autorizza da solo a pubblicare qualunque atto | ALBO-11 | scoperto |
 
 Cosa vuol dire "avviato", qui, in concreto.
 
@@ -115,7 +124,24 @@ Cosa vuol dire "avviato", qui, in concreto.
 - **ALBO-06** è avviato solo a metà: la politica `vietata` è dichiarata e riletta (A-07),
   ma il meccanismo che la applica, cioè il `noindex` sulle pagine e l'esclusione dalla mappa
   per i motori, non esiste ancora nel componente comune. Dichiarare una politica che nessuno
-  applica non produce nessun effetto sulle pagine.
+  applica non produce nessun effetto sulle pagine. Le prescrizioni sull'indicizzazione stanno
+  nella parte seconda di GAR, par. 2.a, e l'oscuramento dopo la scadenza nel par. 3.a: sono i
+  paragrafi che i provvedimenti richiamano.
+
+**Una precisazione che cambia il peso di ALBO-06.** In P-1 l'ente aveva impedito
+l'indicizzazione per tutta la durata della pubblicazione, e il Garante lo ha sanzionato lo
+stesso: la non indicizzazione è pesata solo come circostanza nella gravità, non come
+esimente. Lo stesso in P-5. Quindi `noindex` non è un sostituto della rimozione, ed è
+sbagliato trattare ALBO-06 come una misura che compra tempo su ALBO-18.
+
+**Una precisazione che allarga ALBO-05, e va decisa.** In P-4 il Garante dice che togliere
+l'archivio storico degli atti dal sito **non è un obbligo** di protezione dei dati, e che
+l'ente può continuare a tenere gli atti pubblicati in una sezione di archivio, purché i dati
+personali siano oscurati. L'obbligo di norma, quindi, è che dopo la scadenza non siano più
+diffusi i dati personali, non che l'indirizzo smetta di rispondere. Rendere l'atto
+irraggiungibile è una scelta nostra, più prudente di quanto la norma pretenda, e la riga di
+`requisiti.md` che marca ALBO-05 come "norma" andrebbe ristretta al risultato vero,
+lasciando `irraggiungibile` nella parte di prodotto.
 
 ### GDPR artt. 5 e 6
 
@@ -139,10 +165,20 @@ riga va discussa con chi la deve approvare.
 |---|---|---|
 | Un soggetto pubblico tratta dati particolari e giudiziari solo alle condizioni previste, e la pubblicazione è un trattamento | ALBO-11 | scoperto |
 
-È l'obbligo che P-2 sanziona. ALBO-11 non decide al posto dell'ente: impone un passaggio
+È l'obbligo che P-1 sanziona. ALBO-11 non decide al posto dell'ente: impone un passaggio
 che chiede una conferma esplicita e mostra i casi in cui un atto rivela dati delicati senza
 nominarli, per esempio richiami a norme sul collocamento mirato, congedi per assistenza,
 graduatorie con punteggi sociali, provvedimenti disciplinari, redditi e ISEE.
+
+**Il punto che P-5 aggiunge, e che tocca più di un requisito.** Un regolamento
+dell'amministrazione **non è** una base giuridica sufficiente per diffondere dati personali
+dove la materia è già regolata in modo uniforme a livello nazionale: il Garante lo dice
+perché non sono ammessi livelli di tutela diversi da un ente all'altro. Ha due conseguenze
+per noi. La prima: il regolamento resta la fonte della **durata** di un tipo di atto, ma non
+diventa per questo la base giuridica della **pubblicazione** di quell'atto, e ALBO-11 deve
+continuare a chiedere quest'ultima. La seconda: quando si chiederà all'amministrazione di
+confermare ALBO-07 e ALBO-08 contro il proprio regolamento, la conferma varrà per il come e
+non per il se.
 
 ### LG-DOC: integrità e conservazione
 
@@ -176,6 +212,15 @@ pubblicazione di un atto valido.
 | Obbligo | Requisiti | Copertura |
 |---|---|---|
 | Albo e amministrazione trasparente restano due esposizioni distinte, con durate e finalità proprie | ALBO-15 | scoperto |
+
+Due articoli che i provvedimenti citano e che `requisiti.md` non nomina: l'**art. 7-bis
+comma 3**, che impone di pubblicare i soli dati personali necessari alla finalità di
+trasparenza, e l'**art. 8 comma 3**, che fissa in cinque anni la permanenza sul sito dei
+documenti soggetti agli obblighi di trasparenza. Il secondo è la ragione concreta per cui
+ALBO-15 esiste: in P-1 il termine dei quindici giorni dell'albo era stato rispettato, e la
+violazione è arrivata dalla **seconda esposizione**, quella in amministrazione trasparente,
+che è rimasta su. Due cicli di vita indipendenti non sono un'eleganza architetturale: sono il
+modo in cui quel caso non si ripete.
 
 Qui la regola sull'indicizzazione è **invertita** rispetto all'albo: la trasparenza va
 indicizzata, l'albo no. È il motivo per cui il componente comune pretende la politica di
