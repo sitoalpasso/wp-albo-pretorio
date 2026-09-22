@@ -32,13 +32,14 @@ lì e resta una scelta separata.
 | Numero proprio dell'atto (es. determina 45/2026) | no | metadato | redattore. È il numero dell'atto, non quello di pubblicazione |
 | Data di adozione | sì | metadato | redattore |
 | Data di inizio pubblicazione | sì | metadato | proposta dal sistema, confermata dal redattore |
-| Data di fine pubblicazione | sì per pubblicare | metadato | calcolata dalla durata configurata per il tipo; il sistema rifiuta la **pubblicazione** senza, non il salvataggio della bozza |
+| Data di fine pubblicazione | sì per pubblicare | metadato | calcolata dalla durata configurata per il tipo; il sistema rifiuta la **pubblicazione** senza, non il salvataggio della bozza. **Una defissione anticipata la riporta indietro**, ed è così, e non cambiando stato, che l'atto esce dalla vista |
 | Numero di repertorio (es. 123/2026). **Ipotesi da confermare** | dalla pubblicazione | metadato più contatore in tabella dedicata | **solo il sistema**, alla prima pubblicazione, in modo atomico |
 | Stato | sì | stato del contenuto | il flusso di pubblicazione, mai a mano nel database |
-| Conferma del controllo dati personali | sì per pubblicare | metadato con utente e data | il redattore, tramite la schermata obbligata |
+| Conferma del controllo dati personali | sì per pubblicare | metadato con utente e data | **chi pubblica**, nel passaggio da in verifica a pubblicato, tramite la schermata obbligata. Non chi redige: il controllo sta nel secondo dei due passaggi, ed è la ragione per cui i passaggi sono due (ALBO-11) |
 | Documento principale | sì per pubblicare | file in cartella protetta più impronta (hash) in metadato | redattore prima della pubblicazione, poi bloccato. È uno e uno solo |
 | Allegati ulteriori | no | come sopra | redattore. Possono non esserci: un atto con il solo documento principale si pubblica |
-| Motivo di annullamento o defissione anticipata | quando ricorre | metadato più voce di registro | responsabile con permesso dedicato |
+| Motivo di annullamento | quando ricorre | metadato più voce di registro | chi possiede `defissione atti`, che oggi fa parte dell'insieme di chi pubblica. Obbligatorio: senza, il passaggio è rifiutato |
+| Motivo di defissione anticipata | quando ricorre | metadato più voce di registro | come sopra, ma **in via provvisoria**: se la defissione anticipata vada riservata a un responsabile distinto è una sotto-decisione ancora aperta, e la capability separata è ciò che permetterà di riservarla senza toccare il codice |
 
 Gli **stati** possibili: bozza, in verifica, pubblicato, defisso, annullato.
 
@@ -129,7 +130,7 @@ Questa è la mappa delle azioni:
 |---|---|---|
 | Creare e modificare bozze | gestione atti | |
 | Pubblicare (con controllo dati personali) | pubblicazione atti | la conferma resta registrata con nome e data |
-| Defissione anticipata, annullamento | defissione atti | motivo obbligatorio |
+| Defissione anticipata, annullamento | defissione atti | motivo obbligatorio. **Oggi questa capability fa parte dell'insieme di chi pubblica**, ed è per questo che la tabella delle transizioni attribuisce i due passaggi a chi pubblica. Tenerla separata di nome è ciò che permetterà di riservare la defissione anticipata a un responsabile distinto, se la sotto-decisione aperta si chiuderà in quel senso, senza cambiare il codice |
 | Consultare gli atti defissi dall'amministrazione | archivio atti | **funzione successiva, oggi non costruita.** Non fa tornare a rispondere l'indirizzo pubblico dell'atto: quello resta irraggiungibile per chiunque, permessi compresi |
 | Consultare il registro delle operazioni | lettura registro (di core) | |
 | Configurare tipi di atto e durate | amministrazione albo | |

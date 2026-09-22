@@ -254,6 +254,13 @@ nasce dai provvedimenti del Garante del marzo 2026.
 | pubblicato | annullato | chi pubblica | motivazione obbligatoria. L'atto conserva numero, stato e motivo |
 | defisso | annullato | chi pubblica | come sopra |
 
+**"Chi pubblica" vuol dire chi possiede l'insieme di permessi di chi pubblica**, non una
+persona sola nominata da qualche parte. Dentro quell'insieme la defissione e l'annullamento
+hanno una capability propria, distinta da quella per pubblicare: oggi arriva insieme alle
+altre, ed è ciò che permetterà di riservare la defissione anticipata a un responsabile
+distinto, se la sotto-decisione aperta si chiuderà in quel senso, senza toccare il codice.
+La mappa delle capability sta in `dati.md`.
+
 **Chi redige e chi pubblica possono essere la stessa persona**, se possiede entrambi i
 permessi. I due passaggi restano due, e il controllo sui dati personali sta nel secondo.
 
