@@ -40,7 +40,7 @@ scoperto.
 | GAR | Garante per la protezione dei dati personali, deliberazione 15 maggio 2014, n. 243, in GU n. 134 del 12 giugno 2014 | linee guida sul trattamento di dati personali contenuti in atti pubblicati per finalità di pubblicità e trasparenza: durata limitata, niente indicizzazione, minimizzazione |
 | GDPR | Regolamento (UE) 2016/679, artt. 5 e 6 | principi del trattamento e base giuridica |
 | COD | D.lgs. 30 giugno 2003, n. 196, artt. 2-ter e 2-septies | condizioni perché un soggetto pubblico possa trattare dati particolari e giudiziari |
-| LG-DOC | AgID, linee guida sulla formazione, gestione e conservazione dei documenti informatici, determinazione n. 407/2020, allegati 5 e 6 modificati con determinazione n. 371/2021, obbligo di attuazione dal 1 gennaio 2022 | integrità del documento informatico, metadati, versamento in conservazione |
+| LG-DOC | AgID, linee guida sulla formazione, gestione e conservazione dei documenti informatici. Il testo pubblicato porta in copertina "Maggio 2021" e gli allegati sono datati 27 giugno 2024. Le linee guida si applicano dal duecentosettantesimo giorno dopo la loro entrata in vigore, senza una data di calendario nel testo | integrità del documento informatico, metadati (allegato 5), formati di file (allegato 2), versamento in conservazione |
 | ACC | Legge 9 gennaio 2004, n. 4, art. 11, richiamato da L69 art. 32 | requisiti tecnici di accessibilità dei contenuti e dei documenti pubblicati |
 | TRASP | D.lgs. 14 marzo 2013, n. 33 | l'amministrazione trasparente è un obbligo distinto, con finalità e durate proprie |
 | P-1 | Garante, provvedimento 12 marzo 2026, doc. web 10240362 | atti su una procedura di mobilità che rivelavano dati sulla salute per il richiamo alla legge 68/1999, senza una base giuridica che ne autorizzasse la pubblicazione |
@@ -192,10 +192,37 @@ non per il se.
 | Gli atti sono versabili in conservazione | ALBO-17 | scoperto, e parziale come specifica |
 
 ALBO-17 chiede l'esportazione in formato aperto di atti e metadati. Non dice **quali**
-metadati, mentre le linee guida fissano un insieme minimo per il documento informatico.
-Finché il requisito non lo nomina, la riga di collaudo può verificare il formato e la
-reimportabilità, non la completezza rispetto alla conservazione: è un export che si può
-rileggere, non necessariamente un pacchetto che un sistema di conservazione accetta.
+metadati, mentre l'allegato 5 delle linee guida ne fissa un insieme obbligatorio per il
+documento informatico. Finché il requisito non lo nomina, la riga di collaudo può verificare
+il formato e la reimportabilità, non la completezza rispetto alla conservazione: è un export
+che si può rileggere, non necessariamente un pacchetto che un sistema di conservazione
+accetta.
+
+**E il punto non riguarda solo l'esportazione.** Letto l'allegato 5, diversi metadati
+obbligatori sono informazioni che esistono **solo al momento della pubblicazione** e che
+nessun requisito oggi chiede di catturare. Un export scritto dopo non se le può inventare.
+Quelli che toccano l'albo da vicino:
+
+- **impronta crittografica del documento**, con algoritmo (il valore predefinito è SHA-256).
+  È la stessa impronta di ALBO-07, che oggi è un requisito da confermare: qui però serve per
+  la conservazione, non per il referto, e il suo algoritmo è indicato.
+- **dati di registrazione**, con tipo di registro (nessuno, protocollo, oppure repertorio o
+  registro), numero e data del documento. Il numero di repertorio di ALBO-08, che il
+  catalogo marca come ipotesi fondata sulla prassi, corrisponde a un metadato previsto: non
+  lo rende obbligatorio, ma smentisce che sia soltanto prassi.
+- **verifica**, cioè se il documento è firmato digitalmente, sigillato, marcato
+  temporalmente, e se una copia immagine è conforme. È il posto in cui la questione della
+  versione oscurata (punto 1 dei buchi) diventa un campo da valorizzare, non una discussione.
+- **tracciature delle modifiche**, con tipo (annullamento, rettifica, integrazione,
+  annotazione), autore, data e identificativo della versione precedente. È esattamente la
+  rettifica come atto nuovo che rinvia al precedente di ALBO-09, e il modello dei metadati la
+  prevede già: conviene adottare quei quattro tipi invece di inventarne altri.
+- **modalità di formazione, tipologia documentale, soggetti con il loro ruolo, oggetto,
+  numero di allegati, riservatezza, formato, nome e versione del documento**.
+
+La conseguenza pratica è una dipendenza che oggi non è scritta da nessuna parte: **ALBO-17
+non è un requisito a valle, vincola ALBO-01**. I formati di file, PDF compresi, stanno
+nell'allegato 2 e non nel 6, che riguarda invece lo scambio di documenti protocollati.
 
 ### ACC legge 4/2004 art. 11
 
@@ -291,8 +318,13 @@ vuol dire che la fonte va letta prima di decidere se produce un obbligo per il c
    confermato, ALBO-12 pubblica un documento che nessun elemento del sistema lega
    all'originale. Non serve codice nuovo per chiuderlo, serve decidere se la coppia
    originale più oscurata la governa una procedura dell'ente, e scriverlo dentro ALBO-12.
+   L'allegato 5 delle linee guida AgID dà anche il posto in cui la risposta va registrata:
+   fra i metadati obbligatori c'è la **verifica**, cioè se il documento è firmato,
+   sigillato, marcato temporalmente, e se una copia immagine è conforme all'originale.
 2. **Metadati per la conservazione, buco parziale.** ALBO-17 dice "formato aperto" e non
-   dice quali metadati. Vedi la sezione LG-DOC.
+   dice quali metadati, e alcuni di quelli obbligatori si possono catturare solo al momento
+   della pubblicazione. Vedi la sezione LG-DOC: non è un buco di ALBO-17 soltanto, è una
+   dipendenza su ALBO-01.
 3. **La fonte della durata non si registra, buco.** ALBO-04 rende la durata configurabile
    per tipo di atto, ed è giusto. Nessun requisito chiede però di registrare **perché**
    quella durata è quella: quale norma o quale articolo del regolamento la giustifica.
@@ -343,8 +375,8 @@ Perché la domanda giusta, davanti a un elenco di buchi, è sempre "e questo chi
 
 | Punto | Fonte | Stato della fonte |
 |---|---|---|
-| 1. Versione oscurata | ALBO-09 e ALBO-12 letti insieme, più ALBO-07 come unico appiglio | interno al catalogo, verificabile rileggendo le tre righe. Nessuna fonte esterna serve, perché il componente non firma |
-| 2. Metadati di conservazione | LG-DOC, allegato 5 | la fonte è nella tabella delle fonti; **il contenuto dell'allegato non è stato riletto**, quindi l'insieme minimo di metadati va confermato sul testo |
+| 1. Versione oscurata | ALBO-09 e ALBO-12 letti insieme, ALBO-07 come unico appiglio, e il campo di verifica dell'allegato 5 di LG-DOC | incoerenza interna al catalogo, più una fonte esterna letta il 22 settembre 2026 che dice dove va registrata la risposta |
+| 2. Metadati di conservazione | LG-DOC, allegato 5, riletto il 22 settembre 2026 | fonte verificata e contenuto letto: l'insieme obbligatorio esiste ed è elencato nella sezione LG-DOC |
 | 3. Fonte della durata | GDPR art. 5.2 | fonte verificata, ma il collegamento fra responsabilizzazione e "registrare da dove viene la durata" è una lettura prudente, non una prescrizione testuale |
 | 4. Accessibilità delle pagine | ACC, legge 4/2004 art. 11, richiamata da L69 art. 32 | fonte verificata. Le fonti tecniche più recenti (linee guida AgID, norma europea) non sono censite qui |
 | 5. Data di inizio | nessuna fonte esterna | incoerenza interna, verificata leggendo il codice: l'interfaccia pubblica del componente comune espone la sola data di fine |
