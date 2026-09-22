@@ -70,7 +70,7 @@ fonte e criterio di verifica per ciascuno, è in [`docs/requisiti.md`](docs/requ
 
 **Non è un elenco completo, e il documento lo dichiara.** ALBO-07 e ALBO-08 sono ipotesi da
 confermare contro il regolamento dell'amministrazione. ALBO-22, che riguarda gli stati
-dell'atto e il flusso di pubblicazione, è stato deciso il 2026-09-21 e due sue sotto-decisioni
+dell'atto e il flusso di pubblicazione, è stato deciso il 2026-09-21 e tre sue sotto-decisioni
 restano aperte, marcate come tali. La colonna Stato dice a che punto è ciascun requisito:
 oggi sono chiusi i quattro sui permessi e sul ruolo proprio, tutti gli altri sono da fare.
 

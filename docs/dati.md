@@ -60,9 +60,18 @@ controllo sui dati personali sta nel secondo.
 corretto torna in bozza con una motivazione, perché quello che è stato verificato è quello
 che esce.
 
-Due sotto-decisioni restano aperte e sono marcate nella nota: se un atto annullato prima
-della scadenza resti visibile al pubblico, e chi disponga la defissione anticipata, che qui
-è attribuita a chi pubblica in via provvisoria.
+**La defissione anticipata non fa sparire l'atto cambiandogli stato**: gli riporta indietro
+la data di fine pubblicazione, e l'atto esce dalla vista per la ragione di sempre, cioè
+perché il filtro legge una data passata. Siccome la fine della pubblicazione è un giorno
+civile e la scadenza scatta dalla mezzanotte del giorno dopo, la data scritta è quella del
+giorno precedente a quello in cui la defissione è disposta: scrivere la data di oggi
+lascerebbe l'atto visibile fino a stanotte. La data pianificata non si perde, perché la
+modifica finisce nel registro delle operazioni insieme a chi l'ha disposta e perché.
+
+Tre sotto-decisioni restano aperte e sono marcate nella nota: se un atto annullato prima
+della scadenza resti visibile al pubblico; chi disponga la defissione anticipata, che qui
+è attribuita a chi pubblica in via provvisoria; e se il giorno civile basti come
+granularità del termine, o serva chiedere al meccanismo comune qualcosa di più fine.
 
 ## Le risposte alle domande di controllo
 

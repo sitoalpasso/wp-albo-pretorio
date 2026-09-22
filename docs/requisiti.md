@@ -185,7 +185,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-19 | da fare | Battito di controllo con avviso | **prodotto**, motivato dal guasto silenzioso sanzionato nel provv. Garante marzo 2026 |
 | ALBO-20 | da fare | L'atto defisso non viene più servito a nessuno | **norma** il risultato (Garante). **Prodotto** esclusione dalla memoria di pagina oppure invalidazione immediata: due strade, la scelta è nostra |
 | ALBO-21 | da fare | Scadenza sull'ora civile italiana | **prodotto**: correttezza tecnica, nessuna fonte esterna |
-| ALBO-22 | da fare | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto**, decisione chiusa il 2026-09-21: la tabella delle transizioni è nella nota qui sotto. Due sotto-decisioni restano aperte e non bloccano l'unità |
+| ALBO-22 | da fare | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto**, decisione chiusa il 2026-09-21: la tabella delle transizioni è nella nota qui sotto. Tre sotto-decisioni restano aperte e non bloccano l'unità |
 | ALBO-23 | fatto | All'attivazione l'insieme minimo di permessi sul tipo atto arriva all'amministratore | **prodotto** |
 | ALBO-24 | fatto | A ogni aggiornamento i permessi nuovi arrivano ai ruoli che avevano già gli altri | **prodotto** |
 | ALBO-25 | fatto | Se nessun ruolo possiede i permessi del tipo atto, l'amministrazione lo segnala | **prodotto** |
@@ -211,7 +211,7 @@ Fino al 2026-09-11 questa colonna aveva una categoria sola, e formule come "pras
 pubblicità legale" o "operativo" stavano accanto al GDPR: facevano sembrare obblighi di legge
 delle decisioni progettuali nostre.
 
-### Nota su ALBO-22: la decisione, e le due sotto-decisioni che restano aperte
+### Nota su ALBO-22: la decisione, e le tre sotto-decisioni che restano aperte
 
 Era una decisione presa a metà, ed è stata chiusa il **2026-09-21**, prima di aprire l'unità
 che costruisce il flusso di pubblicazione e non insieme a essa. Il motivo dell'ordine resta
@@ -286,7 +286,26 @@ Da qui discende la condizione sulla defissione anticipata: si dispone **solo su 
 ancora scaduto**, perché su uno scaduto non c'è niente da anticipare. È già invisibile, e il
 compito pianificato lo registrerà.
 
-#### Due sotto-decisioni restano aperte, e non bloccano l'unità
+**Come fa sparire l'atto la defissione anticipata, visto che il filtro guarda la data.** È la
+domanda che il vincolo qui sopra rende obbligatoria, e ammette una risposta sola: la
+defissione anticipata **riporta indietro la data di fine pubblicazione**, e da quel momento
+l'atto sparisce per la ragione di sempre, cioè perché il filtro legge una data passata. Lo
+stato "defisso" resta la registrazione di quello che è accaduto e non diventa mai la causa
+dell'invisibilità. Ogni altra soluzione farebbe consultare lo stato al filtro in lettura, che
+è esattamente ciò che questo componente esiste per evitare.
+
+Da quella risposta discende un dettaglio facile da sbagliare, che va scritto qui perché chi
+implementa non lo dedurrebbe da solo: il meccanismo comune tiene la fine della pubblicazione
+come **giorno civile** e considera scaduto il contenuto **dalla mezzanotte del giorno dopo**.
+Scrivere la data di oggi quindi non toglie niente dalla vista fino a stanotte. Per far
+sparire l'atto nell'istante in cui la defissione è disposta si scrive **il giorno precedente
+a quello in cui la si dispone**, e la riga di collaudo lo verifica guardando l'orologio e non
+lo stato.
+
+La data di fine pianificata non va perduta: la modifica finisce nel registro delle operazioni
+(ALBO-10), che è solo in aggiunta, insieme a chi l'ha disposta, quando e perché.
+
+#### Tre sotto-decisioni restano aperte, e non bloccano l'unità
 
 1. **Un atto annullato prima della scadenza resta visibile al pubblico, con lo stato
    dichiarato?** Negli albi la pubblicazione dell'annullamento ha una sua funzione
@@ -296,9 +315,17 @@ compito pianificato lo registrerà.
 2. **Chi dispone la defissione anticipata.** Qui è attribuita a chi pubblica, **in via
    provvisoria**. Alcuni enti la riservano a un responsabile nominato, che sarebbe una terza
    figura. La riga di collaudo prova la forma provvisoria e la marca come tale.
+3. **Se il giorno civile sia una granularità sufficiente.** Scrivere il giorno precedente
+   toglie l'atto dalla vista subito, ma lascia memorizzata una data di fine che per un giorno
+   non dice il vero, e il fatto esatto resta solo nel registro. L'alternativa è chiedere al
+   meccanismo comune un termine più fine del giorno intero, che però è una modifica di quel
+   componente e non di questo. Qui si tiene il giorno precedente, **in via provvisoria**,
+   perché fra le due direzioni sbaglia in quella che toglie l'atto dalla vista invece che
+   lasciarcelo.
 
-Si chiudono guardando come si comportano albi pretorio già in esercizio e, per la seconda,
-contro il regolamento dell'amministrazione.
+Le prime due si chiudono guardando come si comportano albi pretorio già in esercizio, la
+seconda anche contro il regolamento dell'amministrazione. La terza si chiude quando si decide
+se il meccanismo comune debba tenere un termine più fine del giorno civile.
 
 ### Come si legge la colonna Stato
 
