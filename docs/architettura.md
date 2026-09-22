@@ -109,7 +109,7 @@ criterio con cui il disegno è stato scelto fra tre possibili, sta nella nota in
 
   BOZZA  ------------------------------------>  IN VERIFICA
          chi redige, e solo se ci sono tutti i dati che
-         la pubblicazione pretende, data di fine compresa
+         la pubblicazione pretende, durata applicabile compresa
 
   IN VERIFICA  ------------------------------>  BOZZA
          chi pubblica, con motivazione obbligatoria.

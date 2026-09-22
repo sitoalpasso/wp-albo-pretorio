@@ -32,7 +32,8 @@ lì e resta una scelta separata.
 | Numero proprio dell'atto (es. determina 45/2026) | no | metadato | redattore. È il numero dell'atto, non quello di pubblicazione |
 | Data di adozione | sì | metadato | redattore |
 | Data di inizio pubblicazione | sì | metadato | **solo il sistema**, al passaggio a pubblicato, e mai nel futuro: la pubblicazione non si programma (ALBO-27). Non è modificabile dopo, perché da essa decorrono termini di legge |
-| Data di fine pubblicazione | sì per pubblicare | metadato | calcolata dalla durata configurata per il tipo, che è il caso ordinario; il sistema rifiuta la **pubblicazione** senza, non il salvataggio della bozza. Dove la durata è **scelta dall'amministrazione** e non prescritta da una norma, chi pubblica può indicarne una più breve sul singolo atto **prima** di pubblicarlo, con motivazione registrata; dove la durata è di origine normativa non si accorcia. Il componente distingue i due casi perché ogni durata configurata dichiara la propria origine (ALBO-04, deciso il 2026-09-22). Più lunga non si può in nessuno dei due casi. **Una defissione anticipata la riporta indietro**, ed è così, e non cambiando stato, che l'atto esce dalla vista |
+| Data di fine pubblicazione | sì per pubblicare | metadato | **solo il sistema**, al passaggio a pubblicato e nello stesso istante dell'inizio, come inizio più durata applicabile (ALBO-27): non la fornisce nessuno, e una data fornita a mano non supplisce a una durata assente. Il sistema rifiuta la **pubblicazione** di un atto per cui non è calcolabile, non il salvataggio della bozza, dove non esiste ancora. **Una defissione anticipata la riporta indietro**, ed è così, e non cambiando stato, che l'atto esce dalla vista |
+| Durata propria dell'atto | no | metadato più voce di registro | chi pubblica, **solo** se il tipo ha durata di origine dell'amministrazione e **solo** più breve di quella configurata, con motivazione obbligatoria che finisce nel registro insieme a chi l'ha disposta (ALBO-04, ALBO-10). Dove la durata del tipo è di origine normativa non esiste. Più lunga non si può in nessuno dei due casi, per scelta di prodotto |
 | Numero di repertorio (es. 123/2026). **Ipotesi da confermare** | dalla pubblicazione | metadato più contatore in tabella dedicata | **solo il sistema**, alla prima pubblicazione, in modo atomico |
 | Stato | sì | stato del contenuto | il flusso di pubblicazione, mai a mano nel database |
 | Conferma del controllo dati personali | sì per pubblicare | metadato con utente e data | **chi pubblica**, nel passaggio da in verifica a pubblicato, tramite la schermata obbligata. Non chi redige: il controllo sta nel secondo dei due passaggi, ed è la ragione per cui i passaggi sono due (ALBO-11) |
@@ -80,10 +81,15 @@ restrizione ha la sua riga di collaudo.
 
 ## Le risposte alle domande di controllo
 
-**Dove viene salvata la data di pubblicazione?** In due posti con ruoli diversi: le date
-di inizio e fine **previste** sono metadati dell'atto; le date **effettive** vengono
-congelate nel referto alla defissione. Se per un guasto la defissione avviene in ritardo,
-il referto riporta la verità, non la previsione.
+**Dove viene salvata la data di pubblicazione?** Tre cose diverse, da non confondere.
+L'**inizio effettivo** e la **fine pianificata** sono metadati dell'atto, scritti tutti e
+due dal sistema nell'istante della pubblicazione (ALBO-27): l'inizio è un fatto, la fine è
+una previsione che una defissione anticipata può portare indietro. Gli **eventi** del
+registro delle operazioni dicono che cosa è accaduto davvero e quando. Il referto (ALBO-07)
+ricostruisce il periodo di esposizione da questi tre, e non lo prolunga fino al momento in
+cui il compito pianificato ha registrato la defissione: se il compito passa in ritardo,
+l'atto era già invisibile dalla fine pianificata, perché la scadenza si applica alla
+lettura e non dipende dal compito, e il referto riporta quella fine.
 
 **Cosa succede se cambio un documento già pubblicato?** Non si può, salvo un caso solo.
 L'atto pubblicato è immodificabile per chiunque, amministratore compreso, e la strada giusta

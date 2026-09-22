@@ -30,8 +30,10 @@ nessuno se ne ricorda, anche se il sito non riceve visite.
 Un atto non è un PDF buttato in una pagina: è una scheda con i suoi dati (tipo, oggetto,
 organo che l'ha adottato, data di adozione, data di inizio e di fine pubblicazione) più il
 **documento principale**, che è uno e uno solo, e gli **allegati ulteriori**, che sono
-facoltativi e possono non esserci affatto (ALBO-01). Delle due date, quella di inizio non si
-sceglie: la scrive il sistema nel momento in cui l'atto diventa pubblico (ALBO-27).
+facoltativi e possono non esserci affatto (ALBO-01). Delle due date nessuna si
+sceglie: le scrive il sistema nel momento in cui l'atto diventa pubblico, l'inizio come
+istante della pubblicazione e la fine come inizio più durata applicabile (ALBO-27). Ciò che
+chi compila fornisce, quando gli è consentito, è una durata, non una data.
 
 **Salvare e pubblicare sono due momenti diversi, e il requisito vale sul secondo.** Una
 bozza si salva anche incompleta: è così che si lavora a un atto prima di avere tutti i
@@ -42,8 +44,11 @@ compila: lo assegna il sistema alla prima pubblicazione (ALBO-08), quindi preten
 del salvataggio sarebbe una richiesta impossibile da soddisfare.
 
 **La data di fine è obbligatoria per pubblicare** e non esiste l'atto pubblicato "per
-sempre" (ALBO-02), perché è il caso sanzionato dal Garante. In bozza può mancare, perché una
-bozza non è esposta a nessuno.
+sempre" (ALBO-02), perché è il caso sanzionato dal Garante. Obbligatoria vuol dire
+calcolabile: un atto per cui il sistema non può scrivere una fine, perché il tipo non ha
+una durata e l'atto non ne porta una propria, non si pubblica, e fornire una data a mano non
+supplisce. In bozza la fine non esiste ancora, perché una bozza non è esposta a nessuno e
+l'inizio da cui la fine si calcola non è ancora scritto.
 
 ### La scadenza, su tre strati (ALBO-03, ALBO-18, ALBO-19, ALBO-20, ALBO-21)
 
@@ -178,7 +183,13 @@ responsabilità che pesa sulla valutazione di chi dirige, non un vizio dell'atto
   ha davanti, perché una durata prescritta da una norma non si accorcia, mentre una che
   l'amministrazione si è data è un massimale che va valutato caso per caso sul singolo
   atto. Quando l'origine è una norma, la configurazione ne porta gli estremi, così che
-  la scelta sia verificabile da chi legge e non solo dichiarata.
+  la scelta sia verificabile da chi legge e non solo dichiarata. La valutazione sul
+  singolo atto si esprime come **durata propria dell'atto**, in giorni, più breve di
+  quella del tipo e con motivazione registrata: non come una data, perché la data di fine
+  la scrive il sistema alla pubblicazione (ALBO-27). Che una durata più lunga di quella
+  configurata non sia ammessa in nessuno dei due casi è una scelta di prodotto: la fonte
+  chiede di non superare il periodo necessario valutato sul caso concreto, e non dice che
+  il numero configurato per tipo sia un tetto; il tetto lo decide il componente.
 - **Referto di pubblicazione** (ALBO-07), *da confermare come sopra*: alla defissione il sistema scatta una
   fotografia immutabile (numero, date effettive, impronta del file, chi ha pubblicato)
   che attesta cosa è stato esposto e quando. Si congela, non si rigenera.
@@ -212,7 +223,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ID | Stato | In una riga | Fonte principale |
 |---|---|---|---|
 | ALBO-01 | da fare | Scheda atto: dati, documento principale `[1..1]`, allegati ulteriori `[0..n]`. La bozza si salva incompleta, la pubblicazione no | **norma** l'atto pubblicato dev'essere identificabile e completo dei suoi estremi (l. 69/2009 art. 32). **Prodotto** l'elenco preciso dei campi e la separazione fra salvataggio e pubblicazione |
-| ALBO-02 | da fare | Data di fine **obbligatoria per pubblicare**. In bozza può mancare | **norma** nessuna pubblicazione a tempo indeterminato (Garante, provv. marzo 2026). **Prodotto** la data come dato che il sistema pretende al passaggio a pubblicato |
+| ALBO-02 | da fare | Data di fine **obbligatoria per pubblicare**, cioè calcolabile da inizio più durata applicabile. In bozza non esiste ancora | **norma** nessuna pubblicazione a tempo indeterminato (Garante, provv. marzo 2026). **Prodotto** la data come valore che il sistema scrive al passaggio a pubblicato e che nessuno fornisce a mano |
 | ALBO-03 | da fare | L'atto scaduto smette di essere pubblico tempestivamente | **norma** il risultato, senza dipendere dal traffico del sito (Garante). **Prodotto** i tre strati, cron esterno, filtro e battito: architettura nostra, non un obbligo |
 | ALBO-04 | da fare | Durate per tipo di atto, configurabili, senza default, **ciascuna con l'origine dichiarata**: norma, con i suoi estremi, oppure scelta dell'amministrazione | **norma** l'esistenza di una durata (TUEL art. 124, valido per comuni e province, non universale), e la distinzione fra termine prescritto e periodo scelto dall'amministrazione, che il Garante vuole valutato caso per caso. **Prodotto** la configurabilità per tipo e la forma in cui l'origine è dichiarata, decisa il 2026-09-22. **Da confermare** le durate dei singoli tipi, che dipendono dal regolamento |
 | ALBO-05 | da fare | L'atto defisso esce dalla vista pubblica | **norma** il risultato (Garante, provvedimenti). **Prodotto** la politica `irraggiungibile` dichiarata al meccanismo comune |
@@ -233,7 +244,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-20 | da fare | L'atto defisso non viene più servito a nessuno | **norma** il risultato (Garante). **Prodotto** esclusione dalla memoria di pagina oppure invalidazione immediata: due strade, la scelta è nostra |
 | ALBO-21 | da fare | Scadenza sull'ora civile italiana | **prodotto**: correttezza tecnica, nessuna fonte esterna |
 | ALBO-22 | da fare | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto**, decisione chiusa il 2026-09-21: la tabella delle transizioni è nella nota qui sotto. Quattro sotto-decisioni ne sono seguite, di cui **tre restano aperte** e nessuna blocca l'unità; la quarta, sulle cause che legittimano la defissione anticipata, è chiusa il 2026-09-22 |
-| ALBO-27 | da fare | **La pubblicazione non si programma.** La data di inizio la scrive il sistema al passaggio a pubblicato, non è modificabile e non può stare nel futuro | **prodotto**, deciso il 2026-09-22. L'albo sostituisce la bacheca di carta, dove programmare non era possibile. Se un'amministrazione lo chiederà, si costruirà allora |
+| ALBO-27 | da fare | **La pubblicazione non si programma.** La data di inizio la scrive il sistema al passaggio a pubblicato, non è modificabile e non può stare nel futuro; nello stesso istante scrive la data di fine come inizio più durata applicabile, così che nessun valore calcolato prima della pubblicazione possa accorciare il periodo | **prodotto**, deciso il 2026-09-22. L'albo sostituisce la bacheca di carta, dove programmare non era possibile. Se un'amministrazione lo chiederà, si costruirà allora |
 | ALBO-23 | fatto | All'attivazione l'insieme minimo di permessi sul tipo atto arriva all'amministratore | **prodotto** |
 | ALBO-24 | fatto | A ogni aggiornamento i permessi nuovi arrivano ai ruoli che avevano già gli altri | **prodotto** |
 | ALBO-25 | fatto | Se nessun ruolo possiede i permessi del tipo atto, l'amministrazione lo segnala | **prodotto** |
@@ -294,7 +305,7 @@ nasce dai provvedimenti del Garante del marzo 2026.
 |---|---|---|---|
 | (nuovo) | bozza | chi redige | nessuna: la bozza si salva incompleta |
 | bozza | bozza | chi redige | nessuna |
-| bozza | in verifica | chi redige | devono esserci tutti i dati che la pubblicazione pretende, data di fine compresa (ALBO-01, ALBO-02) |
+| bozza | in verifica | chi redige | devono esserci tutti i dati che la pubblicazione pretende, durata applicabile compresa, cioè quella del tipo o quella propria dell'atto (ALBO-01, ALBO-02, ALBO-04). Le due date no: le scrive il sistema alla pubblicazione (ALBO-27) |
 | in verifica | bozza | chi pubblica | motivazione obbligatoria, che finisce nel registro (ALBO-10). L'atto torna modificabile |
 | in verifica | pubblicato | chi pubblica | conferma esplicita del controllo sui dati personali (ALBO-11). Tutto o niente |
 | pubblicato | defisso | il compito pianificato | alla scadenza. È una registrazione, non un interruttore: vedi il vincolo più sotto |
