@@ -132,3 +132,95 @@ apre il collegamento e si verifica che il documento sia quello. Si copia l'indir
 apre in una finestra anonima: non deve rispondere, perché l'atto è in bozza. Si carica un
 secondo PDF come principale e si verifica che il primo non sia più elencato. Nella libreria
 dei media, i due file non devono comparire.
+
+## Com'è andata davvero
+
+Il piano ha retto nelle sue linee. Le differenze sono cinque, e tre sono più severe del
+piano.
+
+**Cancellare un documento per la via generica non è concesso a nessuno.** Il piano diceva che
+cancellare un documento si chiede con i permessi dell'atto. Ma chi può cancellare l'atto può
+cancellare anche un atto pubblicato, e con quella regola avrebbe potuto togliere il suo
+documento dalla libreria o dall'interfaccia per programmi, senza passare dal controllo dello
+stato. Ora la domanda "può cancellare questo documento?" risponde no a chiunque, amministratore
+compreso: un documento si toglie dal riquadro, che controlla che l'atto sia in bozza e
+aggiorna i suoi dati. Le funzioni interne che cancellano non passano da quella domanda.
+Modificare e leggere seguono i permessi dell'atto, come previsto.
+
+**La pulizia alla cancellazione guarda i file, non i due dati.** Quando un atto mai
+pubblicato viene cancellato, si cancellano tutti i suoi allegati depositati dal meccanismo
+comune, anche quelli che i due dati dell'atto non indicano più per un guasto o una scrittura
+di lato. Un allegato della libreria normale attaccato all'atto non si tocca, perché il suo
+file può essere usato altrove. "Mai pubblicato" vuol dire in bozza o in revisione, e per un
+atto nel cestino vale lo stato che aveva prima: la riga A-83 prova anche questo percorso.
+
+**I due dati sono dichiarati a WordPress**, protetti e fuori dall'interfaccia per programmi,
+come i dati dell'atto. Non era scritto nel piano, e le prove lo hanno fatto notare: vedi la
+tabella dei guasti. La riga A-81 ora lo verifica.
+
+**Le prove dei dati dell'atto depositano un documento vero.** Con il documento principale fra
+i dati mancanti, l'atto completo delle prove A-69..A-76 deve averne uno. Il server finto, i
+file temporanei e il controllo del disco stanno ora in un aiuto comune alle due classi di
+prove, e la riga A-75 nomina anche il documento mancante.
+
+**Il tipo di un altro componente non si governa.** Come per il resto del componente, ogni
+aggancio di questa unità controlla che il tipo atto registrato sia il nostro, e se non lo è
+non fa niente. Questo caso non ha una prova dedicata in questa unità: il comportamento del
+componente inerte è provato dalle righe A-28 e A-29 per le parti che esistevano allora.
+
+**La prova di non vacuità.** Trentacinque guasti introdotti uno per volta in una copia usa e
+getta, facendo girare le prove di questa unità e quelle dei dati dell'atto su ciascuno.
+
+| Guasto introdotto | Prove cadute |
+|---|---|
+| Il vecchio principale non cancellato alla sostituzione | A-77 |
+| Il documento tolto dai dati ma non cancellato | A-78, A-80 |
+| L'ordine degli ulteriori perso alla rimozione | A-78 |
+| L'ulteriore nuovo aggiunto in testa invece che in fondo | A-78, A-83, A-84 |
+| Gli ulteriori riordinati per numero invece che per deposito | A-81 |
+| Lo stato dell'atto non controllato | A-79 |
+| L'atto in revisione ancora modificabile | A-79 |
+| Il tipo del contenuto non controllato | A-79 |
+| Il ruolo del documento non controllato | A-79 |
+| Il gettone del riquadro non controllato | A-80 |
+| Il gettone del riquadro non legato all'atto | A-80 |
+| Il permesso sull'atto non controllato al salvataggio | A-80 |
+| Il file della schermata dichiarato "percorso locale" invece che "caricamento" | A-80 |
+| Il principale letto senza validazione | A-81 |
+| Due righe di principale accettate | A-81 |
+| Gli ulteriori letti senza validazione | A-81 |
+| Un ulteriore ripetuto accettato due volte | A-81 |
+| Un allegato non depositato dal meccanismo comune accettato | A-81 |
+| L'allegato di un altro atto accettato | A-81 |
+| Un allegato nel cestino accettato | A-81 |
+| I permessi dell'atto non applicati ai suoi documenti | A-82 |
+| La cancellazione concessa con i permessi dell'atto | A-82 |
+| La libreria dei media a griglia non esclusa | A-82 |
+| La libreria dei media a elenco non esclusa | A-82 |
+| L'esclusione applicata a ogni interrogazione degli allegati | A-82, dopo una correzione della prova: vedi sotto |
+| La pulizia alla cancellazione tolta | A-83 |
+| Lo stato di prima del cestino non letto | A-83 |
+| La pulizia che non guarda di quale atto sono i documenti | A-83 |
+| Il riquadro che stampa il percorso del file | A-84 |
+| Il collegamento pubblico al posto di quello amministrativo | A-84 |
+| Il modulo della schermata senza l'invio di file | A-84 |
+| Il riquadro senza controllo del permesso | A-84 |
+| Il documento principale non fra i dati mancanti | A-75, A-77, A-78, A-81 |
+| I due dati esposti ai programmi | A-81, dopo l'aggiunta della prova: vedi sotto |
+| I due dati non protetti | A-81, dopo l'aggiunta della prova: vedi sotto |
+
+**Una prova che non provava.** Al primo giro l'esclusione applicata a ogni interrogazione degli
+allegati non ha fatto cadere niente. Il controllo positivo chiedeva gli allegati con
+`get_posts()`, che spegne i filtri delle interrogazioni: il controllo sarebbe passato anche
+con l'esclusione ovunque. Ora chiede con `WP_Query`, come fa il resto del sito, e il guasto
+cade.
+
+**Due guasti senza prova.** Al primo giro i due dati esposti ai programmi, o scritti senza il
+trattino basso che li protegge, non hanno fatto cadere niente, perché nessuna prova lo
+guardava. La riga A-81 ora legge le dichiarazioni prima di tutto il resto, e i due guasti
+cadono.
+
+**Il limite che resta.** Un caricamento vero dal navigatore non si riproduce dentro la suite,
+perché PHP riconosce come caricato solo un file arrivato con una richiesta HTTP. La prova
+positiva di quel percorso sta fra le prove sul sito vero, punto 9 qui sopra; qui si prova
+che un percorso del server fatto passare per caricamento è rifiutato.

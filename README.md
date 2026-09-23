@@ -56,10 +56,12 @@ Il componente richiede il plugin `conformita-core`, che fornisce i meccanismi co
 riceve da qui le politiche come parametro esplicito: indicizzazione vietata e contenuto
 scaduto irraggiungibile.
 
-**Di quei meccanismi oggi ne esiste uno**, il filtro che applica la scadenza a ogni lettura.
-Consegna degli allegati in cartella protetta, registro delle operazioni, compito pianificato,
-battito di controllo, applicazione della politica di indicizzazione e separazione delle
-esposizioni sono lavorazioni successive di quel componente, non funzioni già disponibili.
+**Di quei meccanismi oggi ne esistono due**: il filtro che applica la scadenza a ogni
+lettura e la consegna degli allegati in cartella protetta, su cui poggiano il documento
+principale e gli allegati ulteriori dell'atto. Registro delle operazioni, compito
+pianificato, battito di controllo, applicazione della politica di indicizzazione e
+separazione delle esposizioni sono lavorazioni successive di quel componente, non funzioni
+già disponibili.
 L'elenco riga per riga, con lo stato di ciascuno, è in
 [`docs/architettura.md`](docs/architettura.md).
 
