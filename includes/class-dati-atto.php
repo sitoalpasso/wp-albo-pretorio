@@ -174,6 +174,10 @@ final class DatiAtto {
 			$mancanti['albo_manca_data_adozione'] = __( 'Manca la data di adozione, oppure quella memorizzata non e\' una data valida.', 'albo-pretorio-pa' );
 		}
 
+		if ( null === DocumentiAtto::principale( $atto_id ) ) {
+			$mancanti['albo_manca_documento_principale'] = __( 'Manca il documento principale dell\'atto.', 'albo-pretorio-pa' );
+		}
+
 		return $mancanti;
 	}
 
