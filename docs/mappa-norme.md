@@ -791,6 +791,24 @@ Questa è la parte che la tabella per requisito non può mostrare. Ogni voce dic
 e quanto è solida: **buco** vuol dire che l'obbligo esiste ed è scoperto, **da verificare**
 vuol dire che la fonte va letta prima di decidere se produce un obbligo per il componente.
 
+### Le decisioni che restano, in un posto solo
+
+Le revisioni hanno fatto emergere domande che stanno sparse nelle sezioni per norma. Qui
+sono raccolte senza aggiungere niente: ogni riga rimanda al punto del documento dove la
+domanda è argomentata, e non va letta senza quel punto. Nessuna si risolve leggendo altre
+fonti fra quelle già censite; sono scelte di perimetro o di attuazione.
+
+| Decisione | Dove è argomentata |
+|---|---|
+| Se il componente risponde dell'accessibilità delle pagine che genera, e come si divide il lavoro con il tema del sito | sezione L69 e punto 4 qui sotto |
+| Se il perimetro comprende la seconda strada della scadenza, cioè l'atto tenuto consultabile in forma deidentificata | paragrafo di GAR sull'albo, "Alla scadenza la fonte dà due strade" |
+| Come ALBO-04 distingue un termine fissato dalla norma da un periodo scelto dall'ente, visto che solo il secondo si può accorciare | sezione sul termine, "Il caso opposto esiste" |
+| Che cosa fa il sistema del periodo di pubblicazione dopo una rimozione anticipata | sezione sul termine, seconda domanda, e punto 6 qui sotto |
+| Chi è titolare di che cosa quando un ente pubblica sull'albo di un altro | sezione COD, comma 2 dell'art. 2-ter, e sezione TUEL |
+| Se e come il componente chiede all'ente di indicare il proprio regolamento sui dati sensibili e giudiziari | paragrafo di GAR sull'albo, riga senza requisito |
+| Se il componente ha un ruolo contro la decontestualizzazione, cioè nei dati di contesto dentro il documento | paragrafo di GAR sull'albo, "Il paragrafo 2.d contiene due obblighi" |
+| Quali modalità fissa il decreto richiamato dal comma 2 dell'art. 32, per le amministrazioni che vi sono tenute | sezione L69: è l'unica riga che dipende da un testo non letto |
+
 1. **Versione oscurata e corrispondenza con l'atto adottato, buco.** Gli atti pubblicati
    sono di norma firmati digitalmente, ma apporre o verificare una firma non è compito del
    componente: la firma è un atto dell'ente e resta fuori dal sistema. Il punto scoperto è
@@ -1022,6 +1040,15 @@ Il quarto è un errore che il documento si portava dalla prima stesura: il comma
 124 riguarda gli enti locali diversi dai comuni **e dalle province**, perché il comma 1
 nomina entrambi. Scritto "diversi dai comuni", includeva le province fra gli enti che
 pubblicano sull'albo di qualcun altro, il che è il contrario di quello che la norma dice.
+
+**Il settimo giro ha dato esito favorevole senza rilievi**, e le revisioni si sono chiuse lì.
+In tutto sette giri e ventinove rilievi, accolti tutti, più due passate dirette sulle fonti
+che hanno trovato due cose che nessun giro aveva segnalato. Il revisore ha giudicato
+difendibili e adeguatamente dichiarate le letture che restano personali, cioè il confronto
+fra dieci e quindici giorni, il senso di "termini" nell'art. 32 e l'esclusione delle altre
+categorie di dati dal divieto dell'art. 2-septies, e ha scelto di non trasformare le residue
+differenze di lettura in rilievi. Questo non rende il documento un parere legale: dice che
+le affermazioni che contiene sono sostenute dai testi allegati, o dichiarano di non esserlo.
 
 **Due avvertenze sul metodo.** La prima: Normattiva non risponde agli strumenti di questa
 sessione, quindi i cinque articoli di legge letti sono arrivati in copia, incollati dal
