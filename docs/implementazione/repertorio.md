@@ -141,8 +141,9 @@ non deve comparire, e l'indirizzo della schermata aperto a mano deve negare l'ac
 
 **Le prove.** Ottantasette prove nella suite principale, undici nuove, più le due suite
 separate senza meccanismo comune e con meccanismo comune incompatibile, tutte verdi in
-locale su WordPress 6.5 con MariaDB. PHPCS pulito. Il verdetto che vale è quello della
-verifica continua sul commit di punta, che gira su MySQL 8.
+locale su WordPress 6.5 con MariaDB. PHPCS pulito. In verifica continua, sul commit a9b79db,
+verdi le stesse suite su MySQL 8 con WordPress 6.5 e PHP 8.1 e con l'ultima WordPress e PHP 8.3,
+prova di concorrenza compresa.
 
 **Cosa è cambiato rispetto al piano.** Tre cose. La prima: la dichiarazione è rifiutata in
 ogni anno successivo al primo, **anche prima** del suo primo numero; il piano lo diceva
