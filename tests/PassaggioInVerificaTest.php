@@ -803,6 +803,69 @@ class PassaggioInVerificaTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-89, seconda meta': il fermo annullato da un altro componente.
+	 *
+	 * Il fermo di ogni scrittura e' la prima difesa. Se un altro componente lo
+	 * annulla, restano le due difese dietro: la riga dell'atto riscritta com'era
+	 * e i riquadri che salvano solo in bozza. Qui si provano quelle due, con un
+	 * aggancio agganciato dopo il nostro che fa riprendere la scrittura.
+	 */
+	public function test_a89_fermo_annullato_da_un_altro_componente(): void {
+		$this->setExpectedIncorrectUsage( 'wp_insert_post' );
+
+		$id        = $this->atto_in_verifica();
+		$ulteriore = DocumentiAtto::ulteriori( $id )[0];
+		$foto      = $this->fotografia( $id );
+		$annulla   = static function () {
+			return false;
+		};
+
+		add_filter( 'wp_insert_post_empty_content', $annulla, PHP_INT_MAX );
+
+		$scritti_prima = count( $this->scritti );
+
+		wp_set_current_user( $this->redattore );
+
+		try {
+			wp_update_post(
+				array(
+					'ID'           => $id,
+					'post_title'   => 'Oggetto cambiato',
+					'post_content' => 'Testo cambiato',
+					'post_status'  => 'draft',
+				)
+			);
+			$this->invia(
+				$id,
+				$this->riquadro_dati(
+					$id,
+					array(
+						SchedaAtto::CAMPO_TIPO   => (string) $this->voci['altro'],
+						SchedaAtto::CAMPO_ORGANO => (string) $this->voci['altro2'],
+						SchedaAtto::CAMPO_DATA   => '2026-01-01',
+					)
+				) + array( 'post_title' => 'Oggetto cambiato' )
+			);
+			$this->invia(
+				$id,
+				array(
+					SchedaDocumenti::CAMPO_GETTONE => wp_create_nonce( SchedaDocumenti::azione( $id ) ),
+					SchedaDocumenti::CAMPO_TOGLI   => array( (string) $ulteriore ),
+				)
+			);
+		} finally {
+			remove_filter( 'wp_insert_post_empty_content', $annulla, PHP_INT_MAX );
+		}
+
+		$stati = array_values( array_unique( array_column( array_slice( $this->scritti, $scritti_prima ), 'stato' ) ) );
+
+		$this->assertNotSame( array(), $stati, 'Precondizione: con il fermo annullato le scritture arrivano davvero alla tabella.' );
+		$this->assertSame( array( 'pending' ), $stati, 'Lo stato scritto resta in verifica.' );
+		$this->assertSame( $foto, $this->fotografia( $id ), 'Niente cambia anche con il fermo annullato.' );
+		$this->assertNotSame( array(), SchedaAtto::preleva_rifiuto( $id ), 'Il riquadro dei dati spiega il rifiuto.' );
+	}
+
+	/**
 	 * A-90: in questa parte un atto in verifica non esce dalla verifica, e non si cestina.
 	 */
 	public function test_a90_nessuna_uscita_dalla_verifica(): void {
