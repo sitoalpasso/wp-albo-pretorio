@@ -30,10 +30,16 @@ controllo segnalerà il suo stallo, ma la visibilità pubblica non dipenderà ma
 **L'atto.** Tipo di contenuto dedicato, con i suoi dati, un documento principale e
 allegati ulteriori facoltativi. Una bozza si potrà salvare incompleta; **la data di fine
 pubblicazione sarà richiesta per pubblicare**, e non esisterà l'atto pubblicato a tempo
-indeterminato. La durata sarà configurabile per tipo di atto, senza durate cablate nel
-codice e senza valori predefiniti silenziosi.
+indeterminato. La **data di inizio** non si sceglie: la scrive il sistema quando l'atto
+diventa pubblico, e la pubblicazione non si programma. La durata sarà configurabile per tipo di atto, senza durate cablate nel
+codice e senza valori predefiniti silenziosi, e ogni durata dichiarerà da dove viene, se da una
+norma o da una scelta dell'amministrazione: un termine prescritto da una norma non si
+accorcia, un periodo che l'amministrazione si è data va valutato sul singolo atto prima di
+pubblicarlo.
 
-**Le regole che non si negoziano.** Immodificabilità dell'atto pubblicato, esclusione
+**Le regole che non si negoziano.** Immodificabilità dell'atto pubblicato, con un'unica
+eccezione dichiarata, cioè la sostituzione di un allegato con la sua versione oscurata, che
+toglie informazione e non ne aggiunge e non fa ripartire il termine; esclusione
 dall'indicizzazione dei motori di ricerca (per questo componente è la politica imposta, non
 un'opzione), separazione dagli obblighi di pubblicazione del d.lgs. 33/2013, con finalità,
 durate e cicli di vita distinti.
@@ -70,7 +76,7 @@ fonte e criterio di verifica per ciascuno, è in [`docs/requisiti.md`](docs/requ
 
 **Non è un elenco completo, e il documento lo dichiara.** ALBO-07 e ALBO-08 sono ipotesi da
 confermare contro il regolamento dell'amministrazione. ALBO-22, che riguarda gli stati
-dell'atto e il flusso di pubblicazione, è stato deciso il 2026-09-21 e quattro sue
+dell'atto e il flusso di pubblicazione, è stato deciso il 2026-09-21 e tre sue
 sotto-decisioni restano aperte, marcate come tali. La colonna Stato dice a che punto è ciascun requisito:
 oggi sono chiusi i quattro sui permessi e sul ruolo proprio, tutti gli altri sono da fare.
 

@@ -1,7 +1,7 @@
 # Requisiti: cosa deve fare l'albo pretorio
 
 Questo documento spiega in linguaggio semplice cosa il plugin deve fare e perché. Ogni
-requisito ha un identificativo (ALBO-01 fino ad ALBO-26): è lo stesso usato nei test, nei
+requisito ha un identificativo (ALBO-01 fino ad ALBO-27): è lo stesso usato nei test, nei
 commit e nelle discussioni, così si può sempre risalire dal codice al motivo per cui
 esiste. In fondo c'è il **catalogo corrente dei requisiti**, con le fonti normative e le
 decisioni aperte marcate esplicitamente. Non è una specifica completa e non lo sarà finché
@@ -30,7 +30,10 @@ nessuno se ne ricorda, anche se il sito non riceve visite.
 Un atto non è un PDF buttato in una pagina: è una scheda con i suoi dati (tipo, oggetto,
 organo che l'ha adottato, data di adozione, data di inizio e di fine pubblicazione) più il
 **documento principale**, che è uno e uno solo, e gli **allegati ulteriori**, che sono
-facoltativi e possono non esserci affatto (ALBO-01).
+facoltativi e possono non esserci affatto (ALBO-01). Delle due date nessuna si
+sceglie: le scrive il sistema nel momento in cui l'atto diventa pubblico, l'inizio come
+istante della pubblicazione e la fine come inizio più durata applicabile (ALBO-27). Ciò che
+chi compila fornisce, quando gli è consentito, è una durata, non una data.
 
 **Salvare e pubblicare sono due momenti diversi, e il requisito vale sul secondo.** Una
 bozza si salva anche incompleta: è così che si lavora a un atto prima di avere tutti i
@@ -41,8 +44,11 @@ compila: lo assegna il sistema alla prima pubblicazione (ALBO-08), quindi preten
 del salvataggio sarebbe una richiesta impossibile da soddisfare.
 
 **La data di fine è obbligatoria per pubblicare** e non esiste l'atto pubblicato "per
-sempre" (ALBO-02), perché è il caso sanzionato dal Garante. In bozza può mancare, perché una
-bozza non è esposta a nessuno.
+sempre" (ALBO-02), perché è il caso sanzionato dal Garante. Obbligatoria vuol dire
+calcolabile: un atto per cui il sistema non può scrivere una fine, perché il tipo non ha
+una durata e l'atto non ne porta una propria, non si pubblica, e fornire una data a mano non
+supplisce. In bozza la fine non esiste ancora, perché una bozza non è esposta a nessuno e
+l'inizio da cui la fine si calcola non è ancora scritto.
 
 ### La scadenza, su tre strati (ALBO-03, ALBO-18, ALBO-19, ALBO-20, ALBO-21)
 
@@ -101,7 +107,13 @@ questo la politica di indicizzazione è un parametro dichiarato, mai un default.
   decisione se pagarla non è nostra.
 - Un atto pubblicato è **immodificabile**: una rettifica è un atto nuovo che rinvia al
   precedente, mai una correzione silenziosa (ALBO-09). La cancellazione di un atto
-  pubblicato è vietata per tutti, amministratore compreso.
+  pubblicato è vietata per tutti, amministratore compreso. **Esiste una sola eccezione**,
+  decisa il 2026-09-22 e descritta in ALBO-12: la sostituzione di un allegato con la sua
+  versione oscurata, che toglie informazione e non ne aggiunge, non fa ripartire il termine
+  e non cambia il numero di repertorio. Che il termine non riparta è una scelta di prodotto,
+  non una conseguenza dei testi, che su questo punto tacciono. Serve a un caso che la norma
+  non lascia aperto, cioè un atto già esposto che diffonde dati che non potevano essere
+  diffusi.
 - Ogni operazione rilevante finisce nel **log**: chi ha pubblicato, quando, chi ha
   disposto una defissione anticipata e perché (ALBO-10).
 
@@ -117,6 +129,34 @@ pubblicare una **versione oscurata** dell'atto tenendo l'originale integro fuori
 vista pubblica (ALBO-12). La valutazione su cosa pubblicare resta dell'ente: il plugin
 fornisce il passaggio obbligato, non la decisione.
 
+**Quando l'oscuramento arriva tardi.** Il caso in cui un atto è già esposto e diffonde dati
+che non potevano essere diffusi non si risolve né lasciandolo lì né togliendolo: l'art.
+2-septies comma 8 del d.lgs. 196/2003 vieta in modo assoluto la diffusione dei dati
+genetici, biometrici e relativi alla salute, ma l'obbligo di pubblicare quell'atto non
+sparisce per questo, e toglierlo per ripubblicarlo corretto farebbe ripartire il termine e
+cambiare il numero di repertorio, cioè guasterebbe un adempimento per rimediare a un altro.
+La strada decisa il 2026-09-22 è quindi la **sostituzione dell'allegato con la sua versione
+oscurata**, a termine che continua a correre: è l'unica eccezione all'immodificabilità di
+ALBO-09, vale solo per oscurare e non per cambiare il contenuto, ed è registrata con le
+impronte di tutte e due le versioni.
+
+Di questa strada una metà viene dai testi e l'altra no, e la distinzione va tenuta. Dai testi
+viene che la diffusione vietata deve cessare. Che il periodo di pubblicazione continui a
+correre dopo l'oscuramento **non lo dice nessuna fonte**: le fonti su questo tacciono, e il
+componente sceglie la lettura che non guasta l'adempimento, cioè lasciare correre il termine
+già fissato. È quindi una scelta di prodotto, registrata come tale, e un'amministrazione che
+leggesse diversamente prende la propria determinazione e la fa registrare: il sistema non
+decide da sé che il termine è compiuto.
+
+Va detto con chiarezza che cosa il componente può garantire di questa regola e che cosa no.
+**Può** pretendere che la sostituzione sia dichiarata come oscuramento e non come modifica,
+rifiutare ogni altra causa, conservare l'impronta del file uscente e di quello entrante,
+registrare chi l'ha disposta e quando, lasciare intatti repertorio e date, e far sì che il
+referto dica quale file era esposto in quale periodo. **Non può** verificare che il file
+entrante sia davvero la versione oscurata di quello uscente: due PDF diversi restano due
+PDF diversi anche per il computer più attento. Quella responsabilità è di chi dispone la
+sostituzione, ed è la ragione per cui l'operazione è tracciata invece che impedita.
+
 ### Accessibilità (ALBO-13, ALBO-14)
 
 I PDF pubblicati devono essere leggibili dalle tecnologie assistive: al caricamento il
@@ -125,16 +165,40 @@ l'avviso è dichiarato come indizio, la pubblicazione resta possibile. Ed è vie
 misura anti copia che renda l'atto illeggibile a chi usa un lettore di schermo
 (ALBO-14).
 
+Una precisazione su chi risponde di che cosa. L'obbligo di accessibilità grava
+sull'amministrazione che pubblica, non sul programma: che il componente se ne faccia carico
+sulle pagine che genera è una scelta di prodotto, non una conseguenza della norma. E che una
+pubblicazione non accessibile sia per ciò solo invalida non lo dice nessun testo: è una
+responsabilità che pesa sulla valutazione di chi dirige, non un vizio dell'atto.
+
 ### Il resto (ALBO-04, ALBO-07, ALBO-15, ALBO-16, ALBO-17)
 
 - **Durate configurabili per tipo di atto, senza default** (ALBO-04): i quindici giorni
   dell'art. 124 del TUEL valgono per le deliberazioni di comuni e province, non per
   tutti gli enti e non per tutti gli atti. Nel codice non esiste la costante 15: ogni
   tipo di atto ha la sua durata in configurazione, e un tipo senza durata non si
-  pubblica.
+  pubblica. Ogni durata configurata dichiara inoltre **da dove viene**, se da una norma
+  o da una scelta dell'amministrazione, e la dichiarazione è obbligatoria quanto il
+  numero di giorni: è ciò che permette al componente di sapere quale delle due regole
+  ha davanti, perché una durata prescritta da una norma non si accorcia, mentre una che
+  l'amministrazione si è data è un massimale che va valutato caso per caso sul singolo
+  atto. Quando l'origine è una norma, la configurazione ne porta gli estremi, così che
+  la scelta sia verificabile da chi legge e non solo dichiarata. La valutazione sul
+  singolo atto si esprime come **durata propria dell'atto**, in giorni, più breve di
+  quella del tipo e con motivazione registrata: non come una data, perché la data di fine
+  la scrive il sistema alla pubblicazione (ALBO-27). La scrive solo chi possiede il
+  permesso di pubblicare, solo in bozza, e alla pubblicazione si riverifica contro la
+  configurazione di quel momento; il contratto completo è in `dati.md`. Che una durata
+  più lunga di quella configurata non sia ammessa in nessuno dei due casi è una scelta di
+  prodotto: la fonte chiede di non superare il periodo necessario valutato sul caso
+  concreto, e non dice che il numero configurato per tipo sia un tetto; il tetto lo decide
+  il componente.
 - **Referto di pubblicazione** (ALBO-07), *da confermare come sopra*: alla defissione il sistema scatta una
   fotografia immutabile (numero, date effettive, impronta del file, chi ha pubblicato)
-  che attesta cosa è stato esposto e quando. Si congela, non si rigenera.
+  che attesta cosa è stato esposto e quando. Si congela, non si rigenera. Dopo una
+  defissione anticipata la fotografia dice anche se l'amministrazione ha dichiarato che
+  cosa la rimozione comporti per l'adempimento; se lo dichiara dopo, la dichiarazione si
+  aggiunge come appendice congelata a sé, con chi e quando, e non riscrive la fotografia.
 - **Separazione dalla trasparenza** (ALBO-15): stesso documento, due esposizioni con
   cicli di vita indipendenti, file mai duplicato.
 - **Ricerca e filtri** (ALBO-16) per tipo, organo, date e testo, usabili da tastiera.
@@ -165,17 +229,17 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ID | Stato | In una riga | Fonte principale |
 |---|---|---|---|
 | ALBO-01 | da fare | Scheda atto: dati, documento principale `[1..1]`, allegati ulteriori `[0..n]`. La bozza si salva incompleta, la pubblicazione no | **norma** l'atto pubblicato dev'essere identificabile e completo dei suoi estremi (l. 69/2009 art. 32). **Prodotto** l'elenco preciso dei campi e la separazione fra salvataggio e pubblicazione |
-| ALBO-02 | da fare | Data di fine **obbligatoria per pubblicare**. In bozza può mancare | **norma** nessuna pubblicazione a tempo indeterminato (Garante, provv. marzo 2026). **Prodotto** la data come dato che il sistema pretende al passaggio a pubblicato |
+| ALBO-02 | da fare | Data di fine **obbligatoria per pubblicare**, cioè calcolabile da inizio più durata applicabile. In bozza non esiste ancora | **norma** nessuna pubblicazione a tempo indeterminato (Garante, provv. marzo 2026). **Prodotto** la data come valore che il sistema scrive al passaggio a pubblicato e che nessuno fornisce a mano |
 | ALBO-03 | da fare | L'atto scaduto smette di essere pubblico tempestivamente | **norma** il risultato, senza dipendere dal traffico del sito (Garante). **Prodotto** i tre strati, cron esterno, filtro e battito: architettura nostra, non un obbligo |
-| ALBO-04 | da fare | Durate per tipo di atto, configurabili, senza default | **norma** l'esistenza di una durata (TUEL art. 124, valido per comuni e province, non universale). **Prodotto** la configurabilità per tipo. **Da confermare** le durate dei singoli tipi, che dipendono dal regolamento |
+| ALBO-04 | da fare | Durate per tipo di atto, configurabili, senza default, **ciascuna con l'origine dichiarata**: norma, con i suoi estremi, oppure scelta dell'amministrazione | **norma** l'esistenza di una durata (TUEL art. 124, valido per comuni e province, non universale), e la distinzione fra termine prescritto e periodo scelto dall'amministrazione, che il Garante vuole valutato caso per caso. **Prodotto** la configurabilità per tipo e la forma in cui l'origine è dichiarata, decisa il 2026-09-22. **Da confermare** le durate dei singoli tipi, che dipendono dal regolamento |
 | ALBO-05 | da fare | L'atto defisso esce dalla vista pubblica | **norma** il risultato (Garante, provvedimenti). **Prodotto** la politica `irraggiungibile` dichiarata al meccanismo comune |
 | ALBO-06 | da fare | Le pagine dell'atto non vengono indicizzate | **norma** il risultato (Garante, che raccomanda i metatag). **Prodotto** `noindex`, esclusione dalla mappa e politica dichiarata |
 | ALBO-07 | da fare | Referto di pubblicazione congelato | **da confermare**: la prassi non è una fonte. Contenuto e obbligatorietà vanno verificati contro il regolamento, e l'unità è bloccata da quella conferma |
 | ALBO-08 | da fare | Repertorio progressivo annuale, assegnato dal sistema. Unico, progressivo, assegnato una sola volta, mai riutilizzato | **da confermare**: la prassi non è una fonte. L'assenza assoluta di buchi non è promessa e dipende dal regolamento. L'unità è bloccata da quella conferma |
-| ALBO-09 | da fare | Integrità del documento pubblicato | **norma** il risultato (linee guida AgID doc. informatici). **Prodotto** immodificabilità assoluta e rettifica come atto nuovo |
+| ALBO-09 | da fare | Integrità del documento pubblicato | **norma** il risultato (linee guida AgID doc. informatici). **Prodotto** immodificabilità e rettifica come atto nuovo, con **un'unica eccezione dichiarata**, la sostituzione per oscuramento di ALBO-12 |
 | ALBO-10 | da fare | Tracciabilità delle operazioni sugli atti | **norma** responsabilizzazione e tracciabilità (GDPR art. 5). **Prodotto** il registro solo in aggiunta del meccanismo comune è la soluzione scelta, non l'unica |
 | ALBO-11 | da fare | Liceità del trattamento dei dati particolari | **norma** il risultato (d.lgs. 196/2003 artt. 2-ter, 2-septies). **Prodotto** il passaggio obbligato con conferma esplicita |
-| ALBO-12 | da fare | I dati eccedenti non finiscono nella versione pubblica | **norma** minimizzazione, l'originale non va esposto (GDPR art. 5.1.c). **Prodotto** la coppia originale riservato più versione oscurata |
+| ALBO-12 | da fare | I dati eccedenti non finiscono nella versione pubblica, e se ci sono finiti si sostituisce l'allegato con la versione oscurata senza far ripartire il termine | **norma** minimizzazione, l'originale non va esposto (GDPR art. 5.1.c); divieto assoluto di diffondere dati genetici, biometrici e sulla salute (d.lgs. 196/2003 art. 2-septies c. 8). **Prodotto** la coppia originale riservato più versione oscurata, la sostituzione come unica eccezione a ALBO-09, e la scelta che il termine non riparta: i testi impongono che la diffusione vietata cessi e tacciono sull'effetto dell'oscuramento sul periodo |
 | ALBO-13 | da fare | I documenti pubblicati sono accessibili | **norma** il risultato (l. 69/2009 art. 32 che rinvia a l. 4/2004 art. 11). **Prodotto** l'avviso euristico al caricamento, che segnala un indizio e non blocca |
 | ALBO-14 | da fare | Niente anti copia che rompa l'accessibilità | **norma** l'accessibilità non si comprime per ostacolare il prelievo (Garante, l. 4/2004) |
 | ALBO-15 | da fare | Separazione dall'amministrazione trasparente | **norma** finalità e durate diverse (d.lgs. 33/2013, Garante). **Prodotto** due esposizioni indipendenti con un file solo |
@@ -185,7 +249,8 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-19 | da fare | Battito di controllo con avviso | **prodotto**, motivato dal guasto silenzioso sanzionato nel provv. Garante marzo 2026 |
 | ALBO-20 | da fare | L'atto defisso non viene più servito a nessuno | **norma** il risultato (Garante). **Prodotto** esclusione dalla memoria di pagina oppure invalidazione immediata: due strade, la scelta è nostra |
 | ALBO-21 | da fare | Scadenza sull'ora civile italiana | **prodotto**: correttezza tecnica, nessuna fonte esterna |
-| ALBO-22 | da fare | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto**, decisione chiusa il 2026-09-21: la tabella delle transizioni è nella nota qui sotto. Quattro sotto-decisioni restano aperte e non bloccano l'unità, e la quarta riguarda le cause che legittimano la defissione anticipata |
+| ALBO-22 | da fare | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto**, decisione chiusa il 2026-09-21: la tabella delle transizioni è nella nota qui sotto. Quattro sotto-decisioni ne sono seguite, di cui **tre restano aperte** e nessuna blocca l'unità; la quarta, sulle cause che legittimano la defissione anticipata, è chiusa il 2026-09-22 |
+| ALBO-27 | da fare | **La pubblicazione non si programma.** La data di inizio la scrive il sistema al passaggio a pubblicato, non è modificabile e non può stare nel futuro; nello stesso istante scrive la data di fine come inizio più durata applicabile, così che nessun valore calcolato prima della pubblicazione possa accorciare il periodo | **prodotto**, deciso il 2026-09-22. L'albo sostituisce la bacheca di carta, dove programmare non era possibile. Se un'amministrazione lo chiederà, si costruirà allora |
 | ALBO-23 | fatto | All'attivazione l'insieme minimo di permessi sul tipo atto arriva all'amministratore | **prodotto** |
 | ALBO-24 | fatto | A ogni aggiornamento i permessi nuovi arrivano ai ruoli che avevano già gli altri | **prodotto** |
 | ALBO-25 | fatto | Se nessun ruolo possiede i permessi del tipo atto, l'amministrazione lo segnala | **prodotto** |
@@ -211,7 +276,7 @@ Fino al 2026-09-11 questa colonna aveva una categoria sola, e formule come "pras
 pubblicità legale" o "operativo" stavano accanto al GDPR: facevano sembrare obblighi di legge
 delle decisioni progettuali nostre.
 
-### Nota su ALBO-22: la decisione, e le quattro sotto-decisioni che restano aperte
+### Nota su ALBO-22: la decisione, e le sotto-decisioni che ne sono seguite
 
 Era una decisione presa a metà, ed è stata chiusa il **2026-09-21**, prima di aprire l'unità
 che costruisce il flusso di pubblicazione e non insieme a essa. Il motivo dell'ordine resta
@@ -246,7 +311,7 @@ nasce dai provvedimenti del Garante del marzo 2026.
 |---|---|---|---|
 | (nuovo) | bozza | chi redige | nessuna: la bozza si salva incompleta |
 | bozza | bozza | chi redige | nessuna |
-| bozza | in verifica | chi redige | devono esserci tutti i dati che la pubblicazione pretende, data di fine compresa (ALBO-01, ALBO-02) |
+| bozza | in verifica | chi redige | devono esserci tutti i dati che la pubblicazione pretende, durata applicabile compresa, cioè quella del tipo o quella propria dell'atto (ALBO-01, ALBO-02, ALBO-04). Le due date no: le scrive il sistema alla pubblicazione (ALBO-27) |
 | in verifica | bozza | chi pubblica | motivazione obbligatoria, che finisce nel registro (ALBO-10). L'atto torna modificabile |
 | in verifica | pubblicato | chi pubblica | conferma esplicita del controllo sui dati personali (ALBO-11). Tutto o niente |
 | pubblicato | defisso | il compito pianificato | alla scadenza. È una registrazione, non un interruttore: vedi il vincolo più sotto |
@@ -314,9 +379,10 @@ La data di fine pianificata non va perduta: la modifica finisce nel registro del
 discende un vincolo che l'unità del referto eredita: il referto di pubblicazione (ALBO-07)
 attesta il periodo effettivamente compiuto, e dopo una defissione anticipata quel periodo non
 coincide più con la data di fine memorizzata. Il referto va quindi costruito sul registro e
-non sul metadato.
+non sul metadato, e dal registro prende anche la dichiarazione dell'amministrazione su che
+cosa la rimozione comporti per l'adempimento, quando c'è.
 
-#### Quattro sotto-decisioni restano aperte, e non bloccano l'unità
+#### Quattro sotto-decisioni, di cui tre restano aperte, e nessuna blocca l'unità
 
 1. **Un atto annullato prima della scadenza resta visibile al pubblico, con lo stato
    dichiarato?** Negli albi la pubblicazione dell'annullamento ha una sua funzione
@@ -334,52 +400,140 @@ non sul metadato.
    perché fra le due direzioni sbaglia in quella che toglie l'atto dalla vista invece che
    lasciarcelo.
 
-4. **Quali cause legittimano la defissione anticipata.** Va scritto qui perché nessun'altra
-   riga di questo documento lo dice: **nessun requisito da ALBO-01 a ALBO-26 chiede la
-   defissione anticipata**, e la fonte di ALBO-22 è "prodotto". La transizione è entrata
-   disegnando la macchina degli stati, non perché una norma la reclami.
+4. **Quali cause legittimano la defissione anticipata. Chiusa il 2026-09-22.** Va scritto
+   qui perché nessun'altra riga di questo documento lo dice: **nessun requisito del
+   catalogo chiede la defissione anticipata**, e la fonte di ALBO-22 è "prodotto". La
+   transizione è entrata disegnando la macchina degli stati, non perché una norma la
+   reclami.
 
    La domanda è stata portata alla lettura delle fonti, che ha risposto il 2026-09-22, e la
    risposta cambia la forma della transizione invece di limitarsi a nominarne il titolare.
    **Accorciare la pubblicazione di un atto regolare non è una funzione che il componente
-   offre.** L'art. 124 del TUEL prescrive per le deliberazioni degli enti locali quindici
+   offre**, e la frase vale per un solo tipo di durata, cioè quando il termine è fissato
+   dalla disciplina applicabile all'atto. L'art. 124 del TUEL prescrive per le deliberazioni
+   degli enti locali quindici
    giorni **consecutivi**, e intesta a "specifiche disposizioni di legge", cioè a un'altra
    norma e non all'amministrazione che pubblica, la facoltà di fissare un termine diverso.
-   L'art. 32 della legge 69/2009 parla di obblighi che **si intendono assolti** con la
-   pubblicazione, e un adempimento interrotto a metà non è assolto. La regola
-   dell'oscuramento prima del termine appartiene al regime della trasparenza e al suo arco
-   di cinque anni, che il Garante esclude espressamente per l'albo.
+   L'art. 32 della legge 69/2009 lega l'assolvimento degli obblighi alla pubblicazione, ma
+   che cosa valga una pubblicazione interrotta non lo dice: è la valutazione che il
+   componente lascia all'amministrazione (più sotto, decisione del 2026-09-23). Il divieto
+   di accorciare un termine prescritto regge sull'art. 124, non su questo. Allo stesso
+   divieto si era appoggiata anche la regola dell'oscuramento prima del termine, letta come
+   regola propria del regime della trasparenza e del suo arco di cinque anni. Quell'appoggio è stato ridimensionato il 2026-09-22: al
+   paragrafo 7 il Garante motiva con la proporzionalità, che è un principio generale e non un
+   calendario, quindi la questione resta aperta e l'argomento non porta peso. La conclusione
+   regge sull'art. 124, non su questo.
 
    Restano pacifiche le rimozioni anticipate che **non accorciano il termine**, perché
    tolgono dalla vista una pubblicazione che in quella forma non doveva esserci: dati idonei
    a rivelare lo stato di salute, quando il documento non è oscurabile; pubblicazione priva
    di una norma che prescriva l'affissione di quell'atto, dove un termine non era mai
-   cominciato; ordine di un'autorità. Il caso dei dati eccedenti **non è una rimozione**: si
-   sostituisce il file con la versione oscurata e il termine continua a correre, ed è
-   ALBO-12, non una transizione di questa tabella. Resta fuori dall'elenco, ed è bene che
-   resti fuori, la richiesta dell'interessato su un atto pubblicato legittimamente e con
-   dati pertinenti: quel bilanciamento lo fa l'amministrazione con il proprio responsabile
-   della protezione dei dati, e il componente registra la decisione e chi l'ha presa
-   (ALBO-10).
+   cominciato; dati inesatti o non aggiornati, perché l'amministrazione mette a disposizione
+   soltanto dati esatti e aggiornati, e un dato può essere pertinente, necessario, coperto da
+   una base normativa e insieme sbagliato; ordine di un'autorità. Il caso dei dati eccedenti
+   **non è una rimozione**: si sostituisce il file con la versione oscurata e il termine
+   continua a correre, ed è ALBO-12, non una transizione di questa tabella. Resta fuori
+   dall'elenco, ed è bene che resti fuori, la richiesta dell'interessato che **non porti con sé
+   nessuna delle cause ammesse**, cioè su dati pertinenti, esatti e aggiornati: quel
+   bilanciamento lo fa l'amministrazione con il proprio responsabile della protezione dei dati,
+   e il componente registra la decisione e chi l'ha presa (ALBO-10). Da chi arrivi la
+   segnalazione non cambia niente: se l'interessato segnala un dato inesatto o non aggiornato,
+   la causa è quella e sta nell'elenco, perché a legittimare la rimozione è il difetto del
+   dato e non la via per cui se ne è venuti a conoscenza.
 
-   **La forma provvisoria da tenere è quindi questa**: la transizione da pubblicato a
-   defisso resta una sola, il motivo non è testo libero ma una causa scelta fra quelle
-   dell'elenco, e nessuna maschera consente di accorciare il termine di un atto regolare
-   come normale operazione di redazione. La sotto-decisione resta aperta perché la risposta
-   è prudente e non definitiva: l'art. 124 è letto nella citazione che ne fa un documento
-   del 2014, quindi una modifica successiva non si vedrebbe, e l'art. 134 del TUEL
-   sull'esecutività delle deliberazioni, che trasformerebbe la durata in un meccanismo con
-   effetti propri, non è ancora stato letto.
+   **Che natura ha questo elenco.** È un elenco di cause pacifiche, cioè di casi che i testi
+   letti sostengono senza discussione, e non un elenco tassativo: dire che altre cause non
+   possano esistere non lo dice nessuna fonte, e la quinta voce è arrivata dopo le altre
+   quattro proprio perché mancava. Che nel componente l'elenco resti **chiuso** è quindi una
+   scelta di prodotto, ampliabile per configurazione senza toccare il codice, e vale finché
+   qualcuno non chiede il contrario: serve a impedire che "accorciare il termine" rientri
+   dalla porta di servizio come motivazione scritta a mano.
+
+   **La forma da tenere è quindi questa**: la transizione da pubblicato a defisso resta una
+   sola, il motivo non è testo libero ma una causa scelta fra quelle dell'elenco, e nessuna
+   maschera consente di accorciare il termine di un atto regolare come normale operazione di
+   redazione.
+
+   **Che cosa comporta la rimozione per l'adempimento. Decisa il 2026-09-23.** I testi
+   impongono che la diffusione vietata cessi, e su che cosa ne sia della pubblicazione
+   tacciono: se valga per i giorni trascorsi o vada rifatta non lo dice nessuna fonte letta.
+   Il componente quindi **non lo calcola e non lo presume, lo chiede all'amministrazione e lo
+   registra**. La dichiarazione è una scelta fra due valori, "la pubblicazione vale per il
+   periodo trascorso" e "la pubblicazione va rifatta", senza valore preselezionato, perché
+   un valore proposto dal programma sarebbe una valutazione presa al posto di chi deve
+   prenderla. **La rimozione non la aspetta**: la diffusione vietata cessa subito, e la
+   dichiarazione si rende insieme alla defissione anticipata oppure dopo, una volta sola, da
+   chi possiede il permesso di disporre la defissione. Finché manca, il referto (ALBO-07) dice
+   che non è stata resa, invece di supplire; resa dopo che il referto è stato congelato, vi si
+   aggiunge come appendice e non lo riscrive. Nessuno dei due valori cambia date, stato,
+   numero di repertorio o visibilità, e "va rifatta" non crea da sé un atto nuovo: la nuova
+   pubblicazione è un atto nuovo, con il suo numero e il suo termine. La dichiarazione esiste
+   solo dopo una defissione anticipata: non dopo la scadenza naturale, dove il termine si è
+   compiuto, né dopo una sola sostituzione per oscuramento, dove il conteggio non riparte per
+   scelta di prodotto (ALBO-12). Si lega **all'evento** della defissione anticipata registrato,
+   non allo stato del momento: resta quindi possibile anche se l'atto viene poi annullato, e
+   il compito pianificato, che porta a defisso solo gli atti ancora pubblicati, non la tocca.
+   Il permesso è quello di disporre la defissione, non quello di pubblicare, e non si chiede
+   un perché: la dichiarazione è essa stessa la risposta. Se un giorno si decidesse che un
+   atto annullato esce dalla vista (sotto-decisione 1), la stessa domanda si porrebbe anche
+   per l'annullamento.
+
+   **Il caso opposto esiste e non va confuso con questo.** Dove la norma un termine non lo
+   fissa, il periodo lo individua l'amministrazione, e il Garante dice che quel periodo non
+   può superare quello ritenuto necessario, valutato caso per caso. Lì la durata configurata
+   per il tipo di atto è un massimale che l'ente si è dato, non un termine di legge, e
+   sceglierne uno più breve **sul singolo atto, prima di pubblicarlo**, è esattamente la
+   valutazione che la fonte gli chiede. La regola in una riga: si può accorciare ciò che
+   l'ente ha scelto, non ciò che la norma ha prescritto. Riguarda la scelta motivata di una
+   **durata propria** mentre l'atto è in bozza, dalla quale il sistema calcolerà la fine
+   alla pubblicazione (ALBO-27), e non tocca nulla di quanto detto sopra, che vale a
+   pubblicazione avvenuta. **ALBO-04 porta quindi, per ogni durata configurata,
+   l'indicazione di dove viene, se da una norma o da una scelta dell'amministrazione**,
+   deciso il 2026-09-22: senza quell'indicazione il componente non saprebbe quale dei due
+   casi ha davanti, e finirebbe per vietare tutto o per permettere tutto. Una durata di
+   origine normativa porta anche gli estremi della norma, perché un'origine dichiarata e
+   non verificabile vale quanto un'origine assente.
+
+   L'art. 134 del TUEL, letto nel testo vigente il 2026-09-22, corrobora questa conclusione
+   senza però disciplinare gli effetti di un'interruzione della pubblicazione, che nessun testo
+   regola. Il comma 3 dice che le
+   deliberazioni non soggette a controllo diventano esecutive **dopo il decimo giorno dalla
+   loro pubblicazione**: la durata non è un contenitore che si svuota quando la finalità
+   sembra raggiunta, è l'orologio da cui decorre un effetto giuridico, e chi togliesse
+   l'atto al settimo giorno toglierebbe il presupposto di un termine ancora in corso. Due
+   dettagli dello stesso articolo vanno nella stessa direzione, pur senza provarla. I due
+   termini partono insieme e hanno lunghezza diversa, dieci giorni e quindici: se il termine
+   fosse un tetto da abbassare a scopo raggiunto, il decimo giorno sarebbe il taglio naturale,
+   e la legge invece lascia correre fino al quindicesimo. È un argomento difendibile e non una
+   dimostrazione, perché a che cosa servano i cinque giorni ulteriori la legge non lo dice.
+   E l'urgenza ha già la sua valvola nel comma 4, la dichiarazione di immediata
+   eseguibilità, che opera sull'efficacia dell'atto e non sulla durata della pubblicazione:
+   l'ordinamento ha previsto il caso "serve che valga subito" e vi ha risposto senza toccare
+   l'albo.
+
+   **La sotto-decisione è chiusa il 2026-09-22**, ed è chiusa nel solo modo che conta: la
+   riga di collaudo che rifiuta una defissione anticipata con una causa fuori elenco è
+   scritta, quindi la restrizione non vive più soltanto in questa nota.
+
+   Questa risposta aveva portato alla luce una contraddizione, **risolta poi lo stesso
+   2026-09-22** e qui conservata perché spiega da dove viene l'eccezione. Le fonti impongono,
+   per il caso dei dati eccedenti, che la diffusione vietata cessi, e la risposta scelta è
+   sostituire il file esposto con la versione oscurata; che il termine continui a correre è
+   invece scelta del componente, perché le fonti tacciono. Ma ALBO-09 prescriveva
+   l'immodificabilità del documento pubblicato e la rettifica come atto nuovo, e il catalogo
+   di collaudo lo verificava proprio sull'allegato di un atto pubblicato. Le due prescrizioni
+   non stavano insieme. La decisione presa è che cede ALBO-09, con **un'unica eccezione
+   dichiarata** e non con un'apertura generale: la sostituzione vale solo per oscurare, non
+   fa ripartire il termine, non cambia il numero di repertorio, ed è descritta in ALBO-12 con
+   le proprie righe di collaudo.
 
 Le prime due si chiudono guardando come si comportano albi pretorio già in esercizio, la
 seconda anche contro il regolamento dell'amministrazione. La terza si chiude quando si decide
-se il meccanismo comune debba tenere un termine più fine del giorno civile. La quarta non si
-chiude guardando la prassi e ha già una risposta prudente dalle fonti: si chiuderà quando
-saranno letti l'art. 124 nel testo vigente e l'art. 134 del TUEL. È la sola delle quattro
-che **restringe** una transizione già dichiarata invece di limitarsi a precisarne il
-titolare, e per questo la riga di collaudo che rende la restrizione esigibile, cioè il
-rifiuto di una causa fuori elenco, è una scelta di perimetro e non una rifinitura del
-catalogo.
+se il meccanismo comune debba tenere un termine più fine del giorno civile. La quarta non si è
+chiusa guardando la prassi ma sul testo vigente dell'art. 124 del TUEL, con l'art. 134 come
+argomento interpretativo e non come disciplina dell'interruzione, ed è la sola
+delle quattro che ha **ristretto** una transizione già dichiarata invece di limitarsi a
+precisarne il titolare.
 
 ### Come si legge la colonna Stato
 
