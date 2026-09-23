@@ -425,6 +425,36 @@ funzione.
 flusso di pubblicazione. Registri separati, che nessuno ha chiesto. Una sequenza senza buchi,
 che ALBO-08 non promette.
 
+## I dati dell'atto
+
+Stesso prefisso `A-`, numerazione che prosegue. Queste righe costruiscono i **dati che chi
+redige fornisce**: tipo di atto, organo, data di adozione e numero proprio, con la scheda in
+cui si compilano e la lettura che li valida. Non chiudono ALBO-01, che parla di
+pubblicazione e di documento principale: la funzione che elenca i dati mancanti la chiamerà
+il passaggio in verifica, con il flusso di pubblicazione.
+
+Dove una riga dice "invio della scheda", la prova riproduce un salvataggio vero della
+schermata dell'atto, con il gettone di sicurezza della scheda e quello della schermata, e poi
+**rilegge i dati dalla banca dati**. La "fotografia" è quella della regola 3 in testa al
+catalogo, ristretta a ciò che oggi esiste: oggetto, stato, voci dei due elenchi, i due
+metadati, e il numero delle voci in ciascun elenco.
+
+| # | Stato | Il test, in parole | Esito atteso |
+|---|---|---|---|
+| A-69 | da fare | La scheda **Dati dell'atto** su un atto nuovo e su un atto già compilato, con un tipo di atto senza durata configurata fra le voci | sull'atto nuovo i due menu **non hanno nessuna voce selezionata** e i due campi sono vuoti: un valore proposto e salvato senza guardare varrebbe come una scelta. Sull'atto compilato mostra i valori salvati. Accanto al tipo senza durata il menu dice che i suoi atti non si pubblicano, e accanto a quello con durata no. La scheda non ha campi per le date di pubblicazione, il numero di repertorio o la durata |
+| A-70 | da fare | **Il ciclo di vita dei quattro dati**: invio della scheda da chi possiede il solo permesso di redazione, con tutti e quattro validi; poi un secondo invio che li **cambia**; poi un terzo che li **toglie**. In mezzo, un salvataggio **da codice** della stessa bozza che non porta i dati della scheda | il primo li salva, e rileggendo si trovano **una sola voce** per elenco, la data nel formato del calendario e il numero proprio ripulito; il secondo li sostituisce, senza lasciare la voce vecchia accanto a quella nuova; il terzo li toglie. Il salvataggio da codice **non tocca niente**: un invio senza la scheda non è un invio vuoto. Una bozza con dati mancanti si salva in ogni passaggio (ALBO-01) |
+| A-71 | da fare | Valori sbagliati dalla scheda, **uno per volta**, ciascuno insieme agli altri tre dati validi: tipo di atto inesistente; come tipo di atto una voce dell'**elenco degli organi**; come organo una voce dell'elenco dei tipi; data impossibile (31 febbraio); data in un altro formato; data seguita da testo; data seguita da un a capo | ogni volta il dato sbagliato **resta com'era** e l'avviso di rifiuto nomina **quel** dato; gli altri tre dello stesso invio sono salvati. **Controllo positivo**: A-70, altrimenti la riga sarebbe verde con una scheda che non salva niente |
+| A-72 | da fare | [attacco] Invii della scheda con dati diversi da quelli salvati, **una condizione per volta**: senza il gettone della scheda; con un gettone falso; con il gettone di un altro atto; da un utente che possiede tutti i permessi di redazione ma **non può modificare quell'atto** perché è di un altro autore; poi, da chi redige, gli stessi dati portati come **campi personalizzati** con il nome dei due metadati | la fotografia resta **invariata** in tutti i casi. **Controllo positivo**: lo stesso invio con il gettone giusto, da chi può modificare l'atto, cambia i dati |
+| A-73 | da fare | [attacco] **Voci nuove create di passaggio.** Da chi possiede tutti i permessi di redazione e non quello di governare gli elenchi: un salvataggio dell'atto dalla schermata che porta, nel campo con cui WordPress assegna le voci, il nome di un tipo di atto e di un organo che non esistono; poi la creazione diretta di una voce da codice, con lo stesso utente | nessuna voce nuova in nessuno dei due elenchi, e l'atto non riceve quei nomi. **Controllo positivo**: chi possiede il permesso di governare gli elenchi crea una voce da codice e riesce. Senza la guardia WordPress crea la voce, perché per assegnare chiede solo il permesso di assegnare |
+| A-74 | da fare | **La lettura valida il dato letto.** Si scrivono di lato nella banca dati, un caso per volta su atti distinti: una data malformata; una data impossibile; due righe per lo stesso metadato; due tipi di atto assegnati allo stesso atto; due organi | ogni dato malformato si legge **come assente**, e l'elenco dei dati mancanti lo nomina. **Controllo positivo**: gli stessi atti con dati validi scritti nello stesso modo si leggono, altrimenti la riga sarebbe verde per una lettura che non legge niente |
+| A-75 | da fare | **L'elenco dei dati mancanti**, su atti che mancano di un dato per volta: oggetto, tipo di atto, organo, data di adozione; poi un atto con tipo di atto **senza durata** valida; poi un atto senza numero proprio | ogni volta **un solo motivo**, che nomina quel dato; il tipo senza durata è nominato come durata mancante e non come tipo mancante. L'atto senza numero proprio non ha nessun motivo: è facoltativo. **Nessun motivo nomina mai** le date di pubblicazione o il numero di repertorio, che scrive il sistema (ALBO-27, ALBO-08). **Controllo positivo**: l'atto completo ha l'elenco vuoto |
+| A-76 | da fare | Le dichiarazioni a WordPress: si leggono i due metadati dichiarati, le rotte dell'interfaccia per programmi, e la schermata dell'atto aperta da chi non lo può modificare | i due metadati sono dichiarati, **protetti**, con l'esposizione per programmi **spenta** in modo esplicito; nessuna rotta li espone; la scheda non esiste senza il permesso |
+
+**Cosa non chiudono queste righe.** Il documento principale e gli allegati, che aspettano la
+consegna protetta dei file del meccanismo comune. La durata propria dell'atto, che aspetta il
+registro delle modifiche. Il blocco dei dati quando l'atto è in verifica o pubblicato, che
+arriva con i passaggi di stato e con l'immodificabilità.
+
 ## Collaudo congiunto con la trasparenza
 
 Con entrambi i plugin attivi sullo stesso sito: le pagine dell'albo hanno noindex e sono
