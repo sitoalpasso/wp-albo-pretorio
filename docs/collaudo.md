@@ -87,7 +87,7 @@ il comportamento non c'è ancora), **fatto** (scritto e verde in CI). Un requisi
 
 | Req | Stato | Il test, in parole | Esito atteso |
 |---|---|---|---|
-| ALBO-01 | da fare | Si salva una **bozza** con dati mancanti | riesce. Controllo positivo: impedisce di soddisfare la riga seguente rifiutando tutto |
+| ALBO-01 | fatto | Si salva una **bozza** con dati mancanti | riesce. Controllo positivo: impedisce di soddisfare la riga seguente rifiutando tutto |
 | ALBO-01 | da fare | Si prova a **pubblicare** senza uno dei dati necessari, uno per volta | bloccato ogni volta, con il nome del dato che manca. **Tre dati restano fuori dall'elenco perché li scrive il sistema**: il numero di repertorio e le due date di pubblicazione, inizio e fine (ALBO-27). Chiederli al compilatore renderebbe atteso un rifiuto proprio nel caso corretto. **Controllo positivo**: un atto a cui nessuna delle due date è mai stata fornita passa in verifica e si pubblica, e **tutte e due** compaiono solo alla pubblicazione, nello stesso istante, con la fine uguale a inizio più durata applicabile |
 | ALBO-01 | da fare | Documento principale e allegati ulteriori | il principale è uno e uno solo e serve per pubblicare; gli ulteriori sono facoltativi e un atto senza nessuno di essi si pubblica |
 | ALBO-02 | da fare | Si prova a **pubblicare** un atto per cui **nessuna data di fine è calcolabile**, dai **due ingressi da cui una pubblicazione può concludersi**: schermata, inserimento e aggiornamento da codice. L'assetto va costruito, perché senza durata valida una bozza non entra nemmeno in verifica: si prepara l'atto con configurazione valida, lo si manda in verifica, si verifica che sia **in verifica** con conferma sui dati personali già data e utente che possiede il permesso di pubblicare, e **solo allora** si toglie la durata al tipo. **Controllo positivo**: ripristinata la durata, lo stesso atto si pubblica | sempre bloccato, e il rifiuto **nomina la data di fine che non si può calcolare**. La data di fine non è un dato che si fornisce: la scrive il sistema al passaggio a pubblicato, come inizio più durata applicabile (ALBO-27), quindi in bozza non esiste ancora e la sua assenza lì è lo stato normale. **La richiesta di programmazione non è fra gli ingressi di questa riga**: ALBO-27 la rifiuta comunque, quindi da lì il blocco arriverebbe per un'altra ragione e la riga sarebbe verde senza dimostrare niente sulla data di fine. **L'interfaccia per programmi non è fra gli ingressi** perché non esiste: il tipo la dichiara spenta e le sue rotte sono assenti (A-15) |
@@ -424,6 +424,36 @@ funzione.
 **Cosa non chiudono queste righe.** La chiamata dal passaggio a pubblicato, che arriva con il
 flusso di pubblicazione. Registri separati, che nessuno ha chiesto. Una sequenza senza buchi,
 che ALBO-08 non promette.
+
+## I dati dell'atto
+
+Stesso prefisso `A-`, numerazione che prosegue. Queste righe costruiscono i **dati che chi
+redige fornisce**: tipo di atto, organo, data di adozione e numero proprio, con la scheda in
+cui si compilano e la lettura che li valida. Non chiudono ALBO-01, che parla di
+pubblicazione e di documento principale: la funzione che elenca i dati mancanti la chiamerà
+il passaggio in verifica, con il flusso di pubblicazione.
+
+Dove una riga dice "invio della scheda", la prova riproduce un salvataggio vero della
+schermata dell'atto, con il gettone di sicurezza della scheda e quello della schermata, e poi
+**rilegge i dati dalla banca dati**. La "fotografia" è quella della regola 3 in testa al
+catalogo, ristretta a ciò che oggi esiste: oggetto, stato, voci dei due elenchi, i due
+metadati, e il numero delle voci in ciascun elenco.
+
+| # | Stato | Il test, in parole | Esito atteso |
+|---|---|---|---|
+| A-69 | fatto | La scheda **Dati dell'atto** su un atto nuovo e su un atto già compilato, con un tipo di atto senza durata configurata fra le voci | sull'atto nuovo i due menu **non hanno nessuna voce selezionata** e i due campi sono vuoti: un valore proposto e salvato senza guardare varrebbe come una scelta. Sull'atto compilato mostra i valori salvati. Accanto al tipo senza durata il menu dice che i suoi atti non si pubblicano, e accanto a quello con durata no. La scheda non ha campi per le date di pubblicazione, il numero di repertorio o la durata |
+| A-70 | fatto | **Il ciclo di vita dei quattro dati**: invio della scheda da chi possiede il solo permesso di redazione, con tutti e quattro validi; poi un secondo invio che li **cambia**; poi un terzo che li **toglie**. In mezzo, un salvataggio **da codice** della stessa bozza che non porta i dati della scheda, e un invio della scheda che porta **un solo campo** | il primo li salva, e rileggendo si trovano **una sola voce** per elenco, la data nel formato del calendario e il numero proprio ripulito; il secondo li sostituisce, senza lasciare la voce vecchia accanto a quella nuova; il terzo li toglie. Il salvataggio da codice **non tocca niente**: un invio senza la scheda non è un invio vuoto. L'invio con un solo campo cambia quello e lascia gli altri come sono: un campo assente non è un campo svuotato. Una bozza con dati mancanti si salva in ogni passaggio (ALBO-01) |
+| A-71 | fatto | Valori sbagliati dalla scheda, **uno per volta**, ciascuno insieme agli altri tre dati validi: tipo di atto inesistente; come tipo di atto una voce dell'**elenco degli organi**; come organo una voce dell'elenco dei tipi; data impossibile (31 febbraio); data in un altro formato; data seguita da testo; data seguita da un a capo | ogni volta il dato sbagliato **resta com'era** e l'avviso di rifiuto nomina **quel** dato; gli altri tre dello stesso invio sono salvati. **Controllo positivo**: A-70, altrimenti la riga sarebbe verde con una scheda che non salva niente |
+| A-72 | fatto | [attacco] Invii della scheda con dati diversi da quelli salvati, **una condizione per volta**: senza il gettone della scheda; con un gettone falso; con il gettone di un altro atto; da un utente che possiede tutti i permessi di redazione ma **non può modificare quell'atto** perché è di un altro autore; poi, da chi redige, gli stessi dati portati come **campi personalizzati** con il nome dei due metadati | la fotografia resta **invariata** in tutti i casi. **Controllo positivo**: lo stesso invio con il gettone giusto, da chi può modificare l'atto, cambia i dati |
+| A-73 | fatto | [attacco] **Voci nuove create di passaggio.** Da chi possiede tutti i permessi di redazione e non quello di governare gli elenchi: un salvataggio dell'atto dalla schermata che porta, nel campo con cui WordPress assegna le voci, il nome di un tipo di atto e di un organo che non esistono; poi la creazione diretta di una voce da codice, con lo stesso utente | nessuna voce nuova in nessuno dei due elenchi, e l'atto non riceve quei nomi. **Controllo positivo**: chi possiede il permesso di governare gli elenchi crea una voce da codice e riesce. Senza la guardia WordPress crea la voce, perché per assegnare chiede solo il permesso di assegnare |
+| A-74 | fatto | **La lettura valida il dato letto.** Si scrivono di lato nella banca dati, un caso per volta su atti distinti: una data malformata; una data impossibile; due righe per lo stesso metadato; due tipi di atto assegnati allo stesso atto; due organi | ogni dato malformato si legge **come assente**, e l'elenco dei dati mancanti lo nomina. **Controllo positivo**: gli stessi atti con dati validi scritti nello stesso modo si leggono, altrimenti la riga sarebbe verde per una lettura che non legge niente |
+| A-75 | fatto | **L'elenco dei dati mancanti**, su atti che mancano di un dato per volta: oggetto, tipo di atto, organo, data di adozione; poi un atto con tipo di atto **senza durata** valida; poi un atto senza numero proprio | ogni volta **un solo motivo**, che nomina quel dato; il tipo senza durata è nominato come durata mancante e non come tipo mancante. L'atto senza numero proprio non ha nessun motivo: è facoltativo. **Nessun motivo nomina mai** le date di pubblicazione o il numero di repertorio, che scrive il sistema (ALBO-27, ALBO-08). **Controllo positivo**: l'atto completo ha l'elenco vuoto |
+| A-76 | fatto | Le dichiarazioni a WordPress: si leggono i due metadati dichiarati, le rotte dell'interfaccia per programmi, e la schermata dell'atto aperta da chi non lo può modificare | i due metadati sono dichiarati, **protetti**, con l'esposizione per programmi **spenta** in modo esplicito; nessuna rotta li espone; la scheda non esiste senza il permesso |
+
+**Cosa non chiudono queste righe.** Il documento principale e gli allegati, che aspettano la
+consegna protetta dei file del meccanismo comune. La durata propria dell'atto, che aspetta il
+registro delle modifiche. Il blocco dei dati quando l'atto è in verifica o pubblicato, che
+arriva con i passaggi di stato e con l'immodificabilità.
 
 ## Collaudo congiunto con la trasparenza
 

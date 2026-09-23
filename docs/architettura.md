@@ -183,9 +183,12 @@ uno stato corretto dopo il fatto è indistinguibile da uno stato mai scritto.
 
 ## Le parti del plugin
 
-**Quattro parti esistono oggi.** L'avvio, che dichiara la sezione e le sue politiche; il
+**Sette parti esistono oggi.** L'avvio, che dichiara la sezione e le sue politiche; il
 tipo atto con i suoi due elenchi di voci; i permessi con il ruolo proprio e il meccanismo di
-aggiornamento; e lo sbarramento che tiene chiusa la pubblicazione. Le altre sono previste e
+aggiornamento; la durata per tipo di atto; il repertorio con la sua schermata; i dati
+dell'atto con il riquadro in cui si compilano; e lo sbarramento che tiene chiusa la
+pubblicazione. Il repertorio e l'elenco dei dati mancanti esistono e non li chiama ancora
+nessuno: li chiameranno i passaggi di stato. Le altre parti sono previste e
 non costruite: la colonna a destra lo dice riga per riga, perché una tabella letta al
 presente farebbe credere disponibili funzioni che nessuno ha ancora scritto.
 
@@ -205,7 +208,8 @@ controlli che impediscono un'esposizione oltre il termine esisteranno davvero.
 | `Durate` | Configura, valida e legge la durata di ciascun tipo di atto: giorni, origine (norma o scelta dell'amministrazione) ed estremi della norma, in un solo dato attaccato alla voce dell'elenco dei tipi. Valida al salvataggio e a ogni lettura, così che una durata scritta di lato e malformata valga come assente. Mostra la durata nell'elenco dei tipi. **Non blocca ancora la pubblicazione** di un atto senza durata valida, perché oggi la pubblicazione è chiusa per tutti, e non gestisce la durata propria dell'atto | parte di configurazione di ALBO-04 | **sì** |
 | `Installazione` | Confronta la versione memorizzata sul sito con quella del codice e, se differiscono, rifà il lavoro di installazione. È il motivo per cui un permesso nuovo arriva anche ai siti già installati, dove nessuna attivazione avviene | ALBO-24 | **sì** |
 | `ChiusuraPubblicazione` | Elenco ordinato di regole che decide se uno stato richiesto è concesso. Oggi ne contiene una sola, che nega la pubblicazione e la programmazione. Le lavorazioni successive aggiungono la regola sui campi e tolgono questa, **ma non il diniego della programmazione**, che dal 2026-09-22 è una regola sua (ALBO-27) e resta quando la pubblicazione si apre | nessuno: impedisce di prometterne uno non mantenibile | **sì** |
-| Campi dell'atto e schermata di compilazione | I dati dell'atto, il riquadro in cui si compilano, e il controllo campo per campo prima della pubblicazione | ALBO-01, ALBO-02 | no |
+| `DatiAtto`, `SchedaAtto` | Tipo di atto, organo, data di adozione e numero proprio: il riquadro **Dati dell'atto** in cui si compilano senza preselezione, il salvataggio che valida ogni dato da solo, la lettura che tratta come assente un dato malformato, l'elenco dei dati mancanti per nome e la guardia che impedisce a chi redige di creare voci nuove negli elenchi. **L'elenco dei dati mancanti non è ancora chiamato da nessuno**: lo chiamerà il passaggio in verifica | base di ALBO-01 | **sì** |
+| Controllo campo per campo prima della pubblicazione | Il passaggio in verifica e la pubblicazione che rifiutano un atto incompleto, nominando il dato che manca | ALBO-01, ALBO-02 | no |
 | Documento principale e allegati | I file dell'atto, la loro cardinalità e la loro impronta. Dipende dalla consegna protetta del meccanismo comune | ALBO-01 | no |
 | `Avvio` | Verifica che il meccanismo comune sia caricato e compatibile, poi gli dichiara la sezione dell'albo con le due politiche per intero: indicizzazione `vietata`, scadenza `irraggiungibile`. Non chiude nessun requisito da sola: è il piano su cui ALBO-05 e ALBO-06 poggeranno. Se una qualsiasi delle tre condizioni non regge il componente resta attivo e inerte e lo segnala in bacheca, tranne nel caso della versione incompatibile, in cui è il meccanismo comune a disattivarlo | base di ALBO-05, ALBO-06 | **sì** |
 | Durata propria dell'atto | La durata più breve di quella del tipo, scelta per il singolo atto dove l'origine è dell'amministrazione, con motivazione. La parte di configurazione per tipo esiste ed è `Durate`, qui sopra | ALBO-04 | no |
