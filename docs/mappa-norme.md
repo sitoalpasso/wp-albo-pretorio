@@ -800,7 +800,7 @@ fonti fra quelle già censite; sono scelte di perimetro o di attuazione.
 
 | Decisione | Dove è argomentata |
 |---|---|
-| Se il componente risponde dell'accessibilità delle pagine che genera, e come si divide il lavoro con il tema del sito | sezione L69 e punto 4 qui sotto |
+| Se il componente risponde dell'accessibilità delle pagine che genera, e come si divide il lavoro con il tema del sito. **Decisa il 2026-09-23**: sì, senza condizioni. Tutto ciò che il componente mostra al pubblico (elenco, scheda dell'atto, ricerca e filtri) è accessibile con i soli mezzi del componente, qualunque tema usi il sito, e il componente non chiede niente al tema. È una scelta di prodotto: la norma mette l'obbligo sull'amministrazione. Due limiti dichiarati: un tema può sovrascrivere gli stili dall'esterno, e il componente garantisce la parte che produce, non quello che altri vi cambiano sopra; i documenti allegati restano dell'ente, e su quelli ALBO-13 avvisa e non corregge. Resta da tradurre in un requisito del catalogo | sezione L69 e punto 4 qui sotto |
 | Se il perimetro comprende la seconda strada della scadenza, cioè l'atto tenuto consultabile in forma deidentificata | paragrafo di GAR sull'albo, "Alla scadenza la fonte dà due strade" |
 | Come ALBO-04 distingue un termine fissato dalla norma da un periodo scelto dall'ente, visto che solo il secondo si può accorciare | sezione sul termine, "Il caso opposto esiste" |
 | Che cosa fa il sistema del periodo di pubblicazione dopo una rimozione anticipata | sezione sul termine, seconda domanda, e punto 6 qui sotto |
