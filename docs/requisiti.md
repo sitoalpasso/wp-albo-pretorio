@@ -186,10 +186,13 @@ responsabilità che pesa sulla valutazione di chi dirige, non un vizio dell'atto
   la scelta sia verificabile da chi legge e non solo dichiarata. La valutazione sul
   singolo atto si esprime come **durata propria dell'atto**, in giorni, più breve di
   quella del tipo e con motivazione registrata: non come una data, perché la data di fine
-  la scrive il sistema alla pubblicazione (ALBO-27). Che una durata più lunga di quella
-  configurata non sia ammessa in nessuno dei due casi è una scelta di prodotto: la fonte
-  chiede di non superare il periodo necessario valutato sul caso concreto, e non dice che
-  il numero configurato per tipo sia un tetto; il tetto lo decide il componente.
+  la scrive il sistema alla pubblicazione (ALBO-27). La scrive solo chi possiede il
+  permesso di pubblicare, solo in bozza, e alla pubblicazione si riverifica contro la
+  configurazione di quel momento; il contratto completo è in `dati.md`. Che una durata
+  più lunga di quella configurata non sia ammessa in nessuno dei due casi è una scelta di
+  prodotto: la fonte chiede di non superare il periodo necessario valutato sul caso
+  concreto, e non dice che il numero configurato per tipo sia un tetto; il tetto lo decide
+  il componente.
 - **Referto di pubblicazione** (ALBO-07), *da confermare come sopra*: alla defissione il sistema scatta una
   fotografia immutabile (numero, date effettive, impronta del file, chi ha pubblicato)
   che attesta cosa è stato esposto e quando. Si congela, non si rigenera.
@@ -452,8 +455,9 @@ non sul metadato.
    per il tipo di atto è un massimale che l'ente si è dato, non un termine di legge, e
    sceglierne uno più breve **sul singolo atto, prima di pubblicarlo**, è esattamente la
    valutazione che la fonte gli chiede. La regola in una riga: si può accorciare ciò che
-   l'ente ha scelto, non ciò che la norma ha prescritto. Riguarda la scelta della data di
-   fine prima della pubblicazione e non tocca nulla di quanto detto sopra, che vale a
+   l'ente ha scelto, non ciò che la norma ha prescritto. Riguarda la scelta motivata di una
+   **durata propria** mentre l'atto è in bozza, dalla quale il sistema calcolerà la fine
+   alla pubblicazione (ALBO-27), e non tocca nulla di quanto detto sopra, che vale a
    pubblicazione avvenuta. **ALBO-04 porta quindi, per ogni durata configurata,
    l'indicazione di dove viene, se da una norma o da una scelta dell'amministrazione**,
    deciso il 2026-09-22: senza quell'indicazione il componente non saprebbe quale dei due

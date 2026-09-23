@@ -32,8 +32,8 @@ lì e resta una scelta separata.
 | Numero proprio dell'atto (es. determina 45/2026) | no | metadato | redattore. È il numero dell'atto, non quello di pubblicazione |
 | Data di adozione | sì | metadato | redattore |
 | Data di inizio pubblicazione | sì | metadato | **solo il sistema**, al passaggio a pubblicato, e mai nel futuro: la pubblicazione non si programma (ALBO-27). Non è modificabile dopo, perché da essa decorrono termini di legge |
-| Data di fine pubblicazione | sì per pubblicare | metadato | **solo il sistema**, al passaggio a pubblicato e nello stesso istante dell'inizio, come inizio più durata applicabile (ALBO-27): non la fornisce nessuno, e una data fornita a mano non supplisce a una durata assente. Il sistema rifiuta la **pubblicazione** di un atto per cui non è calcolabile, non il salvataggio della bozza, dove non esiste ancora. **Una defissione anticipata la riporta indietro**, ed è così, e non cambiando stato, che l'atto esce dalla vista |
-| Durata propria dell'atto | no | metadato più voce di registro | chi pubblica, **solo** se il tipo ha durata di origine dell'amministrazione e **solo** più breve di quella configurata, con motivazione obbligatoria che finisce nel registro insieme a chi l'ha disposta (ALBO-04, ALBO-10). Dove la durata del tipo è di origine normativa non esiste. Più lunga non si può in nessuno dei due casi, per scelta di prodotto |
+| Data di fine pubblicazione | sì per pubblicare | metadato | **solo il sistema**, al passaggio a pubblicato e nello stesso istante dell'inizio, come inizio più durata applicabile (ALBO-27), dove la durata applicabile è quella **vigente nell'istante della pubblicazione**, del tipo o propria dell'atto: non la fornisce nessuno, e una data fornita a mano non supplisce a una durata assente. Il sistema rifiuta la **pubblicazione** di un atto per cui non è calcolabile, non il salvataggio della bozza, dove non esiste ancora. **Una defissione anticipata la riporta indietro**, ed è così, e non cambiando stato, che l'atto esce dalla vista |
+| Durata propria dell'atto | no | metadato più voce di registro | Il contratto è uno solo e vale per ogni ingresso. **Chi**: soltanto chi possiede il permesso di pubblicare; chi ha il solo permesso di redazione non la scrive, non la cambia e non la toglie, anche su una bozza che può modificare. **Quando**: soltanto in bozza, perché in verifica l'atto è bloccato e da pubblicato non si torna indietro. **Dove**: soltanto se il tipo ha durata di origine dell'amministrazione; dove l'origine è una norma non esiste. **Quanto**: un numero intero di giorni, almeno 1 e **strettamente minore** della durata configurata; zero, valori negativi, frazioni e valori uguali o maggiori sono rifiutati. Uguale non è un errore grave ma non è una scelta, e più lunga non si può per scelta di prodotto. **Perché**: motivazione obbligatoria, che finisce nel registro con chi l'ha disposta (ALBO-04, ALBO-10), e così ogni cambio e ogni rimozione. **Alla pubblicazione** la durata propria si riverifica contro la configurazione vigente in quell'istante: se nel frattempo il tipo è diventato di origine normativa, o la durata configurata non è più maggiore di quella propria, la pubblicazione è rifiutata con quella ragione e l'atto resta in verifica, da rimandare in bozza per una nuova valutazione |
 | Numero di repertorio (es. 123/2026). **Ipotesi da confermare** | dalla pubblicazione | metadato più contatore in tabella dedicata | **solo il sistema**, alla prima pubblicazione, in modo atomico |
 | Stato | sì | stato del contenuto | il flusso di pubblicazione, mai a mano nel database |
 | Conferma del controllo dati personali | sì per pubblicare | metadato con utente e data | **chi pubblica**, nel passaggio da in verifica a pubblicato, tramite la schermata obbligata. Non chi redige: il controllo sta nel secondo dei due passaggi, ed è la ragione per cui i passaggi sono due (ALBO-11) |
@@ -86,10 +86,13 @@ L'**inizio effettivo** e la **fine pianificata** sono metadati dell'atto, scritt
 due dal sistema nell'istante della pubblicazione (ALBO-27): l'inizio è un fatto, la fine è
 una previsione che una defissione anticipata può portare indietro. Gli **eventi** del
 registro delle operazioni dicono che cosa è accaduto davvero e quando. Il referto (ALBO-07)
-ricostruisce il periodo di esposizione da questi tre, e non lo prolunga fino al momento in
-cui il compito pianificato ha registrato la defissione: se il compito passa in ritardo,
-l'atto era già invisibile dalla fine pianificata, perché la scadenza si applica alla
-lettura e non dipende dal compito, e il referto riporta quella fine.
+ricostruisce il periodo di esposizione da questi tre con una regola sola: l'esposizione
+comincia all'inizio effettivo e finisce al **primo** fra la fine pianificata vigente e la
+defissione anticipata registrata; le sostituzioni per oscuramento registrate la dividono in
+periodi, uno per versione. La registrazione con cui il compito pianificato annota la
+defissione **non è mai** la fine: se il compito passa in ritardo, l'atto era già invisibile
+dalla fine pianificata, perché la scadenza si applica alla lettura e non dipende dal
+compito, e il referto riporta quella fine.
 
 **Cosa succede se cambio un documento già pubblicato?** Non si può, salvo un caso solo.
 L'atto pubblicato è immodificabile per chiunque, amministratore compreso, e la strada giusta
