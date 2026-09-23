@@ -29,6 +29,7 @@ lì e resta una scelta separata.
 | Oggetto (titolo) | sì | contenuto WordPress | redattore |
 | Tipo di atto | sì | elenco di voci dedicato, `albo_tipo_atto` | redattore, scelto tra i tipi configurati |
 | Organo che ha adottato | sì | elenco di voci dedicato, `albo_organo` | redattore |
+| Amministrazione che ha adottato l'atto, se è un atto ospitato | sì per andare in verifica, **solo se** l'elenco delle amministrazioni ospitate ha almeno una voce | metadato con **il nome copiato alla pubblicazione**, oltre al riferimento alla voce dell'elenco | redattore, scegliendo fra "questa amministrazione" e le voci dell'elenco, senza preselezione. Dopo la pubblicazione non cambia, nemmeno se la voce viene rinominata o tolta (ALBO-29) |
 | Numero proprio dell'atto (es. determina 45/2026) | no | metadato | redattore. È il numero dell'atto, non quello di pubblicazione |
 | Data di adozione | sì | metadato | redattore |
 | Data di inizio pubblicazione | sì | metadato | **solo il sistema**, al passaggio a pubblicato, e mai nel futuro: la pubblicazione non si programma (ALBO-27). Non è modificabile dopo, perché da essa decorrono termini di legge |
@@ -198,7 +199,8 @@ Questa è la mappa delle azioni:
   personali.
 - **Battito** (di core): il timestamp dell'ultima esecuzione riuscita del cron.
 - **Configurazione**: tipi di atto con durata in giorni (obbligatoria per tipo),
-  registri, destinatario degli avvisi del battito. Ogni valore validato al salvataggio.
+  elenco delle amministrazioni ospitate (vuoto finché non se ne aggiunge una, ALBO-29),
+  destinatario degli avvisi del battito. Ogni valore validato al salvataggio.
   La durata di un tipo è **costruita**: un solo metadato sulla voce dell'elenco dei tipi
   di atto, `albo_pretorio_durata_tipo`, con giorni, origine ed estremi insieme, così che
   non esista un tipo con i giorni e senza l'origine. Lo scrive chi può governare l'elenco
