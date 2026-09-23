@@ -118,6 +118,17 @@ const TASSONOMIA_ORGANO = 'albo_organo';
 const META_DURATA = 'albo_pretorio_durata_tipo';
 
 /**
+ * Nome del dato della data di adozione dell'atto. Il trattino basso lo rende
+ * protetto: non si scrive come campo personalizzato dalla schermata.
+ */
+const META_DATA_ADOZIONE = '_albo_pretorio_data_adozione';
+
+/**
+ * Nome del dato del numero proprio dell'atto, protetto come il precedente.
+ */
+const META_NUMERO_PROPRIO = '_albo_pretorio_numero_proprio';
+
+/**
  * Tabella degli anni del repertorio, senza il prefisso delle tabelle del sito.
  */
 const TABELLA_REPERTORIO_ANNI = 'albo_pretorio_repertorio_anni';
@@ -166,6 +177,8 @@ require_once __DIR__ . '/includes/class-avvio.php';
 require_once __DIR__ . '/includes/class-permessi.php';
 require_once __DIR__ . '/includes/class-tipo-atto.php';
 require_once __DIR__ . '/includes/class-durate.php';
+require_once __DIR__ . '/includes/class-dati-atto.php';
+require_once __DIR__ . '/includes/class-scheda-atto.php';
 require_once __DIR__ . '/includes/class-repertorio.php';
 require_once __DIR__ . '/includes/class-schermata-repertorio.php';
 require_once __DIR__ . '/includes/class-installazione.php';
@@ -188,6 +201,7 @@ add_action( 'plugins_loaded', array( Avvio::class, 'da_plugins_loaded' ) );
  */
 add_action( 'init', array( TipoAtto::class, 'da_init' ) );
 add_action( 'init', array( Durate::class, 'da_init' ), 11 );
+add_action( 'init', array( DatiAtto::class, 'da_init' ), 11 );
 add_action( 'init', array( Installazione::class, 'da_init' ), 20 );
 
 add_action( 'admin_notices', array( Permessi::class, 'mostra_avviso' ) );
@@ -214,6 +228,16 @@ add_action( 'admin_notices', array( Durate::class, 'mostra_rifiuto' ) );
 add_action( 'admin_menu', array( SchermataRepertorio::class, 'menu' ) );
 add_action( 'admin_post_' . SchermataRepertorio::AZIONE, array( SchermataRepertorio::class, 'da_invio' ) );
 add_action( 'admin_notices', array( SchermataRepertorio::class, 'avviso' ) );
+
+/*
+ * I dati dell'atto si compilano nel riquadro della schermata dell'atto. Una
+ * voce nuova dei due elenchi la crea solo chi li governa, anche quando arriva
+ * con il salvataggio di un atto.
+ */
+add_action( 'add_meta_boxes_' . TIPO, array( SchedaAtto::class, 'riquadro' ) );
+add_action( 'save_post_' . TIPO, array( SchedaAtto::class, 'da_salvataggio' ), 10, 2 );
+add_action( 'admin_notices', array( SchedaAtto::class, 'mostra_rifiuto' ) );
+add_filter( 'pre_insert_term', array( DatiAtto::class, 'da_pre_insert_term' ), 10, 2 );
 
 /*
  * Lo sbarramento si aggancia al caricamento e non all'avvio riuscito: deve
