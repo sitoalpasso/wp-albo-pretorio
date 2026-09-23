@@ -1,7 +1,7 @@
 # Requisiti: cosa deve fare l'albo pretorio
 
 Questo documento spiega in linguaggio semplice cosa il plugin deve fare e perché. Ogni
-requisito ha un identificativo (ALBO-01 fino ad ALBO-27): è lo stesso usato nei test, nei
+requisito ha un identificativo (ALBO-01 fino ad ALBO-30): è lo stesso usato nei test, nei
 commit e nelle discussioni, così si può sempre risalire dal codice al motivo per cui
 esiste. In fondo c'è il **catalogo corrente dei requisiti**, con le fonti normative e le
 decisioni aperte marcate esplicitamente. Non è una specifica completa e non lo sarà finché
@@ -168,7 +168,7 @@ entrante sia davvero la versione oscurata di quello uscente: due PDF diversi res
 PDF diversi anche per il computer più attento. Quella responsabilità è di chi dispone la
 sostituzione, ed è la ragione per cui l'operazione è tracciata invece che impedita.
 
-### Accessibilità (ALBO-13, ALBO-14)
+### Accessibilità (ALBO-13, ALBO-14, ALBO-28)
 
 I PDF pubblicati devono essere leggibili dalle tecnologie assistive: al caricamento il
 sistema esamina il file e avvisa se sembra una scansione o manca di struttura (ALBO-13);
@@ -181,6 +181,17 @@ sull'amministrazione che pubblica, non sul programma: che il componente se ne fa
 sulle pagine che genera è una scelta di prodotto, non una conseguenza della norma. E che una
 pubblicazione non accessibile sia per ciò solo invalida non lo dice nessun testo: è una
 responsabilità che pesa sulla valutazione di chi dirige, non un vizio dell'atto.
+
+**Le pagine che il componente genera sono accessibili da sole** (ALBO-28, decisione del
+2026-09-23). L'elenco degli atti, la scheda del singolo atto e la ricerca con i suoi filtri
+rispettano i requisiti di accessibilità con i soli mezzi del componente, **qualunque tema
+usi il sito**, e il componente non chiede niente al tema: né stili, né classi, né
+collegamenti per saltare al contenuto. La ragione è di prodotto: un componente che si
+consegna a sé stante non può far dipendere un obbligo dell'amministrazione dal lavoro di chi
+cura il sito. Due limiti, dichiarati invece che nascosti. Un tema può sovrascrivere dall'esterno
+gli stili del componente, e il componente risponde di quello che produce, non di quello che
+altri vi cambiano sopra. E i documenti allegati restano dell'ente: su quelli ALBO-13 avvisa
+e non corregge.
 
 ### Il resto (ALBO-04, ALBO-07, ALBO-15, ALBO-16, ALBO-17)
 
@@ -215,12 +226,46 @@ responsabilità che pesa sulla valutazione di chi dirige, non un vizio dell'atto
 - **Ricerca e filtri** (ALBO-16) per tipo, organo, date e testo, usabili da tastiera.
 - **Esportazione** (ALBO-17) di atti e metadati in formato aperto, per la conservazione.
 
+### Chi ha adottato l'atto, e come si chiama il file (ALBO-29, ALBO-30)
+
+- **Atti di un'altra amministrazione ospitati sull'albo** (ALBO-29, decisione del
+  2026-09-23). Le fonti prevedono che un ente pubblichi sull'albo di un altro, per esempio
+  un'unione o un consorzio. Il componente non stabilisce chi risponde dei dati: lo
+  stabiliscono le amministrazioni fra loro, di solito in una convenzione. Fa una cosa sola:
+  ogni atto ospitato porta **l'indicazione dell'amministrazione che l'ha adottato**, e il
+  pubblico la vede nell'elenco, nella scheda e nei risultati della ricerca. Le
+  amministrazioni ospitate sono un elenco configurato. Finché l'elenco è vuoto la domanda
+  non compare, perché un atto che non può essere di nessun altro non ha niente da
+  dichiarare; appena l'elenco ha una voce, ogni atto pretende la scelta prima di andare in
+  verifica, **senza nessuna risposta preselezionata**, perché un atto ospitato attribuito
+  per errore all'ente che ospita sarebbe una pubblicazione con l'autore sbagliato.
+  L'indicazione è un dato dell'atto: si fissa alla pubblicazione e non cambia se in seguito
+  la voce dell'elenco viene rinominata o tolta. L'atto ospitato lo pubblica e lo rimuove il
+  personale dell'ente che ospita, con i permessi di sempre: accessi separati riservati
+  all'ente ospitato non esistono, e si aggiungono se qualcuno li chiede.
+- **Il nome del file scaricato** (ALBO-30, decisione del 2026-09-23). Il rischio che il
+  Garante chiama decontestualizzazione è quello di un documento che circola da solo, lontano
+  dall'albo, senza più niente che dica che era un atto pubblicato, quando e fino a quando.
+  Il documento non si tocca: scriverci sopra romperebbe la firma digitale e lo renderebbe
+  diverso dall'atto adottato (ALBO-09). Quello che il componente può fare senza toccarlo è
+  dare al file scaricato **un nome che porta il numero di repertorio e le date di
+  pubblicazione**, per esempio `albo-2026-0123-dal-01-10-al-15-10.pdf`. Il nome non contiene
+  né l'oggetto dell'atto né il nome originale del file, perché l'uno e l'altro possono
+  contenere dati personali. Il contenuto scaricato resta identico, byte per byte, a quello
+  pubblicato.
+
 ## Cosa resta all'ente
 
 Il plugin rende possibile e automatico il rispetto dei termini; **non decide cosa si
 pubblica**. Restano all'ente: il regolamento con i termini per tipo di atto, la nomina
 del responsabile, la valutazione sui dati personali di ogni atto, la conservazione a
 norma, le risposte agli interessati.
+
+Il **regolamento dell'ente sui dati sensibili e giudiziari** fra questi (decisione del
+2026-09-23): il componente non lo chiede e non lo registra, perché della liceità di quello
+che si pubblica risponde chi pubblica. Il passaggio obbligato di ALBO-11 resta il momento in
+cui quella persona conferma di aver fatto il controllo. Il richiamo al regolamento va nella
+guida per l'amministrazione, non nel programma.
 
 ## Tabella di riferimento
 
@@ -262,6 +307,9 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-21 | da fare | Scadenza sull'ora civile italiana | **prodotto**: correttezza tecnica, nessuna fonte esterna |
 | ALBO-22 | da fare | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto**, decisione chiusa il 2026-09-21: la tabella delle transizioni è nella nota qui sotto. Quattro sotto-decisioni ne sono seguite, di cui **tre restano aperte** e nessuna blocca l'unità; la quarta, sulle cause che legittimano la defissione anticipata, è chiusa il 2026-09-22 |
 | ALBO-27 | da fare | **La pubblicazione non si programma.** La data di inizio la scrive il sistema al passaggio a pubblicato, non è modificabile e non può stare nel futuro; nello stesso istante scrive la data di fine come inizio più durata applicabile, così che nessun valore calcolato prima della pubblicazione possa accorciare il periodo | **prodotto**, deciso il 2026-09-22. L'albo sostituisce la bacheca di carta, dove programmare non era possibile. Se un'amministrazione lo chiederà, si costruirà allora |
+| ALBO-28 | da fare | Le pagine che il componente genera (elenco, scheda, ricerca) sono accessibili con i soli mezzi del componente, qualunque tema usi il sito | **norma** la pubblicazione applica i requisiti di accessibilità (l. 69/2009 art. 32 c. 1, che rinvia a l. 4/2004 art. 11), e l'obbligo è dell'amministrazione. **Prodotto** che ne risponda il componente da solo, senza chiedere niente al tema, deciso il 2026-09-23. Limiti dichiarati: stili sovrascritti dal tema, documenti dell'ente |
+| ALBO-29 | da fare | Ogni atto ospitato di un'altra amministrazione porta e mostra al pubblico l'amministrazione che l'ha adottato. La scelta è obbligatoria e senza preselezione appena l'elenco delle amministrazioni ospitate ha una voce | **norma** la pubblicazione sull'albo di un altro ente è prevista (TUEL art. 124 c. 2, l. 69/2009 art. 32 c. 3); i ruoli sui dati li stabiliscono gli enti fra loro. **Prodotto** l'indicazione mostrata e l'assenza di accessi separati, deciso il 2026-09-23 |
+| ALBO-30 | da fare | Il file scaricato ha un nome con numero di repertorio e date di pubblicazione, senza oggetto e senza il nome originale; il contenuto resta identico | **norma** il rischio di decontestualizzazione (Garante, delib. 243/2014 par. 2.d). **Prodotto** il nome del file come unica misura che non tocca il documento firmato, deciso il 2026-09-23; il formato esatto è nostro |
 | ALBO-23 | fatto | All'attivazione l'insieme minimo di permessi sul tipo atto arriva all'amministratore | **prodotto** |
 | ALBO-24 | fatto | A ogni aggiornamento i permessi nuovi arrivano ai ruoli che avevano già gli altri | **prodotto** |
 | ALBO-25 | fatto | Se nessun ruolo possiede i permessi del tipo atto, l'amministrazione lo segnala | **prodotto** |
