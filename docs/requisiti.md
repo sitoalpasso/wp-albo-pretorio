@@ -600,6 +600,8 @@ Tre valori: **da fare** (il requisito esiste come impegno, il codice no), **in c
 codice e i test esistono ma non risultano verdi nella verifica continua), **fatto** (verde
 nella verifica continua). Un requisito passa a "fatto" solo quando tutte le sue righe di
 `collaudo.md` sono "fatto". Oggi sono a **"fatto" ALBO-23, ALBO-24, ALBO-25 e ALBO-26**,
-chiusi dall'unità che ha costruito il tipo atto, i permessi e il ruolo proprio. **Tutti gli
-altri sono a "da fare"**: il componente registra gli atti e li tiene chiusi, e non ne
-pubblica ancora nessuno.
+chiusi dall'unità che ha costruito il tipo atto, i permessi e il ruolo proprio. ALBO-08 è
+**"in corso"**: il meccanismo del repertorio c'è, e le sue righe che parlano di atti
+pubblicati aspettano il passaggio a pubblicato. **Tutti gli altri sono a "da fare"**, ALBO-01
+compreso, che ha a "fatto" soltanto la riga della bozza: il componente registra gli atti con
+i loro dati e li tiene chiusi, e non ne pubblica ancora nessuno.

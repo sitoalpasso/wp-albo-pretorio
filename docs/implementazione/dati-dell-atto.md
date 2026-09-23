@@ -143,8 +143,9 @@ quella data e compare l'avviso.
 
 **Le prove.** Novantacinque prove nella suite principale, otto nuove, più le due suite
 separate senza meccanismo comune e con meccanismo comune incompatibile, tutte verdi in
-locale su WordPress 6.5 con MariaDB. PHPCS pulito. L'esito in verifica continua si legge
-sulla richiesta di unione, e le righe passano a "fatto" solo dopo.
+locale su WordPress 6.5 con MariaDB. PHPCS pulito. In verifica continua, sul commit 34a9f6e,
+verdi le stesse suite su MySQL 8 con WordPress 6.5 e PHP 8.1 e con l'ultima WordPress e PHP
+8.3, più lo standard di codifica e la validazione di `publiccode.yml`.
 
 **Cosa è cambiato rispetto al piano.** Tre cose. La prima: il gettone del riquadro è legato
 all'atto. Scrivendo A-72 è venuto fuori che con un gettone solo per tutti gli atti quello
