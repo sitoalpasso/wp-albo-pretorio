@@ -1,7 +1,7 @@
 # Numero di repertorio
 
-Scheda di lavorazione. Scritta prima del codice come piano, da aggiornare a lavoro finito
-con com'è andata davvero. Righe di collaudo A-58..A-68, più le righe di ALBO-08 nella
+Scheda di lavorazione. Scritta prima del codice come piano e aggiornata a lavoro finito:
+la sezione in fondo dice com'è andata davvero e cosa è cambiato rispetto al piano. Righe di collaudo A-58..A-68, più le righe di ALBO-08 nella
 tabella per requisito.
 
 ## In tre paragrafi
@@ -47,7 +47,8 @@ numero, e che la schermata controlla gettone e permesso. Diventerebbero rosse, p
 se il contatore leggesse e poi scrivesse in due istruzioni; se mancasse uno dei due vincoli
 della banca dati; se il primo anno partisse da 1 senza dichiarazione; se la dichiarazione
 restasse modificabile dopo il primo numero; se l'anno si calcolasse sul tempo universale.
-La tabella dei guasti introdotti di proposito sarà in fondo, a lavoro finito.
+La tabella dei guasti introdotti di proposito, e di quale prova ha fatto cadere ciascuno, si
+trova in fondo.
 
 ## I nove punti
 
@@ -60,7 +61,8 @@ La tabella dei guasti introdotti di proposito sarà in fondo, a lavoro finito.
 | `includes/class-installazione.php` | la creazione delle tabelle, legata alla versione come i permessi |
 | `albo-pretorio-pa.php` | nomi delle tabelle, agganci, versione che sale |
 | `tests/RepertorioTest.php`, `tests/concorrenza/assegna.php` | le prove A-58..A-68 e il processo figlio della prova di concorrenza |
-| `docs/requisiti.md`, `docs/collaudo.md`, `docs/dati.md`, `docs/architettura.md`, `docs/sicurezza.md` | ALBO-08 non più ipotesi, righe nuove, colonna Stato |
+| `tests/ambiente-albo.php` | l'osservazione degli avvisi in bacheca, che esclude quello della numerazione salvo richiesta |
+| `docs/requisiti.md`, `docs/collaudo.md`, `docs/dati.md`, `docs/architettura.md` | ALBO-08 non più ipotesi, righe nuove, colonna Stato |
 
 ### 2. Perché
 
@@ -106,7 +108,7 @@ Nessuna superficie per programmi: né rotte, né metadati registrati.
 | Due richieste numerano lo stesso atto insieme | un numero solo per l'atto; l'altro va perso e lascia un buco, ammesso |
 | Un'assegnazione che si ferma dopo l'incremento | il numero va perso, buco ammesso, mai riusato |
 | Primo anno senza dichiarazione | nessun numero assegnato, rifiuto con il motivo; il flusso di pubblicazione non pubblicherà |
-| Le tabelle mancano, per esempio per un'installazione interrotta | assegnazione e dichiarazione rifiutate con il motivo; alla richiesta dopo l'installazione riprova |
+| Le tabelle mancano, per esempio per un'installazione interrotta | assegnazione e dichiarazione rifiutate con il motivo, mai un errore della banca dati. Se l'installazione si è interrotta prima di memorizzare la versione, riprova alla richiesta dopo |
 | Un atto con numero viene cancellato | la sua assegnazione resta, e il numero non torna disponibile |
 | Il salvataggio arriva senza gettone o da chi non ha il permesso | la dichiarazione non cambia, e l'avviso lo dice |
 
@@ -134,3 +136,60 @@ numerazione. Su **Albo pretorio, Numerazione** si scrive `12a` e si salva: rifiu
 avviso, e il prossimo numero resta non disponibile. Si scrive 121 e si salva: la schermata
 deve dire 122 e l'anno in corso. Da un utente con il solo ruolo di redazione la voce di menu
 non deve comparire, e l'indirizzo della schermata aperto a mano deve negare l'accesso.
+
+## Com'è andata davvero
+
+**Le prove.** Ottantasette prove nella suite principale, undici nuove, più le due suite
+separate senza meccanismo comune e con meccanismo comune incompatibile, tutte verdi in
+locale su WordPress 6.5 con MariaDB. PHPCS pulito. Il verdetto che vale è quello della
+verifica continua sul commit di punta, che gira su MySQL 8.
+
+**Cosa è cambiato rispetto al piano.** Tre cose. La prima: la dichiarazione è rifiutata in
+ogni anno successivo al primo, **anche prima** del suo primo numero; il piano lo diceva
+solo dopo. Senza questa regola qualcuno avrebbe potuto far partire il 2027 da 50 invece che
+da 1, e la riga A-61 ora lo prova. La seconda: le prove che osservano gli altri avvisi della
+bacheca escludono quello della numerazione, che su un sito di prova compare sempre; lo
+osserva esplicitamente A-67. La terza: la versione del componente sale a `0.3.0-alpha`,
+perché è la versione nuova che fa creare le tabelle ai siti già installati.
+
+**La prova di concorrenza.** Sei processi PHP separati, ciascuno con la propria
+connessione, partono insieme a un segnale comune e numerano trenta atti ciascuno più un
+atto conteso da tutti. Scrive davvero nella banca dati di prova, perché i processi non
+vedono la transazione della suite, e ripulisce alla fine anche se fallisce.
+
+**La prova di non vacuità.** Venti guasti introdotti uno per volta in una copia usa e getta,
+facendo girare le prove del repertorio su ciascuno. Prima di ogni giro le tabelle del
+repertorio vengono tolte dalla banca dati di prova, così che la suite le ricrei dal codice
+guasto come succede in verifica continua: altrimenti un guasto nello schema non si vedrebbe.
+
+| Guasto introdotto | Prove cadute |
+|---|---|
+| Il contatore letto e poi scritto in due istruzioni, senza nessuna pausa fra le due | A-65, in tre giri su tre |
+| Lo stesso, con un millesimo di secondo fra le due | A-65 |
+| Il vincolo che l'atto sia unico tolto dallo schema | A-65, A-68 |
+| Il vincolo che anno e numero siano unici tolto dallo schema | A-68 |
+| Un secondo numero allo stesso atto | A-63 |
+| Il primo anno che parte da 1 senza dichiarazione | A-58 |
+| La partenza correggibile dopo il primo numero | A-60, A-67 |
+| La dichiarazione ammessa negli anni successivi | A-61 |
+| L'anno letto in tempo universale | A-62 |
+| Il controllo delle cifre con l'ancora che accetta un a capo finale | A-59 |
+| L'esito dell'inserimento creduto senza rileggere | A-65 |
+| La lettura che preferisce un metadato dell'atto | A-66 |
+| Le tabelle mancanti non controllate | A-68 |
+| L'installazione che non crea le tabelle | tutte, da A-58 a A-68 |
+| Il gettone della schermata non controllato | A-67 |
+| Il permesso della schermata non controllato | A-67 |
+| Il campo precompilato | A-67, dopo una correzione della prova: vedi sotto |
+| Il campo offerto anche dopo il primo numero | A-67 |
+| L'avviso mostrato anche a chi redige | A-67 |
+| La schermata aperta a chi redige | A-67 |
+
+**Una prova che non provava.** Al primo giro il campo precompilato non ha fatto cadere
+niente: la prova cercava `value=""` in tutta la pagina, e lo trovava in un campo nascosto di
+WordPress. Ora cerca quel valore sul campo della dichiarazione, e il guasto cade.
+
+**Una cosa che il laboratorio non dice.** La prova di concorrenza misura sei processi su una
+macchina sola. Su un sito vero le richieste simultanee sono di norma meno, ma arrivano da
+processi del server web: la garanzia è la stessa, perché sta nella banca dati e non nel
+numero di processi.
