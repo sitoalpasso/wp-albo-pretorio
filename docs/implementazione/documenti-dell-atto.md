@@ -224,3 +224,7 @@ cadono.
 perché PHP riconosce come caricato solo un file arrivato con una richiesta HTTP. La prova
 positiva di quel percorso sta fra le prove sul sito vero, punto 9 qui sopra; qui si prova
 che un percorso del server fatto passare per caricamento è rifiutato.
+
+**La verifica continua.** Sul commit 97adc3e verdi le suite su MySQL 8 con WordPress 6.5 e
+PHP 8.1 e con l'ultima WordPress e PHP 8.3, più lo standard di codifica e la validazione di
+`publiccode.yml`. Le righe A-77..A-84 sono passate a "fatto" dopo quell'esito.
