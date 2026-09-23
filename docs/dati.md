@@ -195,6 +195,12 @@ Questa è la mappa delle azioni:
 - **Battito** (di core): il timestamp dell'ultima esecuzione riuscita del cron.
 - **Configurazione**: tipi di atto con durata in giorni (obbligatoria per tipo),
   registri, destinatario degli avvisi del battito. Ogni valore validato al salvataggio.
+  La durata di un tipo è **costruita**: un solo metadato sulla voce dell'elenco dei tipi
+  di atto, `albo_pretorio_durata_tipo`, con giorni, origine ed estremi insieme, così che
+  non esista un tipo con i giorni e senza l'origine. Lo scrive chi può governare l'elenco
+  dei tipi, cioè chi pubblica, dalla schermata dei tipi; non è esposto all'interfaccia per
+  programmi. Si valida al salvataggio e **a ogni lettura**: una durata malformata scritta
+  di lato vale come durata assente (righe A-48..A-57 di `collaudo.md`).
 
 ## Cosa NON viene salvato
 

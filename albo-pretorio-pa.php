@@ -112,6 +112,12 @@ const TASSONOMIA_TIPO_ATTO = 'albo_tipo_atto';
 const TASSONOMIA_ORGANO = 'albo_organo';
 
 /**
+ * Nome del dato che porta la durata di un tipo di atto: giorni, origine ed
+ * estremi insieme, in un solo valore.
+ */
+const META_DURATA = 'albo_pretorio_durata_tipo';
+
+/**
  * Ruolo proprio del componente, per chi pubblica gli atti.
  */
 const RUOLO = 'albo_responsabile_pubblicazione';
@@ -149,6 +155,7 @@ const FILE_PRINCIPALE = __FILE__;
 require_once __DIR__ . '/includes/class-avvio.php';
 require_once __DIR__ . '/includes/class-permessi.php';
 require_once __DIR__ . '/includes/class-tipo-atto.php';
+require_once __DIR__ . '/includes/class-durate.php';
 require_once __DIR__ . '/includes/class-installazione.php';
 require_once __DIR__ . '/includes/class-rifiuti.php';
 require_once __DIR__ . '/includes/class-chiusura-pubblicazione.php';
@@ -168,11 +175,24 @@ add_action( 'plugins_loaded', array( Avvio::class, 'da_plugins_loaded' ) );
  * esistere.
  */
 add_action( 'init', array( TipoAtto::class, 'da_init' ) );
+add_action( 'init', array( Durate::class, 'da_init' ), 11 );
 add_action( 'init', array( Installazione::class, 'da_init' ), 20 );
 
 add_action( 'admin_notices', array( Permessi::class, 'mostra_avviso' ) );
 add_action( 'admin_notices', array( Rifiuti::class, 'mostra' ) );
 add_filter( 'redirect_post_location', array( Rifiuti::class, 'segna_indirizzo_di_ritorno' ), 10, 2 );
+
+/*
+ * La durata di ciascun tipo di atto si configura dalla schermata dei tipi, e
+ * l'elenco dei tipi mostra lo stato vero di ciascuna.
+ */
+add_action( TASSONOMIA_TIPO_ATTO . '_add_form_fields', array( Durate::class, 'campi_nuovo' ) );
+add_action( TASSONOMIA_TIPO_ATTO . '_edit_form_fields', array( Durate::class, 'campi_modifica' ) );
+add_action( 'created_' . TASSONOMIA_TIPO_ATTO, array( Durate::class, 'da_salvataggio' ) );
+add_action( 'edited_' . TASSONOMIA_TIPO_ATTO, array( Durate::class, 'da_salvataggio' ) );
+add_filter( 'manage_edit-' . TASSONOMIA_TIPO_ATTO . '_columns', array( Durate::class, 'colonne' ) );
+add_filter( 'manage_' . TASSONOMIA_TIPO_ATTO . '_custom_column', array( Durate::class, 'colonna' ), 10, 3 );
+add_action( 'admin_notices', array( Durate::class, 'mostra_rifiuto' ) );
 
 /*
  * Lo sbarramento si aggancia al caricamento e non all'avvio riuscito: deve
