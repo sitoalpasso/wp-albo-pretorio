@@ -414,11 +414,12 @@ cosa la rimozione comporti per l'adempimento, quando c'è.
    degli enti locali quindici
    giorni **consecutivi**, e intesta a "specifiche disposizioni di legge", cioè a un'altra
    norma e non all'amministrazione che pubblica, la facoltà di fissare un termine diverso.
-   L'art. 32 della legge 69/2009 parla di obblighi che **si intendono assolti** con la
-   pubblicazione, e un adempimento interrotto a metà non è assolto. A questa conclusione si
-   era appoggiata anche la regola dell'oscuramento prima del termine, letta come regola
-   propria del regime della trasparenza
-   e del suo arco di cinque anni. Quell'appoggio è stato ridimensionato il 2026-09-22: al
+   L'art. 32 della legge 69/2009 lega l'assolvimento degli obblighi alla pubblicazione, ma
+   che cosa valga una pubblicazione interrotta non lo dice: è la valutazione che il
+   componente lascia all'amministrazione (più sotto, decisione del 2026-09-23). Il divieto
+   di accorciare un termine prescritto regge sull'art. 124, non su questo. Allo stesso
+   divieto si era appoggiata anche la regola dell'oscuramento prima del termine, letta come
+   regola propria del regime della trasparenza e del suo arco di cinque anni. Quell'appoggio è stato ridimensionato il 2026-09-22: al
    paragrafo 7 il Garante motiva con la proporzionalità, che è un principio generale e non un
    calendario, quindi la questione resta aperta e l'argomento non porta peso. La conclusione
    regge sull'art. 124, non su questo.
@@ -468,9 +469,14 @@ cosa la rimozione comporti per l'adempimento, quando c'è.
    numero di repertorio o visibilità, e "va rifatta" non crea da sé un atto nuovo: la nuova
    pubblicazione è un atto nuovo, con il suo numero e il suo termine. La dichiarazione esiste
    solo dopo una defissione anticipata: non dopo la scadenza naturale, dove il termine si è
-   compiuto, né dopo una sostituzione per oscuramento, dove il conteggio non riparte per
-   scelta di prodotto (ALBO-12). Se un giorno si decidesse che un atto annullato esce dalla
-   vista (sotto-decisione 1), la stessa domanda si porrebbe anche lì.
+   compiuto, né dopo una sola sostituzione per oscuramento, dove il conteggio non riparte per
+   scelta di prodotto (ALBO-12). Si lega **all'evento** della defissione anticipata registrato,
+   non allo stato del momento: resta quindi possibile anche se l'atto viene poi annullato, e
+   il compito pianificato, che porta a defisso solo gli atti ancora pubblicati, non la tocca.
+   Il permesso è quello di disporre la defissione, non quello di pubblicare, e non si chiede
+   un perché: la dichiarazione è essa stessa la risposta. Se un giorno si decidesse che un
+   atto annullato esce dalla vista (sotto-decisione 1), la stessa domanda si porrebbe anche
+   per l'annullamento.
 
    **Il caso opposto esiste e non va confuso con questo.** Dove la norma un termine non lo
    fissa, il periodo lo individua l'amministrazione, e il Garante dice che quel periodo non
