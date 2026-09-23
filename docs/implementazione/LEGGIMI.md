@@ -28,3 +28,6 @@ Schede presenti:
 - [`documenti-dell-atto.md`](documenti-dell-atto.md): il documento principale e gli allegati
   ulteriori, depositati dal meccanismo comune, il riquadro da cui si caricano e i permessi
   con cui si governano. Righe di collaudo A-77..A-84.
+- [`passaggio-in-verifica.md`](passaggio-in-verifica.md): la prima parte del flusso di
+  pubblicazione, cioè bozza, passaggio in verifica e blocco dell'atto in verifica. Righe di
+  collaudo A-85..A-92.
