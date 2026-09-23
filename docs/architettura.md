@@ -211,7 +211,7 @@ controlli che impediscono un'esposizione oltre il termine esisteranno davvero.
 | `Repertorio` | Assegna il numero progressivo annuale al primo passaggio in pubblicazione, in modo atomico; blocca ogni modifica manuale del numero. **Ipotesi da confermare**, unita' di lavoro bloccata dalla conferma | ALBO-08 | no |
 | `FlussoPubblicazione` | Il percorso obbligato verso la pubblicazione: controllo preventivo sui dati personali con conferma esplicita; blocco di modifica e cancellazione dell'atto pubblicato, senza eccezioni per l'amministratore | ALBO-09, ALBO-11 | no |
 | `Oscuramento` | Gestisce la coppia versione oscurata pubblica / originale riservato | ALBO-12 | no |
-| `Referto` | Alla defissione congela la fotografia dell'esposizione (numero, date effettive, impronta del file, autore) e la rende ristampabile. **Ipotesi da confermare**, unita' di lavoro bloccata dalla conferma | ALBO-07 | no |
+| `Referto` | Alla defissione congela la fotografia dell'esposizione (numero, date effettive, impronta del file, autore) e la rende ristampabile. Dopo una defissione anticipata riporta la dichiarazione dell'amministrazione sull'effetto della rimozione, o la sua assenza; resa dopo, la aggiunge come appendice senza riscrivere la fotografia. **Ipotesi da confermare**, unita' di lavoro bloccata dalla conferma | ALBO-07 | no |
 | `AvvisoPdf` | All'upload esamina il PDF e segnala gli indizi di inaccessibilità (scansione, assenza di struttura, titolo o lingua) | ALBO-13 | no |
 | `Ricerca` | Elenco pubblico, filtri per tipo, organo, date e testo, navigabili da tastiera | ALBO-14, ALBO-16 | no |
 | `Esportazione` | Export di atti e metadati di un periodo in formato aperto | ALBO-17 | no |

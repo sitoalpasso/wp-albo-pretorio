@@ -41,6 +41,7 @@ lì e resta una scelta separata.
 | Allegati ulteriori | no | come sopra | redattore. Possono non esserci: un atto con il solo documento principale si pubblica |
 | Motivo di annullamento | quando ricorre | metadato più voce di registro | chi possiede `defissione atti`, che oggi fa parte dell'insieme di chi pubblica. Obbligatorio: senza, il passaggio è rifiutato |
 | Motivo di defissione anticipata | quando ricorre | metadato più voce di registro | **non è testo libero**: è una causa scelta da un elenco chiuso, perché accorciare il termine di un atto regolare non è consentito (art. 124 del TUEL; l'art. 134 offre un argomento interpretativo e non disciplina gli effetti di un'interruzione). L'elenco è chiuso per scelta di prodotto, ampliabile per configurazione: le fonti dicono quali cause sono pacifiche, non che altre non possano esistere. Resta **in via provvisoria** su un solo fronte, cioè se la defissione anticipata vada riservata a un responsabile distinto, e la capability separata è ciò che permetterà di riservarla senza toccare il codice |
+| Effetto della rimozione sul periodo | quando ricorre, cioè solo dopo una defissione anticipata | voce di registro | chi possiede `defissione atti`. **Lo decide l'amministrazione, non il componente**: le fonti impongono che la diffusione vietata cessi e tacciono su che cosa ne sia dell'adempimento, quindi il componente non lo calcola e non lo presume. È una scelta fra due valori, **la pubblicazione vale per il periodo trascorso** oppure **la pubblicazione va rifatta**, senza valore preselezionato. **La rimozione non la aspetta**: si rende insieme alla defissione anticipata oppure dopo, una volta sola, e non si cambia. Finché manca, il referto dice che non è stata dichiarata (ALBO-07). Nessuno dei due valori tocca date, stato, numero di repertorio o visibilità, e "va rifatta" non crea da sé un atto nuovo: la nuova pubblicazione è un atto nuovo con il suo numero. Non si rende dove non c'è stata una rimozione anticipata: non dopo la scadenza naturale, non dopo una sostituzione per oscuramento, dove il conteggio non riparte per scelta di prodotto (ALBO-12) |
 
 Gli **stati** possibili: bozza, in verifica, pubblicato, defisso, annullato.
 
@@ -68,7 +69,10 @@ perché il filtro legge una data passata. Siccome la fine della pubblicazione è
 civile e la scadenza scatta dalla mezzanotte del giorno dopo, la data scritta è quella del
 giorno precedente a quello in cui la defissione è disposta: scrivere la data di oggi
 lascerebbe l'atto visibile fino a stanotte. La data pianificata non si perde, perché la
-modifica finisce nel registro delle operazioni insieme a chi l'ha disposta e perché.
+modifica finisce nel registro delle operazioni insieme a chi l'ha disposta e perché. Che cosa
+la rimozione comporti per l'adempimento, se valga il periodo trascorso o se la pubblicazione
+vada rifatta, lo dichiara l'amministrazione, anche dopo, e il registro lo conserva: il
+componente non lo calcola (decisione del 2026-09-23).
 
 Tre sotto-decisioni restano aperte e sono marcate nella nota: se un atto annullato prima
 della scadenza resti visibile al pubblico; chi disponga la defissione anticipata, che qui
@@ -89,7 +93,12 @@ registro delle operazioni dicono che cosa è accaduto davvero e quando. Il refer
 ricostruisce il periodo di esposizione da questi tre con una regola sola: l'esposizione
 comincia all'inizio effettivo e finisce al **primo** fra la fine pianificata vigente e la
 defissione anticipata registrata; le sostituzioni per oscuramento registrate la dividono in
-periodi, uno per versione. La registrazione con cui il compito pianificato annota la
+periodi, uno per versione. Dopo una defissione anticipata il referto riporta anche la causa
+e l'effetto sul periodo dichiarato dall'amministrazione, con chi l'ha dichiarato e quando,
+oppure dice che non è stato dichiarato: non lo deduce mai dalla causa, perché è una
+valutazione che i testi lasciano all'amministrazione. Una dichiarazione resa dopo che il
+referto è stato congelato vi si aggiunge come appendice, congelata a sua volta, e non lo
+riscrive. La registrazione con cui il compito pianificato annota la
 defissione **non è mai** la fine: se il compito passa in ritardo, l'atto era già invisibile
 dalla fine pianificata, perché la scadenza si applica alla lettura e non dipende dal
 compito, e il referto riporta quella fine.
@@ -158,7 +167,7 @@ Questa è la mappa delle azioni:
 |---|---|---|
 | Creare e modificare bozze | gestione atti | |
 | Pubblicare (con controllo dati personali) | pubblicazione atti | la conferma resta registrata con nome e data |
-| Defissione anticipata, annullamento | defissione atti | motivo obbligatorio. **Oggi questa capability fa parte dell'insieme di chi pubblica**, ed è per questo che la tabella delle transizioni attribuisce i due passaggi a chi pubblica. Tenerla separata di nome è ciò che permetterà di riservare la defissione anticipata a un responsabile distinto, se la sotto-decisione aperta si chiuderà in quel senso, senza cambiare il codice |
+| Defissione anticipata, annullamento, dichiarazione dell'effetto della rimozione sul periodo | defissione atti | motivo obbligatorio per i primi due; per la dichiarazione, uno dei due valori ammessi. **Oggi questa capability fa parte dell'insieme di chi pubblica**, ed è per questo che la tabella delle transizioni attribuisce i due passaggi a chi pubblica. Tenerla separata di nome è ciò che permetterà di riservare la defissione anticipata a un responsabile distinto, se la sotto-decisione aperta si chiuderà in quel senso, senza cambiare il codice |
 | Consultare gli atti defissi dall'amministrazione | archivio atti | **funzione successiva, oggi non costruita.** Non fa tornare a rispondere l'indirizzo pubblico dell'atto: quello resta irraggiungibile per chiunque, permessi compresi |
 | Consultare il registro delle operazioni | lettura registro (di core) | |
 | Configurare tipi di atto e durate | amministrazione albo | |

@@ -195,7 +195,10 @@ responsabilità che pesa sulla valutazione di chi dirige, non un vizio dell'atto
   il componente.
 - **Referto di pubblicazione** (ALBO-07), *da confermare come sopra*: alla defissione il sistema scatta una
   fotografia immutabile (numero, date effettive, impronta del file, chi ha pubblicato)
-  che attesta cosa è stato esposto e quando. Si congela, non si rigenera.
+  che attesta cosa è stato esposto e quando. Si congela, non si rigenera. Dopo una
+  defissione anticipata la fotografia dice anche se l'amministrazione ha dichiarato che
+  cosa la rimozione comporti per l'adempimento; se lo dichiara dopo, la dichiarazione si
+  aggiunge come appendice congelata a sé, con chi e quando, e non riscrive la fotografia.
 - **Separazione dalla trasparenza** (ALBO-15): stesso documento, due esposizioni con
   cicli di vita indipendenti, file mai duplicato.
 - **Ricerca e filtri** (ALBO-16) per tipo, organo, date e testo, usabili da tastiera.
@@ -376,7 +379,8 @@ La data di fine pianificata non va perduta: la modifica finisce nel registro del
 discende un vincolo che l'unità del referto eredita: il referto di pubblicazione (ALBO-07)
 attesta il periodo effettivamente compiuto, e dopo una defissione anticipata quel periodo non
 coincide più con la data di fine memorizzata. Il referto va quindi costruito sul registro e
-non sul metadato.
+non sul metadato, e dal registro prende anche la dichiarazione dell'amministrazione su che
+cosa la rimozione comporti per l'adempimento, quando c'è.
 
 #### Quattro sotto-decisioni, di cui tre restano aperte, e nessuna blocca l'unità
 
@@ -448,6 +452,25 @@ non sul metadato.
    sola, il motivo non è testo libero ma una causa scelta fra quelle dell'elenco, e nessuna
    maschera consente di accorciare il termine di un atto regolare come normale operazione di
    redazione.
+
+   **Che cosa comporta la rimozione per l'adempimento. Decisa il 2026-09-23.** I testi
+   impongono che la diffusione vietata cessi, e su che cosa ne sia della pubblicazione
+   tacciono: se valga per i giorni trascorsi o vada rifatta non lo dice nessuna fonte letta.
+   Il componente quindi **non lo calcola e non lo presume, lo chiede all'amministrazione e lo
+   registra**. La dichiarazione è una scelta fra due valori, "la pubblicazione vale per il
+   periodo trascorso" e "la pubblicazione va rifatta", senza valore preselezionato, perché
+   un valore proposto dal programma sarebbe una valutazione presa al posto di chi deve
+   prenderla. **La rimozione non la aspetta**: la diffusione vietata cessa subito, e la
+   dichiarazione si rende insieme alla defissione anticipata oppure dopo, una volta sola, da
+   chi possiede il permesso di disporre la defissione. Finché manca, il referto (ALBO-07) dice
+   che non è stata resa, invece di supplire; resa dopo che il referto è stato congelato, vi si
+   aggiunge come appendice e non lo riscrive. Nessuno dei due valori cambia date, stato,
+   numero di repertorio o visibilità, e "va rifatta" non crea da sé un atto nuovo: la nuova
+   pubblicazione è un atto nuovo, con il suo numero e il suo termine. La dichiarazione esiste
+   solo dopo una defissione anticipata: non dopo la scadenza naturale, dove il termine si è
+   compiuto, né dopo una sostituzione per oscuramento, dove il conteggio non riparte per
+   scelta di prodotto (ALBO-12). Se un giorno si decidesse che un atto annullato esce dalla
+   vista (sotto-decisione 1), la stessa domanda si porrebbe anche lì.
 
    **Il caso opposto esiste e non va confuso con questo.** Dove la norma un termine non lo
    fissa, il periodo lo individua l'amministrazione, e il Garante dice che quel periodo non
