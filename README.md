@@ -66,7 +66,7 @@ L'elenco riga per riga, con lo stato di ciascuno, è in
 **La dipendenza è controllata in due punti distinti**, e coprono due cose diverse.
 L'intestazione `Requires Plugins` di WordPress impedisce l'attivazione quando
 `conformita-core` non è installato o non è attivo, ma non guarda le versioni. Il controllo
-di compatibilità con la versione `1.2.0` dell'interfaccia avviene **all'avvio del
+di compatibilità con la versione `1.3.0` dell'interfaccia avviene **all'avvio del
 componente**, su `plugins_loaded`, ed è la lavorazione che apre lo sviluppo del codice.
 
 ## Requisiti normativi di riferimento
