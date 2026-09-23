@@ -352,6 +352,39 @@ ALBO-01 e ALBO-02 restano intatte. Il divieto di cancellare un atto pubblicato
 **non esiste ancora**: finché non c'è, chi ha il permesso di cancellare un atto lo cancella,
 pubblicato compreso.
 
+## Le durate per tipo di atto
+
+Stesso prefisso `A-`, numerazione che prosegue. Queste righe costruiscono la **parte di
+configurazione di ALBO-04**: ogni tipo di atto porta un solo dato con tre valori insieme,
+cioè giorni, origine (norma o scelta dell'amministrazione) ed estremi della norma. Non
+chiudono ALBO-04, le cui righe nella tabella per requisito chiedono anche la pubblicazione
+e la durata propria dell'atto: restano **da fare** finché non arriva il flusso di
+pubblicazione. La riga statica di ALBO-04, quella sul numero 15, la verifica A-57.
+
+La validazione gira **al salvataggio e a ogni lettura**. La seconda è quella che conta per
+la conformità, per la stessa ragione per cui la scadenza è una proprietà del dato letto: una
+durata scritta di lato nella banca dati non diventa una durata perché nessuno l'ha
+controllata.
+
+| # | Stato | Il test, in parole | Esito atteso |
+|---|---|---|---|
+| A-48 | in corso | Si configura una durata di origine **normativa** con i suoi estremi, e una di origine **dell'amministrazione** senza estremi; poi si rileggono dalla banca dati, saltando la cache | una sola riga per tipo, con i tre valori insieme e i giorni come numero intero; la lettura restituisce esattamente quello che è stato scritto |
+| A-49 | in corso | Dodici forme di dato sbagliato, **una per volta**, ciascuna su un tipo senza durata: giorni assenti, zero, negativi, con la virgola, seguiti da lettere, seguiti da un a capo, oltre il massimo intero; solo i giorni senza origine; origine sconosciuta; norma senza estremi o con estremi fatti di spazi; amministrazione con estremi | rifiutate tutte, **niente scritto** nella banca dati e il tipo resta senza durata. **Controllo positivo**: gli stessi valori corretti sono accettati. L'amministrazione con estremi è rifiutata perché una durata scelta con accanto gli estremi di una norma sembrerebbe prescritta |
+| A-50 | in corso | Un tipo con una durata valida riceve quattro tentativi sbagliati | la durata memorizzata resta **identica** a prima dopo ciascuno: una validazione che scrivesse un campo per volta lascerebbe il numero nuovo accanto all'origine vecchia |
+| A-51 | in corso | [attacco] **Scavalcamento grezzo**: si scrivono di lato nella banca dati nove durate malformate, una condizione per volta (non un elenco, giorni come testo, zero, con la virgola, origine mancante o sconosciuta, norma senza estremi, amministrazione con estremi, una chiave in più), e poi due righe per lo stesso dato | la lettura le rifiuta tutte come **durata non valida**, comprese le due righe, perché quale delle due valga dipenderebbe dall'ordine di scrittura. **Controllo positivo**: una durata ben formata scritta di lato si legge, altrimenti la riga sarebbe verde con una lettura che rifiuta tutto |
+| A-52 | in corso | Un tipo nuovo, un tipo a cui la durata viene tolta, un organo al posto di un tipo, un tipo inesistente | sempre un errore e **mai un numero di giorni**: nessun valore di ripiego. Sull'organo la configurazione è rifiutata e non lascia niente scritto |
+| A-53 | in corso | **Quattro invii veri della schermata del tipo**, una condizione per volta: gettone sbagliato; utente con **tutti i permessi di chi redige** e non quello di pubblicare; chi pubblica con la norma senza estremi; chi pubblica, senza essere amministratore, con dati validi | i primi tre lasciano la durata **identica** e i rifiuti lasciano un motivo a chi ha salvato, che per il terzo nomina gli estremi. Il quarto cambia la durata senza toccare il codice, ed è il controllo positivo, fatto con un utente che possiede il permesso giusto e non quello di amministratore |
+| A-54 | in corso | Un salvataggio del tipo che **non viene dal modulo della durata**, come la modifica rapida dall'elenco o un componente che rinomina il tipo; poi un invio del modulo con i tre campi svuotati | il primo lascia la durata identica e nessun motivo di rifiuto: senza questa riga, un gestore che leggesse come vuoti i campi mancanti toglierebbe la durata a ogni rinomina. Il secondo è la rimozione dichiarata, e la durata non c'è più |
+| A-55 | in corso | Si rilegge come il dato è dichiarato a WordPress, e si chiede a WordPress chi può modificarlo | dichiarato, **non esposto all'interfaccia per programmi**, a valore singolo; chi redige soltanto non può modificarlo, chi pubblica sì |
+| A-56 | in corso | La colonna dell'elenco dei tipi, su un tipo configurato, uno senza durata e uno con una durata malformata scritta di lato | il primo mostra giorni ed estremi; gli altri due **non mostrano numeri di giorni** e dicono che gli atti di quel tipo non si pubblicano. La colonna legge con la stessa regola di tutti |
+| A-57 | in corso | [statico] Si cercano nei sorgenti, pezzo per pezzo di codice e non nel testo, il numero 15 e i quindici giorni espressi in secondi, sia come numeri sia dentro le stringhe | assenti. È la riga statica di ALBO-04: un commento che spiega l'art. 124 non la fa fallire, un 15 dentro una stringa sì |
+
+**Cosa non chiudono queste righe.** La durata propria dell'atto, che ha bisogno dello stato
+bozza governato e del registro delle operazioni. Il blocco della pubblicazione di un atto il
+cui tipo non ha durata valida: oggi la pubblicazione è chiusa per tutti, e quel controllo
+entrerà nello sbarramento quando la pubblicazione si aprirà. Nessun controllo che gli
+estremi citino una norma vera: il componente pretende che siano scritti.
+
 ## Collaudo congiunto con la trasparenza
 
 Con entrambi i plugin attivi sullo stesso sito: le pagine dell'albo hanno noindex e sono
