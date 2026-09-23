@@ -55,9 +55,9 @@ ATTO
  |       [FlussoPubblicazione, Oscuramento]
  |
  +--> viene pubblicato
- |       il numero di repertorio viene assegnato ORA, in modo atomico
- |       IPOTESI DA CONFERMARE: il repertorio poggia sulla prassi e non
- |       su una fonte, e la sua unita' di lavoro e' bloccata
+ |       il numero di repertorio viene assegnato ORA, in modo atomico;
+ |       nel primo anno d'uso solo dopo che l'amministrazione ha
+ |       dichiarato l'ultimo numero gia' usato
  |       voce nel registro: chi, cosa, quando
  |       [Repertorio, core: Registro]
  |
@@ -72,7 +72,7 @@ ATTO
  |       il cron di sistema cambia lo stato; il filtro in lettura lo copre
  |       gia' dal primo istante anche se il cron e' fermo
  |       viene scattato il referto: fotografia immutabile
- |       IPOTESI DA CONFERMARE, come il repertorio
+ |       IPOTESI DA CONFERMARE: il referto poggia sulla prassi
  |       [core: MotoreScadenza, Referto]
  |
  +--> l'indirizzo pubblico smette di rispondere, per chiunque
@@ -208,8 +208,8 @@ controlli che impediscono un'esposizione oltre il termine esisteranno davvero.
 | Campi dell'atto e schermata di compilazione | I dati dell'atto, il riquadro in cui si compilano, e il controllo campo per campo prima della pubblicazione | ALBO-01, ALBO-02 | no |
 | Documento principale e allegati | I file dell'atto, la loro cardinalità e la loro impronta. Dipende dalla consegna protetta del meccanismo comune | ALBO-01 | no |
 | `Avvio` | Verifica che il meccanismo comune sia caricato e compatibile, poi gli dichiara la sezione dell'albo con le due politiche per intero: indicizzazione `vietata`, scadenza `irraggiungibile`. Non chiude nessun requisito da sola: è il piano su cui ALBO-05 e ALBO-06 poggeranno. Se una qualsiasi delle tre condizioni non regge il componente resta attivo e inerte e lo segnala in bacheca, tranne nel caso della versione incompatibile, in cui è il meccanismo comune a disattivarlo | base di ALBO-05, ALBO-06 | **sì** |
-| Durate di pubblicazione | Le durate per tipo di atto, lette dalla configurazione e senza nessun valore predefinito, **ciascuna con la propria origine dichiarata**, norma con i suoi estremi oppure scelta dell'amministrazione (decisione del 2026-09-22). Erano scritte nella riga qui sopra e ne sono state separate quando quella riga è stata costruita: la dichiarazione delle politiche esiste, le durate no | ALBO-04 | no |
-| `Repertorio` | Assegna il numero progressivo annuale al primo passaggio in pubblicazione, in modo atomico; blocca ogni modifica manuale del numero. **Ipotesi da confermare**, unita' di lavoro bloccata dalla conferma | ALBO-08 | no |
+| Durata propria dell'atto | La durata più breve di quella del tipo, scelta per il singolo atto dove l'origine è dell'amministrazione, con motivazione. La parte di configurazione per tipo esiste ed è `Durate`, qui sopra | ALBO-04 | no |
+| `Repertorio` | Assegna il numero progressivo annuale, una volta per atto, con un incremento atomico e due vincoli della banca dati che rendono impossibili il numero doppio e il secondo numero allo stesso atto. Nel primo anno d'uso non assegna niente finché l'amministrazione non dichiara l'ultimo numero già usato, e blocca la dichiarazione al primo numero assegnato. Offre la schermata della dichiarazione a chi pubblica. **Non è ancora chiamato da nessuno**: lo chiamerà il passaggio a pubblicato | ALBO-08 | **sì** |
 | `FlussoPubblicazione` | Il percorso obbligato verso la pubblicazione: controllo preventivo sui dati personali con conferma esplicita; blocco di modifica e cancellazione dell'atto pubblicato, senza eccezioni per l'amministratore | ALBO-09, ALBO-11 | no |
 | `Oscuramento` | Gestisce la coppia versione oscurata pubblica / originale riservato | ALBO-12 | no |
 | `Referto` | Alla defissione congela la fotografia dell'esposizione (numero, date effettive, impronta del file, autore) e la rende ristampabile. Dopo una defissione anticipata riporta la dichiarazione dell'amministrazione sull'effetto della rimozione, o la sua assenza; resa dopo, la aggiunge come appendice senza riscrivere la fotografia. **Ipotesi da confermare**, unita' di lavoro bloccata dalla conferma | ALBO-07 | no |

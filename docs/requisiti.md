@@ -5,7 +5,7 @@ requisito ha un identificativo (ALBO-01 fino ad ALBO-27): è lo stesso usato nei
 commit e nelle discussioni, così si può sempre risalire dal codice al motivo per cui
 esiste. In fondo c'è il **catalogo corrente dei requisiti**, con le fonti normative e le
 decisioni aperte marcate esplicitamente. Non è una specifica completa e non lo sarà finché
-ALBO-07 e ALBO-08 restano da confermare.
+ALBO-07 resta da confermare.
 
 ## L'idea in dieci righe
 
@@ -88,23 +88,34 @@ questo la politica di indicizzazione è un parametro dichiarato, mai un default.
 
 ### Il registro non si tocca (ALBO-08, ALBO-09, ALBO-10)
 
-> **Attenzione: repertorio e referto sono due ipotesi, non due impegni.** ALBO-07 (referto)
-> e ALBO-08 (repertorio) poggiano sulla prassi della pubblicita' legale, che non e' una
-> fonte. Sono **scelte operative da confermare** contro il regolamento dell'amministrazione,
-> e finche' non sono confermate quello che segue descrive come le faremmo, non che le
-> faremo. Le unita' che le costruiscono sono bloccate da quella conferma.
+> **Il referto è ancora un'ipotesi, il repertorio no.** ALBO-07 (referto) poggia sulla
+> prassi della pubblicità legale, che non è una fonte: è una **scelta operativa da
+> confermare** contro il regolamento dell'amministrazione, e finché non è confermata quello
+> che se ne dice descrive come lo faremmo, non che lo faremo. ALBO-08 (repertorio) poggia
+> sulla stessa prassi, ed è stato promosso a **scelta di prodotto** il 2026-09-23: il
+> componente lo adotta, senza pretendere che una fonte lo imponga.
 
 
-- Il **numero di repertorio**, *se confermato*, è progressivo per anno (per esempio 123/2026), lo assegna
-  il sistema al primo passaggio in pubblicazione e non si modifica a mano (ALBO-08). Le
+- Il **numero di repertorio** è progressivo per anno (per esempio 123/2026), lo assegna il
+  sistema al primo passaggio in pubblicazione e non si modifica a mano (ALBO-08). Le
   garanzie sono quattro: **unico**, **progressivo**, assegnato **una sola volta**, **mai
   riutilizzato**. L'atto annullato conserva il suo numero, con stato e motivo.
-  **L'assenza assoluta di buchi non è fra le garanzie**, ed è una scelta operativa da
-  confermare contro il regolamento dell'amministrazione. Il motivo è concreto: una sequenza
+  **L'assenza assoluta di buchi non è fra le garanzie.** Il motivo è concreto: una sequenza
   senza buchi obbliga a tenere il contatore dentro la stessa transazione della
   pubblicazione, e ogni operazione che fallisce a metà o va in conflitto con un'altra deve
-  restituire il numero invece di bruciarlo. È fattibile, costa in complicazione, e la
-  decisione se pagarla non è nostra.
+  restituire il numero invece di bruciarlo. È fattibile, costa in complicazione, e si
+  costruisce se un regolamento lo chiede.
+- **Il numero di partenza lo dichiara l'amministrazione** (decisione del 2026-09-23). Chi
+  installa il componente a metà anno ha già un registro, tenuto altrove, arrivato a un certo
+  numero: se è arrivato a 121, il primo atto pubblicato qui deve prendere il 122, non l'1.
+  Per questo, nel **primo anno d'uso**, il componente non assegna nessun numero finché chi
+  pubblica non ha dichiarato l'ultimo numero già usato quell'anno, zero se non ce n'è
+  nessuno. Un valore predefinito non c'è: partire da 1 in silenzio produrrebbe due atti con
+  lo stesso numero, uno nel registro vecchio e uno qui. La dichiarazione si corregge finché
+  nessun numero di quell'anno è stato assegnato, e dopo non si tocca più, da nessuno. Negli
+  anni successivi la numerazione riparte da 1 da sola: il registro dell'anno prima lo
+  teneva già il componente, e ricominciare da 1 è la regola della numerazione annuale, non
+  un valore scelto al posto dell'amministrazione.
 - Un atto pubblicato è **immodificabile**: una rettifica è un atto nuovo che rinvia al
   precedente, mai una correzione silenziosa (ALBO-09). La cancellazione di un atto
   pubblicato è vietata per tutti, amministratore compreso. **Esiste una sola eccezione**,
@@ -235,7 +246,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-05 | da fare | L'atto defisso esce dalla vista pubblica | **norma** il risultato (Garante, provvedimenti). **Prodotto** la politica `irraggiungibile` dichiarata al meccanismo comune |
 | ALBO-06 | da fare | Le pagine dell'atto non vengono indicizzate | **norma** il risultato (Garante, che raccomanda i metatag). **Prodotto** `noindex`, esclusione dalla mappa e politica dichiarata |
 | ALBO-07 | da fare | Referto di pubblicazione congelato | **da confermare**: la prassi non è una fonte. Contenuto e obbligatorietà vanno verificati contro il regolamento, e l'unità è bloccata da quella conferma |
-| ALBO-08 | da fare | Repertorio progressivo annuale, assegnato dal sistema. Unico, progressivo, assegnato una sola volta, mai riutilizzato | **da confermare**: la prassi non è una fonte. L'assenza assoluta di buchi non è promessa e dipende dal regolamento. L'unità è bloccata da quella conferma |
+| ALBO-08 | in corso | Repertorio progressivo annuale, assegnato dal sistema. Unico, progressivo, assegnato una sola volta, mai riutilizzato. Nel primo anno d'uso il numero di partenza lo dichiara l'amministrazione, senza valore predefinito | **prodotto** scelta decisa il 2026-09-23: la prassi della pubblicità legale usa il repertorio, le fonti non lo impongono. Decisi lo stesso giorno la partenza dichiarata e il divieto di correggerla dopo il primo numero. L'assenza assoluta di buchi non è promessa |
 | ALBO-09 | da fare | Integrità del documento pubblicato | **norma** il risultato (linee guida AgID doc. informatici). **Prodotto** immodificabilità e rettifica come atto nuovo, con **un'unica eccezione dichiarata**, la sostituzione per oscuramento di ALBO-12 |
 | ALBO-10 | da fare | Tracciabilità delle operazioni sugli atti | **norma** responsabilizzazione e tracciabilità (GDPR art. 5). **Prodotto** il registro solo in aggiunta del meccanismo comune è la soluzione scelta, non l'unica |
 | ALBO-11 | da fare | Liceità del trattamento dei dati particolari | **norma** il risultato (d.lgs. 196/2003 artt. 2-ter, 2-septies). **Prodotto** il passaggio obbligato con conferma esplicita |

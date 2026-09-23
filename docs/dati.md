@@ -34,7 +34,7 @@ lì e resta una scelta separata.
 | Data di inizio pubblicazione | sì | metadato | **solo il sistema**, al passaggio a pubblicato, e mai nel futuro: la pubblicazione non si programma (ALBO-27). Non è modificabile dopo, perché da essa decorrono termini di legge |
 | Data di fine pubblicazione | sì per pubblicare | metadato | **solo il sistema**, al passaggio a pubblicato e nello stesso istante dell'inizio, come inizio più durata applicabile (ALBO-27), dove la durata applicabile è quella **vigente nell'istante della pubblicazione**, del tipo o propria dell'atto: non la fornisce nessuno, e una data fornita a mano non supplisce a una durata assente. Il sistema rifiuta la **pubblicazione** di un atto per cui non è calcolabile, non il salvataggio della bozza, dove non esiste ancora. **Una defissione anticipata la riporta indietro**, ed è così, e non cambiando stato, che l'atto esce dalla vista |
 | Durata propria dell'atto | no | metadato più voce di registro | Il contratto è uno solo e vale per ogni ingresso. **Chi**: soltanto chi possiede il permesso di pubblicare; chi ha il solo permesso di redazione non la scrive, non la cambia e non la toglie, anche su una bozza che può modificare. **Quando**: soltanto in bozza, perché in verifica l'atto è bloccato e da pubblicato non si torna indietro. **Dove**: soltanto se il tipo ha durata di origine dell'amministrazione; dove l'origine è una norma non esiste. **Quanto**: un numero intero di giorni, almeno 1 e **strettamente minore** della durata configurata; zero, valori negativi, frazioni e valori uguali o maggiori sono rifiutati. Uguale non è un errore grave ma non è una scelta, e più lunga non si può per scelta di prodotto. **Perché**: motivazione obbligatoria, che finisce nel registro con chi l'ha disposta (ALBO-04, ALBO-10), e così ogni cambio e ogni rimozione. **Alla pubblicazione** la durata propria si riverifica contro la configurazione vigente in quell'istante: se nel frattempo il tipo è diventato di origine normativa, o la durata configurata non è più maggiore di quella propria, la pubblicazione è rifiutata con quella ragione e l'atto resta in verifica, da rimandare in bozza per una nuova valutazione |
-| Numero di repertorio (es. 123/2026). **Ipotesi da confermare** | dalla pubblicazione | metadato più contatore in tabella dedicata | **solo il sistema**, alla prima pubblicazione, in modo atomico |
+| Numero di repertorio (es. 123/2026) | dalla pubblicazione | riga nella tabella delle assegnazioni, più il contatore dell'anno | **solo il sistema**, alla prima pubblicazione, in modo atomico. Nel primo anno d'uso solo dopo la dichiarazione della partenza (ALBO-08) |
 | Stato | sì | stato del contenuto | il flusso di pubblicazione, mai a mano nel database |
 | Conferma del controllo dati personali | sì per pubblicare | metadato con utente e data | **chi pubblica**, nel passaggio da in verifica a pubblicato, tramite la schermata obbligata. Non chi redige: il controllo sta nel secondo dei due passaggi, ed è la ragione per cui i passaggi sono due (ALBO-11) |
 | Documento principale | sì per pubblicare | file in cartella protetta più impronta (hash) in metadato | redattore prima della pubblicazione, poi bloccato. È uno e uno solo |
@@ -176,16 +176,20 @@ Questa è la mappa delle azioni:
 
 ## Dati che il plugin scrive fuori dall'atto
 
-> **Attenzione: repertorio e referto sono due ipotesi, non due impegni.** ALBO-07 (referto)
-> e ALBO-08 (repertorio) poggiano sulla prassi della pubblicita' legale, che non e' una
-> fonte. Sono **scelte operative da confermare** contro il regolamento dell'amministrazione,
-> e finche' non sono confermate quello che segue descrive come le faremmo, non che le
-> faremo. Le unita' che le costruiscono sono bloccate da quella conferma.
+> **Il referto è ancora un'ipotesi, il repertorio no.** ALBO-07 (referto) poggia sulla
+> prassi della pubblicità legale, che non è una fonte, ed è una **scelta operativa da
+> confermare**: quello che se ne dice qui descrive come lo faremmo, non che lo faremo.
+> ALBO-08 (repertorio) è una **scelta di prodotto** dal 2026-09-23.
 
 
-- **Contatore di repertorio**: una riga per anno (e per registro, se l'ente configura
-  registri separati), aggiornata con un'operazione atomica per impedire due atti con lo
-  stesso numero.
+- **Repertorio**: due tabelle proprie. La prima, `albo_pretorio_repertorio_anni`, ha una
+  riga per anno: ultimo numero usato, numero dichiarato alla partenza, come l'anno si è
+  aperto (dichiarazione dell'amministrazione oppure prosecuzione di un anno già tenuto qui),
+  chi e quando. L'ultimo numero avanza con un'unica istruzione che legge e incrementa
+  insieme. La seconda, `albo_pretorio_repertorio`, ha una riga per assegnazione: anno,
+  numero, atto, istante, con due vincoli della banca dati, la coppia anno e numero unica e
+  l'atto unico. Nessun metadato dell'atto: il numero non si scrive da nessuna richiesta che
+  scrive metadati. Una sola numerazione: registri separati non sono costruiti.
 - **Referto**: un record congelato per ogni atto defisso: numero, tipo, oggetto, date
   effettive di inizio e fine, impronta del file pubblicato, chi ha pubblicato. Non si
   rigenera e non si modifica; si ristampa.

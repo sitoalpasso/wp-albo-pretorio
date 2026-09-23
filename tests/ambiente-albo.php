@@ -114,14 +114,35 @@ trait AmbienteAlbo {
 	}
 
 	/**
-	 * Testo degli avvisi prodotti in amministrazione.
+	 * Quello che la bacheca stampa fra gli avvisi.
 	 *
+	 * **Senza l'avviso della numerazione, salvo richiesta.** Su un sito di prova
+	 * l'anno della numerazione e' sempre da aprire, quindi quell'avviso compare a
+	 * ogni amministratore e renderebbe rossa ogni prova che osserva un altro
+	 * avviso, per una ragione che non c'entra con cio' che verifica. L'avviso
+	 * della numerazione ha la sua riga, A-67, che lo chiede esplicitamente.
+	 *
+	 * @param bool $con_numerazione Includi l'avviso della numerazione.
 	 * @return string
 	 */
-	protected function avvisi_in_bacheca(): string {
+	protected function avvisi_in_bacheca( bool $con_numerazione = false ): string {
+		$avviso   = array( \AlboPretorioPa\SchermataRepertorio::class, 'avviso' );
+		$tolto    = false;
+		$priorita = has_action( 'admin_notices', $avviso );
+
+		if ( ! $con_numerazione && false !== $priorita ) {
+			remove_action( 'admin_notices', $avviso, (int) $priorita );
+			$tolto = true;
+		}
+
 		ob_start();
 		do_action( 'admin_notices' );
+		$stampato = (string) ob_get_clean();
 
-		return (string) ob_get_clean();
+		if ( $tolto ) {
+			add_action( 'admin_notices', $avviso, (int) $priorita );
+		}
+
+		return $stampato;
 	}
 }

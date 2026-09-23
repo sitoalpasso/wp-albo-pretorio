@@ -74,6 +74,16 @@ final class Installazione {
 		}
 
 		/*
+		 * Le tabelle del repertorio seguono la stessa strada dei permessi: una
+		 * versione nuova le crea o le aggiorna anche dove nessuna attivazione
+		 * avviene. Se non risultano create la versione non si memorizza, e alla
+		 * richiesta dopo si riprova.
+		 */
+		if ( is_wp_error( Repertorio::installa() ) ) {
+			return false;
+		}
+
+		/*
 		 * L'esito della scrittura si controlla, e poi si rilegge. Memorizzare
 		 * una versione che non e' stata scritta significa non rifare mai piu'
 		 * questo lavoro: alla richiesta dopo il confronto direbbe che va tutto

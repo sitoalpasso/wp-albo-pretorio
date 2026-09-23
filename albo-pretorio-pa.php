@@ -3,7 +3,7 @@
  * Plugin Name:       Albo Pretorio
  * Plugin URI:        https://github.com/sitoalpasso/wp-albo-pretorio
  * Description:       Pubblicazione con effetto di pubblicità legale. Attua requisiti derivati dalla normativa applicabile ai soggetti dell'art. 2-bis del d.lgs. 33/2013.
- * Version:           0.2.0-alpha
+ * Version:           0.3.0-alpha
  * Requires at least: 6.5
  * Requires PHP:      8.1
  * Requires Plugins:  conformita-core
@@ -26,7 +26,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Versione del plugin.
  */
-const VERSIONE = '0.2.0-alpha';
+const VERSIONE = '0.3.0-alpha';
 
 /**
  * Versione minima di WordPress dichiarata.
@@ -118,6 +118,16 @@ const TASSONOMIA_ORGANO = 'albo_organo';
 const META_DURATA = 'albo_pretorio_durata_tipo';
 
 /**
+ * Tabella degli anni del repertorio, senza il prefisso delle tabelle del sito.
+ */
+const TABELLA_REPERTORIO_ANNI = 'albo_pretorio_repertorio_anni';
+
+/**
+ * Tabella delle assegnazioni del repertorio, senza il prefisso delle tabelle del sito.
+ */
+const TABELLA_REPERTORIO = 'albo_pretorio_repertorio';
+
+/**
  * Ruolo proprio del componente, per chi pubblica gli atti.
  */
 const RUOLO = 'albo_responsabile_pubblicazione';
@@ -156,6 +166,8 @@ require_once __DIR__ . '/includes/class-avvio.php';
 require_once __DIR__ . '/includes/class-permessi.php';
 require_once __DIR__ . '/includes/class-tipo-atto.php';
 require_once __DIR__ . '/includes/class-durate.php';
+require_once __DIR__ . '/includes/class-repertorio.php';
+require_once __DIR__ . '/includes/class-schermata-repertorio.php';
 require_once __DIR__ . '/includes/class-installazione.php';
 require_once __DIR__ . '/includes/class-rifiuti.php';
 require_once __DIR__ . '/includes/class-chiusura-pubblicazione.php';
@@ -193,6 +205,15 @@ add_action( 'edited_' . TASSONOMIA_TIPO_ATTO, array( Durate::class, 'da_salvatag
 add_filter( 'manage_edit-' . TASSONOMIA_TIPO_ATTO . '_columns', array( Durate::class, 'colonne' ) );
 add_filter( 'manage_' . TASSONOMIA_TIPO_ATTO . '_custom_column', array( Durate::class, 'colonna' ), 10, 3 );
 add_action( 'admin_notices', array( Durate::class, 'mostra_rifiuto' ) );
+
+/*
+ * La numerazione ha una schermata sua, sotto il menu degli atti, dove chi
+ * pubblica dichiara la partenza nel primo anno d'uso. Finche' l'anno non numera,
+ * un avviso in bacheca lo dice.
+ */
+add_action( 'admin_menu', array( SchermataRepertorio::class, 'menu' ) );
+add_action( 'admin_post_' . SchermataRepertorio::AZIONE, array( SchermataRepertorio::class, 'da_invio' ) );
+add_action( 'admin_notices', array( SchermataRepertorio::class, 'avviso' ) );
 
 /*
  * Lo sbarramento si aggancia al caricamento e non all'avvio riuscito: deve
