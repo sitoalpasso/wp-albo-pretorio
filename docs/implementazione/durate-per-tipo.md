@@ -1,8 +1,8 @@
 # Durate per tipo di atto
 
-Scheda di lavorazione, scritta prima del codice come piano. Righe di collaudo A-48..A-56,
-più la parte di configurazione di ALBO-04. Si aggiornerà a lavoro finito con com'è andata
-davvero.
+Scheda di lavorazione. Scritta prima del codice come piano e aggiornata a lavoro finito:
+la sezione in fondo dice com'è andata davvero e cosa è cambiato rispetto al piano. Righe di
+collaudo A-48..A-57, più la parte di configurazione di ALBO-04.
 
 ## In tre paragrafi
 
@@ -38,7 +38,7 @@ quello che trova nella banca dati; se il salvataggio scrivesse il numero di gior
 aver controllato l'origine; se un campo avesse un valore di ripiego; se il gestore della
 schermata dimenticasse il gettone o il permesso; se qualcuno scrivesse `15` nel codice. La
 tabella dei guasti introdotti di proposito, e di quale prova ha fatto cadere ciascuno, si
-aggiunge qui a lavoro finito.
+trova in fondo.
 
 ## I nove punti
 
@@ -48,9 +48,9 @@ aggiunge qui a lavoro finito.
 |---|---|
 | `includes/class-durate.php` | il dato della durata, la sua validazione, la lettura, il salvataggio dalla schermata, la colonna e l'avviso |
 | `albo-pretorio-pa.php` | la costante con il nome del dato e gli agganci |
-| `tests/DurateTest.php` | le prove A-48..A-56 |
+| `tests/DurateTest.php` | le prove A-48..A-57 |
 | `tests/ambiente-albo.php` | l'azzeramento dello stato della nuova parte fra una prova e l'altra |
-| `docs/collaudo.md`, `docs/dati.md`, `docs/architettura.md`, `docs/requisiti.md` | righe nuove e colonna Stato, nello stesso ramo |
+| `docs/collaudo.md`, `docs/dati.md`, `docs/architettura.md` | righe nuove e colonna Stato, nello stesso ramo |
 
 ### 2. Perché
 
@@ -86,8 +86,9 @@ ripiego.
 | Chi possiede solo il permesso di redigere | vede i tipi quando li assegna, non ne cambia la durata |
 | Chiunque altro | niente |
 
-Il metadato è dichiarato a WordPress come non esposto all'interfaccia per programmi, e la
-sua modifica è autorizzata solo a chi può modificare quel tipo di atto.
+Il metadato è dichiarato a WordPress come non esposto all'interfaccia per programmi. Chi può
+modificarlo attraverso i controlli di WordPress lo decide WordPress stesso, che per il
+metadato di una voce chiede il permesso di modificare quella voce.
 
 ### 6. Modi di guasto previsti
 
@@ -101,7 +102,7 @@ sua modifica è autorizzata solo a chi può modificare quel tipo di atto.
 
 ### 7. Prove che si aggiungeranno
 
-Nuove righe A-48..A-56 in `collaudo.md`, sezione nuova "Le durate per tipo di atto".
+Nuove righe A-48..A-57 in `collaudo.md`, sezione nuova "Le durate per tipo di atto".
 ALBO-04 resta **da fare** nella tabella per requisito: le sue righe chiedono anche la
 pubblicazione e la durata propria, che arrivano con il flusso di pubblicazione. La riga
 statica di ALBO-04, quella sul numero 15, diventa invece **fatto** a CI verde.
@@ -124,3 +125,44 @@ estremi, e nella colonna Durata il tipo deve risultare **non configurato**. Se l
 mostra 15 giorni, la validazione non gira sul sito vero e il rilascio si ferma. Poi si
 aggiungono gli estremi e si salva di nuovo: la colonna deve mostrare 15 giorni, norma, con
 gli estremi scritti.
+
+## Com'è andata davvero
+
+**Le prove.** Settantasei prove nella suite principale, dieci nuove, più le due suite
+separate senza meccanismo comune e con meccanismo comune incompatibile, tutte verdi in
+locale su WordPress 6.5. PHPCS pulito. Il verdetto che vale è quello della verifica continua
+sul commit di punta.
+
+**Un pezzo tolto rispetto al piano.** Il piano dichiarava un controllo nostro su chi può
+modificare il dato attraverso i controlli di WordPress. La prova di non vacuità ha mostrato
+che non serviva a niente: sostituito con un controllo che concede sempre, nessuna prova è
+caduta, perché WordPress chiede già il permesso di modificare la voce e un controllo in più
+può solo restringerlo. Un pezzo di codice che nessun guasto può rendere visibile non
+protegge niente, quindi è stato tolto, e la riga A-55 verifica il comportamento di
+WordPress invece di un nostro doppione.
+
+**La prova di non vacuità.** Tredici guasti introdotti uno per volta in una copia usa e
+getta, facendo girare le prove delle durate su ciascuna.
+
+| Guasto introdotto | Prove cadute |
+|---|---|
+| La lettura si fida di qualunque valore trovato | A-51, A-56 |
+| Due righe per lo stesso dato accettate | A-51 |
+| Il valore scritto prima di essere controllato | A-49, A-50, A-53 |
+| Un valore di ripiego quando la durata manca | A-49, A-52, A-56 |
+| Il controllo dei giorni con l'ancora che accetta un a capo finale | A-49 |
+| La lettura accetta una norma senza estremi | A-51 |
+| Il gettone del modulo non controllato | A-53 |
+| Il permesso sul tipo non controllato | A-53 |
+| I campi mancanti letti come vuoti, così che ogni rinomina toglie la durata | A-54 |
+| Il dato esposto all'interfaccia per programmi | A-55 |
+| La colonna che legge il dato grezzo invece della durata valida | A-56 |
+| Il numero 15 scritto in una costante | A-57 |
+| Il controllo nostro su chi modifica il dato che concede sempre | nessuna: il controllo era un doppione di WordPress, ed è stato tolto |
+
+**Due cose che il laboratorio non dice.** Il salvataggio di un tipo nuovo avviene senza
+ricaricare la pagina: se la durata viene rifiutata, il tipo nasce comunque con il suo nome,
+la colonna lo mostra come non configurato e l'avviso compare alla pagina successiva. E il
+nome delle due origini è mostrato a parole, non come codice: chi configura legge "da una
+norma, che fissa il termine" e "da una scelta dell'amministrazione, dove la norma non fissa
+un termine".

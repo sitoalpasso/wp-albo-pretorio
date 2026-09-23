@@ -269,18 +269,18 @@ class DurateTest extends WP_UnitTestCase {
 		);
 
 		$malformate = array(
-			'non un elenco'                => '15',
-			'giorni come testo'            => array_merge( $valida, array( 'giorni' => '15' ) ),
-			'giorni zero'                  => array_merge( $valida, array( 'giorni' => 0 ) ),
-			'giorni con la virgola'        => array_merge( $valida, array( 'giorni' => 15.0 ) ),
-			'origine mancante'             => array(
+			'non un elenco'               => '15',
+			'giorni come testo'           => array_merge( $valida, array( 'giorni' => '15' ) ),
+			'giorni zero'                 => array_merge( $valida, array( 'giorni' => 0 ) ),
+			'giorni con la virgola'       => array_merge( $valida, array( 'giorni' => 15.0 ) ),
+			'origine mancante'            => array(
 				'giorni'  => 15,
 				'estremi' => self::ESTREMI,
 			),
-			'origine sconosciuta'          => array_merge( $valida, array( 'origine' => 'regolamento' ) ),
-			'norma senza estremi'          => array_merge( $valida, array( 'estremi' => '' ) ),
-			'amministrazione con estremi'  => array_merge( $valida, array( 'origine' => 'amministrazione' ) ),
-			'una chiave in piu'            => array_merge( $valida, array( 'fine' => '2026-12-31' ) ),
+			'origine sconosciuta'         => array_merge( $valida, array( 'origine' => 'regolamento' ) ),
+			'norma senza estremi'         => array_merge( $valida, array( 'estremi' => '' ) ),
+			'amministrazione con estremi' => array_merge( $valida, array( 'origine' => 'amministrazione' ) ),
+			'una chiave in piu'           => array_merge( $valida, array( 'fine' => '2026-12-31' ) ),
 		);
 
 		foreach ( $malformate as $caso => $valore ) {

@@ -93,9 +93,11 @@ final class Durate {
 	/**
 	 * Dichiara il dato a WordPress.
 	 *
-	 * Il dato non e' esposto all'interfaccia per programmi, e la sua modifica
-	 * attraverso i controlli di WordPress e' concessa solo a chi puo'
-	 * modificare quel tipo di atto.
+	 * Il dato non e' esposto all'interfaccia per programmi. Chi puo'
+	 * modificarlo attraverso i controlli di WordPress lo decide WordPress
+	 * stesso, che per il metadato di una voce chiede il permesso di modificare
+	 * quella voce: un controllo nostro in piu' potrebbe solo restringere quello,
+	 * e restringerlo non serve.
 	 *
 	 * @return true|\WP_Error
 	 */
@@ -116,10 +118,9 @@ final class Durate {
 			TASSONOMIA_TIPO_ATTO,
 			META_DURATA,
 			array(
-				'type'          => 'array',
-				'single'        => true,
-				'show_in_rest'  => false,
-				'auth_callback' => array( self::class, 'autorizza' ),
+				'type'         => 'array',
+				'single'       => true,
+				'show_in_rest' => false,
 			)
 		);
 
@@ -141,29 +142,16 @@ final class Durate {
 	}
 
 	/**
-	 * Chi puo' modificare il dato attraverso i controlli di WordPress.
-	 *
-	 * @param bool   $concesso Esito proposto da WordPress.
-	 * @param string $chiave   Nome del dato.
-	 * @param int    $tipo_id  Tipo di atto.
-	 * @param int    $utente   Utente.
-	 * @return bool
-	 */
-	public static function autorizza( $concesso, $chiave, $tipo_id, $utente ): bool {
-		return user_can( (int) $utente, 'edit_term', (int) $tipo_id );
-	}
-
-	/**
 	 * Configura la durata di un tipo di atto.
 	 *
 	 * I tre valori si scrivono insieme o per niente. Chi chiama da codice e' il
 	 * componente o chi lo estende, come per le funzioni di WordPress che
 	 * scrivono i termini: il permesso si controlla alla schermata.
 	 *
-	 * @param int    $tipo_id Tipo di atto.
-	 * @param mixed  $giorni  Numero di giorni, intero da 1 in su.
-	 * @param mixed  $origine `norma` oppure `amministrazione`.
-	 * @param mixed  $estremi Estremi della norma; vuoti per l'amministrazione.
+	 * @param int   $tipo_id Tipo di atto.
+	 * @param mixed $giorni  Numero di giorni, intero da 1 in su.
+	 * @param mixed $origine `norma` oppure `amministrazione`.
+	 * @param mixed $estremi Estremi della norma; vuoti per l'amministrazione.
 	 * @return true|\WP_Error
 	 */
 	public static function configura( int $tipo_id, $giorni, $origine, $estremi ) {
