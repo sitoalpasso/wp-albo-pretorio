@@ -18,3 +18,10 @@ Schede presenti:
 - [`tipo-atto-permessi-e-chiusura.md`](tipo-atto-permessi-e-chiusura.md): il tipo di
   contenuto atto, i due elenchi di voci, i permessi, il ruolo proprio del componente e lo
   sbarramento che tiene chiusa la pubblicazione. Righe di collaudo A-11..A-47.
+- [`durate-per-tipo.md`](durate-per-tipo.md): la durata di pubblicazione di ciascun tipo di
+  atto, con la sua origine. Righe di collaudo A-48..A-57.
+- [`repertorio.md`](repertorio.md): il numero progressivo annuale, la partenza dichiarata e
+  la schermata della numerazione. Righe di collaudo A-58..A-68.
+- [`dati-dell-atto.md`](dati-dell-atto.md): tipo di atto, organo, data di adozione e numero
+  proprio, il riquadro in cui si compilano e l'elenco dei dati mancanti. Righe di collaudo
+  A-69..A-76.

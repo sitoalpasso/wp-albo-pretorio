@@ -17,8 +17,12 @@ lì e resta una scelta separata.
 
 > **Quello che esiste oggi è meno di questa tabella.** Sono costruiti il tipo, i due
 > elenchi di voci per il tipo di atto (`albo_tipo_atto`) e per l'organo (`albo_organo`), i
-> permessi e il ruolo proprio. **I campi dell'atto non sono ancora registrati** e non c'è
-> ancora la schermata in cui si compilano. **Documento principale e allegati non esistono
+> permessi e il ruolo proprio. Dei dati che fornisce chi redige esistono l'oggetto, il tipo
+> di atto, l'organo, la data di adozione e il numero proprio, con il riquadro **Dati
+> dell'atto** in cui si compilano e la lettura che li valida. Il numero di repertorio ha il
+> suo meccanismo e non è ancora chiamato da nessuno. Non esistono ancora la durata propria,
+> le date di pubblicazione, lo stato governato e la conferma del controllo sui dati
+> personali. **Documento principale e allegati non esistono
 > affatto**, e non è un rinvio per comodità: senza la consegna protetta del meccanismo
 > comune un file caricato risponde al proprio indirizzo diretto, e lo stato dell'atto non lo
 > protegge. Chiedere di caricare lì un documento con dati personali non sarebbe accettabile.
@@ -27,11 +31,11 @@ lì e resta una scelta separata.
 | Dato | Obbligatorio | Dove sta | Chi lo scrive |
 |---|---|---|---|
 | Oggetto (titolo) | sì | contenuto WordPress | redattore |
-| Tipo di atto | sì | elenco di voci dedicato, `albo_tipo_atto` | redattore, scelto tra i tipi configurati |
-| Organo che ha adottato | sì | elenco di voci dedicato, `albo_organo` | redattore |
+| Tipo di atto | sì, una e una sola voce | elenco di voci dedicato, `albo_tipo_atto`; due voci valgono come nessuna | redattore, scelto tra i tipi configurati senza preselezione. Le voci nuove le crea solo chi governa l'elenco |
+| Organo che ha adottato | sì, una e una sola voce | elenco di voci dedicato, `albo_organo`; come sopra | redattore, come sopra |
 | Amministrazione che ha adottato l'atto, se è un atto ospitato | sì per andare in verifica, **solo se** l'elenco delle amministrazioni ospitate ha almeno una voce | metadato con **il nome copiato alla pubblicazione**, oltre al riferimento alla voce dell'elenco | redattore, scegliendo fra "questa amministrazione" e le voci dell'elenco, senza preselezione. Dopo la pubblicazione non cambia, nemmeno se la voce viene rinominata o tolta (ALBO-29) |
-| Numero proprio dell'atto (es. determina 45/2026) | no | metadato | redattore. È il numero dell'atto, non quello di pubblicazione |
-| Data di adozione | sì | metadato | redattore |
+| Numero proprio dell'atto (es. determina 45/2026) | no | metadato protetto `_albo_pretorio_numero_proprio`, testo su una riga | redattore. È il numero dell'atto, non quello di pubblicazione |
+| Data di adozione | sì | metadato protetto `_albo_pretorio_data_adozione`, testo `AAAA-MM-GG`; letto come assente se non è una data vera del calendario o se le righe sono più di una | redattore |
 | Data di inizio pubblicazione | sì | metadato | **solo il sistema**, al passaggio a pubblicato, e mai nel futuro: la pubblicazione non si programma (ALBO-27). Non è modificabile dopo, perché da essa decorrono termini di legge |
 | Data di fine pubblicazione | sì per pubblicare | metadato | **solo il sistema**, al passaggio a pubblicato e nello stesso istante dell'inizio, come inizio più durata applicabile (ALBO-27), dove la durata applicabile è quella **vigente nell'istante della pubblicazione**, del tipo o propria dell'atto: non la fornisce nessuno, e una data fornita a mano non supplisce a una durata assente. Il sistema rifiuta la **pubblicazione** di un atto per cui non è calcolabile, non il salvataggio della bozza, dove non esiste ancora. **Una defissione anticipata la riporta indietro**, ed è così, e non cambiando stato, che l'atto esce dalla vista |
 | Durata propria dell'atto | no | metadato più voce di registro | Il contratto è uno solo e vale per ogni ingresso. **Chi**: soltanto chi possiede il permesso di pubblicare; chi ha il solo permesso di redazione non la scrive, non la cambia e non la toglie, anche su una bozza che può modificare. **Quando**: soltanto in bozza, perché in verifica l'atto è bloccato e da pubblicato non si torna indietro. **Dove**: soltanto se il tipo ha durata di origine dell'amministrazione; dove l'origine è una norma non esiste. **Quanto**: un numero intero di giorni, almeno 1 e **strettamente minore** della durata configurata; zero, valori negativi, frazioni e valori uguali o maggiori sono rifiutati. Uguale non è un errore grave ma non è una scelta, e più lunga non si può per scelta di prodotto. **Perché**: motivazione obbligatoria, che finisce nel registro con chi l'ha disposta (ALBO-04, ALBO-10), e così ogni cambio e ogni rimozione. **Alla pubblicazione** la durata propria si riverifica contro la configurazione vigente in quell'istante: se nel frattempo il tipo è diventato di origine normativa, o la durata configurata non è più maggiore di quella propria, la pubblicazione è rifiutata con quella ragione e l'atto resta in verifica, da rimandare in bozza per una nuova valutazione |

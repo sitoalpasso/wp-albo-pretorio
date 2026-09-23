@@ -23,8 +23,9 @@ richiesta di salvataggio: le voci nuove le crea chi governa gli elenchi.
 regola che un atto ne ha una e una sola per elenco. Data di adozione e numero proprio sono due
 metadati dell'atto, con il nome che comincia con il trattino basso: WordPress li considera
 protetti, e una richiesta di salvataggio che li porta come campi personalizzati viene
-ignorata. Così l'unico ingresso dalla schermata è il riquadro, che li valida. Sono dichiarati a WordPress con l'esposizione per programmi spenta. La
-**lettura valida il dato letto**, come per le durate: un dato scritto di lato nella banca dati
+ignorata. Così l'unico ingresso dalla schermata è il riquadro, che li valida. Sono
+dichiarati a WordPress con l'esposizione per programmi spenta. La **lettura valida il dato
+letto**, come per le durate: un dato scritto di lato nella banca dati
 e malformato vale come assente, e due tipi di atto sullo stesso atto valgono come nessuno.
 Sopra la lettura c'è una funzione che elenca i **dati mancanti** per nome: oggetto, tipo,
 organo, data di adozione e durata di pubblicazione del tipo. Oggi non la chiama nessuno: la
@@ -94,7 +95,8 @@ Il salvataggio dal riquadro chiede il gettone del riquadro e il permesso di modi
 **quell'atto**; per tipo e organo anche il permesso di assegnare le voci dell'elenco, che è
 derivato dal permesso di redazione. Creare una voce nuova nei due elenchi chiede il permesso di
 governarli, derivato dal permesso di pubblicare, anche quando la richiesta passa dal
-salvataggio di un atto. Nessun permesso nuovo.
+salvataggio di un atto. Nessun permesso nuovo. Il gettone del riquadro è legato all'atto:
+quello preso dalla schermata di un atto non vale per un altro.
 
 ### 6. Modi di guasto previsti
 
@@ -136,3 +138,63 @@ data e numero, si salva, si riapre e si ritrovano i quattro valori. Si verifica 
 un atto nuovo partano senza nessuna voce scelta. Si scrive come data di adozione il 31
 febbraio, modificando il campo con gli strumenti del navigatore: la bozza si salva senza
 quella data e compare l'avviso.
+
+## Com'è andata davvero
+
+**Le prove.** Novantacinque prove nella suite principale, otto nuove, più le due suite
+separate senza meccanismo comune e con meccanismo comune incompatibile, tutte verdi in
+locale su WordPress 6.5 con MariaDB. PHPCS pulito. L'esito in verifica continua si legge
+sulla richiesta di unione, e le righe passano a "fatto" solo dopo.
+
+**Cosa è cambiato rispetto al piano.** Tre cose. La prima: il gettone del riquadro è legato
+all'atto. Scrivendo A-72 è venuto fuori che con un gettone solo per tutti gli atti quello
+preso dalla schermata di un atto valeva per qualunque altro; ora la riga lo prova. La
+seconda: un campo che non arriva nell'invio resta com'era, e un campo arrivato come elenco
+invece che come testo è un valore sbagliato, non un valore vuoto. A-70 prova il primo caso.
+La terza: la versione del componente non sale, perché questa unità non scrive niente nella
+banca dati all'installazione.
+
+**Un controllo che nessuna prova raggiunge, dichiarato.** Il salvataggio del tipo e
+dell'organo chiede anche il permesso di assegnare le voci. Con i permessi di oggi quel
+permesso coincide con quello di redazione, che serve già per modificare l'atto, quindi il
+controllo non può fallire da solo e nessuna prova lo esercita. Resta perché è lo stesso
+controllo che WordPress fa sulle voci, e diventa utile se un giorno i due permessi si
+separano.
+
+**La prova di non vacuità.** Ventidue guasti introdotti uno per volta in una copia usa e
+getta, facendo girare le prove di questa unità su ciascuno.
+
+| Guasto introdotto | Prove cadute |
+|---|---|
+| Il menu senza la voce vuota selezionata, cioè con la prima voce vera proposta | A-69 |
+| La data non riletta dopo la conversione, così che il 31 febbraio passa | A-71, A-74 |
+| L'ancora che accetta un a capo finale nella data | nessuna: vedi sotto |
+| La lettura che si fida della data memorizzata | A-74 |
+| Due righe di data accettate | A-69, A-74, A-75 |
+| La prima voce presa quando ce ne sono due | A-69, A-74, A-75 |
+| Il gettone non controllato | A-72 |
+| Il gettone non legato all'atto | A-72 |
+| Il permesso sull'atto non controllato | A-72 |
+| Un salvataggio senza riquadro letto come un invio vuoto | A-70, A-72, A-75 |
+| Un campo assente letto come vuoto | A-70 |
+| La guardia sulle voci nuove tolta | A-73 |
+| Il numero proprio obbligatorio | A-75 |
+| Il tipo senza durata nominato come tipo mancante | A-75 |
+| La durata nominata anche quando manca il tipo | A-75 |
+| L'oggetto non controllato | A-75 |
+| La voce di un altro elenco accettata | A-71 |
+| La voce aggiunta invece che sostituita | A-70, A-71, A-72 |
+| I dati esposti ai programmi | A-76 |
+| I dati non protetti | A-72, A-76 |
+| Il riquadro senza controllo del permesso | A-76 |
+| Il tipo senza durata non segnalato nel menu | A-69, dopo una correzione della prova: vedi sotto |
+
+**Una prova che non provava.** Al primo giro il menu che non segnala il tipo senza durata
+non ha fatto cadere niente: la voce di prova si chiamava "Avviso senza durata", quindi la
+frase cercata c'era comunque, nel nome. Ora la voce si chiama "Avviso pubblico", e il guasto
+cade.
+
+**Un guasto che non può cadere.** L'ancora della data che accetta un a capo finale non ha
+fatto cadere niente, e non per una prova mancante: la conversione della data che viene
+subito dopo rifiuta da sola qualunque carattere in più, a capo compreso. Il controllo del
+formato resta come primo filtro, ma da solo non porta peso, e la tabella lo dice.
