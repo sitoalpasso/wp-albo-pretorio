@@ -47,6 +47,7 @@ scoperto.
 | COD | D.lgs. 30 giugno 2003, n. 196, artt. 2-ter e 2-septies | cosa è diffusione e su quali basi un soggetto pubblico può diffondere (2-ter); divieto assoluto di diffondere dati genetici, biometrici e relativi alla salute (2-septies comma 8) |
 | LG-DOC | AgID, linee guida sulla formazione, gestione e conservazione dei documenti informatici. Il testo pubblicato porta in copertina "Maggio 2021" e gli allegati sono datati 27 giugno 2024. Le linee guida si applicano dal duecentosettantesimo giorno dopo la loro entrata in vigore, senza una data di calendario nel testo | integrità del documento informatico, metadati (allegato 5), formati di file (allegato 2), versamento in conservazione |
 | ACC | Legge 9 gennaio 2004, n. 4, art. 11, richiamato da L69 art. 32. L'articolo è stato **sostituito** dall'art. 1 comma 10 del d.lgs. 106/2018 e oggi rinvia alle linee guida AgID sull'accessibilità degli strumenti informatici, adottate con determinazione n. 437/2019 del 20 dicembre 2019, nella versione del 21 dicembre 2022 rettificata con determinazione DG n. 354 del 22 dicembre 2022. Per i soggetti privati dell'art. 3 comma 1-bis valgono linee guida distinte, adottate con determinazione n. 117/2022 | requisiti tecnici di accessibilità dei contenuti e dei documenti pubblicati, ancorati alla norma armonizzata EN 301 549 e al livello AA delle WCAG 2.1 |
+| DPCM | Decreto del Presidente del Consiglio dei ministri 26 aprile 2011, in GU n. 177 del 1 agosto 2011, con due allegati, adottato ai sensi dell'art. 32 della legge 69/2009 | modalità di pubblicazione sui siti di bandi, avvisi ed esiti di gara e dei bilanci soggetti a pubblicazione sulla stampa quotidiana. Non riguarda l'albo: vedi la sezione L69 |
 | TRASP | D.lgs. 14 marzo 2013, n. 33 | l'amministrazione trasparente è un obbligo distinto, con finalità e durate proprie |
 | P-1 | Garante, provvedimento 12 marzo 2026, doc. web 10240362 | atti su una procedura di mobilità che rivelavano dati sulla salute per il richiamo alla legge 68/1999, senza una base giuridica che ne autorizzasse la pubblicazione |
 | P-2 | Garante, provvedimento 26 marzo 2026, doc. web 10246037 | dati reddituali e patrimoniali rimasti online oltre un anno e mezzo, oltre il termine dell'art. 124 del TUEL |
@@ -71,7 +72,7 @@ di cortesia: è la pubblicazione. Da qui due obblighi.
 |---|---|---|
 | L'atto pubblicato è identificabile: l'articolo dice che gli obblighi si assolvono con la pubblicazione sul sito, non quali estremi l'atto debba portare. Quali siano è scelta di attuazione, e GAR 2.d la sostiene raccomandando i "dati di contesto" con un "dovrebbe prevedere" | ALBO-01 | scoperto |
 | La pubblicazione è effettuata applicando i requisiti tecnici di accessibilità dell'art. 11 della legge 4/2004 (comma 1, secondo periodo) | ALBO-13, ALBO-14 | scoperto, e l'obbligo è più largo dei requisiti che lo coprono: vedi qui sotto |
-| Per le amministrazioni tenute a pubblicare sulla stampa quotidiana atti su procedure ad evidenza pubblica o i propri bilanci, la pubblicazione sul sito avviene "secondo modalità stabilite con decreto del Presidente del Consiglio dei ministri" (comma 2) | nessuno | scoperto, e il contenuto di quel decreto non è stato ricostruito |
+| Per le amministrazioni tenute a pubblicare sulla stampa quotidiana atti su procedure ad evidenza pubblica o i propri bilanci, la pubblicazione sul sito avviene "secondo modalità stabilite con decreto del Presidente del Consiglio dei ministri" (comma 2) | nessuno | fuori dal perimetro dell'albo: il decreto, letto il 23 settembre 2026, colloca queste pubblicazioni nel profilo di committente e in una sezione dedicata ai bilanci. Vedi qui sotto |
 | Gli adempimenti possono essere assolti sul sito di un'altra amministrazione o di una loro associazione (comma 3) | nessuno | scoperto |
 
 L'articolo contiene tre date che vanno tenute distinte quando se ne discute: dal 1 gennaio
@@ -125,10 +126,27 @@ provvedimenti su procedure ad evidenza pubblica o i propri bilanci: sono quelli 
 quell'obbligo, provvedono "altresì alla pubblicazione nei siti informatici, secondo modalità
 stabilite con decreto del Presidente del Consiglio dei ministri". Il vincolo sulla forma
 segue quindi il soggetto obbligato alla pubblicazione sui quotidiani, non l'argomento
-dell'atto. Qui il documento si ferma al rinvio, perché quel
-decreto non è stato cercato né letto, e non si deducono obblighi tecnici da un testo che non
-si ha. Quello che va registrato è che per una classe di atti esistono modalità fissate
-altrove, e che nessun requisito ne tiene conto. Per completezza: il comma 4 affida a CNIPA,
+dell'atto.
+
+Il decreto è il DPCM 26 aprile 2011, letto il 23 settembre 2026 nel testo della Gazzetta
+Ufficiale n. 177 del 1 agosto 2011, allegati compresi, e **non nomina mai l'albo
+pretorio**. Per le procedure ad evidenza pubblica il sito su cui pubblicare è il profilo di
+committente (art. 2 comma 2): bandi, avvisi ed esiti stanno in una sezione "Bandi di gara"
+raggiungibile dalla home page; i bandi restano lì fino alla loro scadenza e passano poi in
+una sezione "Bandi di gara scaduti", e bandi scaduti ed esiti restano consultabili fino al
+centottantesimo giorno successivo alla pubblicazione dell'esito (art. 4). I bilanci stanno
+in una sezione "Bilanci", consultabili "senza alcuna limitazione temporale" (art. 5). Gli
+allegati aggiungono indicazioni sui metadati Dublin Core, notifiche
+degli aggiornamenti in RSS e una tabella d'indicizzazione per ogni gara. Sono sezioni
+diverse dall'albo, con regole di durata che vanno nel senso opposto, e la decisione del 23
+settembre 2026 le tiene fuori dal perimetro di questo componente; il decreto resta
+materiale per il componente della trasparenza. Le garanzie generali dell'art. 3 comma 3
+(conformità agli originali, autenticità e integrità, consultazione gratuita e senza
+identificazione, formati aperti) valgono per le pubblicazioni che il decreto disciplina, e
+qui non si usano come fonte per l'albo. Un limite di questa lettura: il decreto rinvia al
+d.lgs. 163/2006, poi sostituito, e se e in che misura sia ancora applicabile non è stato
+verificato. Per l'albo la conclusione non cambia, perché in nessuna lettura il decreto gli
+assegna quelle pubblicazioni. Per completezza: il comma 4 affida a CNIPA,
 cioè l'ente poi diventato AgID, un portale di accesso ai siti. Non è un obbligo
 dell'amministrazione che pubblica e non produce requisiti, ma è l'unica parte dell'articolo
 che questo documento non traduce in niente, e conviene dirlo invece di saltarla.
@@ -795,8 +813,9 @@ vuol dire che la fonte va letta prima di decidere se produce un obbligo per il c
 
 Le revisioni hanno fatto emergere domande che stanno sparse nelle sezioni per norma. Qui
 sono raccolte senza aggiungere niente: ogni riga rimanda al punto del documento dove la
-domanda è argomentata, e non va letta senza quel punto. Nessuna si risolve leggendo altre
-fonti fra quelle già censite; sono scelte di perimetro o di attuazione.
+domanda è argomentata, e non va letta senza quel punto. Sono scelte di perimetro o di
+attuazione. Al 23 settembre 2026 sono tutte decise, ciascuna con la data accanto; quattro
+restano da tradurre in requisiti del catalogo o nella guida per l'amministrazione.
 
 | Decisione | Dove è argomentata |
 |---|---|
@@ -807,7 +826,7 @@ fonti fra quelle già censite; sono scelte di perimetro o di attuazione.
 | Chi è titolare di che cosa quando un ente pubblica sull'albo di un altro. **Decisa il 2026-09-23**: il componente non assegna i ruoli, che stabiliscono gli enti fra loro, di solito in una convenzione. Ogni atto ospitato porta l'indicazione dell'ente che l'ha adottato, mostrata al pubblico, e lo pubblica e lo rimuove il personale dell'ente che ospita, con i permessi di sempre. Accessi separati riservati all'ente ospitato restano fuori finché qualcuno non li chiede. Resta da tradurre in un requisito del catalogo | sezione COD, comma 2 dell'art. 2-ter, e sezione TUEL |
 | Se e come il componente chiede all'ente di indicare il proprio regolamento sui dati sensibili e giudiziari. **Decisa il 2026-09-23**: no. Della liceità dei contenuti risponde chi pubblica, e il componente non chiede né registra il regolamento; il passaggio obbligato di ALBO-11 resta il momento in cui quella persona conferma il controllo. Il richiamo al regolamento va nella guida per l'amministrazione | paragrafo di GAR sull'albo, riga senza requisito |
 | Se il componente ha un ruolo contro la decontestualizzazione, cioè nei dati di contesto dentro il documento. **Decisa il 2026-09-23**: il documento non si tocca, perché scriverci sopra romperebbe la firma digitale e lo renderebbe diverso dall'atto adottato. Il componente dà al file scaricato un nome che porta numero di registro e date di pubblicazione, l'unica misura che riduce il rischio senza modificare il contenuto. Resta da tradurre in un requisito del catalogo | paragrafo di GAR sull'albo, "Il paragrafo 2.d contiene due obblighi" |
-| Quali modalità fissa il decreto richiamato dal comma 2 dell'art. 32, per le amministrazioni che vi sono tenute | sezione L69: è l'unica riga che dipende da un testo non letto |
+| Quali modalità fissa il decreto richiamato dal comma 2 dell'art. 32, per le amministrazioni che vi sono tenute. **Decisa il 2026-09-23**, dopo averlo letto: il decreto colloca bandi e bilanci nel profilo di committente e in una sezione dedicata, non nell'albo, e quelle pubblicazioni restano fuori dal perimetro del componente | sezione L69 |
 
 1. **Versione oscurata e corrispondenza con l'atto adottato, buco.** Gli atti pubblicati
    sono di norma firmati digitalmente, ma apporre o verificare una firma non è compito del
@@ -1067,6 +1086,9 @@ scritto.
   2-septies del Codice. Nessun testo di legge centrale a questo documento resta non letto.
   Quello che resta aperto qui sotto sono letture da confermare e fonti secondarie, non
   articoli mancanti.
+- Il DPCM 26 aprile 2011 è stato letto il 23 settembre 2026, ma **non è verificato se sia
+  ancora applicabile**: rinvia al d.lgs. 163/2006, poi sostituito. Non tocca l'albo in
+  nessuna lettura, quindi il dubbio pesa sul componente della trasparenza e non qui.
 - Nell'art. 134 i commi 1 e 2 parlano del controllo preventivo del comitato regionale. Che la
   riforma costituzionale del 2001 li abbia privati di fondamento, e che quindi il comma 3 sia
   oggi la regola generale, è una lettura che regge la sezione sul termine e **non è
