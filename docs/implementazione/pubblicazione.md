@@ -155,13 +155,10 @@ giorno di inizio più la durata del tipo, e che l'atto non si modifichi più.
 
 ## Punti aperti, da decidere prima del codice
 
-1. **Cosa chiede la conferma di ALBO-11.** La mappa delle norme conclude che una spunta non
-   basta e che chi pubblica dovrebbe indicare **quale norma o atto** prescrive la
-   pubblicazione di quell'atto; la decisione del 2026-09-23 esclude invece che il componente
-   chieda il regolamento dell'amministrazione sui dati sensibili. Sono due cose diverse. La
-   proposta è un campo di testo obbligatorio accanto alla spunta, "norma o atto che prescrive
-   la pubblicazione", che finisce nella voce di registro della pubblicazione e non viene
-   giudicato dal programma.
+1. **Cosa chiede la conferma di ALBO-11. Deciso il 2026-09-24: la sola conferma.** Nessun
+   campo in cui scrivere la norma che prescrive la pubblicazione: aggiungerebbe attrito al
+   lavoro quotidiano, e della liceità di quello che si pubblica risponde chi pubblica, non il
+   programma, come già deciso il 2026-09-23 per il regolamento sui dati sensibili.
 2. **Il computo della fine.** La proposta è "giorno civile di inizio più la durata": con la
    durata di quindici giorni, un atto pubblicato il 1° ottobre ha fine il 16 ottobre e resta
    visibile fino alla mezzanotte del 16. Il giorno della pubblicazione non conta fra i
