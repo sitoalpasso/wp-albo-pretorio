@@ -251,6 +251,7 @@ add_action( 'admin_notices', array( SchermataRepertorio::class, 'avviso' ) );
 add_action( 'add_meta_boxes_' . TIPO, array( SchedaAtto::class, 'riquadro' ) );
 add_action( 'save_post_' . TIPO, array( SchedaAtto::class, 'da_salvataggio' ), 10, 2 );
 add_action( 'admin_notices', array( SchedaAtto::class, 'mostra_rifiuto' ) );
+add_action( 'wp_insert_post', array( SchedaAtto::class, 'da_fine_scrittura' ), PHP_INT_MAX );
 add_filter( 'pre_insert_term', array( DatiAtto::class, 'da_pre_insert_term' ), 10, 2 );
 
 /*
@@ -263,6 +264,7 @@ add_action( 'add_meta_boxes_' . TIPO, array( SchedaDocumenti::class, 'riquadro' 
 add_action( 'post_edit_form_tag', array( SchedaDocumenti::class, 'modulo' ) );
 add_action( 'save_post_' . TIPO, array( SchedaDocumenti::class, 'da_salvataggio' ), 10, 2 );
 add_action( 'admin_notices', array( SchedaDocumenti::class, 'mostra_rifiuto' ) );
+add_action( 'wp_insert_post', array( SchedaDocumenti::class, 'da_fine_scrittura' ), PHP_INT_MAX );
 add_filter( 'map_meta_cap', array( DocumentiAtto::class, 'da_map_meta_cap' ), 10, 4 );
 add_filter( 'ajax_query_attachments_args', array( DocumentiAtto::class, 'da_ajax_query_attachments_args' ) );
 add_action( 'pre_get_posts', array( DocumentiAtto::class, 'da_pre_get_posts' ) );

@@ -359,6 +359,9 @@ class DocumentiAttoTest extends \WP_UnitTestCase {
 		$pubblicato  = $this->atto( 'Pubblicato di lato' );
 		$bozza       = $this->atto( 'Bozza' );
 
+		// Il passaggio vero in verifica pretende l'atto completo, documento principale compreso.
+		$this->deposita_documento( $in_verifica );
+
 		wp_update_post(
 			array(
 				'ID'          => $in_verifica,

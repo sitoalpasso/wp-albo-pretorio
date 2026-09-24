@@ -305,7 +305,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-19 | da fare | Battito di controllo con avviso | **prodotto**, motivato dal guasto silenzioso sanzionato nel provv. Garante marzo 2026 |
 | ALBO-20 | da fare | L'atto defisso non viene più servito a nessuno | **norma** il risultato (Garante). **Prodotto** esclusione dalla memoria di pagina oppure invalidazione immediata: due strade, la scelta è nostra |
 | ALBO-21 | da fare | Scadenza sull'ora civile italiana | **prodotto**: correttezza tecnica, nessuna fonte esterna |
-| ALBO-22 | da fare | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto**, decisione chiusa il 2026-09-21: la tabella delle transizioni è nella nota qui sotto. Quattro sotto-decisioni ne sono seguite, di cui **tre restano aperte** e nessuna blocca l'unità; la quarta, sulle cause che legittimano la defissione anticipata, è chiusa il 2026-09-22 |
+| ALBO-22 | in corso | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto**, decisione chiusa il 2026-09-21: la tabella delle transizioni è nella nota qui sotto. Quattro sotto-decisioni ne sono seguite, di cui **tre restano aperte** e nessuna blocca l'unità; la quarta, sulle cause che legittimano la defissione anticipata, è chiusa il 2026-09-22 |
 | ALBO-27 | da fare | **La pubblicazione non si programma.** La data di inizio la scrive il sistema al passaggio a pubblicato, non è modificabile e non può stare nel futuro; nello stesso istante scrive la data di fine come inizio più durata applicabile, così che nessun valore calcolato prima della pubblicazione possa accorciare il periodo | **prodotto**, deciso il 2026-09-22. L'albo sostituisce la bacheca di carta, dove programmare non era possibile. Se un'amministrazione lo chiederà, si costruirà allora |
 | ALBO-28 | da fare | Le pagine che il componente genera (elenco, scheda, ricerca) sono accessibili con i soli mezzi del componente, qualunque tema usi il sito | **norma** la pubblicazione applica i requisiti di accessibilità (l. 69/2009 art. 32 c. 1, che rinvia a l. 4/2004 art. 11), e l'obbligo è dell'amministrazione. **Prodotto** che ne risponda il componente da solo, senza chiedere niente al tema, deciso il 2026-09-23. Limiti dichiarati: stili sovrascritti dal tema, documenti dell'ente |
 | ALBO-29 | da fare | Ogni atto ospitato di un'altra amministrazione porta e mostra al pubblico l'amministrazione che l'ha adottato. La scelta è obbligatoria e senza preselezione appena l'elenco delle amministrazioni ospitate ha una voce | **norma** la pubblicazione sull'albo di un altro ente è prevista (TUEL art. 124 c. 2, l. 69/2009 art. 32 c. 3); i ruoli sui dati li stabiliscono gli enti fra loro. **Prodotto** l'indicazione mostrata e l'assenza di accessi separati, deciso il 2026-09-23 |
@@ -602,6 +602,8 @@ nella verifica continua). Un requisito passa a "fatto" solo quando tutte le sue 
 `collaudo.md` sono "fatto". Oggi sono a **"fatto" ALBO-23, ALBO-24, ALBO-25 e ALBO-26**,
 chiusi dall'unità che ha costruito il tipo atto, i permessi e il ruolo proprio. ALBO-08 è
 **"in corso"**: il meccanismo del repertorio c'è, e le sue righe che parlano di atti
-pubblicati aspettano il passaggio a pubblicato. **Tutti gli altri sono a "da fare"**, ALBO-01
+pubblicati aspettano il passaggio a pubblicato. Anche ALBO-22 è **"in corso"**: il passaggio
+da bozza a verifica e il fermo dell'atto in verifica ci sono, il rimando in bozza e la
+pubblicazione no. **Tutti gli altri sono a "da fare"**, ALBO-01
 compreso, che ha a "fatto" la riga della bozza e quelle dei documenti: il componente registra gli atti con
 i loro dati e li tiene chiusi, e non ne pubblica ancora nessuno.

@@ -409,10 +409,10 @@ class ChiusuraPubblicazioneTest extends WP_UnitTestCase {
 			'Precondizione: con il dato presente l\'indicatore c\'e\'.'
 		);
 
-		$this->assertNotSame(
-			array(),
-			Rifiuti::preleva_per_utente( $id ),
-			'Precondizione: il dato temporaneo esisteva davvero.'
+		$this->assertStringContainsString(
+			'registro delle modifiche',
+			implode( ' ', Rifiuti::preleva_per_utente( $id ) ),
+			'Precondizione: il dato temporaneo esisteva davvero, con il dettaglio.'
 		);
 
 		$this->assertStringContainsString(
@@ -445,7 +445,7 @@ class ChiusuraPubblicazioneTest extends WP_UnitTestCase {
 			'Senza il dettaglio la schermata deve mostrare comunque l\'avviso generico.'
 		);
 		$this->assertStringNotContainsString(
-			'consegna protetta',
+			'registro delle modifiche',
 			$avviso,
 			'Il dettaglio non c\'e\' piu\': quello che resta e\' l\'avviso generico.'
 		);

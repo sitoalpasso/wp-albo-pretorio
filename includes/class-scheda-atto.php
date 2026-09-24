@@ -83,6 +83,17 @@ final class SchedaAtto {
 	const DURATA_RIFIUTO = 300;
 
 	/**
+	 * Gli atti il cui invio e' gia' stato elaborato nella scrittura in corso.
+	 *
+	 * Il guardiano dei passaggi elabora l'invio **prima** di decidere il
+	 * passaggio in verifica; l'aggancio di fine salvataggio lo troverebbe di
+	 * nuovo e lo rifarebbe. Il segno si toglie alla fine di ogni scrittura.
+	 *
+	 * @var array<int, true>
+	 */
+	private static $elaborati = array();
+
+	/**
 	 * L'azione del gettone per un atto.
 	 *
 	 * **Legata all'atto, non soltanto alla scheda.** Con un'azione sola il
@@ -123,6 +134,11 @@ final class SchedaAtto {
 		$tipo    = DatiAtto::tipo( $atto_id );
 		$organo  = DatiAtto::organo( $atto_id );
 
+		if ( ! in_array( $atto->post_status, ChiusuraPubblicazione::STATI_BOZZA, true ) ) {
+			self::sola_lettura( $atto_id, $tipo, $organo );
+			return;
+		}
+
 		wp_nonce_field( self::azione( $atto_id ), self::CAMPO_GETTONE );
 
 		self::menu(
@@ -153,6 +169,35 @@ final class SchedaAtto {
 			esc_attr( DatiAtto::numero_proprio( $atto_id ) ),
 			esc_html__( 'Facoltativo. E\' il numero dell\'atto, per esempio della determinazione, non quello di pubblicazione, che assegna il sistema.', 'albo-pretorio-pa' )
 		);
+	}
+
+	/**
+	 * I dati dell'atto senza campi da compilare, per un atto che non e' in bozza.
+	 *
+	 * Niente gettone: senza, nessun invio di questa schermata e' un invio del riquadro.
+	 *
+	 * @param int           $atto_id Atto.
+	 * @param \WP_Term|null $tipo    Tipo di atto.
+	 * @param \WP_Term|null $organo  Organo.
+	 */
+	private static function sola_lettura( int $atto_id, ?\WP_Term $tipo, ?\WP_Term $organo ): void {
+		$assente = __( 'non indicato', 'albo-pretorio-pa' );
+		$righe   = array(
+			__( 'Tipo di atto', 'albo-pretorio-pa' )     => null === $tipo ? $assente : $tipo->name,
+			__( 'Organo che ha adottato l\'atto', 'albo-pretorio-pa' ) => null === $organo ? $assente : $organo->name,
+			__( 'Data di adozione', 'albo-pretorio-pa' ) => (string) ( DatiAtto::data_adozione( $atto_id ) ?? $assente ),
+			__( 'Numero proprio dell\'atto', 'albo-pretorio-pa' ) => '' === DatiAtto::numero_proprio( $atto_id ) ? $assente : DatiAtto::numero_proprio( $atto_id ),
+		);
+
+		echo '<dl class="albo-pretorio-dati">';
+
+		foreach ( $righe as $etichetta => $valore ) {
+			printf( '<dt>%1$s</dt><dd>%2$s</dd>', esc_html( $etichetta ), esc_html( $valore ) );
+		}
+
+		echo '</dl>';
+
+		printf( '<p class="description">%s</p>', esc_html__( 'I dati si modificano solo mentre l\'atto e\' in bozza.', 'albo-pretorio-pa' ) );
 	}
 
 	/**
@@ -222,6 +267,12 @@ final class SchedaAtto {
 			return;
 		}
 
+		if ( isset( self::$elaborati[ $atto_id ] ) ) {
+			return;
+		}
+
+		self::$elaborati[ $atto_id ] = true;
+
 		$gettone = sanitize_text_field( wp_unslash( $_POST[ self::CAMPO_GETTONE ] ) );
 
 		if ( ! wp_verify_nonce( $gettone, self::azione( $atto_id ) ) ) {
@@ -231,6 +282,11 @@ final class SchedaAtto {
 
 		if ( ! current_user_can( 'edit_post', $atto_id ) ) {
 			self::rifiuta( $atto_id, array( __( 'Dati dell\'atto non salvati: non si possiede il permesso di modificare questo atto.', 'albo-pretorio-pa' ) ) );
+			return;
+		}
+
+		if ( ! in_array( get_post_status( $atto_id ), ChiusuraPubblicazione::STATI_BOZZA, true ) ) {
+			self::rifiuta( $atto_id, array( __( 'Dati dell\'atto non salvati: si modificano solo mentre l\'atto e\' in bozza.', 'albo-pretorio-pa' ) ) );
 			return;
 		}
 
@@ -282,6 +338,15 @@ final class SchedaAtto {
 		if ( array() !== $motivi ) {
 			self::rifiuta( $atto_id, $motivi );
 		}
+	}
+
+	/**
+	 * Aggancio a `wp_insert_post`, all'ultima priorita': la scrittura e' finita, il segno si toglie.
+	 *
+	 * @param int $atto_id Contenuto appena scritto.
+	 */
+	public static function da_fine_scrittura( $atto_id ): void {
+		unset( self::$elaborati[ (int) $atto_id ] );
 	}
 
 	/**

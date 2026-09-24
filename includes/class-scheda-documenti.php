@@ -71,6 +71,17 @@ final class SchedaDocumenti {
 	const DURATA_RIFIUTO = 300;
 
 	/**
+	 * Gli atti il cui invio e' gia' stato elaborato nella scrittura in corso.
+	 *
+	 * Il guardiano dei passaggi elabora l'invio **prima** di decidere il
+	 * passaggio in verifica; l'aggancio di fine salvataggio lo troverebbe di
+	 * nuovo e lo rifarebbe. Il segno si toglie alla fine di ogni scrittura.
+	 *
+	 * @var array<int, true>
+	 */
+	private static $elaborati = array();
+
+	/**
 	 * L'azione del gettone per un atto: il gettone di un atto non vale per un altro.
 	 *
 	 * @param int $atto_id Atto.
@@ -123,7 +134,10 @@ final class SchedaDocumenti {
 		$principale = DocumentiAtto::principale( $atto_id );
 		$ulteriori  = DocumentiAtto::ulteriori( $atto_id );
 
-		wp_nonce_field( self::azione( $atto_id ), self::CAMPO_GETTONE );
+		// Il gettone solo in bozza: fuori dalla bozza nessun invio e' un invio di questo riquadro.
+		if ( $in_bozza ) {
+			wp_nonce_field( self::azione( $atto_id ), self::CAMPO_GETTONE );
+		}
 
 		printf( '<h4>%s</h4>', esc_html__( 'Documento principale', 'albo-pretorio-pa' ) );
 
@@ -236,6 +250,12 @@ final class SchedaDocumenti {
 			return;
 		}
 
+		if ( isset( self::$elaborati[ $atto_id ] ) ) {
+			return;
+		}
+
+		self::$elaborati[ $atto_id ] = true;
+
 		$gettone = sanitize_text_field( wp_unslash( $_POST[ self::CAMPO_GETTONE ] ) );
 
 		if ( ! wp_verify_nonce( $gettone, self::azione( $atto_id ) ) ) {
@@ -280,6 +300,15 @@ final class SchedaDocumenti {
 		if ( array() !== $motivi ) {
 			self::rifiuta( $atto_id, $motivi );
 		}
+	}
+
+	/**
+	 * Aggancio a `wp_insert_post`, all'ultima priorita': la scrittura e' finita, il segno si toglie.
+	 *
+	 * @param int $atto_id Contenuto appena scritto.
+	 */
+	public static function da_fine_scrittura( $atto_id ): void {
+		unset( self::$elaborati[ (int) $atto_id ] );
 	}
 
 	/**

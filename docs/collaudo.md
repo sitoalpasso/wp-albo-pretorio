@@ -485,6 +485,30 @@ pubblicazione, la sostituzione per oscuramento e il nome del file allo scarico, 
 loro righe. Un caricamento vero dal navigatore, che la suite non può riprodurre e che ha la
 sua prova sul sito vero.
 
+## Il passaggio in verifica
+
+Stesso prefisso `A-`, numerazione che prosegue. Queste righe costruiscono la **prima parte**
+del flusso di ALBO-22: creazione e risalvataggio della bozza, passaggio in verifica, blocco
+dell'atto in verifica, verifica non saltabile. La pubblicazione e il rimando in bozza hanno
+bisogno del registro delle modifiche e sono la seconda parte. Dove una riga rifiuta un
+passaggio, si osserva il valore **scritto** nella tabella dei contenuti oltre a quello riletto.
+
+| # | Stato | Il test, in parole | Esito atteso |
+|---|---|---|---|
+| A-85 | fatto | **Creazione e risalvataggio della bozza** (ALBO-22): chi redige crea un atto nuovo con dati mancanti, poi riapre la stessa bozza, la modifica e la risalva, dalla schermata e da codice | riescono tutti, l'atto resta in bozza con le modifiche. Provare la sola creazione lascerebbe passare un guardiano che consente di aprire una bozza ma non di ritoccarla |
+| A-86 | fatto | **Passaggio in verifica con un dato mancante per volta** (ALBO-22): oggetto, tipo di atto, durata del tipo, organo, data di adozione, documento principale; ciascuno con tutti gli altri presenti, dalla schermata e da codice. Poi un atto nuovo che chiede di nascere in verifica. Poi una bozza completa che chiede la verifica **portando con sé**, nella stessa richiesta da codice, tipo tolto, tipo cambiato, organo tolto, data di adozione tolta, documento principale cambiato: WordPress li applicherebbe dopo il controllo | rifiutato ogni volta, l'atto resta in bozza, e il motivo nomina **quel** dato. Nessuna scrittura porta lo stato in verifica. L'atto nuovo nasce in bozza, con il motivo che lo dice. Il passaggio che porta cambiamenti resta in bozza, anche nel valore scritto, con il motivo che dice di salvare prima nella bozza; il cambiamento resta sulla bozza. **Controllo positivo**: la stessa bozza completa, senza nessuna delle due date di pubblicazione, passa in verifica, altrimenti la riga sarebbe soddisfatta rifiutando tutto |
+| A-87 | fatto | **Bozza completata nello stesso invio**: dalla schermata, un unico invio sceglie il tipo e l'organo, scrive la data di adozione e chiede di passare in verifica; poi, su un'altra bozza completa, un unico invio svuota la data e chiede di passare in verifica | il primo passa in verifica con i dati scritti in quell'invio: il controllo guarda i dati dopo l'invio, non prima. Il secondo resta in bozza, la data risulta svuotata e il motivo la nomina |
+| A-88 | fatto | Il passaggio in verifica chiesto da un utente con tutti i permessi di redazione che **non può modificare quell'atto**, da codice | rifiutato, l'atto resta in bozza. **Controllo positivo**: l'autore della bozza la manda in verifica |
+| A-89 | fatto | [attacco] **Un atto in verifica non si modifica** (ALBO-22, prima metà): tentativi **indipendenti**, da chi redige l'atto e da chi pubblica: oggetto dalla schermata e da codice; tipo e organo con la richiesta di salvataggio da codice; tipo, organo e data di adozione dal riquadro; documento principale e allegato ulteriore, aggiunti e tolti, dal riquadro e da codice; risalvataggio senza nessun cambiamento | bloccato ogni volta, con il motivo, e la **fotografia intera** dell'atto invariata: riga dell'atto, voci, dati, allegati e disco. **Controllo positivo**: ogni modifica, identica, riesce sullo stesso atto riportato in bozza. Il ritorno in bozza qui si scrive nella banca dati, perché quello vero, con la sua motivazione, arriva con la seconda parte. La durata propria non c'è ancora e non è fra i tentativi. **Con il fermo annullato** da un altro componente (un aggancio dopo il nostro che fa riprendere la scrittura): oggetto, testo e stato da codice, dati e documenti dai riquadri; la scrittura arriva alla tabella ma con lo stato di verifica, la fotografia resta identica e il riquadro dei dati spiega il rifiuto |
+| A-90 | fatto | [attacco] **Nessuna uscita dalla verifica in questa parte**: da chi pubblica e dall'amministratore, un atto in verifica verso bozza, pubblicato, programmato, privato; poi il cestino e la cancellazione definitiva | tutti rifiutati, l'atto resta in verifica e nessuna scrittura porta un altro stato. **Controllo positivo**: una bozza si cestina, si ripristina in bozza e si cancella, senza nessun rifiuto |
+| A-91 | fatto | [attacco] **Saltare la verifica** (ALBO-22): una bozza **completa** chiede di diventare pubblicata dalla schermata, da inserimento e da aggiornamento da codice; poi di diventare privata. Poi, con un aggancio di un altro componente registrato a una priorità più alta che rialza lo stato, la stessa bozza completa verso pubblicata e una bozza incompleta verso la verifica | sempre bloccato, l'atto resta in bozza e nessuna scrittura porta lo stato pubblicato o privato. La bozza è completa di proposito: incompleta, il rifiuto arriverebbe dai dati mancanti e non dalla verifica saltata. Con l'aggancio che rialza, il valore scritto è comunque bozza: il guardiano decide per ultimo |
+| A-92 | fatto | I due riquadri su un atto **in verifica**, da chi lo ha redatto | mostrano i dati e i documenti, ma **nessun campo da compilare**, nessun gettone e nessuna casella per togliere, con una frase che dice perché. **Controllo positivo**: sulla stessa bozza prima del passaggio i campi ci sono |
+
+**Cosa non chiudono queste righe.** Le righe di ALBO-22 sul rimando in bozza, sulla
+pubblicazione, sulla defissione, sull'annullamento e sulla dichiarazione dell'effetto. La
+riga sul blocco in verifica resta aperta per la durata propria e per il controllo positivo
+fatto con il rimando vero.
+
 ## Collaudo congiunto con la trasparenza
 
 Con entrambi i plugin attivi sullo stesso sito: le pagine dell'albo hanno noindex e sono
