@@ -249,7 +249,7 @@ e non corregge.
   Il documento non si tocca: scriverci sopra romperebbe la firma digitale e lo renderebbe
   diverso dall'atto adottato (ALBO-09). Quello che il componente può fare senza toccarlo è
   dare al file scaricato **un nome che porta il numero di repertorio e le date di
-  pubblicazione**, per esempio `albo-2026-0123-dal-01-10-al-15-10.pdf`. Il nome non contiene
+  pubblicazione**, per esempio `albo-2026-0123-dal-01-10-al-16-10.pdf`. Il nome non contiene
   né l'oggetto dell'atto né il nome originale del file, perché l'uno e l'altro possono
   contenere dati personali. Il contenuto scaricato resta identico, byte per byte, a quello
   pubblicato.

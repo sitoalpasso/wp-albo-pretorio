@@ -159,12 +159,11 @@ giorno di inizio più la durata del tipo, e che l'atto non si modifichi più.
    campo in cui scrivere la norma che prescrive la pubblicazione: aggiungerebbe attrito al
    lavoro quotidiano, e della liceità di quello che si pubblica risponde chi pubblica, non il
    programma, come già deciso il 2026-09-23 per il regolamento sui dati sensibili.
-2. **Il computo della fine.** La proposta è "giorno civile di inizio più la durata": con la
-   durata di quindici giorni, un atto pubblicato il 1° ottobre ha fine il 16 ottobre e resta
-   visibile fino alla mezzanotte del 16. Il giorno della pubblicazione non conta fra i
-   quindici, quindi i giorni interi di esposizione non sono mai meno della durata. Se il
-   regolamento di un'amministrazione contasse il giorno della pubblicazione come primo,
-   questa lettura terrebbe l'atto esposto un giorno in più di quanto quel regolamento
-   chiede. È il rischio minore fra i due: un giorno in meno invaliderebbe la pubblicazione,
-   un giorno in più espone dati personali oltre il necessario. Va comunque scelto
-   esplicitamente.
+2. **Il computo della fine. Deciso il 2026-09-24: il giorno della pubblicazione non si
+   conta.** Con la durata di quindici giorni, un atto pubblicato il 1° ottobre ha fine il 16
+   ottobre e resta visibile fino alla mezzanotte fra il 16 e il 17. È la regola generale per
+   cui il giorno iniziale di un termine non si computa, e la lettura più prudente: i giorni
+   interi di esposizione non sono mai meno della durata. Se il regolamento di
+   un'amministrazione contasse il giorno della pubblicazione come primo, questa lettura
+   terrebbe l'atto esposto un giorno in più; se un'amministrazione lo chiederà, il computo
+   diventerà una scelta di configurazione.
