@@ -45,7 +45,7 @@ const PHP_MINIMA = '8.1';
  * comune e non la sua versione, perché accetta slug e non vincoli di versione:
  * il vincolo di versione vive qui e si verifica a ogni avvio.
  */
-const CORE_API_RICHIESTA = '1.2.0';
+const CORE_API_RICHIESTA = '1.3.0';
 
 /**
  * Nome visibile del componente, come compare negli avvisi in amministrazione.
@@ -129,6 +129,17 @@ const META_DATA_ADOZIONE = '_albo_pretorio_data_adozione';
 const META_NUMERO_PROPRIO = '_albo_pretorio_numero_proprio';
 
 /**
+ * Nome del dato con l'identificativo del documento principale dell'atto,
+ * protetto come i precedenti.
+ */
+const META_DOCUMENTO_PRINCIPALE = '_albo_pretorio_documento_principale';
+
+/**
+ * Nome del dato con l'elenco ordinato degli allegati ulteriori dell'atto.
+ */
+const META_ALLEGATI_ULTERIORI = '_albo_pretorio_allegati_ulteriori';
+
+/**
  * Tabella degli anni del repertorio, senza il prefisso delle tabelle del sito.
  */
 const TABELLA_REPERTORIO_ANNI = 'albo_pretorio_repertorio_anni';
@@ -179,6 +190,8 @@ require_once __DIR__ . '/includes/class-tipo-atto.php';
 require_once __DIR__ . '/includes/class-durate.php';
 require_once __DIR__ . '/includes/class-dati-atto.php';
 require_once __DIR__ . '/includes/class-scheda-atto.php';
+require_once __DIR__ . '/includes/class-documenti-atto.php';
+require_once __DIR__ . '/includes/class-scheda-documenti.php';
 require_once __DIR__ . '/includes/class-repertorio.php';
 require_once __DIR__ . '/includes/class-schermata-repertorio.php';
 require_once __DIR__ . '/includes/class-installazione.php';
@@ -202,6 +215,7 @@ add_action( 'plugins_loaded', array( Avvio::class, 'da_plugins_loaded' ) );
 add_action( 'init', array( TipoAtto::class, 'da_init' ) );
 add_action( 'init', array( Durate::class, 'da_init' ), 11 );
 add_action( 'init', array( DatiAtto::class, 'da_init' ), 11 );
+add_action( 'init', array( DocumentiAtto::class, 'da_init' ), 11 );
 add_action( 'init', array( Installazione::class, 'da_init' ), 20 );
 
 add_action( 'admin_notices', array( Permessi::class, 'mostra_avviso' ) );
@@ -238,6 +252,22 @@ add_action( 'add_meta_boxes_' . TIPO, array( SchedaAtto::class, 'riquadro' ) );
 add_action( 'save_post_' . TIPO, array( SchedaAtto::class, 'da_salvataggio' ), 10, 2 );
 add_action( 'admin_notices', array( SchedaAtto::class, 'mostra_rifiuto' ) );
 add_filter( 'pre_insert_term', array( DatiAtto::class, 'da_pre_insert_term' ), 10, 2 );
+
+/*
+ * I documenti dell'atto si caricano dal loro riquadro, con l'invio della
+ * schermata dell'atto. Si governano con i permessi dell'atto, non compaiono
+ * nella libreria dei media e se ne vanno con l'atto mai pubblicato che li
+ * porta.
+ */
+add_action( 'add_meta_boxes_' . TIPO, array( SchedaDocumenti::class, 'riquadro' ) );
+add_action( 'post_edit_form_tag', array( SchedaDocumenti::class, 'modulo' ) );
+add_action( 'save_post_' . TIPO, array( SchedaDocumenti::class, 'da_salvataggio' ), 10, 2 );
+add_action( 'admin_notices', array( SchedaDocumenti::class, 'mostra_rifiuto' ) );
+add_filter( 'map_meta_cap', array( DocumentiAtto::class, 'da_map_meta_cap' ), 10, 4 );
+add_filter( 'ajax_query_attachments_args', array( DocumentiAtto::class, 'da_ajax_query_attachments_args' ) );
+add_action( 'pre_get_posts', array( DocumentiAtto::class, 'da_pre_get_posts' ) );
+add_filter( 'posts_where', array( DocumentiAtto::class, 'da_posts_where' ), 10, 2 );
+add_action( 'before_delete_post', array( DocumentiAtto::class, 'da_before_delete_post' ), 10, 2 );
 
 /*
  * Lo sbarramento si aggancia al caricamento e non all'avvio riuscito: deve

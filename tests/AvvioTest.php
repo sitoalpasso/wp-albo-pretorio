@@ -199,9 +199,9 @@ class AvvioTest extends WP_UnitTestCase {
 	 */
 	public function casi_di_compatibilita(): array {
 		return array(
-			'versione inferiore, stesso numero maggiore' => array( '1.1.0', false ),
+			'versione inferiore, stesso numero maggiore' => array( '1.2.0', false ),
 			'numero maggiore diverso'                    => array( '2.0.0', false ),
-			'versione superiore, stesso numero maggiore' => array( '1.3.0', true ),
+			'versione superiore, stesso numero maggiore' => array( '1.4.0', true ),
 		);
 	}
 

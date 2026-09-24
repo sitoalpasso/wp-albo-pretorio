@@ -15,6 +15,7 @@ namespace AlboPretorioPa\Tests;
 
 use AlboPretorioPa\Avvio;
 use AlboPretorioPa\DatiAtto;
+use AlboPretorioPa\DocumentiAtto;
 use AlboPretorioPa\Durate;
 use AlboPretorioPa\Permessi;
 use AlboPretorioPa\SchedaAtto;
@@ -38,6 +39,7 @@ use const AlboPretorioPa\TIPO;
 class DatiAttoTest extends \WP_UnitTestCase {
 
 	use AmbienteAlbo;
+	use DepositoDiProva;
 
 	/**
 	 * Amministratore, che governa gli elenchi.
@@ -75,8 +77,11 @@ class DatiAttoTest extends \WP_UnitTestCase {
 		$this->assertTrue( TipoAtto::registra() );
 		$this->assertTrue( Durate::registra() );
 		$this->assertTrue( DatiAtto::registra() );
+		$this->assertTrue( DocumentiAtto::registra() );
 
 		Permessi::applica();
+
+		$this->aggancia_server_finto();
 
 		$this->amministratore = self::factory()->user->create( array( 'role' => 'administrator' ) );
 		$this->redattore      = $this->utente_redattore();
@@ -102,6 +107,7 @@ class DatiAttoTest extends \WP_UnitTestCase {
 	public function tear_down(): void {
 		$_POST = array();
 		unset( $GLOBALS['current_screen'] );
+		$this->sgancia_server_finto();
 		$this->azzera_ambiente_albo();
 
 		parent::tear_down();
@@ -168,7 +174,7 @@ class DatiAttoTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Un atto completo, scritto direttamente.
+	 * Un atto completo, scritto direttamente, con il documento principale depositato.
 	 *
 	 * @param string $tipo Nome breve del tipo.
 	 * @return int
@@ -180,6 +186,8 @@ class DatiAttoTest extends \WP_UnitTestCase {
 		wp_set_object_terms( $id, array( $this->voci['giunta'] ), TASSONOMIA_ORGANO );
 		update_post_meta( $id, META_DATA_ADOZIONE, '2026-03-10' );
 		update_post_meta( $id, META_NUMERO_PROPRIO, '45/2026' );
+
+		$this->deposita_documento( $id );
 
 		return $id;
 	}
@@ -749,12 +757,16 @@ class DatiAttoTest extends \WP_UnitTestCase {
 		$senza_numero = $this->atto_completo();
 		delete_post_meta( $senza_numero, META_NUMERO_PROPRIO );
 
+		$senza_documento = $this->atto_completo();
+		$this->assertTrue( DocumentiAtto::togli( $senza_documento, (int) DocumentiAtto::principale( $senza_documento ) ) );
+
 		$attesi = array(
-			'albo_manca_oggetto'       => $senza_oggetto,
-			'albo_manca_tipo'          => $senza_tipo,
-			'albo_manca_organo'        => $senza_organo,
-			'albo_manca_data_adozione' => $senza_data,
-			'albo_manca_durata'        => $senza_durata,
+			'albo_manca_oggetto'              => $senza_oggetto,
+			'albo_manca_tipo'                 => $senza_tipo,
+			'albo_manca_organo'               => $senza_organo,
+			'albo_manca_data_adozione'        => $senza_data,
+			'albo_manca_durata'               => $senza_durata,
+			'albo_manca_documento_principale' => $senza_documento,
 		);
 
 		foreach ( $attesi as $codice => $atto ) {

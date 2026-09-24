@@ -25,3 +25,6 @@ Schede presenti:
 - [`dati-dell-atto.md`](dati-dell-atto.md): tipo di atto, organo, data di adozione e numero
   proprio, il riquadro in cui si compilano e l'elenco dei dati mancanti. Righe di collaudo
   A-69..A-76.
+- [`documenti-dell-atto.md`](documenti-dell-atto.md): il documento principale e gli allegati
+  ulteriori, depositati dal meccanismo comune, il riquadro da cui si caricano e i permessi
+  con cui si governano. Righe di collaudo A-77..A-84.

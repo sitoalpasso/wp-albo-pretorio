@@ -22,11 +22,10 @@ lì e resta una scelta separata.
 > dell'atto** in cui si compilano e la lettura che li valida. Il numero di repertorio ha il
 > suo meccanismo e non è ancora chiamato da nessuno. Non esistono ancora la durata propria,
 > le date di pubblicazione, lo stato governato e la conferma del controllo sui dati
-> personali. **Documento principale e allegati non esistono
-> affatto**, e non è un rinvio per comodità: senza la consegna protetta del meccanismo
-> comune un file caricato risponde al proprio indirizzo diretto, e lo stato dell'atto non lo
-> protegge. Chiedere di caricare lì un documento con dati personali non sarebbe accettabile.
-> La tabella descrive il perimetro deciso, non la disponibilità.
+> personali. **Documento principale e allegati esistono**, depositati dalla consegna
+> protetta del meccanismo comune, con il riquadro **Documenti dell'atto**; il blocco dopo il
+> passaggio in verifica arriva con i passaggi di stato, e fino ad allora si cambiano solo in
+> bozza. La tabella descrive il perimetro deciso, non la disponibilità.
 
 | Dato | Obbligatorio | Dove sta | Chi lo scrive |
 |---|---|---|---|

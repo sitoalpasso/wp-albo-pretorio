@@ -28,10 +28,12 @@ I casi in cui rifiuta sono quattro, e sono tutti quelli che oggi esistono davver
 politica non dichiarata o con un valore fuori dall'insieme ammesso, un identificativo di
 sezione vuoto o con caratteri non ammessi, una sezione già registrata, e **il motore di
 scadenza non avviato**. Quest'ultimo è l'unico controllo su un meccanismo, e non è un caso:
-il motore è l'unico meccanismo comune che oggi esiste. **Indicizzazione, consegna degli
-allegati, registro e battito non vengono verificati alla registrazione**, perché non ci sono
-ancora: quando arriveranno, se il loro mancato avvio dovrà bloccare la registrazione sarà una
-decisione da prendere allora, non una cosa che il codice già fa.
+il motore era l'unico meccanismo comune quando la regola è nata. **Indicizzazione, registro
+e battito non vengono verificati alla registrazione**, perché non ci sono ancora: quando
+arriveranno, se il loro mancato avvio dovrà bloccare la registrazione sarà una decisione da
+prendere allora, non una cosa che il codice già fa. **Nemmeno la consegna degli allegati,
+che esiste, si verifica alla registrazione**: si verifica a ogni deposito, che si rifiuta
+finché il server non risulta negare l'accesso diretto alla cartella dei documenti.
 
 La conseguenza per l'albo è che senza registrazione riuscita non prosegue l'avvio: non
 registra niente e non pubblica niente. Detto così e non come "il meccanismo comune non
@@ -183,11 +185,11 @@ uno stato corretto dopo il fatto è indistinguibile da uno stato mai scritto.
 
 ## Le parti del plugin
 
-**Sette parti esistono oggi.** L'avvio, che dichiara la sezione e le sue politiche; il
+**Otto parti esistono oggi.** L'avvio, che dichiara la sezione e le sue politiche; il
 tipo atto con i suoi due elenchi di voci; i permessi con il ruolo proprio e il meccanismo di
 aggiornamento; la durata per tipo di atto; il repertorio con la sua schermata; i dati
-dell'atto con il riquadro in cui si compilano; e lo sbarramento che tiene chiusa la
-pubblicazione. Il repertorio e l'elenco dei dati mancanti esistono e non li chiama ancora
+dell'atto con il riquadro in cui si compilano; i documenti dell'atto con il loro riquadro; e
+lo sbarramento che tiene chiusa la pubblicazione. Il repertorio e l'elenco dei dati mancanti esistono e non li chiama ancora
 nessuno: li chiameranno i passaggi di stato. Le altre parti sono previste e
 non costruite: la colonna a destra lo dice riga per riga, perché una tabella letta al
 presente farebbe credere disponibili funzioni che nessuno ha ancora scritto.
@@ -195,11 +197,11 @@ presente farebbe credere disponibili funzioni che nessuno ha ancora scritto.
 **Il tipo atto esiste e non è pubblico**, e le due cose vanno lette insieme. Un atto si
 crea e si salva in bozza dall'amministrazione; il suo indirizzo non risponde a nessuno, il
 tipo è fuori dalla ricerca interna e dalla mappa per i motori, e non ha nessuna rotta
-nell'interfaccia per programmi. Il motivo non è prudenza generica: il documento principale
-di un atto ha bisogno della consegna protetta del meccanismo comune, che non esiste ancora,
-e senza di essa un file caricato risponde al proprio indirizzo diretto anche dopo la
-defissione. La pubblicazione si aprirà tutta insieme, in una lavorazione dedicata, quando i
-controlli che impediscono un'esposizione oltre il termine esisteranno davvero.
+nell'interfaccia per programmi. Il motivo non è prudenza generica: la consegna protetta dei
+documenti ora esiste, ma i passaggi di stato che bloccano i documenti in verifica e dopo la
+pubblicazione, e il registro delle modifiche in cui si scrivono i loro motivi, non ancora.
+La pubblicazione si aprirà tutta insieme, in una lavorazione dedicata, quando i controlli
+che impediscono un'esposizione oltre il termine esisteranno davvero.
 
 | Parte prevista | Responsabilità | Requisiti | Esiste oggi |
 |---|---|---|---|
@@ -210,7 +212,7 @@ controlli che impediscono un'esposizione oltre il termine esisteranno davvero.
 | `ChiusuraPubblicazione` | Elenco ordinato di regole che decide se uno stato richiesto è concesso. Oggi ne contiene una sola, che nega la pubblicazione e la programmazione. Le lavorazioni successive aggiungono la regola sui campi e tolgono questa, **ma non il diniego della programmazione**, che dal 2026-09-22 è una regola sua (ALBO-27) e resta quando la pubblicazione si apre | nessuno: impedisce di prometterne uno non mantenibile | **sì** |
 | `DatiAtto`, `SchedaAtto` | Tipo di atto, organo, data di adozione e numero proprio: il riquadro **Dati dell'atto** in cui si compilano senza preselezione, il salvataggio che valida ogni dato da solo, la lettura che tratta come assente un dato malformato, l'elenco dei dati mancanti per nome e la guardia che impedisce a chi redige di creare voci nuove negli elenchi. **L'elenco dei dati mancanti non è ancora chiamato da nessuno**: lo chiamerà il passaggio in verifica | base di ALBO-01 | **sì** |
 | Controllo campo per campo prima della pubblicazione | Il passaggio in verifica e la pubblicazione che rifiutano un atto incompleto, nominando il dato che manca | ALBO-01, ALBO-02 | no |
-| Documento principale e allegati | I file dell'atto, la loro cardinalità e la loro impronta. Dipende dalla consegna protetta del meccanismo comune | ALBO-01 | no |
+| `DocumentiAtto`, `SchedaDocumenti` | Il documento principale, uno e uno solo, e gli allegati ulteriori in ordine di deposito, depositati dal meccanismo comune nella sua cartella protetta con l'impronta. Si caricano e si tolgono solo in bozza, dal riquadro **Documenti dell'atto**; il principale sostituito sparisce con il suo file. La lettura tratta come assente un documento che non è di quell'atto, non è stato depositato dal meccanismo comune o è nel cestino. Si governano con i permessi dell'atto, non si cancellano per altra via che il riquadro, non compaiono nella libreria dei media e se ne vanno con l'atto mai pubblicato che li porta. **Il blocco in verifica e dopo la pubblicazione arriva con i passaggi di stato** | base di ALBO-01 | **sì** |
 | `Avvio` | Verifica che il meccanismo comune sia caricato e compatibile, poi gli dichiara la sezione dell'albo con le due politiche per intero: indicizzazione `vietata`, scadenza `irraggiungibile`. Non chiude nessun requisito da sola: è il piano su cui ALBO-05 e ALBO-06 poggeranno. Se una qualsiasi delle tre condizioni non regge il componente resta attivo e inerte e lo segnala in bacheca, tranne nel caso della versione incompatibile, in cui è il meccanismo comune a disattivarlo | base di ALBO-05, ALBO-06 | **sì** |
 | Durata propria dell'atto | La durata più breve di quella del tipo, scelta per il singolo atto dove l'origine è dell'amministrazione, con motivazione. La parte di configurazione per tipo esiste ed è `Durate`, qui sopra | ALBO-04 | no |
 | `Repertorio` | Assegna il numero progressivo annuale, una volta per atto, con un incremento atomico e due vincoli della banca dati che rendono impossibili il numero doppio e il secondo numero allo stesso atto. Nel primo anno d'uso non assegna niente finché l'amministrazione non dichiara l'ultimo numero già usato, e blocca la dichiarazione al primo numero assegnato. Offre la schermata della dichiarazione a chi pubblica. **Non è ancora chiamato da nessuno**: lo chiamerà il passaggio a pubblicato | ALBO-08 | **sì** |
@@ -226,8 +228,8 @@ controlli che impediscono un'esposizione oltre il termine esisteranno davvero.
 
 ## Cosa arriva da conformita-core
 
-**Un solo meccanismo esiste oggi: il filtro di scadenza a ogni lettura.** Gli altri sei
-sono pianificati e non costruiti, e la colonna a destra lo dice riga per riga. Elencarli al
+**Due meccanismi esistono oggi: il filtro di scadenza a ogni lettura e la consegna degli
+allegati.** Gli altri cinque sono pianificati e non costruiti, e la colonna a destra lo dice riga per riga. Elencarli al
 presente farebbe credere disponibili funzioni che nessuno ha ancora scritto, ed e' il modo
 in cui un documento diventa piu' pericoloso della sua assenza.
 
@@ -243,7 +245,7 @@ disponibile la meta' che manca.
 | **Filtro di scadenza a ogni lettura** | A ogni richiesta pubblica l'atto scaduto non compare su nessuno dei percorsi coperti, anche se nessun compito pianificato ha mai girato. È la parte da cui dipende la conformità | ALBO-05, ALBO-18, ALBO-21 | **sì** |
 | **Compito pianificato di aggiornamento** | Fa il lavoro pesante alla scadenza: porta lo stato memorizzato a defisso e scrive una voce nel registro delle modifiche per ogni atto toccato. **Non è ancora costruito**, e per esserlo ha bisogno anche del **registro delle modifiche**, che è a sua volta una lavorazione successiva del meccanismo comune: sono due pezzi distinti e il primo dipende dal secondo. La sua assenza non rende visibile un atto scaduto, perché la visibilità dipende dal filtro qui sopra e non da questo | ALBO-03 | **no, pianificato** |
 | Battito di controllo | Timestamp a ogni esecuzione del cron, avviso al responsabile se invecchia | ALBO-19 | no, pianificato |
-| Consegna allegati | I file stanno in cartella protetta e si scaricano solo da un endpoint che rifà i controlli di visibilità a ogni richiesta | ALBO-05, ALBO-18, ALBO-20 | no, pianificato |
+| **Consegna allegati** | I file stanno in cartella protetta, il deposito si rifiuta finché il server non risulta negare l'accesso diretto, e si scaricano solo da un punto di consegna che rifà i controlli a ogni richiesta. L'albo la usa dall'interfaccia `1.3.0` | ALBO-05, ALBO-18, ALBO-20 | **sì** |
 | Registro delle modifiche | Log solo in aggiunta: chi, cosa, quando, perché | ALBO-10 | no, pianificato |
 | Controllo indicizzazione | Applica la politica dichiarata: noindex e fuori sitemap | ALBO-06 | no, pianificato |
 | Separazione delle esposizioni | Lo stesso documento può stare anche in trasparenza con regole sue, senza duplicare il file | ALBO-15 | no, pianificato |
