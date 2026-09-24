@@ -119,7 +119,7 @@ l'oggetto e salvare lascia l'oggetto com'era, con un avviso.
 
 ## Com'è andata davvero
 
-Il piano ha retto. Le differenze sono sette, e sei sono più severe del piano.
+Il piano ha retto. Le differenze sono otto, e sette sono più severe del piano.
 
 **Il fermo avviene prima della scrittura, non dopo.** Il piano diceva "fermata per intero
 prima che cominci" senza dire come. WordPress scrive le voci e i dati collegati dopo la riga
@@ -157,6 +157,15 @@ nella bozza. La schermata non è toccata: non manda mai quelle voci, perché i d
 hanno il riquadro di WordPress, e i dati passano dai riquadri dell'albo, che salvano prima del
 controllo. La seconda metà di A-86 lo prova.
 
+**Il guardiano decide per ultimo.** Trovato con la stessa rilettura, cercando l'altra forma dei
+rilievi passati: un valore deciso da noi che un aggancio di WordPress può cambiare dopo. Il
+filtro che riporta in bozza lo stato rifiutato girava alla priorità normale, e un altro
+componente agganciato a una priorità più alta poteva riportare lo stato a pubblicato: la
+seconda metà di A-91 lo ha fatto vedere, pubblicando davvero una bozza. Il difetto era più
+vecchio di questa unità, perché c'era già nello sbarramento della pubblicazione; si chiude con
+una riga, e il filtro ora gira all'ultima priorità. Resta possibile solo a un componente che si
+agganci anche lui all'ultima priorità dopo di noi, e quel caso non si può impedire da qui.
+
 **Il motivo della pubblicazione chiusa è cambiato.** Prima rimandava alla consegna protetta dei
 documenti, che ora esiste. Ora rimanda al registro delle modifiche e al passaggio dalla
 verifica. La riga A-34 cerca il motivo nuovo, e la sua precondizione controlla che il motivo
@@ -166,12 +175,12 @@ prelevato lo contenga davvero.
 mostra nomi e collegamenti senza modulo, e senza gettone: un invio di documenti su un atto in
 verifica non ha nemmeno la forma di una richiesta valida.
 
-**Le prove.** Centotredici prove nella suite principale, dieci nuove, più le due suite separate
+**Le prove.** Centoquattordici prove nella suite principale, undici nuove, più le due suite separate
 senza meccanismo comune e con meccanismo comune incompatibile, tutte verdi in locale su
 WordPress 6.5 con MariaDB. PHPCS pulito. L'esito in verifica continua si legge sulla richiesta
 di unione, e le righe passano a "fatto" solo dopo.
 
-**La prova di non vacuità.** Ventitré guasti introdotti uno per volta in una copia usa e getta,
+**La prova di non vacuità.** Ventiquattro guasti introdotti uno per volta in una copia usa e getta,
 facendo girare le prove di questa unità, dei documenti, dei dati dell'atto e della
 pubblicazione chiusa su ciascuno.
 
@@ -199,6 +208,7 @@ pubblicazione chiusa su ciascuno.
 | Cambiamenti portati con il passaggio non controllati | A-86 (seconda metà) |
 | Voci portate con il passaggio non guardate | A-86 (seconda metà) |
 | Dati portati con il passaggio non guardati | A-86 (seconda metà) |
+| Guardiano dello stato alla priorità normale | A-91 (seconda metà) |
 | Pubblicazione concessa | A-26, A-34, A-91 |
 
 **Cinque guasti che al primo giro passavano.** Un atto nuovo creato in verifica, la bozza
