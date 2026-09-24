@@ -100,7 +100,8 @@ final class ChiusuraPubblicazione {
 	 * esercitabile da sola, senza passare da un aggancio di WordPress. Le chiavi
 	 * lette sono `post_status`, lo stato richiesto, e facoltative `partenza`, lo
 	 * stato memorizzato o `nuovo`, `ammesso`, se chi scrive puo' modificare
-	 * l'atto, e `mancanti`, l'elenco dei dati mancanti dopo la scrittura.
+	 * l'atto, `cambiamenti`, se la richiesta porta con se' voci o dati
+	 * dell'albo, e `mancanti`, l'elenco dei dati mancanti dopo la scrittura.
 	 *
 	 * @param array<string, mixed> $stato_proposto Stato dell'atto come sara' dopo questa richiesta.
 	 * @return array<string, string> Motivi per codice, vuoto se non ce ne sono.
@@ -130,6 +131,12 @@ final class ChiusuraPubblicazione {
 
 			if ( empty( $stato_proposto['ammesso'] ) ) {
 				$motivi['albo_verifica_non_permessa'] = __( 'L\'atto non passa in verifica: non si possiede il permesso di modificare questo atto.', 'albo-pretorio-pa' );
+
+				return $motivi;
+			}
+
+			if ( ! empty( $stato_proposto['cambiamenti'] ) ) {
+				$motivi['albo_verifica_con_cambiamenti'] = __( 'L\'atto resta in bozza e non passa in verifica: la stessa richiesta cambia anche il tipo, l\'organo o altri dati dell\'atto, e quei cambiamenti arriverebbero dopo il controllo. Si salvano prima nella bozza, poi si manda l\'atto in verifica.', 'albo-pretorio-pa' );
 
 				return $motivi;
 			}
@@ -170,6 +177,40 @@ final class ChiusuraPubblicazione {
 		return array(
 			'albo_atto_in_verifica' => __( 'L\'atto e\' in verifica e non si modifica: quello che e\' stato verificato e\' quello che esce. Per correggerlo dovra\' tornare in bozza con una motivazione, passaggio che arriva con il registro delle modifiche.', 'albo-pretorio-pa' ),
 		);
+	}
+
+	/**
+	 * Se la richiesta porta con se' voci o dati dell'albo.
+	 *
+	 * **Dopo il controllo, non prima.** `wp_insert_post` assegna le voci di
+	 * `tax_input` e scrive i dati di `meta_input` dopo aver scritto la riga,
+	 * cioe' dopo che il passaggio e' stato giudicato: un passaggio che li porta
+	 * con se' sarebbe giudicato sui dati di prima e lascerebbe in verifica
+	 * quelli di dopo. La schermata dell'atto non li manda mai, perche' i due
+	 * elenchi non hanno il riquadro di WordPress e i dati passano dai riquadri
+	 * dell'albo, che salvano prima del controllo.
+	 *
+	 * @param array<string, mixed> $postarr Richiesta.
+	 * @return bool
+	 */
+	private static function porta_cambiamenti( array $postarr ): bool {
+		if ( isset( $postarr['tax_input'] ) && is_array( $postarr['tax_input'] ) ) {
+			foreach ( array( TASSONOMIA_TIPO_ATTO, TASSONOMIA_ORGANO ) as $tassonomia ) {
+				if ( array_key_exists( $tassonomia, $postarr['tax_input'] ) ) {
+					return true;
+				}
+			}
+		}
+
+		if ( isset( $postarr['meta_input'] ) && is_array( $postarr['meta_input'] ) ) {
+			foreach ( array_keys( $postarr['meta_input'] ) as $chiave ) {
+				if ( 0 === strpos( ltrim( (string) $chiave, '_' ), 'albo_pretorio_' ) ) {
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -332,8 +373,9 @@ final class ChiusuraPubblicazione {
 				$mancanti = array( 'albo_manca_oggetto' => __( 'Manca l\'oggetto dell\'atto.', 'albo-pretorio-pa' ) ) + $mancanti;
 			}
 
-			$proposto['ammesso']  = current_user_can( 'edit_post', $atto_id );
-			$proposto['mancanti'] = $mancanti;
+			$proposto['ammesso']     = current_user_can( 'edit_post', $atto_id );
+			$proposto['cambiamenti'] = self::porta_cambiamenti( is_array( $postarr ) ? $postarr : array() );
+			$proposto['mancanti']    = $mancanti;
 		}
 
 		$motivi = self::motivi( $proposto );

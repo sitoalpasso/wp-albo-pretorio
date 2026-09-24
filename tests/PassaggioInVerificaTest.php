@@ -25,6 +25,7 @@ use AlboPretorioPa\SchedaDocumenti;
 use AlboPretorioPa\TipoAtto;
 
 use const AlboPretorioPa\META_DATA_ADOZIONE;
+use const AlboPretorioPa\META_DOCUMENTO_PRINCIPALE;
 use const AlboPretorioPa\RUOLO;
 use const AlboPretorioPa\TASSONOMIA_ORGANO;
 use const AlboPretorioPa\TASSONOMIA_TIPO_ATTO;
@@ -575,6 +576,68 @@ class PassaggioInVerificaTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 'pending', get_post_status( $id ), 'Controllo positivo dalla schermata.' );
 		$this->assertSame( array(), Rifiuti::preleva_per_utente( $id ) );
+	}
+
+	/**
+	 * A-86, seconda meta': voci e dati mandati con la richiesta di passaggio.
+	 *
+	 * WordPress assegna le voci e scrive i dati mandati con la richiesta
+	 * **dopo** aver scritto la riga, quindi dopo il controllo dei dati mancanti.
+	 * Un passaggio che li porta con se' verrebbe giudicato sui dati di prima e
+	 * lascerebbe in verifica un atto con quelli di dopo. Il passaggio che porta
+	 * voci dell'albo o dati dell'albo non si concede; gli stessi cambiamenti su
+	 * una bozza che resta bozza si salvano.
+	 */
+	public function test_a86_voci_e_dati_nella_stessa_richiesta(): void {
+		$this->setExpectedIncorrectUsage( 'wp_insert_post' );
+
+		$tentativi = array(
+			'tipo tolto'             => array( 'tax_input' => array( TASSONOMIA_TIPO_ATTO => array() ) ),
+			'tipo cambiato'          => array( 'tax_input' => array( TASSONOMIA_TIPO_ATTO => array( $this->voci['altro'] ) ) ),
+			'organo tolto'           => array( 'tax_input' => array( TASSONOMIA_ORGANO => array() ) ),
+			'data di adozione tolta' => array( 'meta_input' => array( META_DATA_ADOZIONE => '' ) ),
+			'principale cambiato'    => array( 'meta_input' => array( META_DOCUMENTO_PRINCIPALE => 0 ) ),
+		);
+
+		foreach ( $tentativi as $tentativo => $richiesta ) {
+			$id    = $this->atto_completo();
+			$prima = count( $this->scritti );
+
+			$this->segnalazioni = array();
+
+			wp_set_current_user( $this->redattore );
+
+			wp_update_post(
+				array(
+					'ID'          => $id,
+					'post_status' => 'pending',
+				) + $richiesta
+			);
+
+			clean_post_cache( $id );
+
+			$stati = array_column( array_slice( $this->scritti, $prima ), 'stato' );
+
+			$this->assertSame( array( 'draft' ), array_values( array_unique( $stati ) ), 'Resta in bozza, anche nel valore scritto: ' . $tentativo . '.' );
+			$this->assertSame( 'draft', get_post_status( $id ), $tentativo );
+			$this->assertStringContainsString( 'arriverebbero dopo il controllo', (string) end( $this->segnalazioni ), 'Il motivo lo spiega: ' . $tentativo . '.' );
+
+			if ( 'tipo cambiato' === $tentativo ) {
+				$this->assertSame( $this->voci['altro'], (int) DatiAtto::tipo( $id )->term_id, 'Il cambiamento resta, sulla bozza.' );
+			}
+		}
+
+		// Controllo positivo: la stessa bozza completa, senza cambiamenti portati con se', passa.
+		$id = $this->atto_completo();
+
+		wp_update_post(
+			array(
+				'ID'          => $id,
+				'post_status' => 'pending',
+			)
+		);
+
+		$this->assertSame( 'pending', get_post_status( $id ) );
 	}
 
 	/**
