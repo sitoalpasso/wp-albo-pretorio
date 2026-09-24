@@ -177,8 +177,10 @@ verifica non ha nemmeno la forma di una richiesta valida.
 
 **Le prove.** Centoquattordici prove nella suite principale, undici nuove, più le due suite separate
 senza meccanismo comune e con meccanismo comune incompatibile, tutte verdi in locale su
-WordPress 6.5 con MariaDB. PHPCS pulito. L'esito in verifica continua si legge sulla richiesta
-di unione, e le righe passano a "fatto" solo dopo.
+WordPress 6.5 con MariaDB. PHPCS pulito. In verifica continua, sul commit b391737, verdi le
+stesse suite su MySQL 8 con WordPress 6.5 e PHP 8.1 e con l'ultima WordPress e PHP 8.3, più lo
+standard di codifica e la validazione di `publiccode.yml`. Le righe A-85..A-92 sono passate a
+"fatto" dopo quell'esito.
 
 **La prova di non vacuità.** Ventiquattro guasti introdotti uno per volta in una copia usa e getta,
 facendo girare le prove di questa unità, dei documenti, dei dati dell'atto e della
