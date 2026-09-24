@@ -1037,6 +1037,57 @@ class PassaggioInVerificaTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-91, seconda meta': lo stato rialzato da un aggancio di un altro componente.
+	 *
+	 * Il guardiano decide lo stato che si scrive; un aggancio registrato dopo il
+	 * suo, con una priorita' piu' alta, non deve poterlo riportare a quello
+	 * rifiutato. Si prova con la pubblicazione di una bozza completa e con la
+	 * verifica di una bozza a cui manca un dato.
+	 */
+	public function test_a91_stato_rialzato_da_un_altro_aggancio(): void {
+		$this->setExpectedIncorrectUsage( 'wp_insert_post' );
+
+		$casi = array(
+			'pubblicazione di una bozza completa' => array( $this->atto_completo(), 'publish' ),
+			'verifica di una bozza senza data'    => array( $this->bozza(), 'pending' ),
+		);
+
+		wp_set_current_user( $this->redattore );
+
+		foreach ( $casi as $caso => list( $id, $stato ) ) {
+			$rialza = static function ( $data ) use ( $stato ) {
+				if ( TIPO === $data['post_type'] ) {
+					$data['post_status'] = $stato;
+				}
+
+				return $data;
+			};
+
+			add_filter( 'wp_insert_post_data', $rialza, 11 );
+
+			$prima = count( $this->scritti );
+
+			try {
+				wp_update_post(
+					array(
+						'ID'          => $id,
+						'post_status' => $stato,
+					)
+				);
+			} finally {
+				remove_filter( 'wp_insert_post_data', $rialza, 11 );
+			}
+
+			clean_post_cache( $id );
+
+			$stati = array_column( array_slice( $this->scritti, $prima ), 'stato' );
+
+			$this->assertNotSame( array(), $stati, 'Precondizione: la scrittura e\' avvenuta: ' . $caso . '.' );
+			$this->assertSame( array( 'draft' ), array_values( array_unique( $stati ) ), 'Resta in bozza, anche nel valore scritto: ' . $caso . '.' );
+		}
+	}
+
+	/**
 	 * A-92: in verifica i due riquadri mostrano i dati senza campi da compilare.
 	 */
 	public function test_a92_riquadri_in_sola_lettura(): void {

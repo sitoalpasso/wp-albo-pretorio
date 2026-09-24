@@ -87,7 +87,7 @@ final class ChiusuraPubblicazione {
 	 */
 	public static function aggancia(): void {
 		add_filter( 'wp_insert_post_empty_content', array( self::class, 'da_wp_insert_post_empty_content' ), PHP_INT_MAX, 2 );
-		add_filter( 'wp_insert_post_data', array( self::class, 'da_wp_insert_post_data' ), 10, 2 );
+		add_filter( 'wp_insert_post_data', array( self::class, 'da_wp_insert_post_data' ), PHP_INT_MAX, 2 );
 		add_action( 'wp_insert_post', array( self::class, 'da_wp_insert_post' ), 10, 2 );
 		add_filter( 'pre_trash_post', array( self::class, 'da_pre_trash_post' ), PHP_INT_MAX, 2 );
 		add_filter( 'pre_delete_post', array( self::class, 'da_pre_delete_post' ), PHP_INT_MAX, 2 );
@@ -296,7 +296,9 @@ final class ChiusuraPubblicazione {
 	 * contenuti: e' il motivo per cui non esiste un istante in cui l'atto
 	 * risulti pubblicato. Una correzione fatta dopo la scrittura sarebbe una
 	 * riparazione tardiva, con quell'istante in mezzo e con gli effetti
-	 * collaterali della pubblicazione gia' partiti.
+	 * collaterali della pubblicazione gia' partiti. L'aggancio e' all'ultima
+	 * priorita': a una priorita' qualunque, un altro componente agganciato dopo
+	 * potrebbe rialzare lo stato che questo filtro ha riportato in bozza.
 	 *
 	 * @param array<string, mixed> $data    Dati che stanno per essere scritti.
 	 * @param array<string, mixed> $postarr Dati come sono arrivati alla funzione di inserimento.
