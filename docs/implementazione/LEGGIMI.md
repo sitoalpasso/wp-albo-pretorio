@@ -31,3 +31,6 @@ Schede presenti:
 - [`passaggio-in-verifica.md`](passaggio-in-verifica.md): la prima parte del flusso di
   pubblicazione, cioè bozza, passaggio in verifica e blocco dell'atto in verifica. Righe di
   collaudo A-85..A-92.
+- [`pubblicazione.md`](pubblicazione.md): la seconda parte del flusso, cioè rimando in bozza
+  con motivazione e pubblicazione con la conferma sui dati personali, le date e il numero.
+  Piano, codice non ancora scritto.
