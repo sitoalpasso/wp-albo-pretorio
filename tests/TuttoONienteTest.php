@@ -414,12 +414,20 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 	public function test_a108_passaggio_concesso_e_nient_altro(): void {
 		$this->setExpectedIncorrectUsage( 'wp_insert_post' );
 
+		global $wpdb;
+
 		$id    = $this->atto_in_verifica();
 		$altro = $this->atto_in_verifica();
+		$terzo = $this->atto_in_verifica();
 
-		// Un altro componente che, durante la scrittura, cambia oggetto e data e prova a pubblicare un altro atto.
+		// Il primo atto ha gia' un nome nell'indirizzo, scritto prima della verifica.
+		$wpdb->update( $wpdb->posts, array( 'post_name' => 'nome-verificato' ), array( 'ID' => $id ) );
+		clean_post_cache( $id );
+
+		// Un altro componente che, durante la scrittura, cambia oggetto, nome e data e prova a pubblicare un altro atto.
 		$cambia = static function ( $data ) {
 			if ( TIPO === $data['post_type'] ) {
+				$data['post_name']    = 'nome-cambiato';
 				$data['post_title']   = 'Oggetto cambiato di nascosto';
 				$data['post_date']    = '2041-01-01 00:00:00';
 				$data['post_status']  = 'private';
@@ -457,7 +465,14 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 		$this->assertSame( 'publish', get_post_status( $id ) );
 		$this->assertSame( 'Atto di prova', get_the_title( $id ), 'L\'oggetto e\' quello verificato.' );
 		$this->assertSame( 'Testo di prova.', get_post_field( 'post_content', $id ) );
+		$this->assertSame( 'nome-verificato', get_post_field( 'post_name', $id ), 'Il nome gia\' scritto resta.' );
 		$this->assertSame( $esito['inizio'], get_post_field( 'post_date', $id ), 'La data e\' quella del sistema.' );
+
+		// Controllo positivo: un atto senza nome lo riceve da WordPress, subito dopo la scrittura della riga.
+		$this->assertSame( '', get_post_field( 'post_name', $terzo ), 'Precondizione: il terzo atto non ha nome.' );
+		$this->assertIsArray( $this->pubblica_da_codice( $terzo, $this->pubblicatore ) );
+		clean_post_cache( $terzo );
+		$this->assertNotSame( '', get_post_field( 'post_name', $terzo ) );
 		$this->assertSame( 'pending', get_post_status( $altro ), 'La concessione non vale per un altro atto.' );
 
 		// Dopo il passaggio la concessione non c'e' piu'.

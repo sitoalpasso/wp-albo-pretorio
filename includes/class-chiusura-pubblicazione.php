@@ -454,11 +454,6 @@ final class ChiusuraPubblicazione {
 					continue;
 				}
 
-				// Il nome nell'indirizzo lo genera WordPress alla pubblicazione, se l'atto non ne ha uno.
-				if ( null !== $concesso && 'post_name' === $campo && is_array( $memorizzato ) && '' === (string) $memorizzato['post_name'] ) {
-					continue;
-				}
-
 				if ( is_array( $memorizzato ) && array_key_exists( $campo, $memorizzato ) ) {
 					$data[ $campo ] = $memorizzato[ $campo ];
 				}
