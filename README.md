@@ -44,11 +44,12 @@ dall'indicizzazione dei motori di ricerca (per questo componente è la politica 
 un'opzione), separazione dagli obblighi di pubblicazione del d.lgs. 33/2013, con finalità,
 durate e cicli di vita distinti.
 
-**Due funzioni sono ipotesi, non impegni.** La **numerazione di repertorio** progressiva
-annuale e il **referto di pubblicazione** poggiano sulla prassi della pubblicità legale, che
-non è una fonte normativa: sono scelte operative da confermare contro il regolamento
-dell'amministrazione, e le relative lavorazioni sono ferme in attesa di quella conferma.
-Sono marcate come ipotesi in `docs/requisiti.md` e in `docs/collaudo.md`.
+**Una funzione è un'ipotesi, non un impegno.** Il **referto di pubblicazione** poggia sulla
+prassi della pubblicità legale, che non è una fonte normativa: è una scelta operativa da
+confermare contro il regolamento dell'amministrazione, e la sua lavorazione è ferma in attesa
+di quella conferma. La **numerazione di repertorio** progressiva annuale, che poggiava sulla
+stessa prassi, è diventata una scelta di prodotto il 2026-09-23. Lo stato di ciascuna è in
+`docs/requisiti.md` e in `docs/collaudo.md`.
 
 ## Il rapporto con `conformita-core`
 
@@ -56,9 +57,10 @@ Il componente richiede il plugin `conformita-core`, che fornisce i meccanismi co
 riceve da qui le politiche come parametro esplicito: indicizzazione vietata e contenuto
 scaduto irraggiungibile.
 
-**Di quei meccanismi oggi ne esistono due**: il filtro che applica la scadenza a ogni
-lettura e la consegna degli allegati in cartella protetta, su cui poggiano il documento
-principale e gli allegati ulteriori dell'atto. Registro delle operazioni, compito
+**Di quei meccanismi oggi ne esistono tre**: il filtro che applica la scadenza a ogni
+lettura, la consegna degli allegati in cartella protetta, su cui poggiano il documento
+principale e gli allegati ulteriori dell'atto, e il registro delle operazioni, su cui
+poggiano la conferma della pubblicazione e il motivo del rimando in bozza. Compito
 pianificato, battito di controllo, applicazione della politica di indicizzazione e
 separazione delle esposizioni sono lavorazioni successive di quel componente, non funzioni
 già disponibili.
@@ -76,11 +78,12 @@ componente**, su `plugins_loaded`, ed è la lavorazione che apre lo sviluppo del
 Le fonti sono citate per estremi. Il **catalogo corrente dei requisiti** (ALBO-01..26), con
 fonte e criterio di verifica per ciascuno, è in [`docs/requisiti.md`](docs/requisiti.md).
 
-**Non è un elenco completo, e il documento lo dichiara.** ALBO-07 e ALBO-08 sono ipotesi da
+**Non è un elenco completo, e il documento lo dichiara.** ALBO-07 è un'ipotesi da
 confermare contro il regolamento dell'amministrazione. ALBO-22, che riguarda gli stati
 dell'atto e il flusso di pubblicazione, è stato deciso il 2026-09-21 e tre sue
-sotto-decisioni restano aperte, marcate come tali. La colonna Stato dice a che punto è ciascun requisito:
-oggi sono chiusi i quattro sui permessi e sul ruolo proprio, tutti gli altri sono da fare.
+sotto-decisioni restano aperte, marcate come tali. La colonna Stato dice a che punto è
+ciascun requisito: oggi sono chiusi i quattro sui permessi e sul ruolo proprio, quelli della
+pubblicazione sono in corso, tutti gli altri sono da fare.
 
 Un'altra distinzione che il catalogo tiene ferma: dove c'è una fonte normativa, **la norma
 fissa il risultato obbligatorio, non il modo in cui il componente lo ottiene**. Le soluzioni

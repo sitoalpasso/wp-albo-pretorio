@@ -3,18 +3,15 @@
 Questo documento è la mappa del plugin. Serve a capire, quando una modifica tocca un
 file, **che cosa sta toccando**, anche senza leggere il PHP riga per riga.
 
-> **Stato di questo documento: mappa progettata, non ancora costruita.** Alla data di
-> scrittura il componente contiene lo scheletro del plugin e nient'altro: **nessuna delle
-> parti elencate più sotto esiste nel codice**, e dei sette meccanismi comuni ne esiste uno
-> solo. Le due tabelle hanno una colonna che lo dice riga per riga. Il documento è
-> pubblicato lo stesso, perché serve a decidere dove va una modifica prima di scriverla, ma
-> va letto per quello che è: chi cerca oggi una di queste parti non la trova, e non è un
+> **Stato di questo documento: mappa costruita in parte.** Le due tabelle più sotto hanno
+> una colonna che dice, riga per riga, se la parte esiste nel codice o è soltanto prevista.
+> Il documento elenca anche le parti non costruite, perché serve a decidere dove va una
+> modifica prima di scriverla; chi cerca oggi una parte segnata "no" non la trova, e non è un
 > difetto.
 >
 > Da quando una parte esiste, il suo nome diventa il contratto: il codice usa quel nome, e
-> se deve cambiare si aggiorna prima questo documento, nello stesso commit. **Anche la
-> cartella non è ancora decisa**: qui è indicata `src/`, mentre lo scheletro attuale non ha
-> nessuna cartella di codice. La sceglie la prima unità che scrive codice.
+> se deve cambiare si aggiorna prima questo documento, nello stesso commit. Il codice sta in
+> `includes/`, un file per parte.
 
 Il plugin dipende da `conformita-core`, che fornisce i meccanismi comuni. L'albo gli
 dichiara le **politiche**: cosa succede alla scadenza (`irraggiungibile`, cioè l'atto esce
@@ -28,10 +25,12 @@ I casi in cui rifiuta sono quattro, e sono tutti quelli che oggi esistono davver
 politica non dichiarata o con un valore fuori dall'insieme ammesso, un identificativo di
 sezione vuoto o con caratteri non ammessi, una sezione già registrata, e **il motore di
 scadenza non avviato**. Quest'ultimo è l'unico controllo su un meccanismo, e non è un caso:
-il motore era l'unico meccanismo comune quando la regola è nata. **Indicizzazione, registro
-e battito non vengono verificati alla registrazione**, perché non ci sono ancora: quando
-arriveranno, se il loro mancato avvio dovrà bloccare la registrazione sarà una decisione da
-prendere allora, non una cosa che il codice già fa. **Nemmeno la consegna degli allegati,
+il motore era l'unico meccanismo comune quando la regola è nata. **Indicizzazione e battito
+non vengono verificati alla registrazione**, perché non ci sono ancora: quando arriveranno,
+se il loro mancato avvio dovrà bloccare la registrazione sarà una decisione da prendere
+allora, non una cosa che il codice già fa. **Nemmeno il registro delle modifiche, che esiste,
+si verifica alla registrazione**: la pubblicazione e il rimando in bozza controllano da sé,
+prima di cominciare, che le sue voci si scrivano. **Nemmeno la consegna degli allegati,
 che esiste, si verifica alla registrazione**: si verifica a ogni deposito, che si rifiuta
 finché il server non risulta negare l'accesso diretto alla cartella dei documenti.
 
@@ -54,14 +53,14 @@ ATTO
  +--> passa il controllo sui dati personali
  |       schermata con i casi di rivelazione indiretta, conferma esplicita
  |       eventuale versione oscurata accanto all'originale riservato
- |       [FlussoPubblicazione, Oscuramento]
+ |       [Passaggi, RiquadroPassaggi, Oscuramento]
  |
  +--> viene pubblicato
  |       il numero di repertorio viene assegnato ORA, in modo atomico;
  |       nel primo anno d'uso solo dopo che l'amministrazione ha
  |       dichiarato l'ultimo numero gia' usato
  |       voce nel registro: chi, cosa, quando
- |       [Repertorio, core: Registro]
+ |       [Passaggi, Repertorio, core: Registro]
  |
  +--> resta esposto fino alla data di fine
  |       visibile in elenco, scheda, ricerca; noindex su ogni pagina
@@ -185,40 +184,40 @@ uno stato corretto dopo il fatto è indistinguibile da uno stato mai scritto.
 
 ## Le parti del plugin
 
-**Otto parti esistono oggi.** L'avvio, che dichiara la sezione e le sue politiche; il
+**Nove parti esistono oggi.** L'avvio, che dichiara la sezione e le sue politiche; il
 tipo atto con i suoi due elenchi di voci; i permessi con il ruolo proprio e il meccanismo di
 aggiornamento; la durata per tipo di atto; il repertorio con la sua schermata; i dati
-dell'atto con il riquadro in cui si compilano; i documenti dell'atto con il loro riquadro; e
-il guardiano dei passaggi di stato, che porta una bozza completa in verifica, tiene fermo un
-atto in verifica e tiene chiusa la pubblicazione. L'elenco dei dati mancanti lo chiama il
-passaggio in verifica; il repertorio esiste e non lo chiama ancora nessuno: lo chiamerà la
-pubblicazione. Le altre parti sono previste e
-non costruite: la colonna a destra lo dice riga per riga, perché una tabella letta al
+dell'atto con il riquadro in cui si compilano; i documenti dell'atto con il loro riquadro; il
+guardiano dei passaggi di stato, che porta una bozza completa in verifica e tiene fermi l'atto
+in verifica e quello pubblicato; e i due passaggi che partono dalla verifica, il rimando in
+bozza e la pubblicazione, con il loro riquadro. L'elenco dei dati mancanti lo chiamano il
+passaggio in verifica e la pubblicazione; il repertorio lo chiama la pubblicazione. Le altre
+parti sono previste e non costruite: la colonna a destra lo dice riga per riga, perché una tabella letta al
 presente farebbe credere disponibili funzioni che nessuno ha ancora scritto.
 
 **Il tipo atto esiste e non è pubblico**, e le due cose vanno lette insieme. Un atto si
-crea e si salva in bozza dall'amministrazione; il suo indirizzo non risponde a nessuno, il
-tipo è fuori dalla ricerca interna e dalla mappa per i motori, e non ha nessuna rotta
-nell'interfaccia per programmi. Il motivo non è prudenza generica: la consegna protetta dei
-documenti ora esiste, ma i passaggi di stato che bloccano i documenti in verifica e dopo la
-pubblicazione, e il registro delle modifiche in cui si scrivono i loro motivi, non ancora.
-La pubblicazione si aprirà tutta insieme, in una lavorazione dedicata, quando i controlli
-che impediscono un'esposizione oltre il termine esisteranno davvero.
+crea e si salva in bozza dall'amministrazione, e da chi pubblica si porta a pubblicato; ma il
+suo indirizzo non risponde a nessuno, il tipo è fuori dalla ricerca interna e dalla mappa per
+i motori, e non ha nessuna rotta nell'interfaccia per programmi. **Un atto pubblicato oggi non
+si vede dal pubblico**: manca la pagina pubblica, e con lei il blocco dei motori di ricerca
+che le serve. Ne discende un vincolo di rilascio: nessuna versione si rilascia con la
+pubblicazione aperta e la pagina pubblica assente, perché la data di inizio farebbe correre un
+termine di legge su un atto che nessuno vede.
 
 | Parte prevista | Responsabilità | Requisiti | Esiste oggi |
 |---|---|---|---|
 | `TipoAtto` | Registra il tipo di contenuto dell'atto attraverso il meccanismo comune, dentro la sezione dell'albo, e con esso i due elenchi di voci per il tipo di atto e per l'organo. Dichiara esplicitamente l'esposizione per programmi, oggi spenta, e tiene il tipo visibile in amministrazione e non interrogabile dal pubblico. **Non registra ancora i campi dell'atto e non li valida**: quello arriva con la schermata di compilazione | base di ALBO-01 | **sì** |
 | `Permessi` | Insiemi di permessi del tipo, ruolo proprio del componente per chi pubblica, assegnazione additiva e ripetibile, avviso quando nessun ruolo li possiede. I nomi dei permessi non li sceglie: li chiede al meccanismo comune, che li ricava dall'identificativo del tipo | ALBO-23, ALBO-25, ALBO-26 | **sì** |
-| `Durate` | Configura, valida e legge la durata di ciascun tipo di atto: giorni, origine (norma o scelta dell'amministrazione) ed estremi della norma, in un solo dato attaccato alla voce dell'elenco dei tipi. Valida al salvataggio e a ogni lettura, così che una durata scritta di lato e malformata valga come assente. Mostra la durata nell'elenco dei tipi. **Non blocca ancora la pubblicazione** di un atto senza durata valida, perché oggi la pubblicazione è chiusa per tutti, e non gestisce la durata propria dell'atto | parte di configurazione di ALBO-04 | **sì** |
+| `Durate` | Configura, valida e legge la durata di ciascun tipo di atto: giorni, origine (norma o scelta dell'amministrazione) ed estremi della norma, in un solo dato attaccato alla voce dell'elenco dei tipi. Valida al salvataggio e a ogni lettura, così che una durata scritta di lato e malformata valga come assente. Mostra la durata nell'elenco dei tipi. La pubblicazione la legge nell'istante in cui avviene, e senza durata valida si rifiuta. **Non gestisce la durata propria dell'atto** | parte di configurazione di ALBO-04 | **sì** |
 | `Installazione` | Confronta la versione memorizzata sul sito con quella del codice e, se differiscono, rifà il lavoro di installazione. È il motivo per cui un permesso nuovo arriva anche ai siti già installati, dove nessuna attivazione avviene | ALBO-24 | **sì** |
-| `ChiusuraPubblicazione` | Guardiano dei passaggi di stato, con l'elenco chiuso dei passaggi consentiti. Da una bozza si va in verifica solo se chi invia può modificare l'atto e non manca nessun dato; un atto nuovo nasce in bozza. Su un atto in verifica ogni scrittura si ferma prima di cominciare, e cestino e cancellazione sono negati. La pubblicazione e la programmazione restano negate: la seconda parte del flusso apre la pubblicazione, **ma non la programmazione**, che dal 2026-09-22 è una regola sua (ALBO-27) | nessuno: impedisce di prometterne uno non mantenibile | **sì** |
+| `ChiusuraPubblicazione` | Guardiano dei passaggi di stato, con l'elenco chiuso dei passaggi consentiti. Da una bozza si va in verifica solo se chi invia può modificare l'atto e non manca nessun dato; un atto nuovo nasce in bozza. Su un atto in verifica o pubblicato ogni scrittura si ferma prima di cominciare, e cestino e cancellazione sono negati. La pubblicazione e il rimando in bozza passano solo con la **concessione** che `Passaggi` dà per un atto, una scrittura e i campi che deve cambiare; tutto il resto della riga torna com'era. La programmazione resta negata sempre (ALBO-27) | ALBO-09, per la parte dell'atto pubblicato che non si modifica; ALBO-22 | **sì** |
 | `DatiAtto`, `SchedaAtto` | Tipo di atto, organo, data di adozione e numero proprio: il riquadro **Dati dell'atto** in cui si compilano senza preselezione, il salvataggio che valida ogni dato da solo, la lettura che tratta come assente un dato malformato, l'elenco dei dati mancanti per nome e la guardia che impedisce a chi redige di creare voci nuove negli elenchi. **L'elenco dei dati mancanti non è ancora chiamato da nessuno**: lo chiamerà il passaggio in verifica | base di ALBO-01 | **sì** |
-| Controllo campo per campo prima della pubblicazione | Il passaggio in verifica e la pubblicazione che rifiutano un atto incompleto, nominando il dato che manca | ALBO-01, ALBO-02 | in parte: il passaggio in verifica sì, la pubblicazione no |
+| Controllo campo per campo prima della pubblicazione | Il passaggio in verifica e la pubblicazione che rifiutano un atto incompleto, nominando il dato che manca; alla pubblicazione la durata mancante si nomina come data di fine non calcolabile | ALBO-01, ALBO-02 | **sì** |
 | `DocumentiAtto`, `SchedaDocumenti` | Il documento principale, uno e uno solo, e gli allegati ulteriori in ordine di deposito, depositati dal meccanismo comune nella sua cartella protetta con l'impronta. Si caricano e si tolgono solo in bozza, dal riquadro **Documenti dell'atto**; il principale sostituito sparisce con il suo file. La lettura tratta come assente un documento che non è di quell'atto, non è stato depositato dal meccanismo comune o è nel cestino. Si governano con i permessi dell'atto, non si cancellano per altra via che il riquadro, non compaiono nella libreria dei media e se ne vanno con l'atto mai pubblicato che li porta. **Il blocco in verifica e dopo la pubblicazione arriva con i passaggi di stato** | base di ALBO-01 | **sì** |
 | `Avvio` | Verifica che il meccanismo comune sia caricato e compatibile, poi gli dichiara la sezione dell'albo con le due politiche per intero: indicizzazione `vietata`, scadenza `irraggiungibile`. Non chiude nessun requisito da sola: è il piano su cui ALBO-05 e ALBO-06 poggeranno. Se una qualsiasi delle tre condizioni non regge il componente resta attivo e inerte e lo segnala in bacheca, tranne nel caso della versione incompatibile, in cui è il meccanismo comune a disattivarlo | base di ALBO-05, ALBO-06 | **sì** |
 | Durata propria dell'atto | La durata più breve di quella del tipo, scelta per il singolo atto dove l'origine è dell'amministrazione, con motivazione. La parte di configurazione per tipo esiste ed è `Durate`, qui sopra | ALBO-04 | no |
-| `Repertorio` | Assegna il numero progressivo annuale, una volta per atto, con un incremento atomico e due vincoli della banca dati che rendono impossibili il numero doppio e il secondo numero allo stesso atto. Nel primo anno d'uso non assegna niente finché l'amministrazione non dichiara l'ultimo numero già usato, e blocca la dichiarazione al primo numero assegnato. Offre la schermata della dichiarazione a chi pubblica. **Non è ancora chiamato da nessuno**: lo chiamerà il passaggio a pubblicato | ALBO-08 | **sì** |
-| `FlussoPubblicazione` | Il percorso obbligato verso la pubblicazione: controllo preventivo sui dati personali con conferma esplicita; blocco di modifica e cancellazione dell'atto pubblicato, senza eccezioni per l'amministratore | ALBO-09, ALBO-11 | no |
+| `Repertorio` | Assegna il numero progressivo annuale, una volta per atto, con un incremento atomico e due vincoli della banca dati che rendono impossibili il numero doppio e il secondo numero allo stesso atto. Nel primo anno d'uso non assegna niente finché l'amministrazione non dichiara l'ultimo numero già usato, e blocca la dichiarazione al primo numero assegnato. Offre la schermata della dichiarazione a chi pubblica. Lo chiama la pubblicazione, **prima** di aprire la transazione: il numero preso resta dell'atto anche se la pubblicazione fallisce | ALBO-08 | **sì** |
+| `Passaggi`, `RiquadroPassaggi` | I due passaggi che partono da un atto in verifica, dal riquadro **Pubblicazione** della schermata e dalle funzioni `albo_pretorio_pubblica()` e `albo_pretorio_rimanda_in_bozza()`. Il rimando pretende il motivo e lo scrive nel registro. La pubblicazione pretende la conferma sui dati personali, rifiuta una data di inizio futura, ricontrolla i dati e la durata, prende il numero e poi, dentro una transazione della banca dati, scrive stato, date e voce della conferma: se un pezzo fallisce annulla tutto. Rifiuta di cominciare se le tabelle non conoscono le transazioni | ALBO-11, ALBO-22, ALBO-27, parte di ALBO-01, ALBO-02, ALBO-08 | **sì** |
 | `Oscuramento` | Gestisce la coppia versione oscurata pubblica / originale riservato | ALBO-12 | no |
 | Pagine pubbliche accessibili | Elenco, scheda e ricerca con markup e foglio di stile propri, che non usano classi né aiuti del tema. Limiti dichiarati: stili sovrascritti dal tema, documenti dell'ente | ALBO-28 | no |
 | Amministrazioni ospitate | L'elenco configurato delle amministrazioni che pubblicano su questo albo, la scelta senza preselezione nella schermata dell'atto quando l'elenco non è vuoto, e il nome copiato sull'atto alla pubblicazione. Nessun ruolo e nessun permesso proprio | ALBO-29 | no |
@@ -230,8 +229,8 @@ che impediscono un'esposizione oltre il termine esisteranno davvero.
 
 ## Cosa arriva da conformita-core
 
-**Due meccanismi esistono oggi: il filtro di scadenza a ogni lettura e la consegna degli
-allegati.** Gli altri cinque sono pianificati e non costruiti, e la colonna a destra lo dice riga per riga. Elencarli al
+**Tre meccanismi esistono oggi: il filtro di scadenza a ogni lettura, la consegna degli
+allegati e il registro delle modifiche.** Gli altri quattro sono pianificati e non costruiti, e la colonna a destra lo dice riga per riga. Elencarli al
 presente farebbe credere disponibili funzioni che nessuno ha ancora scritto, ed e' il modo
 in cui un documento diventa piu' pericoloso della sua assenza.
 
