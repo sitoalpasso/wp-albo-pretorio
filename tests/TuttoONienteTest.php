@@ -539,54 +539,77 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 		$this->assertSame( 'pending', get_post_status( $altro ), 'Senza passare dai due passaggi, resta in verifica.' );
 
 		/*
-		 * Lo stesso atto, dentro la stessa scrittura e prima che arrivi alla
-		 * banca dati: un filtro che gira prima del guardiano copia il gettone
-		 * dalla richiesta e lo usa per una scrittura annidata con oggetto e
-		 * dati suoi. Il gettone e' gia' consumato, e la scrittura annidata non
-		 * arriva alla banca dati.
+		 * Lo stesso atto, dentro la stessa scrittura: un altro componente legge
+		 * il gettone e lo usa per una scrittura annidata. Prima che il
+		 * guardiano lo consumi, dal filtro con cui WordPress ripulisce quel
+		 * campo della richiesta, con dati suoi o con un gettone inventato; dopo,
+		 * da un filtro che gira prima del guardiano, con il gettone copiato. In
+		 * tutti i casi il passaggio vero riesce, scrive la riga una volta sola,
+		 * e nessuna istruzione della scrittura annidata arriva alla banca dati.
 		 */
-		$quarto   = $this->atto_in_verifica();
 		$copiato  = null;
-		$istruite = array();
-		$annidata = static function ( $data, $postarr ) use ( $quarto, &$copiato ) {
-			if ( null === $copiato && isset( $postarr['ID'], $postarr[ Passaggi::CAMPO_GETTONE ] ) && $quarto === (int) $postarr['ID'] ) {
-				$copiato = (string) $postarr[ Passaggi::CAMPO_GETTONE ];
+		$varianti = array(
+			'prima del consumo, gettone con dati'  => array( 'pre_post_' . Passaggi::CAMPO_GETTONE, true, false ),
+			'prima del consumo, gettone inventato' => array( 'pre_post_' . Passaggi::CAMPO_GETTONE, false, true ),
+			'dopo il consumo, gettone copiato'     => array( 'wp_insert_post_data', false, false ),
+		);
 
-				wp_update_post(
-					array(
-						'ID'                    => $quarto,
-						'post_status'           => 'publish',
-						'post_title'            => 'Oggetto annidato',
-						Passaggi::CAMPO_GETTONE => $copiato,
-						'meta_input'            => array( 'dato_annidato' => 'x' ),
-					)
+		foreach ( $varianti as $caso => list( $filtro, $con_dati, $inventato ) ) {
+			$quarto   = $this->atto_in_verifica();
+			$partita  = false;
+			$istruite = array();
+			$annidata = static function ( $valore, $postarr = null ) use ( $quarto, $filtro, $con_dati, $inventato, &$partita, &$copiato ) {
+				$gettone = 'wp_insert_post_data' === $filtro
+					? ( is_array( $postarr ) && isset( $postarr['ID'], $postarr[ Passaggi::CAMPO_GETTONE ] ) && $quarto === (int) $postarr['ID'] ? (string) $postarr[ Passaggi::CAMPO_GETTONE ] : null )
+					: ( is_string( $valore ) && Passaggi::in_corso( $quarto ) ? $valore : null );
+
+				if ( $partita || null === $gettone ) {
+					return $valore;
+				}
+
+				$partita = true;
+				$copiato = $gettone;
+				$annido  = array(
+					'ID'                    => $quarto,
+					'post_status'           => 'publish',
+					'post_title'            => 'Oggetto annidato',
+					Passaggi::CAMPO_GETTONE => $inventato ? str_repeat( 'b', 32 ) : $gettone,
 				);
+
+				if ( $con_dati ) {
+					$annido['meta_input'] = array( 'dato_annidato' => 'x' );
+				}
+
+				wp_update_post( $annido );
+
+				return $valore;
+			};
+			$osserva  = static function ( $istruzione ) use ( &$istruite ) {
+				$istruite[] = (string) $istruzione;
+
+				return $istruzione;
+			};
+
+			add_filter( $filtro, $annidata, 10, 2 );
+			add_filter( 'query', $osserva, PHP_INT_MAX - 1 );
+
+			try {
+				$esito = $this->pubblica_da_codice( $quarto, $this->pubblicatore );
+			} finally {
+				remove_filter( $filtro, $annidata, 10 );
+				remove_filter( 'query', $osserva, PHP_INT_MAX - 1 );
 			}
 
-			return $data;
-		};
-		$osserva  = static function ( $istruzione ) use ( &$istruite ) {
-			$istruite[] = (string) $istruzione;
+			$scritture = preg_grep( '/^UPDATE `' . preg_quote( $wpdb->posts, '/' ) . "` SET .*`post_status` = 'publish'.* WHERE `ID` = " . $quarto . '$/', $istruite );
 
-			return $istruzione;
-		};
-
-		add_filter( 'wp_insert_post_data', $annidata, 10, 2 );
-		add_filter( 'query', $osserva, PHP_INT_MAX - 1 );
-
-		try {
-			$esito = $this->pubblica_da_codice( $quarto, $this->pubblicatore );
-		} finally {
-			remove_filter( 'wp_insert_post_data', $annidata, 10 );
-			remove_filter( 'query', $osserva, PHP_INT_MAX - 1 );
+			$this->assertTrue( $partita, $caso . ': precondizione, la scrittura annidata e\' partita.' );
+			$this->assertIsArray( $esito, $caso . ': il passaggio vero riesce.' );
+			$this->assertCount( 1, $scritture, $caso . ': la riga si scrive una volta sola.' );
+			$this->assertSame( array(), preg_grep( '/Oggetto annidato|dato_annidato/', $istruite ), $caso . ': nessuna istruzione della scrittura annidata arriva alla banca dati.' );
+			clean_post_cache( $quarto );
+			$this->assertSame( 'Atto di prova', get_the_title( $quarto ), $caso );
+			$this->assertSame( '', get_post_meta( $quarto, 'dato_annidato', true ), $caso );
 		}
-
-		$this->assertIsString( $copiato, 'Precondizione: la scrittura annidata e\' partita con il gettone copiato.' );
-		$this->assertIsArray( $esito, 'Il passaggio vero riesce.' );
-		$this->assertSame( array(), preg_grep( '/Oggetto annidato|dato_annidato/', $istruite ), 'Nessuna istruzione della scrittura annidata arriva alla banca dati.' );
-		clean_post_cache( $quarto );
-		$this->assertSame( 'Atto di prova', get_the_title( $quarto ) );
-		$this->assertSame( '', get_post_meta( $quarto, 'dato_annidato', true ) );
 
 		// Il gettone copiato, dopo il passaggio, non vale su nessun atto; uno inventato nemmeno, con qualunque stato.
 		$quinto = $this->atto_in_verifica();

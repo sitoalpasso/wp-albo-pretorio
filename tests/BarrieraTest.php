@@ -180,6 +180,75 @@ class BarrieraTest extends \WP_UnitTestCase {
 
 		$this->assertSame( $prima, $this->fotografia( $programmato ), 'Pubblicazione programmata: niente cambia.' );
 
+		/*
+		 * Una scrittura vagliata dal primo livello vale per quello che il primo
+		 * livello ha visto: un altro filtro delle istruzioni che ne cambia lo
+		 * stato strada facendo la fa fermare.
+		 */
+		$riscritta = $this->atto_completo();
+		$riscrivi  = static function ( $istruzione ) use ( $riscritta ) {
+			return 1 === preg_match( '/ WHERE `ID` = ' . $riscritta . '$/', (string) $istruzione )
+				? str_replace( "`post_status` = 'draft'", "`post_status` = 'publish'", (string) $istruzione )
+				: $istruzione;
+		};
+
+		add_filter( 'query', $riscrivi );
+
+		try {
+			$this->richiesta_fermata(
+				static function () use ( $riscritta ) {
+					wp_update_post(
+						array(
+							'ID'         => $riscritta,
+							'post_title' => 'Oggetto della bozza',
+						)
+					);
+				},
+				'stato riscritto nell\'istruzione'
+			);
+		} finally {
+			remove_filter( 'query', $riscrivi );
+		}
+
+		clean_post_cache( $riscritta );
+		$this->assertSame( 'draft', get_post_status( $riscritta ), 'La bozza resta bozza.' );
+
+		/*
+		 * Una pubblicazione interrotta da un'eccezione prima di arrivare alla
+		 * banca dati lascia una scrittura vagliata senza istruzione: non la
+		 * usa la prima scrittura dritta che arriva dopo, a passaggio finito.
+		 */
+		$interrotto = $this->atto_in_verifica();
+		$interrompi = static function ( $post_id ) use ( $interrotto ) {
+			if ( $interrotto === (int) $post_id ) {
+				throw new \RuntimeException( 'Interruzione di prova.' );
+			}
+		};
+
+		add_action( 'pre_post_update', $interrompi );
+
+		try {
+			$this->pubblica_da_codice( $interrotto, $this->pubblicatore );
+			$this->fail( 'Precondizione: la pubblicazione doveva interrompersi.' );
+		} catch ( \RuntimeException $interruzione ) {
+			$this->assertSame( 'Interruzione di prova.', $interruzione->getMessage() );
+		} finally {
+			remove_action( 'pre_post_update', $interrompi );
+		}
+
+		$prima = $this->fotografia( $interrotto, false );
+
+		$this->richiesta_fermata(
+			static function () use ( $interrotto ) {
+				global $wpdb;
+
+				$wpdb->update( $wpdb->posts, array( 'post_title' => 'Oggetto cambiato dopo' ), array( 'ID' => $interrotto ) );
+			},
+			'scrittura dritta dopo il passaggio interrotto'
+		);
+
+		$this->assertSame( $prima, $this->fotografia( $interrotto, false ), 'Dopo il passaggio interrotto: niente cambia.' );
+
 		// Controlli positivi: le stesse funzioni lavorano sui contenuti ordinari e sulle bozze.
 		$articolo = self::factory()->post->create( array( 'post_status' => 'draft' ) );
 
@@ -296,9 +365,34 @@ class BarrieraTest extends \WP_UnitTestCase {
 		$this->assertSame( 'Atto di prova', get_the_title( $id ), 'L\'oggetto e\' quello di prima.' );
 		$this->assertSame( '2041-09-10', get_post_meta( $id, META_DATA_ADOZIONE, true ), 'La data di adozione e\' quella di prima.' );
 
+		// Nella pubblicazione, un aggancio che riscrive la data di fine appena scritta: rifiutato, e la fine resta quella calcolata.
+		$id        = $this->atto_in_verifica();
+		$riscritta = false;
+		$chiave    = conformita_core_chiave_fine_pubblicazione();
+		$riscrivi  = static function ( $meta_id, $post_id, $nome ) use ( $id, $chiave, &$riscritta ) {
+			if ( $id === (int) $post_id && $chiave === $nome && ! $riscritta ) {
+				$riscritta = true;
+				update_post_meta( $id, $chiave, '2099-12-31' );
+			}
+		};
+
+		add_action( 'added_post_meta', $riscrivi, 10, 3 );
+		add_action( 'updated_post_meta', $riscrivi, 10, 3 );
+
+		try {
+			$esito = $this->pubblica_da_codice( $id, $this->pubblicatore );
+		} finally {
+			remove_action( 'added_post_meta', $riscrivi, 10 );
+			remove_action( 'updated_post_meta', $riscrivi, 10 );
+		}
+
+		$this->assertTrue( $riscritta, 'Precondizione: la riscrittura della fine e\' partita.' );
+		$this->assertIsArray( $esito, 'La riscrittura rifiutata non ferma la pubblicazione.' );
+		$this->assertSame( $esito['fine'], conformita_core_fine_pubblicazione( $id ), 'La fine e\' quella calcolata.' );
+
 		// Le scritture che non si fermano prima di cominciare: la riga scritta dritta e le voci.
 		$casi = array(
-			'rimando, riga scritta dritta'   => array(
+			'rimando, riga scritta dritta'       => array(
 				'rimando',
 				'save_post',
 				static function ( int $atto_id ) {
@@ -307,21 +401,21 @@ class BarrieraTest extends \WP_UnitTestCase {
 					$wpdb->update( $wpdb->posts, array( 'post_title' => 'Oggetto cambiato' ), array( 'ID' => $atto_id ) );
 				},
 			),
-			'rimando, voce tolta'            => array(
+			'rimando, voce tolta'                => array(
 				'rimando',
 				'save_post',
 				static function ( int $atto_id ) {
 					wp_set_object_terms( $atto_id, array(), TASSONOMIA_ORGANO );
 				},
 			),
-			'pubblicazione, voce tolta'      => array(
+			'pubblicazione, voce tolta'          => array(
 				'pubblicazione',
 				'save_post',
 				static function ( int $atto_id ) {
 					wp_set_object_terms( $atto_id, array(), TASSONOMIA_ORGANO );
 				},
 			),
-			'pubblicazione, stato alla fine' => array(
+			'pubblicazione, stato alla fine'     => array(
 				'pubblicazione',
 				'fine',
 				static function ( int $atto_id ) {
@@ -335,13 +429,52 @@ class BarrieraTest extends \WP_UnitTestCase {
 				'save_post',
 				'altro',
 			),
+			// Scritte a mano, sotto ogni filtro: le vede soltanto il controllo finale.
+			'pubblicazione, dato scritto a mano' => array(
+				'pubblicazione',
+				'save_post',
+				static function ( int $atto_id ) {
+					global $wpdb;
+
+					// phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- prova: una riga scritta a mano, non una ricerca.
+					$wpdb->insert(
+						$wpdb->postmeta,
+						array(
+							'post_id'    => $atto_id,
+							'meta_key'   => 'dato_scritto_a_mano',
+							'meta_value' => 'x',
+						)
+					);
+					// phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+				},
+				'albo_atto_cambiato_nel_passaggio',
+			),
+			'rimando, voce scritta a mano'       => array(
+				'rimando',
+				'save_post',
+				function ( int $atto_id ) {
+					global $wpdb;
+
+					$wpdb->insert(
+						$wpdb->term_relationships,
+						array(
+							'object_id'        => $atto_id,
+							'term_taxonomy_id' => (int) get_term( $this->voce( TASSONOMIA_ORGANO, 'Consiglio' ) )->term_taxonomy_id,
+						)
+					);
+				},
+				'albo_atto_cambiato_nel_passaggio',
+			),
 		);
 
-		foreach ( $casi as $caso => list( $passaggio, $momento, $scrittura ) ) {
-			$id    = $this->atto_in_verifica();
-			$altro = $this->atto_in_verifica();
-			$prima = $this->fotografia( $id );
-			$fatta = false;
+		foreach ( $casi as $caso => $voce_del_caso ) {
+			list( $passaggio, $momento, $scrittura ) = $voce_del_caso;
+
+			$atteso = isset( $voce_del_caso[3] ) ? $voce_del_caso[3] : 'albo_scrittura_rifiutata_nel_passaggio';
+			$id     = $this->atto_in_verifica();
+			$altro  = $this->atto_in_verifica();
+			$prima  = $this->fotografia( $id );
+			$fatta  = false;
 
 			if ( 'altro' === $scrittura ) {
 				$scrittura = static function () use ( $altro ) {
@@ -383,7 +516,7 @@ class BarrieraTest extends \WP_UnitTestCase {
 			}
 
 			$this->assertTrue( $fatta, $caso . ': precondizione, la scrittura annidata e\' partita.' );
-			$this->assertSame( array( 'albo_scrittura_rifiutata_nel_passaggio' ), $esito->get_error_codes(), $caso . ': il passaggio e\' annullato.' );
+			$this->assertSame( array( $atteso ), $esito->get_error_codes(), $caso . ': il passaggio e\' annullato.' );
 
 			$dopo = $this->fotografia( $id );
 
