@@ -506,3 +506,52 @@ un'altra davanti o dietro, e il comportamento visibile resta quello giusto.
 | Fine fornita effettiva | A-99 |
 | Fine dall'orologio vero | A-93, A-95, A-96, A-97, A-98, A-99, A-100, A-101 |
 | Fine in secondi invece che in giorni | A-98 |
+
+## Il terzo giro: la seconda revisione
+
+La seconda revisione, sul commit 5938786, ha trovato tre difetti gravi, nessun altro. Hanno una
+causa in comune con quelli del primo giro: **un controllo più stretto della cosa che doveva
+coprire**. Si sono corretti allargando il controllo, non aggiungendo eccezioni.
+
+**1. Un dato di servizio che cambia nome.** La funzione di WordPress che modifica un dato
+indicandone il numero di riga può anche cambiarne il nome. Il guardiano guardava soltanto il
+nome di partenza: il blocco della schermata aperta, che è un dato di servizio e resta
+scrivibile, si poteva rinominare nella data di fine o nella data di adozione di un atto
+pubblicato. Ora una rinomina si giudica su tutti e due i nomi: quello vecchio deve poter
+essere tolto e quello nuovo scritto. Sulla bozza le rinomine lavorano come prima. A-112.
+
+**2. Le tabelle delle voci.** Prima di cominciare il passaggio controllava che la tabella
+dell'atto, quella dei suoi dati e quella del registro sapessero tornare indietro. Ma una voce
+tolta da un altro programma durante il passaggio fa annullare il passaggio, e l'annullamento
+conta proprio sul fatto che anche le tabelle delle voci tornino indietro: su un sito con
+tabelle miste, la voce tolta sarebbe rimasta tolta. Ora il controllo comprende anche la
+tabella che lega le voci agli atti e quella dei loro conteggi. A-107 le prova una per volta,
+con un aggancio che toglierebbe la voce.
+
+**3. La memoria dopo l'annullamento.** Dopo un annullamento il passaggio svuota la memoria
+dell'atto, perché chi legge subito dopo non trovi lo stato annullato. Ma WordPress salta lo
+svuotamento quando un programma l'ha sospeso, come fanno per esempio gli importatori:
+chi aveva letto l'atto già pubblicato dentro il passaggio lo avrebbe ritrovato pubblicato. Ora
+il passaggio riattiva lo svuotamento per il tempo necessario, svuota la memoria dell'atto e
+quella dei conteggi delle sue voci, e rimette la sospensione com'era. A-105 lo prova prima di
+qualunque fotografia, che svuota la memoria da sé e avrebbe nascosto il difetto; A-113
+confronta il conteggio della voce in memoria con la banca dati dopo ogni annullamento.
+
+### Le prove, al terzo giro
+
+Centotrentasette prove nella suite principale, nessuna riga nuova: quattro righe allargate
+(A-105, A-107, A-112, A-113), più le due suite separate, tutte verdi in locale; PHPCS pulito.
+
+**La prova di non vacuità.** Cinque guasti nuovi, uno per volta, con la suite intera. Al primo
+passaggio ne sopravviveva uno, il conteggio delle voci non svuotato: nella pubblicazione la
+voce tolta dentro il passaggio aveva un conteggio che, per coincidenza, alla fine tornava lo
+stesso. A-113 ha ora un caso in cui la voce viene letta quando conta già l'atto come
+pubblicato, e il guasto cade.
+
+| Guasto introdotto | Prove cadute |
+|---|---|
+| Rinomina per numero giudicata sul nome vecchio | A-112 |
+| Tabelle delle voci non controllate | A-107 |
+| Memoria svuotata solo se lo svuotamento non è sospeso | A-105 |
+| Sospensione di chi chiama non rimessa | A-105 |
+| Conteggi delle voci non svuotati | A-113 |
