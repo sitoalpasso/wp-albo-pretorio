@@ -421,8 +421,9 @@ Centotrentasette prove nella suite principale, cinque righe nuove (A-111..A-115,
 tutte verdi in locale, PHPCS pulito. Le prove girano ora sul componente comune alla punta del
 suo ramo principale (4446961, interfaccia `1.5.0`, con registro, blocco dei motori di ricerca e
 criterio unico per la chiave della fine), e l'albo richiede la `1.5.0` all'avvio. In verifica
-continua, sul commit f2426e9, verdi le due combinazioni di WordPress e PHP su MySQL, lo
-standard di codifica e la validazione di `publiccode.yml`.
+continua, sui commit f2426e9 ed ebfa82e, verdi le due combinazioni di WordPress e PHP su
+MySQL, lo standard di codifica e la validazione di `publiccode.yml`. Le righe A-111..A-115 sono
+passate a "fatto" dopo quell'esito.
 
 **La prova di non vacuità, rifatta.** Sessantasette guasti, uno per volta, in una copia usa e
 getta, facendo girare ogni volta la suite intera: i trentanove del primo giro ancora
