@@ -215,7 +215,7 @@ final class ChiusuraPubblicazione {
 		add_filter( 'add_post_metadata', array( self::class, 'da_add_post_metadata' ), PHP_INT_MAX, 4 );
 		add_filter( 'update_post_metadata', array( self::class, 'da_update_post_metadata' ), PHP_INT_MAX, 4 );
 		add_filter( 'delete_post_metadata', array( self::class, 'da_delete_post_metadata' ), PHP_INT_MAX, 5 );
-		add_filter( 'update_post_metadata_by_mid', array( self::class, 'da_update_post_metadata_by_mid' ), PHP_INT_MAX, 3 );
+		add_filter( 'update_post_metadata_by_mid', array( self::class, 'da_update_post_metadata_by_mid' ), PHP_INT_MAX, 4 );
 		add_filter( 'delete_post_metadata_by_mid', array( self::class, 'da_delete_post_metadata_by_mid' ), PHP_INT_MAX, 2 );
 		add_action( 'add_term_relationship', array( self::class, 'da_voce_dell_atto' ), PHP_INT_MIN, 1 );
 		add_action( 'delete_term_relationships', array( self::class, 'da_voce_dell_atto' ), PHP_INT_MIN, 1 );
@@ -833,17 +833,35 @@ final class ChiusuraPubblicazione {
 	}
 
 	/**
-	 * Lo stesso, per la modifica di una riga indicata per numero.
+	 * Lo stesso, per la modifica di una riga indicata per numero, anche quando la rinomina.
+	 *
+	 * WordPress permette di dare alla riga una chiave nuova insieme al valore:
+	 * la scrittura toglie la chiave vecchia e scrive la nuova, e devono essere
+	 * ammesse tutte e due. Cosi' una riga di servizio non diventa un dato
+	 * dell'atto.
 	 *
 	 * @param mixed $esito   Risposta proposta, nulla per proseguire.
 	 * @param mixed $meta_id Numero della riga.
 	 * @param mixed $valore  Valore.
+	 * @param mixed $nuova   Chiave nuova, o falso se la chiave resta.
 	 * @return mixed
 	 */
-	public static function da_update_post_metadata_by_mid( $esito, $meta_id, $valore ) {
+	public static function da_update_post_metadata_by_mid( $esito, $meta_id, $valore, $nuova = false ) {
 		$riga = self::riga_di_metadato( (int) $meta_id );
 
-		return null === $riga || self::metadato_ammesso( (int) $riga['post_id'], (string) $riga['meta_key'], $valore, false ) ? $esito : false;
+		if ( null === $riga ) {
+			return $esito;
+		}
+
+		$atto_id  = (int) $riga['post_id'];
+		$chiave   = (string) $riga['meta_key'];
+		$rinomina = is_string( $nuova ) && '' !== $nuova && $nuova !== $chiave;
+
+		if ( ! $rinomina ) {
+			return self::metadato_ammesso( $atto_id, $chiave, $valore, false ) ? $esito : false;
+		}
+
+		return self::metadato_ammesso( $atto_id, $chiave, null, true ) && self::metadato_ammesso( $atto_id, $nuova, $valore, false ) ? $esito : false;
 	}
 
 	/**

@@ -529,7 +529,7 @@ final class Passaggi {
 	 * @return \WP_Post|\WP_Error
 	 */
 	private static function atto_in_verifica( int $atto_id, string $rifiuto ) {
-		clean_post_cache( $atto_id );
+		self::svuota_memoria( $atto_id );
 
 		$atto = get_post( $atto_id );
 
@@ -692,6 +692,12 @@ final class Passaggi {
 	 * trova conta come non transazionale, cosi' che un nome cambiato fermi la
 	 * pubblicazione invece di lasciarla senza protezione.
 	 *
+	 * **Le tabelle delle voci ci sono anche se la pubblicazione non le scrive.**
+	 * Durante un passaggio una voce assegnata o tolta da un altro componente
+	 * non si puo' fermare prima che avvenga: si lascia avvenire e il passaggio
+	 * si annulla. L'annullamento la disfa solo se le tabelle delle voci, le
+	 * relazioni e i loro conteggi, conoscono le transazioni.
+	 *
 	 * **Il nome della tabella del registro e' quello del meccanismo comune**,
 	 * che non lo espone: e' l'unico punto in cui l'albo lo conosce, e una
 	 * prova verifica che la tabella esista con quel nome.
@@ -701,7 +707,7 @@ final class Passaggi {
 	public static function tabelle_senza_transazioni(): array {
 		global $wpdb;
 
-		$tabelle    = array( $wpdb->posts, $wpdb->postmeta, $wpdb->prefix . 'conformita_core_registro' );
+		$tabelle    = array( $wpdb->posts, $wpdb->postmeta, $wpdb->term_relationships, $wpdb->term_taxonomy, $wpdb->prefix . 'conformita_core_registro' );
 		$segnaposto = implode( ', ', array_fill( 0, count( $tabelle ), '%s' ) );
 
 		$transazionali = $wpdb->get_col(
@@ -805,7 +811,40 @@ final class Passaggi {
 			$wpdb->query( 'ROLLBACK TO SAVEPOINT albo_pretorio_passaggio' );
 		}
 
-		clean_post_cache( $atto_id );
+		self::svuota_memoria( $atto_id );
+	}
+
+	/**
+	 * Svuota la memoria di WordPress sull'atto: riga, dati, voci e i conteggi delle sue voci.
+	 *
+	 * **Anche quando chi chiama ha sospeso lo svuotamento.** WordPress lascia
+	 * sospendere lo svuotamento della memoria per tutta la richiesta, e in
+	 * quel caso `clean_post_cache()` non fa niente: un aggancio che lo ha
+	 * sospeso e ha letto l'atto durante il passaggio lascerebbe in memoria uno
+	 * stato che l'annullamento ha tolto dalla banca dati. Qui la sospensione si
+	 * toglie per il tempo dello svuotamento, e si rimette com'era.
+	 *
+	 * @param int $atto_id Atto.
+	 */
+	private static function svuota_memoria( int $atto_id ): void {
+		global $wpdb;
+
+		$sospesa = wp_suspend_cache_invalidation( false );
+
+		try {
+			clean_post_cache( $atto_id );
+
+			$voci = $wpdb->get_col(
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- le voci com'e' nella banca dati, per svuotarne la memoria.
+				$wpdb->prepare( "SELECT term_taxonomy_id FROM {$wpdb->term_relationships} WHERE object_id = %d", $atto_id )
+			);
+
+			if ( is_array( $voci ) && array() !== $voci ) {
+				clean_term_cache( array_map( 'intval', $voci ), '', false );
+			}
+		} finally {
+			wp_suspend_cache_invalidation( (bool) $sospesa );
+		}
 	}
 
 	/**
