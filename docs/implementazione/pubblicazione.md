@@ -541,6 +541,8 @@ confronta il conteggio della voce in memoria con la banca dati dopo ogni annulla
 
 Centotrentasette prove nella suite principale, nessuna riga nuova: quattro righe allargate
 (A-105, A-107, A-112, A-113), più le due suite separate, tutte verdi in locale; PHPCS pulito.
+In verifica continua, sul commit 467aae4 che porta codice e prove, verdi le due combinazioni
+di WordPress e PHP su MySQL, lo standard di codifica e la validazione di `publiccode.yml`.
 
 **La prova di non vacuità.** Cinque guasti nuovi, uno per volta, con la suite intera. Al primo
 passaggio ne sopravviveva uno, il conteggio delle voci non svuotato: nella pubblicazione la
