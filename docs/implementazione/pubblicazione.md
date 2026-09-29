@@ -4,9 +4,8 @@ Scheda di lavorazione. Scritta prima del codice come piano, e aggiornata a lavor
 com'è andata davvero. È la seconda parte del flusso di pubblicazione deciso con ALBO-22: la
 prima, il passaggio in verifica, è in [`passaggio-in-verifica.md`](passaggio-in-verifica.md).
 
-**Stato: piano.** Il codice aspetta il registro delle modifiche del meccanismo comune
-(interfaccia `1.4.0`), che questa unità usa per la motivazione del rimando in bozza. Le righe
-di collaudo nuove si numerano quando il piano è confermato.
+**Stato: costruita.** Righe di collaudo A-93..A-110. Com'è andata davvero è in fondo, con le
+differenze dal piano, i limiti dichiarati e la prova dei guasti.
 
 ## In tre paragrafi
 
@@ -167,3 +166,143 @@ giorno di inizio più la durata del tipo, e che l'atto non si modifichi più.
    un'amministrazione contasse il giorno della pubblicazione come primo, questa lettura
    terrebbe l'atto esposto un giorno in più; se un'amministrazione lo chiederà, il computo
    diventerà una scelta di configurazione.
+
+## Com'è andata davvero
+
+Il piano ha retto nella sostanza. Le differenze sono nove, e tutte stringono il piano invece
+di allargarlo.
+
+**Le prove stanno in due file, non in due per passaggio.** `PubblicazioneTest.php` ha le
+righe A-93..A-104 e A-109..A-110, rimando in bozza compreso; `TuttoONienteTest.php` ha le
+righe dei guasti forzati e della transazione, A-105..A-108. Il laboratorio comune, con gli
+orologi fissati, i tipi con la durata e la fotografia intera dell'atto, sta in
+`tests/flusso-di-prova.php`.
+
+**La richiesta da codice ha un elenco chiuso di voci.** Il piano diceva che una data fornita
+si ignora. Per la funzione pubblica si è andati oltre: `albo_pretorio_pubblica()` accetta
+solo la conferma, la data di inizio e la data di fine, e una richiesta con qualunque altra
+voce, per esempio un numero, un repertorio o un anno, è rifiutata per intero prima di
+consumare un numero. Una voce scritta male non deve poter passare in silenzio. Dalla
+schermata i campi costruiti a mano si ignorano, perché lì il modulo lo scrive il plugin.
+
+**La conferma vale solo se è proprio "sì".** Da codice, un testo, un numero o qualunque valore
+che non sia il vero è rifiutato; dalla schermata la casella porta il numero dell'atto a cui si
+riferisce, e quella di un altro atto non vale.
+
+**Il guardiano non si apre, concede.** Il piano diceva che il guardiano lascia passare lo
+stato nuovo quando la richiesta arriva dai due passaggi. Si è fatto più stretto: `Passaggi`
+concede **un atto, una scrittura e i campi che quella scrittura deve cambiare**, cioè lo stato
+e, per la pubblicazione, le date. Tutto il resto della riga torna com'era, anche se un altro
+componente lo cambia a metà strada, e la concessione cade appena usata. Un secondo atto in
+verifica toccato nello stesso momento resta fermo (A-108). Il fermo che valeva per l'atto in
+verifica vale ora anche per quello pubblicato, cestino e cancellazione compresi (A-103).
+
+**La transazione si adatta a come la banca dati è già impostata.** Su un sito normale, dove
+ogni scrittura si salva da sola, la pubblicazione apre e chiude una transazione vera. Dove la
+scrittura automatica è già spenta, come nelle prove di WordPress, apre un punto di ripristino
+dentro quella in corso. A-106 prova il primo caso sul serio, riaccendendo la scrittura
+automatica e guardando l'atto da una **seconda connessione** mentre la transazione è aperta.
+
+**Si controlla che le tabelle sappiano annullare, e quali.** Il controllo guarda la tabella dei
+contenuti, quella dei loro dati e quella del registro del meccanismo comune. Il nome di
+quest'ultima l'albo lo scrive per esteso, perché il meccanismo comune non lo espone: se un
+giorno cambiasse, la tabella non si troverebbe e la pubblicazione si rifiuterebbe, che è il
+lato sicuro. A-107 controlla che il nome esista davvero.
+
+**Le voci automatiche del meccanismo comune si ricontano.** Il meccanismo comune scrive da sé
+la voce del passaggio di stato, ma se non ci riesce lo annota e non ferma niente, per scelta
+sua. Per l'albo una pubblicazione senza la sua voce è una pubblicazione a metà: i due passaggi
+contano le voci automatiche prima e dopo, e se manca quella nuova annullano tutto.
+
+**La durata mancante alla pubblicazione ha il suo nome.** L'elenco dei dati mancanti dice
+"manca la durata"; alla pubblicazione il motivo diventa quello di ALBO-02, cioè che la data
+di fine non si può calcolare, così chi lo legge sa che cosa non può esistere.
+
+**La data della schermata conta come richiesta.** La casella della data che WordPress mostra
+accanto al pulsante è un ingresso anche lei: se chi pubblica la cambia, vale come data di
+inizio chiesta, e una data futura è rifiutata con il suo motivo (A-96). Una data passata si
+ignora come le altre.
+
+### Limiti dichiarati
+
+- **La transazione copre la banca dati, non il resto.** Se un altro componente, agganciato
+  alla pubblicazione, manda una mail o scrive un file, l'annullamento non lo disfa. Se apre o
+  chiude una transazione sua, la banca dati chiude da sola quella dell'albo, e da qui non si
+  impedisce.
+- **Chi chiama la funzione pubblica dentro una transazione già aperta**, su un sito dove la
+  scrittura automatica è accesa, se la vede chiusa: aprirne una nuova chiude la precedente.
+  Chi scrive codice che chiama l'albo lo deve sapere.
+- **Il meccanismo comune registra anche una "modifica" alla pubblicazione**, con le due date
+  cambiate: le date si scrivono in modo esplicito, e il meccanismo comune annota ogni data
+  scritta. Non è un errore, ma è una voce in più che chi legge il registro vedrà.
+- **Il numero preso resta dell'atto anche a cavallo d'anno.** Se una pubblicazione fallisce a
+  dicembre e riesce a gennaio, l'atto esce con il numero dell'anno prima. È la conseguenza
+  della regola "un numero preso non si riusa mai", che il catalogo chiede.
+- **Le metà di ALBO-27 con la durata propria restano aperte**, finché non c'è la durata propria
+  (ALBO-04).
+- **Il blocco dei motori di ricerca non serve ancora**, e con lui la pagina pubblica: vale il
+  vincolo di rilascio del punto 8.
+
+### Le prove
+
+Centotrentadue prove nella suite principale, diciotto nuove, più le due suite separate senza
+meccanismo comune e con meccanismo comune incompatibile, tutte verdi in locale su WordPress 6.5
+con MariaDB. PHPCS pulito. In verifica continua, sul commit dbed178, verdi le stesse suite su
+MySQL 8 con WordPress 6.5 e PHP 8.1 e con l'ultima WordPress e PHP 8.3, più lo standard di
+codifica e la validazione di `publiccode.yml`: A-106, la transazione vera con la seconda
+connessione, gira quindi anche su MySQL.
+
+**La prova di non vacuità.** Quarantadue guasti introdotti uno per volta in una copia usa e
+getta, facendo girare ogni volta la suite intera.
+
+| Guasto introdotto | Prove cadute |
+|---|---|
+| Chiavi sconosciute accettate nella richiesta | A-102 |
+| Permesso di pubblicare non controllato | A-93, A-104 |
+| Conferma presa alla larga (qualunque valore) | A-95 |
+| Conferma ignorata | A-95, A-104 |
+| Data futura fornita accettata | A-96, A-104 |
+| Data futura della bozza accettata | A-96 |
+| Data fornita resa effettiva | A-97 |
+| Fine fornita resa effettiva | A-99 |
+| Giorno di inizio contato nella durata | A-93, A-95..A-101 |
+| Fine calcolata sull'orologio vero | A-93, A-95..A-101 |
+| Orologio fissato ignorato | A-96, A-98, A-102 |
+| Dati non ricontrollati alla pubblicazione | A-101 |
+| Fine non calcolabile senza il suo motivo | A-100 |
+| Tabelle non controllate | A-107 |
+| Tabella del registro fuori dal controllo | A-107 |
+| Annullamento del punto di ripristino tolto | A-105 |
+| Annullamento della transazione tolto | A-106 |
+| Sempre punto di ripristino, mai transazione | A-106 |
+| Memoria non svuotata dopo l'annullamento | A-105, A-106 |
+| Stato non riletto dopo la scrittura | A-105 |
+| Voce automatica non ricontata | A-105 |
+| Voce della conferma non controllata | A-105, A-106 |
+| Rimando senza motivo | A-94, A-104 |
+| Rimando senza permesso | A-94 |
+| Concessione non revocata | A-108 |
+| Concessione valida per ogni atto | A-108 |
+| Campi concessi non imposti | A-93, A-95..A-109 |
+| Campi estranei liberi nel passaggio concesso | A-108 |
+| Nome nell'indirizzo libero nel passaggio concesso | A-108 (al secondo giro) |
+| Atto pubblicato non fermo | A-103 |
+| Programmazione senza il suo motivo | A-96 |
+| Cestino di un atto pubblicato permesso | A-90, A-103 |
+| Conferma di un altro atto accettata | A-95 |
+| Gettone del riquadro non controllato | A-109 |
+| Gettone del riquadro non legato all'atto | A-109 |
+| Data della schermata ignorata | A-96 |
+| Riquadro registrato per chi redige | A-109 |
+| Riquadro stampato senza permesso | A-109 |
+| Un caso di rivelazione indiretta tolto | A-95 |
+| Conferma già spuntata in partenza | A-95 |
+| Registro non dato a chi pubblica | A-110 |
+| Registro dato a chi redige | A-21, A-110 |
+
+**Un guasto che al primo giro passava.** Lasciare libero il nome nell'indirizzo durante il
+passaggio concesso non faceva cadere niente: nessuna prova dava all'atto un nome prima della
+verifica, né provava a cambiarlo. A-108 ora lo fa. Guardando perché, è venuto fuori che
+l'eccezione del guardiano per il nome era inutile: quando l'atto non ha un nome, WordPress lo
+genera comunque **dopo** aver scritto la riga, con una scrittura sua che il guardiano non
+vede. L'eccezione è stata tolta, e A-108 controlla anche che un atto senza nome lo riceva.
