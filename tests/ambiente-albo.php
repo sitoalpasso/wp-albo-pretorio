@@ -170,7 +170,7 @@ trait AmbienteAlbo {
 			array( 'add_post_metadata', 'da_add_post_metadata', PHP_INT_MAX, 4 ),
 			array( 'update_post_metadata', 'da_update_post_metadata', PHP_INT_MAX, 4 ),
 			array( 'delete_post_metadata', 'da_delete_post_metadata', PHP_INT_MAX, 5 ),
-			array( 'update_post_metadata_by_mid', 'da_update_post_metadata_by_mid', PHP_INT_MAX, 3 ),
+			array( 'update_post_metadata_by_mid', 'da_update_post_metadata_by_mid', PHP_INT_MAX, 4 ),
 			array( 'delete_post_metadata_by_mid', 'da_delete_post_metadata_by_mid', PHP_INT_MAX, 2 ),
 			array( 'add_term_relationship', 'da_voce_dell_atto', PHP_INT_MIN, 1 ),
 			array( 'delete_term_relationships', 'da_voce_dell_atto', PHP_INT_MIN, 1 ),

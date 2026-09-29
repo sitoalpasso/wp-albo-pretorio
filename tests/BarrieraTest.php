@@ -306,6 +306,16 @@ class BarrieraTest extends \WP_UnitTestCase {
 
 			// I dati di servizio di WordPress restano scrivibili: non dicono niente dell'atto.
 			$this->assertNotFalse( update_post_meta( $id, '_edit_lock', time() . ':1' ), $caso . ': dato di servizio.' );
+
+			// Ma una riga di servizio non diventa un dato dell'atto rinominandola per numero di riga.
+			$servizio = $this->riga_di( $id, '_edit_lock' );
+			$prima    = $this->fotografia( $id );
+
+			$this->assertGreaterThan( 0, $servizio, 'Precondizione: la riga di servizio c\'e\'.' );
+			$this->assertFalse( update_metadata_by_mid( 'post', $servizio, '2099-12-31', $chiave_fine ), $caso . ': rinominata nella data di fine.' );
+			$this->assertFalse( update_metadata_by_mid( 'post', $servizio, '2041-01-01', META_DATA_ADOZIONE ), $caso . ': rinominata nella data di adozione.' );
+			$this->assertSame( $prima, $this->fotografia( $id ), $caso . ': niente cambia.' );
+			$this->assertSame( $servizio, $this->riga_di( $id, '_edit_lock' ), $caso . ': la riga di servizio resta quella.' );
 		}
 
 		// Controllo positivo: sulla bozza le stesse interfacce lavorano.
@@ -313,6 +323,8 @@ class BarrieraTest extends \WP_UnitTestCase {
 		$riga  = $this->riga_di( $bozza, META_DATA_ADOZIONE );
 
 		$this->assertNotFalse( add_post_meta( $bozza, 'dato_della_bozza', 'x' ) );
+		$this->assertTrue( update_metadata_by_mid( 'post', $this->riga_di( $bozza, 'dato_della_bozza' ), 'y', 'dato_rinominato' ) );
+		$this->assertTrue( update_metadata_by_mid( 'post', $this->riga_di( $bozza, 'dato_rinominato' ), 'x', 'dato_della_bozza' ) );
 		$this->assertTrue( update_metadata_by_mid( 'post', $riga, '2041-09-11' ) );
 		$this->assertNotFalse( update_post_meta( $bozza, META_DATA_ADOZIONE, '2041-09-12' ) );
 		$this->assertTrue( delete_post_meta_by_key( 'dato_della_bozza' ) );
@@ -424,14 +436,39 @@ class BarrieraTest extends \WP_UnitTestCase {
 				'rimando',
 				'save_post',
 				static function ( int $atto_id ) {
+					$voci = wp_get_object_terms( $atto_id, TASSONOMIA_ORGANO, array( 'fields' => 'ids' ) );
+
 					wp_set_object_terms( $atto_id, array(), TASSONOMIA_ORGANO );
+
+					// Un altro componente legge le voci subito dopo: la memoria ricorda i conteggi di adesso.
+					foreach ( $voci as $voce ) {
+						get_term( (int) $voce );
+					}
 				},
 			),
 			'pubblicazione, voce tolta'          => array(
 				'pubblicazione',
 				'save_post',
 				static function ( int $atto_id ) {
+					$voci = wp_get_object_terms( $atto_id, TASSONOMIA_ORGANO, array( 'fields' => 'ids' ) );
+
 					wp_set_object_terms( $atto_id, array(), TASSONOMIA_ORGANO );
+
+					// Un altro componente legge le voci subito dopo: la memoria ricorda i conteggi di adesso.
+					foreach ( $voci as $voce ) {
+						get_term( (int) $voce );
+					}
+				},
+			),
+			// A save_post l'atto e' gia' pubblicato e la sua voce lo conta: la memoria ricorda un conteggio che l'annullamento toglie.
+			'pubblicazione, voce letta e riga scritta dritta' => array(
+				'pubblicazione',
+				'save_post',
+				function ( int $atto_id ) {
+					global $wpdb;
+
+					get_term( $this->voci['organo'] );
+					$wpdb->update( $wpdb->posts, array( 'post_title' => 'Oggetto cambiato' ), array( 'ID' => $atto_id ) );
 				},
 			),
 			'pubblicazione, stato alla fine'     => array(
@@ -536,6 +573,17 @@ class BarrieraTest extends \WP_UnitTestCase {
 
 			$this->assertTrue( $fatta, $caso . ': precondizione, la scrittura annidata e\' partita.' );
 			$this->assertSame( array( $atteso ), $esito->get_error_codes(), $caso . ': il passaggio e\' annullato.' );
+
+			// Prima di qualunque fotografia, che svuota la memoria da se': il conteggio della voce e' quello della banca dati.
+			global $wpdb;
+
+			$organo = get_term( $this->voci['organo'] );
+
+			$this->assertSame(
+				(int) $wpdb->get_var( $wpdb->prepare( "SELECT count FROM {$wpdb->term_taxonomy} WHERE term_taxonomy_id = %d", $organo->term_taxonomy_id ) ),
+				(int) $organo->count,
+				$caso . ': la memoria non ricorda un conteggio annullato.'
+			);
 
 			$dopo = $this->fotografia( $id );
 

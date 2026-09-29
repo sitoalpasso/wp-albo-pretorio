@@ -20,6 +20,7 @@ use AlboPretorioPa\Repertorio;
 use AlboPretorioPa\RiquadroPassaggi;
 
 use const AlboPretorioPa\RUOLO;
+use const AlboPretorioPa\TASSONOMIA_ORGANO;
 use const AlboPretorioPa\TIPO;
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: si osserva e si guasta la banca dati.
@@ -233,6 +234,46 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 
 		$this->assertSame( array( 'albo_voce_non_scritta' ), $esito->get_error_codes() );
 		$this->assertSame( $prima, $this->fotografia( $id ), 'Rimando senza voce: niente cambia.' );
+
+		/*
+		 * Lo svuotamento della memoria sospeso da un altro componente: un
+		 * aggancio lo sospende dopo la scrittura dello stato e legge l'atto,
+		 * cosi' la memoria ricorda l'atto pubblicato; poi la voce della
+		 * conferma fallisce. Si confronta la memoria con la banca dati prima
+		 * di qualunque fotografia, che svuoterebbe la memoria da se'.
+		 */
+		$chiave   = conformita_core_chiave_fine_pubblicazione();
+		$id       = $this->atto_in_verifica();
+		$letto    = null;
+		$sospendi = static function ( $post_id ) use ( $id, &$letto ) {
+			if ( $id === (int) $post_id && null === $letto ) {
+				wp_suspend_cache_invalidation( true );
+				$letto = get_post_status( $id );
+			}
+		};
+
+		add_action( 'save_post', $sospendi );
+		$this->guasta_istruzioni( array( 'INSERT INTO `' . $this->tabella_registro() . '`', "'" . Passaggi::AZIONE_CONFERMA . "'" ) );
+
+		try {
+			$esito = $this->pubblica_da_codice( $id, $this->pubblicatore );
+
+			// La memoria, letta mentre lo svuotamento e' ancora sospeso.
+			$in_memoria = array( get_post_status( $id ), get_post_meta( $id, $chiave, true ) );
+			$sospesa    = wp_suspend_cache_invalidation( false );
+		} finally {
+			$this->ripara();
+			remove_action( 'save_post', $sospendi );
+			wp_suspend_cache_invalidation( false );
+		}
+
+		$in_banca = $wpdb->get_var( $wpdb->prepare( "SELECT post_status FROM {$wpdb->posts} WHERE ID = %d", $id ) );
+
+		$this->assertSame( 'publish', $letto, 'Precondizione: durante il passaggio la memoria ha visto l\'atto pubblicato.' );
+		$this->assertSame( array( 'albo_voce_non_scritta' ), $esito->get_error_codes() );
+		$this->assertTrue( $sospesa, 'La sospensione di chi l\'aveva chiesta e\' rimessa com\'era.' );
+		$this->assertSame( 'pending', $in_banca );
+		$this->assertSame( array( 'pending', '' ), $in_memoria, 'La memoria dice quello che dice la banca dati: in verifica, senza data di fine.' );
 	}
 
 	/**
@@ -380,32 +421,49 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 		$id    = $this->atto_in_verifica();
 		$prima = $this->fotografia( $id );
 
-		// La banca dati risponde che la tabella del registro non conosce le transazioni.
-		$registro = $this->tabella_registro();
-		$rispondi = static function ( $istruzione ) use ( $registro ) {
-			return str_replace( 't.TABLE_NAME IN (', "t.TABLE_NAME <> '{$registro}' AND t.TABLE_NAME IN (", (string) $istruzione );
+		/*
+		 * La banca dati risponde, una tabella per volta, che non conosce le
+		 * transazioni: il registro, e le due tabelle delle voci, che un altro
+		 * componente puo' toccare durante il passaggio. Quell'altro componente
+		 * c'e': un aggancio che toglie le voci dell'organo al salvataggio. Il
+		 * rifiuto arriva prima di qualunque scrittura, e l'aggancio non parte.
+		 */
+		$toglie_voci = static function ( $post_id ) use ( $id ) {
+			if ( $id === (int) $post_id ) {
+				wp_set_object_terms( $id, array(), TASSONOMIA_ORGANO );
+			}
 		};
 
-		add_filter( 'query', $rispondi );
+		add_action( 'save_post', $toglie_voci );
 
-		try {
-			$this->assertSame( array( $registro ), Passaggi::tabelle_senza_transazioni() );
+		foreach ( array( $this->tabella_registro(), $wpdb->term_relationships, $wpdb->term_taxonomy ) as $tabella ) {
+			$rispondi = static function ( $istruzione ) use ( $tabella ) {
+				return str_replace( 't.TABLE_NAME IN (', "t.TABLE_NAME <> '{$tabella}' AND t.TABLE_NAME IN (", (string) $istruzione );
+			};
 
-			$esito   = $this->pubblica_da_codice( $id, $this->pubblicatore );
-			$rimando = $this->come(
-				$this->pubblicatore,
-				static function () use ( $id ) {
-					return albo_pretorio_rimanda_in_bozza( $id, 'Motivo.' );
-				}
-			);
-		} finally {
-			remove_filter( 'query', $rispondi );
+			add_filter( 'query', $rispondi );
+
+			try {
+				$this->assertSame( array( $tabella ), Passaggi::tabelle_senza_transazioni(), $tabella . ': controllata.' );
+
+				$esito   = $this->pubblica_da_codice( $id, $this->pubblicatore );
+				$rimando = $this->come(
+					$this->pubblicatore,
+					static function () use ( $id ) {
+						return albo_pretorio_rimanda_in_bozza( $id, 'Motivo.' );
+					}
+				);
+			} finally {
+				remove_filter( 'query', $rispondi );
+			}
+
+			$this->assertSame( array( 'albo_tabelle_non_transazionali' ), $esito->get_error_codes(), $tabella );
+			$this->assertStringContainsString( $tabella, $esito->get_error_message(), 'Il rifiuto nomina la tabella.' );
+			$this->assertSame( array( 'albo_tabelle_non_transazionali' ), $rimando->get_error_codes(), $tabella );
+			$this->assertSame( $prima, $this->fotografia( $id ), $tabella . ': niente cambia, voci comprese, e nessun numero consumato.' );
 		}
 
-		$this->assertSame( array( 'albo_tabelle_non_transazionali' ), $esito->get_error_codes() );
-		$this->assertStringContainsString( $registro, $esito->get_error_message(), 'Il rifiuto nomina la tabella.' );
-		$this->assertSame( array( 'albo_tabelle_non_transazionali' ), $rimando->get_error_codes() );
-		$this->assertSame( $prima, $this->fotografia( $id ), 'Niente cambia, e nessun numero consumato.' );
+		remove_action( 'save_post', $toglie_voci );
 
 		// Controllo positivo: con le tabelle che annullano, lo stesso atto si pubblica.
 		$this->assertIsArray( $this->pubblica_da_codice( $id, $this->pubblicatore ) );
