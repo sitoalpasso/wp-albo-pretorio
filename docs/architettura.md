@@ -245,10 +245,10 @@ disponibile la meta' che manca.
 | Meccanismo di core | Cosa fa per l'albo | Requisiti | Esiste oggi |
 |---|---|---|---|
 | **Filtro di scadenza a ogni lettura** | A ogni richiesta pubblica l'atto scaduto non compare su nessuno dei percorsi coperti, anche se nessun compito pianificato ha mai girato. È la parte da cui dipende la conformità | ALBO-05, ALBO-18, ALBO-21 | **sì** |
-| **Compito pianificato di aggiornamento** | Fa il lavoro pesante alla scadenza: porta lo stato memorizzato a defisso e scrive una voce nel registro delle modifiche per ogni atto toccato. **Non è ancora costruito**, e per esserlo ha bisogno anche del **registro delle modifiche**, che è a sua volta una lavorazione successiva del meccanismo comune: sono due pezzi distinti e il primo dipende dal secondo. La sua assenza non rende visibile un atto scaduto, perché la visibilità dipende dal filtro qui sopra e non da questo | ALBO-03 | **no, pianificato** |
+| **Compito pianificato di aggiornamento** | Fa il lavoro pesante alla scadenza: porta lo stato memorizzato a defisso e scrive una voce nel registro delle modifiche per ogni atto toccato. **Non è ancora costruito**. Per esserlo ha bisogno anche del **registro delle modifiche**, che esiste dall'interfaccia `1.4.0`: sono due pezzi distinti e il primo dipende dal secondo. La sua assenza non rende visibile un atto scaduto, perché la visibilità dipende dal filtro qui sopra e non da questo | ALBO-03 | **no, pianificato** |
 | Battito di controllo | Timestamp a ogni esecuzione del cron, avviso al responsabile se invecchia | ALBO-19 | no, pianificato |
 | **Consegna allegati** | I file stanno in cartella protetta, il deposito si rifiuta finché il server non risulta negare l'accesso diretto, e si scaricano solo da un punto di consegna che rifà i controlli a ogni richiesta. L'albo la usa dall'interfaccia `1.3.0` | ALBO-05, ALBO-18, ALBO-20 | **sì** |
-| Registro delle modifiche | Log solo in aggiunta: chi, cosa, quando, perché | ALBO-10 | no, pianificato |
+| **Registro delle modifiche** | Log solo in aggiunta: chi, cosa, quando, perché. Le voci dei passaggi di stato le scrive da sé; l'albo aggiunge quelle che solo lui conosce. L'albo lo usa dall'interfaccia `1.4.0` | ALBO-10 | **sì** |
 | Controllo indicizzazione | Applica la politica dichiarata: noindex e fuori sitemap | ALBO-06 | no, pianificato |
 | Separazione delle esposizioni | Lo stesso documento può stare anche in trasparenza con regole sue, senza duplicare il file | ALBO-15 | no, pianificato |
 

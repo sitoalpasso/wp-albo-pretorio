@@ -16,7 +16,7 @@
 
 set -euo pipefail
 
-CORE_REVISIONE="${CORE_REVISIONE:-13f161123c26a69991bc9dc33ef983283f2b60ca}"
+CORE_REVISIONE="${CORE_REVISIONE:-d5e575f3f19b30a88d762ff8bcbd3b25dd3f01bd}"
 CORE_ORIGINE="${CORE_ORIGINE:-https://github.com/sitoalpasso/wp-conformita-core.git}"
 WP_CORE_DIR="${WP_CORE_DIR:-/tmp/wordpress}"
 DESTINAZIONE="${WP_CORE_DIR}/wp-content/plugins/conformita-core"
