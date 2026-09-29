@@ -72,6 +72,19 @@ class PubblicazioneTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * I giorni di calendario fra due date, senza ore: il cambio dell'ora non li tocca.
+	 *
+	 * @param string $da Data di partenza.
+	 * @param string $a  Data di arrivo.
+	 * @return int
+	 */
+	private function giorni_di_calendario( string $da, string $a ): int {
+		$utc = new \DateTimeZone( 'UTC' );
+
+		return (int) ( new \DateTimeImmutable( $da, $utc ) )->diff( new \DateTimeImmutable( $a, $utc ) )->format( '%r%a' );
+	}
+
+	/**
 	 * Controlla che l'atto risulti pubblicato con le date del sistema.
 	 *
 	 * @param int    $atto_id Atto.
@@ -593,11 +606,34 @@ class PubblicazioneTest extends \WP_UnitTestCase {
 		$this->fissa_orologi( '2041-10-22 00:00:00' );
 		$this->assertTrue( conformita_core_scaduto( $id ), 'Dal giorno dopo non lo e\' piu\'.' );
 
-		// Nessuna pubblicazione ha un periodo inferiore alla durata: giorni interi fra inizio e scadenza.
-		$inizio   = new \DateTimeImmutable( '2041-10-06 23:10:00', wp_timezone() );
-		$scadenza = conformita_core_istante_scadenza( $id );
+		// Nessuna pubblicazione ha un periodo inferiore alla durata: giorni di calendario fra inizio e fine.
+		$this->assertSame( 15, $this->giorni_di_calendario( '2041-10-06', conformita_core_fine_pubblicazione( $id ) ) );
 
-		$this->assertGreaterThanOrEqual( 15, (int) floor( ( $scadenza->getTimestamp() - $inizio->getTimestamp() ) / DAY_IN_SECONDS ) );
+		/*
+		 * I due cambi dell'ora: l'ultima domenica di ottobre 2041 (il 27) il
+		 * giorno dura 25 ore, l'ultima domenica di marzo 2042 (il 30) 23. La
+		 * fine si conta in giorni di calendario, non in periodi di 24 ore.
+		 */
+		$cambi = array(
+			'ritorno all\'ora solare'   => array( '2041-10-20 23:10:00', '2041-11-04', '2041-11-05' ),
+			'passaggio all\'ora legale' => array( '2042-03-20 23:10:00', '2042-04-04', '2042-04-05' ),
+		);
+
+		foreach ( $cambi as $caso => list( $istante, $fine, $giorno_dopo ) ) {
+			$this->fissa_orologi( $istante );
+
+			$atto = $this->atto_in_verifica( 'normativo' );
+
+			$this->assertIsArray( $this->pubblica_da_codice( $atto, $this->pubblicatore ), $caso . ': pubblicato.' );
+			$this->assertSame( $fine, conformita_core_fine_pubblicazione( $atto ), $caso . ': fine attesa.' );
+			$this->assertSame( 15, $this->giorni_di_calendario( substr( $istante, 0, 10 ), $fine ), $caso . ': quindici giorni di calendario.' );
+
+			$this->fissa_orologi( $fine . ' 23:59:59' );
+			$this->assertFalse( conformita_core_scaduto( $atto ), $caso . ': l\'ultimo istante del giorno di fine e\' ancora di pubblicazione.' );
+
+			$this->fissa_orologi( $giorno_dopo . ' 00:00:00' );
+			$this->assertTrue( conformita_core_scaduto( $atto ), $caso . ': dalla mezzanotte seguente no.' );
+		}
 
 		// L'altro tipo, di origine dell'amministrazione: stessa regola con i suoi giorni.
 		$this->fissa_orologi( self::$istante_di_prova );

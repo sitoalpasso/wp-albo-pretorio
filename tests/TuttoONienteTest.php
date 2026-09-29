@@ -154,6 +154,9 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 			'voce automatica della pubblicazione'    => function () {
 				$this->guasta_istruzioni( array( 'INSERT INTO `' . $this->tabella_registro() . '`', "'pubblicazione'" ) );
 			},
+			'voce automatica della data di fine'     => function () {
+				$this->guasta_istruzioni( array( 'INSERT INTO `' . $this->tabella_registro() . '`', "'modifica_fine_pubblicazione'" ) );
+			},
 			'voce della conferma sui dati personali' => function () {
 				$this->guasta_istruzioni( array( 'INSERT INTO `' . $this->tabella_registro() . '`', "'" . Passaggi::AZIONE_CONFERMA . "'" ) );
 			},
@@ -534,6 +537,80 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 		clean_post_cache( $altro );
 
 		$this->assertSame( 'pending', get_post_status( $altro ), 'Senza passare dai due passaggi, resta in verifica.' );
+
+		/*
+		 * Lo stesso atto, dentro la stessa scrittura e prima che arrivi alla
+		 * banca dati: un filtro che gira prima del guardiano copia il gettone
+		 * dalla richiesta e lo usa per una scrittura annidata con oggetto e
+		 * dati suoi. Il gettone e' gia' consumato, e la scrittura annidata non
+		 * arriva alla banca dati.
+		 */
+		$quarto   = $this->atto_in_verifica();
+		$copiato  = null;
+		$istruite = array();
+		$annidata = static function ( $data, $postarr ) use ( $quarto, &$copiato ) {
+			if ( null === $copiato && isset( $postarr['ID'], $postarr[ Passaggi::CAMPO_GETTONE ] ) && $quarto === (int) $postarr['ID'] ) {
+				$copiato = (string) $postarr[ Passaggi::CAMPO_GETTONE ];
+
+				wp_update_post(
+					array(
+						'ID'                    => $quarto,
+						'post_status'           => 'publish',
+						'post_title'            => 'Oggetto annidato',
+						Passaggi::CAMPO_GETTONE => $copiato,
+						'meta_input'            => array( 'dato_annidato' => 'x' ),
+					)
+				);
+			}
+
+			return $data;
+		};
+		$osserva  = static function ( $istruzione ) use ( &$istruite ) {
+			$istruite[] = (string) $istruzione;
+
+			return $istruzione;
+		};
+
+		add_filter( 'wp_insert_post_data', $annidata, 10, 2 );
+		add_filter( 'query', $osserva, PHP_INT_MAX - 1 );
+
+		try {
+			$esito = $this->pubblica_da_codice( $quarto, $this->pubblicatore );
+		} finally {
+			remove_filter( 'wp_insert_post_data', $annidata, 10 );
+			remove_filter( 'query', $osserva, PHP_INT_MAX - 1 );
+		}
+
+		$this->assertIsString( $copiato, 'Precondizione: la scrittura annidata e\' partita con il gettone copiato.' );
+		$this->assertIsArray( $esito, 'Il passaggio vero riesce.' );
+		$this->assertSame( array(), preg_grep( '/Oggetto annidato|dato_annidato/', $istruite ), 'Nessuna istruzione della scrittura annidata arriva alla banca dati.' );
+		clean_post_cache( $quarto );
+		$this->assertSame( 'Atto di prova', get_the_title( $quarto ) );
+		$this->assertSame( '', get_post_meta( $quarto, 'dato_annidato', true ) );
+
+		// Il gettone copiato, dopo il passaggio, non vale su nessun atto; uno inventato nemmeno, con qualunque stato.
+		$quinto = $this->atto_in_verifica();
+
+		foreach ( array( $copiato, str_repeat( 'a', 32 ) ) as $gettone ) {
+			foreach ( array( 'publish', 'future' ) as $stato ) {
+				$this->come(
+					$this->pubblicatore,
+					static function () use ( $quinto, $gettone, $stato ) {
+						return wp_update_post(
+							array(
+								'ID'                    => $quinto,
+								'post_status'           => $stato,
+								'post_date'             => '2041-12-01 00:00:00',
+								Passaggi::CAMPO_GETTONE => $gettone,
+							)
+						);
+					}
+				);
+			}
+		}
+
+		clean_post_cache( $quinto );
+		$this->assertSame( 'pending', get_post_status( $quinto ), 'Nessun gettone apre un atto fuori dal suo passaggio.' );
 	}
 
 	/**
