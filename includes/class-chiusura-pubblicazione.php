@@ -4,19 +4,20 @@
  * chiusa la pubblicazione.
  *
  * **Non e' una condizione, e' un elenco ordinato di regole.** La prima nega la
- * pubblicazione e la programmazione, perche' la pubblicazione non e' ancora
- * aperta. Le altre applicano l'elenco chiuso dei passaggi deciso con ALBO-22:
- * un atto nasce in bozza, la bozza si risalva, passa in verifica solo con tutti
- * i dati che la pubblicazione pretende, e in verifica non si modifica piu'. La
- * lavorazione che apre la pubblicazione toglie la prima regola e aggiunge i
- * passaggi che partono dalla verifica.
+ * pubblicazione e la programmazione a ogni richiesta che arrivi da WordPress.
+ * Le altre applicano l'elenco chiuso dei passaggi deciso con ALBO-22: un atto
+ * nasce in bozza, la bozza si risalva, passa in verifica solo con tutti i dati
+ * che la pubblicazione pretende, e in verifica non si modifica piu'. I due
+ * passaggi che partono dalla verifica, pubblicazione e rimando in bozza, li
+ * compie soltanto `Passaggi`, e questa classe li lascia passare solo quando la
+ * richiesta arriva da li'. Da pubblicato non si torna indietro.
  *
  * **Due modi di rifiutare, secondo lo stato di partenza.** Da una bozza, il
  * rifiuto lascia avvenire la scrittura con lo stato di bozza: la bozza e'
  * modificabile, e quello che chi redige ha scritto si conserva. Da un atto in
- * verifica, la scrittura si ferma per intero prima di cominciare, perche' non
- * solo lo stato ma nemmeno l'oggetto, le voci o i dati collegati devono
- * cambiare.
+ * verifica o pubblicato, la scrittura si ferma per intero prima di cominciare,
+ * perche' non solo lo stato ma nemmeno l'oggetto, le voci o i dati collegati
+ * devono cambiare.
  *
  * **Tre cose diverse, e questa classe ne copre una sola.** Gli ingressi
  * supportati passano tutti da `wp_insert_post`, quindi da qui, e vengono
@@ -57,6 +58,17 @@ final class ChiusuraPubblicazione {
 	private static $pila = array();
 
 	/**
+	 * Il passaggio concesso da `Passaggi`, o nullo.
+	 *
+	 * Porta l'atto e i campi che la scrittura deve avere: stato, e per la
+	 * pubblicazione le due date. Vale per una scrittura sola e si revoca subito
+	 * dopo.
+	 *
+	 * @var array{id: int, campi: array<string, string>}|null
+	 */
+	private static $concesso = null;
+
+	/**
 	 * Gli stati di bozza: la bozza vera e quella che WordPress crea aprendo la schermata di un atto nuovo.
 	 *
 	 * @var array<int, string>
@@ -71,15 +83,75 @@ final class ChiusuraPubblicazione {
 	const IN_VERIFICA = 'pending';
 
 	/**
-	 * Gli stati che questa fase non concede.
+	 * Lo stato dell'atto pubblicato.
 	 *
-	 * Anche quello programmato: conservare una pubblicazione che sappiamo non
-	 * potersi concludere sarebbe una promessa non mantenibile.
+	 * @var string
+	 */
+	const PUBBLICATO = 'publish';
+
+	/**
+	 * Gli stati in cui ogni scrittura si ferma prima di cominciare.
+	 *
+	 * @var array<int, string>
+	 */
+	const STATI_FERMI = array( 'pending', 'publish' );
+
+	/**
+	 * I campi che WordPress riscrive da se' a ogni scrittura, lasciati com'e' li propone.
+	 *
+	 * @var array<int, string>
+	 */
+	const CAMPI_DI_WORDPRESS = array( 'post_modified', 'post_modified_gmt' );
+
+	/**
+	 * Gli stati che nessuna richiesta di WordPress ottiene.
+	 *
+	 * Pubblicato si ottiene solo da `Passaggi`, dalla verifica. Programmato
+	 * mai: la data di inizio la scrive il sistema quando l'atto si pubblica
+	 * (ALBO-27).
 	 *
 	 * @return array<int, string>
 	 */
 	public static function stati_non_concessi(): array {
 		return array( 'publish', 'future' );
+	}
+
+	/**
+	 * Concede a `Passaggi` la prossima scrittura di un atto in verifica.
+	 *
+	 * @internal Solo per `Passaggi`, che la revoca subito dopo la scrittura.
+	 *
+	 * @param int                   $atto_id Atto.
+	 * @param array<string, string> $campi   Campi che la scrittura deve avere.
+	 */
+	public static function concedi( int $atto_id, array $campi ): void {
+		self::$concesso = array(
+			'id'    => $atto_id,
+			'campi' => $campi,
+		);
+	}
+
+	/**
+	 * Revoca il passaggio concesso.
+	 *
+	 * @internal Solo per `Passaggi`.
+	 */
+	public static function revoca(): void {
+		self::$concesso = null;
+	}
+
+	/**
+	 * Il passaggio concesso per questo atto, o nullo.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return array<string, string>|null I campi concessi.
+	 */
+	private static function concesso( int $atto_id ): ?array {
+		if ( null === self::$concesso || $atto_id <= 0 || $atto_id !== self::$concesso['id'] ) {
+			return null;
+		}
+
+		return self::$concesso['campi'];
 	}
 
 	/**
@@ -113,9 +185,9 @@ final class ChiusuraPubblicazione {
 		$partenza  = isset( $stato_proposto['partenza'] ) ? (string) $stato_proposto['partenza'] : 'nuovo';
 
 		if ( in_array( $richiesto, self::stati_non_concessi(), true ) ) {
-			$motivi['albo_pubblicazione_non_aperta'] = sprintf(
+			$motivi['albo_pubblicazione_solo_dalla_verifica'] = sprintf(
 				/* translators: %s: nome del componente. */
-				__( '%s: la pubblicazione degli atti non e\' ancora aperta, quindi l\'atto resta in bozza. Un atto si pubblica passando dalla verifica, e la pubblicazione scrive chi e quando nel registro delle modifiche del meccanismo comune, che non e\' ancora disponibile.', 'albo-pretorio-pa' ),
+				__( '%s: l\'atto resta in bozza. Un atto si pubblica solo dopo la verifica, da chi puo\' pubblicarlo, con il riquadro Pubblicazione e la conferma del controllo sui dati personali; la data di inizio la scrive il sistema in quel momento, e non si programma.', 'albo-pretorio-pa' ),
 				NOME
 			);
 
@@ -169,13 +241,34 @@ final class ChiusuraPubblicazione {
 	}
 
 	/**
-	 * Il motivo del fermo di ogni scrittura su un atto in verifica.
+	 * Il motivo del fermo di ogni scrittura su un atto in verifica o pubblicato.
 	 *
+	 * Una richiesta di pubblicazione con una data di inizio nel futuro ha il
+	 * suo motivo, che nomina la data: e' una richiesta di programmazione, e va
+	 * rifiutata per quella ragione (ALBO-27).
+	 *
+	 * @param string               $stato   Stato memorizzato.
+	 * @param array<string, mixed> $postarr Richiesta, se c'e'.
 	 * @return array<string, string>
 	 */
-	private static function motivi_in_verifica(): array {
+	private static function motivi_fermo( string $stato, array $postarr = array() ): array {
+		if ( self::PUBBLICATO === $stato ) {
+			return array(
+				'albo_atto_pubblicato' => __( 'L\'atto e\' pubblicato e non si modifica, non torna in bozza o in verifica e non si cancella, da nessuno: una correzione e\' un atto nuovo che rinvia a questo.', 'albo-pretorio-pa' ),
+			);
+		}
+
+		$richiesto = isset( $postarr['post_status'] ) ? (string) $postarr['post_status'] : '';
+		$data      = isset( $postarr['post_date'] ) ? (string) $postarr['post_date'] : '';
+
+		if ( in_array( $richiesto, self::stati_non_concessi(), true ) && '' !== $data && $data > Passaggi::ora()->format( 'Y-m-d H:i:s' ) ) {
+			$errore = Passaggi::errore_programmazione( $data );
+
+			return array( (string) $errore->get_error_code() => $errore->get_error_message() );
+		}
+
 		return array(
-			'albo_atto_in_verifica' => __( 'L\'atto e\' in verifica e non si modifica: quello che e\' stato verificato e\' quello che esce. Per correggerlo dovra\' tornare in bozza con una motivazione, passaggio che arriva con il registro delle modifiche.', 'albo-pretorio-pa' ),
+			'albo_atto_in_verifica' => __( 'L\'atto e\' in verifica e non si modifica: quello che e\' stato verificato e\' quello che esce. Chi puo\' pubblicarlo lo pubblica, oppure lo rimanda in bozza con il motivo, dal riquadro Pubblicazione.', 'albo-pretorio-pa' ),
 		);
 	}
 
@@ -230,7 +323,7 @@ final class ChiusuraPubblicazione {
 	}
 
 	/**
-	 * Ferma per intero ogni scrittura su un atto in verifica, prima che cominci.
+	 * Ferma per intero ogni scrittura su un atto in verifica o pubblicato, prima che cominci.
 	 *
 	 * **Prima che cominci, non dopo.** `wp_insert_post` guarda questo filtro
 	 * prima di scrivere la riga, le voci e i dati collegati: fermarsi qui vuol
@@ -245,46 +338,58 @@ final class ChiusuraPubblicazione {
 	 */
 	public static function da_wp_insert_post_empty_content( $vuoto, $postarr ) {
 		$atto_id = is_array( $postarr ) && isset( $postarr['ID'] ) ? (int) $postarr['ID'] : 0;
+		$stato   = self::stato_memorizzato( $atto_id );
 
-		if ( self::IN_VERIFICA !== self::stato_memorizzato( $atto_id ) ) {
+		if ( null === $stato || ! in_array( $stato, self::STATI_FERMI, true ) ) {
 			return $vuoto;
 		}
 
-		Rifiuti::deposita( $atto_id, self::motivi_in_verifica() );
+		if ( self::IN_VERIFICA === $stato && null !== self::concesso( $atto_id ) ) {
+			return $vuoto;
+		}
+
+		Rifiuti::deposita( $atto_id, self::motivi_fermo( $stato, is_array( $postarr ) ? $postarr : array() ) );
 
 		return true;
 	}
 
 	/**
-	 * Un atto in verifica non va nel cestino.
+	 * Un atto in verifica o pubblicato non va nel cestino.
 	 *
 	 * @param mixed    $esito Risposta proposta, nullo per proseguire.
 	 * @param \WP_Post $atto  Contenuto.
 	 * @return mixed
 	 */
 	public static function da_pre_trash_post( $esito, $atto ) {
-		if ( ! $atto instanceof \WP_Post || self::IN_VERIFICA !== self::stato_memorizzato( (int) $atto->ID ) ) {
-			return $esito;
-		}
-
-		Rifiuti::deposita( (int) $atto->ID, self::motivi_in_verifica() );
-
-		return false;
+		return self::ferma_rimozione( $esito, $atto );
 	}
 
 	/**
-	 * Un atto in verifica non si cancella.
+	 * Un atto in verifica o pubblicato non si cancella.
 	 *
 	 * @param mixed    $esito Risposta proposta, nullo per proseguire.
 	 * @param \WP_Post $atto  Contenuto.
 	 * @return mixed
 	 */
 	public static function da_pre_delete_post( $esito, $atto ) {
-		if ( ! $atto instanceof \WP_Post || self::IN_VERIFICA !== self::stato_memorizzato( (int) $atto->ID ) ) {
+		return self::ferma_rimozione( $esito, $atto );
+	}
+
+	/**
+	 * Il fermo comune del cestino e della cancellazione.
+	 *
+	 * @param mixed    $esito Risposta proposta, nullo per proseguire.
+	 * @param \WP_Post $atto  Contenuto.
+	 * @return mixed
+	 */
+	private static function ferma_rimozione( $esito, $atto ) {
+		$stato = $atto instanceof \WP_Post ? self::stato_memorizzato( (int) $atto->ID ) : null;
+
+		if ( null === $stato || ! in_array( $stato, self::STATI_FERMI, true ) ) {
 			return $esito;
 		}
 
-		Rifiuti::deposita( (int) $atto->ID, self::motivi_in_verifica() );
+		Rifiuti::deposita( (int) $atto->ID, self::motivi_fermo( $stato ) );
 
 		return false;
 	}
@@ -328,14 +433,32 @@ final class ChiusuraPubblicazione {
 		$richiesto = isset( $data['post_status'] ) ? (string) $data['post_status'] : '';
 
 		/*
-		 * Un atto in verifica non arriva fin qui: la scrittura e' gia' stata
-		 * fermata. Se ci arriva lo stesso, perche' qualcuno ha scavalcato quel
-		 * fermo, la riga si riscrive com'era: in verifica, con i suoi valori.
+		 * Un atto in verifica o pubblicato non arriva fin qui: la scrittura e'
+		 * gia' stata fermata. Se ci arriva lo stesso, perche' qualcuno ha
+		 * scavalcato quel fermo, la riga si riscrive com'era, con i suoi valori.
+		 * L'unica scrittura che passa e' quella concessa a `Passaggi`, e anche
+		 * quella cambia soltanto i campi concessi: stato e date li scrive questo
+		 * filtro, all'ultima priorita', e nessun altro aggancio li sposta.
 		 */
-		if ( self::IN_VERIFICA === $partenza ) {
+		if ( null !== $partenza && in_array( $partenza, self::STATI_FERMI, true ) ) {
 			$memorizzato = get_post( $atto_id, ARRAY_A );
+			$concesso    = self::IN_VERIFICA === $partenza ? self::concesso( $atto_id ) : null;
 
 			foreach ( array_keys( $data ) as $campo ) {
+				if ( null !== $concesso && array_key_exists( $campo, $concesso ) ) {
+					$data[ $campo ] = $concesso[ $campo ];
+					continue;
+				}
+
+				if ( null !== $concesso && in_array( $campo, self::CAMPI_DI_WORDPRESS, true ) ) {
+					continue;
+				}
+
+				// Il nome nell'indirizzo lo genera WordPress alla pubblicazione, se l'atto non ne ha uno.
+				if ( null !== $concesso && 'post_name' === $campo && is_array( $memorizzato ) && '' === (string) $memorizzato['post_name'] ) {
+					continue;
+				}
+
 				if ( is_array( $memorizzato ) && array_key_exists( $campo, $memorizzato ) ) {
 					$data[ $campo ] = $memorizzato[ $campo ];
 				}
@@ -343,7 +466,7 @@ final class ChiusuraPubblicazione {
 
 			self::$pila[] = array(
 				'id'     => $atto_id,
-				'motivi' => self::motivi_in_verifica(),
+				'motivi' => null === $concesso ? self::motivi_fermo( $partenza, is_array( $postarr ) ? $postarr : array() ) : array(),
 			);
 
 			return $data;
