@@ -135,18 +135,6 @@ final class ChiusuraPubblicazione {
 	const CHIAVI_DI_SERVIZIO = array( '_edit_lock', '_edit_last', '_pingme', '_encloseme' );
 
 	/**
-	 * I promemoria di indirizzo che WordPress scrive quando cambiano data o nome di un contenuto pubblicato.
-	 *
-	 * Servono a inoltrare un indirizzo vecchio a quello nuovo. Un atto che si
-	 * pubblica non ha mai avuto un indirizzo pubblico, e un atto pubblicato non
-	 * cambia ne' data ne' nome: su un atto fermo si scartano, e alla
-	 * pubblicazione lo scarto non fa fallire il passaggio.
-	 *
-	 * @var array<int, string>
-	 */
-	const CHIAVI_SCARTATE = array( '_wp_old_date', '_wp_old_slug' );
-
-	/**
 	 * Gli stati in cui un atto puo' trovarsi senza essere passato dai passaggi dell'albo.
 	 *
 	 * @var array<int, string>
@@ -686,7 +674,7 @@ final class ChiusuraPubblicazione {
 		$atto_id = (int) $trovato[1];
 		$insieme = substr( $istruzione, strlen( $inizio ), - strlen( $trovato[0] ) );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lettura della riga com'e' nella banca dati, senza la memoria di WordPress, per giudicare la scrittura che sta per arrivare.
-		$riga    = $wpdb->get_row(
+		$riga = $wpdb->get_row(
 			$wpdb->prepare( "SELECT post_type, post_status, post_name FROM {$wpdb->posts} WHERE ID = %d", $atto_id ),
 			ARRAY_A
 		);
@@ -776,6 +764,10 @@ final class ChiusuraPubblicazione {
 	 * annota al passaggio, che annulla tutto nella sua transazione e risponde
 	 * con il suo errore, invece di lasciare la transazione aperta.
 	 *
+	 * Le scritture che si rifiutano prima che comincino, al primo livello o
+	 * sui metadati, non lasciano niente a valle: dentro un passaggio si
+	 * rifiutano e basta, e il passaggio prosegue con l'atto com'era.
+	 *
 	 * @param int $atto_id Atto.
 	 */
 	private static function ferma_richiesta( int $atto_id ): void {
@@ -806,7 +798,7 @@ final class ChiusuraPubblicazione {
 	 * @return mixed
 	 */
 	public static function da_add_post_metadata( $esito, $atto_id, $chiave, $valore ) {
-		return self::metadato_ammesso( (int) $atto_id, (string) $chiave, $valore, false ) ? $esito : self::metadato_rifiutato( (string) $chiave );
+		return self::metadato_ammesso( (int) $atto_id, (string) $chiave, $valore, false ) ? $esito : false;
 	}
 
 	/**
@@ -819,7 +811,7 @@ final class ChiusuraPubblicazione {
 	 * @return mixed
 	 */
 	public static function da_update_post_metadata( $esito, $atto_id, $chiave, $valore ) {
-		return self::metadato_ammesso( (int) $atto_id, (string) $chiave, $valore, false ) ? $esito : self::metadato_rifiutato( (string) $chiave );
+		return self::metadato_ammesso( (int) $atto_id, (string) $chiave, $valore, false ) ? $esito : false;
 	}
 
 	/**
@@ -834,10 +826,10 @@ final class ChiusuraPubblicazione {
 	 */
 	public static function da_delete_post_metadata( $esito, $atto_id, $chiave, $valore, $tutti ) {
 		if ( ! $tutti ) {
-			return self::metadato_ammesso( (int) $atto_id, (string) $chiave, null, true ) ? $esito : self::metadato_rifiutato( (string) $chiave );
+			return self::metadato_ammesso( (int) $atto_id, (string) $chiave, null, true ) ? $esito : false;
 		}
 
-		return self::chiave_libera( (string) $chiave ) ? $esito : self::metadato_rifiutato( (string) $chiave );
+		return self::chiave_libera( (string) $chiave ) ? $esito : false;
 	}
 
 	/**
@@ -851,7 +843,7 @@ final class ChiusuraPubblicazione {
 	public static function da_update_post_metadata_by_mid( $esito, $meta_id, $valore ) {
 		$riga = self::riga_di_metadato( (int) $meta_id );
 
-		return null === $riga || self::metadato_ammesso( (int) $riga['post_id'], (string) $riga['meta_key'], $valore, false ) ? $esito : self::metadato_rifiutato( (string) $riga['meta_key'] );
+		return null === $riga || self::metadato_ammesso( (int) $riga['post_id'], (string) $riga['meta_key'], $valore, false ) ? $esito : false;
 	}
 
 	/**
@@ -864,24 +856,7 @@ final class ChiusuraPubblicazione {
 	public static function da_delete_post_metadata_by_mid( $esito, $meta_id ) {
 		$riga = self::riga_di_metadato( (int) $meta_id );
 
-		return null === $riga || self::metadato_ammesso( (int) $riga['post_id'], (string) $riga['meta_key'], null, true ) ? $esito : self::metadato_rifiutato( (string) $riga['meta_key'] );
-	}
-
-	/**
-	 * Il rifiuto di un metadato: la scrittura non avviene, e dentro un passaggio si annota.
-	 *
-	 * I promemoria di indirizzo di WordPress si scartano senza annotarli: li
-	 * scrive WordPress stesso quando la pubblicazione cambia la data.
-	 *
-	 * @param string $chiave Chiave.
-	 * @return false
-	 */
-	private static function metadato_rifiutato( string $chiave ): bool {
-		if ( ! in_array( $chiave, self::CHIAVI_SCARTATE, true ) ) {
-			Passaggi::annota_rifiuto();
-		}
-
-		return false;
+		return null === $riga || self::metadato_ammesso( (int) $riga['post_id'], (string) $riga['meta_key'], null, true ) ? $esito : false;
 	}
 
 	/**
