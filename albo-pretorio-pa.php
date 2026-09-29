@@ -3,7 +3,7 @@
  * Plugin Name:       Albo Pretorio
  * Plugin URI:        https://github.com/sitoalpasso/wp-albo-pretorio
  * Description:       Pubblicazione con effetto di pubblicità legale. Attua requisiti derivati dalla normativa applicabile ai soggetti dell'art. 2-bis del d.lgs. 33/2013.
- * Version:           0.3.0-alpha
+ * Version:           0.4.0-alpha
  * Requires at least: 6.5
  * Requires PHP:      8.1
  * Requires Plugins:  conformita-core
@@ -26,7 +26,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Versione del plugin.
  */
-const VERSIONE = '0.3.0-alpha';
+const VERSIONE = '0.4.0-alpha';
 
 /**
  * Versione minima di WordPress dichiarata.
@@ -45,7 +45,7 @@ const PHP_MINIMA = '8.1';
  * comune e non la sua versione, perché accetta slug e non vincoli di versione:
  * il vincolo di versione vive qui e si verifica a ogni avvio.
  */
-const CORE_API_RICHIESTA = '1.3.0';
+const CORE_API_RICHIESTA = '1.5.0';
 
 /**
  * Nome visibile del componente, come compare negli avvisi in amministrazione.
@@ -197,6 +197,9 @@ require_once __DIR__ . '/includes/class-schermata-repertorio.php';
 require_once __DIR__ . '/includes/class-installazione.php';
 require_once __DIR__ . '/includes/class-rifiuti.php';
 require_once __DIR__ . '/includes/class-chiusura-pubblicazione.php';
+require_once __DIR__ . '/includes/class-passaggi.php';
+require_once __DIR__ . '/includes/class-riquadro-passaggi.php';
+require_once __DIR__ . '/includes/funzioni-api.php';
 
 /*
  * L'avvio si aggancia e non si esegue. Al caricamento di questo file il
@@ -270,6 +273,15 @@ add_filter( 'ajax_query_attachments_args', array( DocumentiAtto::class, 'da_ajax
 add_action( 'pre_get_posts', array( DocumentiAtto::class, 'da_pre_get_posts' ) );
 add_filter( 'posts_where', array( DocumentiAtto::class, 'da_posts_where' ), 10, 2 );
 add_action( 'before_delete_post', array( DocumentiAtto::class, 'da_before_delete_post' ), 10, 2 );
+
+/*
+ * I due passaggi che partono dalla verifica hanno un riquadro nella schermata
+ * dell'atto. Il suo invio si intercetta prima del salvataggio di WordPress, che
+ * su un atto in verifica verrebbe comunque fermato.
+ */
+add_action( 'add_meta_boxes_' . TIPO, array( RiquadroPassaggi::class, 'riquadro' ) );
+add_action( 'admin_action_editpost', array( RiquadroPassaggi::class, 'da_editpost' ) );
+add_action( 'admin_notices', array( RiquadroPassaggi::class, 'mostra_esito' ) );
 
 /*
  * Lo sbarramento si aggancia al caricamento e non all'avvio riuscito: deve

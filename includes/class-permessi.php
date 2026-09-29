@@ -46,7 +46,19 @@ final class Permessi {
 	);
 
 	/**
-	 * Chi pubblica: tutto quello che fa chi redige, piu' l'esposizione.
+	 * Il nome generico del permesso di leggere il registro delle modifiche.
+	 *
+	 * Non e' un nome di WordPress: e' la chiave con cui la corrispondenza di
+	 * questo componente porta il permesso del registro, che il meccanismo
+	 * comune crea e non assegna a nessuno.
+	 *
+	 * @var string
+	 */
+	const CHIAVE_REGISTRO = 'leggere_registro';
+
+	/**
+	 * Chi pubblica: tutto quello che fa chi redige, piu' l'esposizione, piu'
+	 * la lettura del registro, dove trova i motivi dei rimandi in bozza.
 	 *
 	 * @var array<int, string>
 	 */
@@ -59,6 +71,7 @@ final class Permessi {
 		'edit_others_posts',
 		'delete_others_posts',
 		'delete_published_posts',
+		self::CHIAVE_REGISTRO,
 	);
 
 	/**
@@ -86,19 +99,28 @@ final class Permessi {
 	}
 
 	/**
-	 * La corrispondenza fra nomi generici e permessi derivati dal tipo.
+	 * La corrispondenza fra nomi generici e permessi derivati dal tipo, piu'
+	 * quello del registro delle modifiche.
 	 *
 	 * @return array<string, string>|\WP_Error
 	 */
 	public static function mappa() {
-		if ( ! function_exists( 'conformita_core_capacita_tipo' ) ) {
+		if ( ! function_exists( 'conformita_core_capacita_tipo' ) || ! function_exists( 'conformita_core_capacita_registro' ) ) {
 			return new \WP_Error(
 				'albo_meccanismo_comune_assente',
 				__( 'I permessi del tipo atto si chiedono al meccanismo comune, che non e\' caricato.', 'albo-pretorio-pa' )
 			);
 		}
 
-		return conformita_core_capacita_tipo( TIPO );
+		$mappa = conformita_core_capacita_tipo( TIPO );
+
+		if ( is_wp_error( $mappa ) ) {
+			return $mappa;
+		}
+
+		$mappa[ self::CHIAVE_REGISTRO ] = (string) conformita_core_capacita_registro();
+
+		return $mappa;
 	}
 
 	/**

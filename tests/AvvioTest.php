@@ -201,7 +201,7 @@ class AvvioTest extends WP_UnitTestCase {
 		return array(
 			'versione inferiore, stesso numero maggiore' => array( '1.2.0', false ),
 			'numero maggiore diverso'                    => array( '2.0.0', false ),
-			'versione superiore, stesso numero maggiore' => array( '1.4.0', true ),
+			'versione superiore, stesso numero maggiore' => array( '1.6.0', true ),
 		);
 	}
 
