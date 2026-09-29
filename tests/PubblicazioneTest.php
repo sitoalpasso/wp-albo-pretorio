@@ -914,7 +914,34 @@ class PubblicazioneTest extends \WP_UnitTestCase {
 				}
 			);
 
-			$this->assertSame( $prima, $this->fotografia( $id ), 'Niente cambia, utente ' . $utente . '.' );
+			// ALBO-08: una richiesta manipolata che porta un numero, dal riquadro e da codice.
+			$this->invia_riquadro(
+				$id,
+				$utente,
+				array(
+					RiquadroPassaggi::CAMPO_PASSAGGIO => 'pubblica',
+					RiquadroPassaggi::CAMPO_CONFERMA  => (string) $id,
+					'numero'                          => '999',
+					'albo_pretorio_numero'            => '999',
+				)
+			);
+			$this->come(
+				$utente,
+				static function () use ( $id ) {
+					return wp_update_post(
+						array(
+							'ID'         => $id,
+							'meta_input' => array(
+								'numero'                => '999',
+								'albo_pretorio_numero'  => '999',
+								'_albo_pretorio_numero' => '999',
+							),
+						)
+					);
+				}
+			);
+
+			$this->assertSame( $prima, $this->fotografia( $id ), 'Niente cambia, numero compreso, utente ' . $utente . '.' );
 		}
 
 		$this->assertSame( array(), $this->stati_scritti( $id ), 'Nessuna scrittura della riga: ogni richiesta si e\' fermata prima.' );
