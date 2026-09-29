@@ -992,7 +992,7 @@ class PassaggioInVerificaTest extends \WP_UnitTestCase {
 		);
 
 		$this->assertSame( 'draft', get_post_status( $id ), 'Dalla schermata resta in bozza.' );
-		$this->assertArrayHasKey( 'albo_pubblicazione_non_aperta', Rifiuti::preleva_per_utente( $id ) );
+		$this->assertArrayHasKey( 'albo_pubblicazione_solo_dalla_verifica', Rifiuti::preleva_per_utente( $id ) );
 
 		// Aggiornamento da codice.
 		wp_update_post(

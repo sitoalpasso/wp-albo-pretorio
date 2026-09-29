@@ -57,6 +57,10 @@ trait AmbienteAlbo {
 					$oggetto->remove_cap( (string) $permesso );
 				}
 			}
+
+			if ( function_exists( 'conformita_core_capacita_registro' ) && $oggetto->has_cap( conformita_core_capacita_registro() ) ) {
+				$oggetto->remove_cap( conformita_core_capacita_registro() );
+			}
 		}
 
 		if ( null !== get_role( \AlboPretorioPa\RUOLO ) ) {
