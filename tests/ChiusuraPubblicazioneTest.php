@@ -248,7 +248,12 @@ class ChiusuraPubblicazioneTest extends WP_UnitTestCase {
 			)
 		);
 
-		wp_publish_post( $id );
+		// La barriera ferma `wp_publish_post()` (A-111): qui si stacca, come per chi scrive nella banca dati da fuori.
+		$this->scavalca_barriera(
+			static function () use ( $id ) {
+				wp_publish_post( $id );
+			}
+		);
 
 		$this->assertSame(
 			'publish',

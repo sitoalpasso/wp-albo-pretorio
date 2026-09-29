@@ -735,7 +735,7 @@ class PubblicazioneTest extends \WP_UnitTestCase {
 
 		$togli = array(
 			'albo_manca_oggetto'              => static function ( int $id ) use ( $wpdb ) {
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: il dato cambia fuori dai passaggi dell'albo.
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: il dato cambia fuori dal sito, scavalcando anche la barriera.
 				$wpdb->update( $wpdb->posts, array( 'post_title' => '' ), array( 'ID' => $id ) );
 			},
 			'albo_manca_tipo'                 => static function ( int $id ) {
@@ -755,7 +755,11 @@ class PubblicazioneTest extends \WP_UnitTestCase {
 		foreach ( $togli as $codice => $toglie ) {
 			$id = $this->atto_in_verifica();
 
-			$toglie( $id );
+			$this->scavalca_barriera(
+				static function () use ( $toglie, $id ) {
+					$toglie( $id );
+				}
+			);
 			clean_post_cache( $id );
 
 			$prima = $this->fotografia( $id );

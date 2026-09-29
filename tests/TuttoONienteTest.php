@@ -421,7 +421,11 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 		$terzo = $this->atto_in_verifica();
 
 		// Il primo atto ha gia' un nome nell'indirizzo, scritto prima della verifica.
-		$wpdb->update( $wpdb->posts, array( 'post_name' => 'nome-verificato' ), array( 'ID' => $id ) );
+		$this->scavalca_barriera(
+			static function () use ( $wpdb, $id ) {
+				$wpdb->update( $wpdb->posts, array( 'post_name' => 'nome-verificato' ), array( 'ID' => $id ) );
+			}
+		);
 		clean_post_cache( $id );
 
 		// Un altro componente che, durante la scrittura, cambia oggetto, nome e data e prova a pubblicare un altro atto.

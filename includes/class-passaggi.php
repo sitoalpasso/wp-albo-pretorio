@@ -20,10 +20,19 @@
  * richiesta di programmazione e si rifiuta nominandola; una data passata e una
  * data di fine qualunque si ignorano.
  *
- * **Che cosa la transazione non copre.** Il numero di repertorio, per scelta.
- * E quello che altri componenti fanno negli agganci di WordPress durante la
- * scrittura: un messaggio inviato non si ritira con un annullamento, e un
- * aggancio che apre o chiude a sua volta una transazione chiude anche questa.
+ * **L'atto e' fermo per tutto il passaggio.** Dal primo controllo alla
+ * chiusura della transazione l'atto non cambia se non per la scrittura
+ * concessa: il guardiano la riconosce dal gettone di questo passaggio, che si
+ * consuma alla prima scrittura. Prima di chiudere, la riga, i dati, le voci e
+ * i documenti si rileggono dalla banca dati e si confrontano con quelli di
+ * partenza: un cambiamento che non e' quello del passaggio annulla tutto.
+ *
+ * **Che cosa la transazione non copre.** Il numero di repertorio, quando la
+ * transazione e' la nostra; quando la connessione e' gia' dentro quella di un
+ * altro, il numero segue quella. E quello che altri componenti fanno negli
+ * agganci di WordPress durante la scrittura: un messaggio inviato non si
+ * ritira con un annullamento, e un aggancio che apre o chiude a sua volta una
+ * transazione chiude anche questa.
  *
  * @package AlboPretorioPa
  */
@@ -73,6 +82,24 @@ final class Passaggi {
 	const CHIAVI_RICHIESTA = array( 'conferma', 'data_inizio', 'data_fine' );
 
 	/**
+	 * Il campo della scrittura che porta il gettone del passaggio.
+	 *
+	 * @var string
+	 */
+	const CAMPO_GETTONE = 'albo_pretorio_gettone_passaggio';
+
+	/**
+	 * I passaggi in corso, per atto.
+	 *
+	 * Il gettone e' casuale e non esce da questa classe se non dentro la
+	 * scrittura che lo porta. I campi sono quelli che la scrittura deve avere,
+	 * e la fine e' quella che la pubblicazione scrivera'.
+	 *
+	 * @var array<int, array{gettone: string, campi: array<string, string>, usato: bool, fine: string|null, rifiuto: bool}>
+	 */
+	private static $in_corso = array();
+
+	/**
 	 * Istante fissato dalle prove, o nullo per l'ora vera.
 	 *
 	 * @var \DateTimeImmutable|null
@@ -106,6 +133,90 @@ final class Passaggi {
 	 */
 	public static function azzera_orologio(): void {
 		self::$orologio = null;
+	}
+
+	/**
+	 * Se un passaggio e' in corso su questo atto.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return bool
+	 */
+	public static function in_corso( int $atto_id ): bool {
+		return isset( self::$in_corso[ $atto_id ] );
+	}
+
+	/**
+	 * Gli atti con un passaggio in corso.
+	 *
+	 * @return array<int, int>
+	 */
+	public static function atti_in_corso(): array {
+		return array_keys( self::$in_corso );
+	}
+
+	/**
+	 * La data di fine che la pubblicazione in corso scrive, o nulla.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return string|null
+	 */
+	public static function fine_attesa( int $atto_id ): ?string {
+		return isset( self::$in_corso[ $atto_id ] ) ? self::$in_corso[ $atto_id ]['fine'] : null;
+	}
+
+	/**
+	 * Consuma il gettone del passaggio in corso, e restituisce i campi concessi.
+	 *
+	 * Risponde una volta sola, e solo al gettone giusto: e' la domanda che il
+	 * guardiano fa a ogni scrittura di un atto con un passaggio in corso.
+	 *
+	 * @param int    $atto_id Atto.
+	 * @param string $gettone Gettone portato dalla scrittura.
+	 * @return array<string, string>|null
+	 */
+	public static function consuma( int $atto_id, string $gettone ): ?array {
+		if ( ! isset( self::$in_corso[ $atto_id ] ) || self::$in_corso[ $atto_id ]['usato'] || ! hash_equals( self::$in_corso[ $atto_id ]['gettone'], $gettone ) ) {
+			return null;
+		}
+
+		self::$in_corso[ $atto_id ]['usato'] = true;
+
+		return self::$in_corso[ $atto_id ]['campi'];
+	}
+
+	/**
+	 * Annota che il guardiano ha rifiutato una scrittura mentre un passaggio e' in corso.
+	 *
+	 * Dentro un passaggio il guardiano non ferma la richiesta: rifiuta la
+	 * scrittura e lo annota qui, e il passaggio, trovando l'annotazione,
+	 * annulla tutto e risponde con il suo errore. Cosi' la transazione si
+	 * chiude da questa classe, e non resta aperta a chi scrive dopo.
+	 *
+	 * @return bool Se c'era un passaggio in corso a cui annotarlo.
+	 */
+	public static function annota_rifiuto(): bool {
+		foreach ( array_keys( self::$in_corso ) as $atto_id ) {
+			self::$in_corso[ $atto_id ]['rifiuto'] = true;
+		}
+
+		return array() !== self::$in_corso;
+	}
+
+	/**
+	 * Apre il passaggio su un atto: da qui l'atto e' fermo fino alla fine.
+	 *
+	 * @param int                   $atto_id Atto.
+	 * @param array<string, string> $campi   Campi della scrittura: lo stato, pubblicato o bozza, e per la pubblicazione le date.
+	 * @param string|null           $fine    Data di fine che la pubblicazione scrive.
+	 */
+	private static function inizia( int $atto_id, array $campi, ?string $fine ): void {
+		self::$in_corso[ $atto_id ] = array(
+			'gettone' => bin2hex( random_bytes( 16 ) ),
+			'campi'   => $campi,
+			'usato'   => false,
+			'fine'    => $fine,
+			'rifiuto' => false,
+		);
 	}
 
 	/**
@@ -169,10 +280,15 @@ final class Passaggi {
 			return self::errore_tabelle( $tabelle );
 		}
 
-		$prima = self::voci_automatiche( $atto_id, 'pubblicazione' );
+		$prima      = self::voci_automatiche( $atto_id, 'pubblicazione' );
+		$prima_fine = self::voci_automatiche( $atto_id, 'modifica_fine_pubblicazione' );
 
 		if ( is_wp_error( $prima ) ) {
 			return $prima;
+		}
+
+		if ( is_wp_error( $prima_fine ) ) {
+			return $prima_fine;
 		}
 
 		/*
@@ -186,13 +302,40 @@ final class Passaggi {
 			return $numero;
 		}
 
-		$inizio   = $adesso->setTimezone( wp_timezone() );
-		$fine     = $inizio->setTime( 0, 0 )->add( new \DateInterval( 'P' . $durata . 'D' ) )->format( 'Y-m-d' );
-		$campi    = array(
+		$inizio      = $adesso->setTimezone( wp_timezone() );
+		$fine        = $inizio->setTime( 0, 0 )->add( new \DateInterval( 'P' . $durata . 'D' ) )->format( 'Y-m-d' );
+		$campi       = array(
 			'post_status'   => 'publish',
 			'post_date'     => $inizio->format( 'Y-m-d H:i:s' ),
 			'post_date_gmt' => $inizio->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' ),
 		);
+		$partenza    = self::fotografia( $atto_id );
+		$fine_uguale = array( $fine ) === self::righe_fine( $partenza );
+
+		self::inizia( $atto_id, $campi, $fine );
+
+		try {
+			return self::pubblica_dentro( $atto_id, $campi, $fine, $numero, $partenza, $prima_fine, ! $fine_uguale, $prima );
+		} finally {
+			unset( self::$in_corso[ $atto_id ] );
+		}
+	}
+
+	/**
+	 * Le scritture della pubblicazione, dentro la transazione.
+	 *
+	 * @param int                           $atto_id    Atto.
+	 * @param array<string, string>         $campi      Stato e date.
+	 * @param string                        $fine       Data di fine.
+	 * @param array{anno: int, numero: int} $numero     Numero preso.
+	 * @param array<string, mixed>          $partenza   Fotografia di partenza.
+	 * @param int                           $prima_fine Voci della fine prima del passaggio.
+	 * @param bool                          $cambia     La data di fine cambia.
+	 * @param int                           $prima      Voci della pubblicazione prima.
+	 * @return array{anno: int, numero: int, inizio: string, fine: string, voce: int}|\WP_Error
+	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
+	 */
+	private static function pubblica_dentro( int $atto_id, array $campi, string $fine, array $numero, array $partenza, int $prima_fine, bool $cambia, int $prima ) {
 		$apertura = self::apri();
 
 		if ( is_wp_error( $apertura ) ) {
@@ -211,6 +354,10 @@ final class Passaggi {
 			}
 
 			if ( ! is_wp_error( $esito ) ) {
+				$esito = self::controlla_voce_della_fine( $atto_id, $prima_fine, $cambia );
+			}
+
+			if ( ! is_wp_error( $esito ) ) {
 				$esito = self::scrivi_voce(
 					array(
 						'sezione'   => SEZIONE,
@@ -225,6 +372,11 @@ final class Passaggi {
 						'chiave'    => SEZIONE . ':' . self::AZIONE_CONFERMA . ':' . $atto_id,
 					)
 				);
+			}
+
+			if ( ! is_wp_error( $esito ) ) {
+				$controllo = self::controlla_invariato( $atto_id, $partenza, $campi, $fine );
+				$esito     = is_wp_error( $controllo ) ? $controllo : $esito;
 			}
 
 			if ( is_wp_error( $esito ) ) {
@@ -296,6 +448,30 @@ final class Passaggi {
 			return $prima;
 		}
 
+		$campi    = array( 'post_status' => 'draft' );
+		$partenza = self::fotografia( $atto_id );
+
+		self::inizia( $atto_id, $campi, null );
+
+		try {
+			return self::rimanda_dentro( $atto_id, $campi, $motivo, $partenza, $prima );
+		} finally {
+			unset( self::$in_corso[ $atto_id ] );
+		}
+	}
+
+	/**
+	 * Le scritture del rimando, dentro la transazione.
+	 *
+	 * @param int                   $atto_id  Atto.
+	 * @param array<string, string> $campi    Stato.
+	 * @param string                $motivo   Motivo.
+	 * @param array<string, mixed>  $partenza Fotografia di partenza.
+	 * @param int                   $prima    Voci del cambio di stato prima.
+	 * @return int|\WP_Error
+	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
+	 */
+	private static function rimanda_dentro( int $atto_id, array $campi, string $motivo, array $partenza, int $prima ) {
 		$apertura = self::apri();
 
 		if ( is_wp_error( $apertura ) ) {
@@ -303,7 +479,7 @@ final class Passaggi {
 		}
 
 		try {
-			$esito = self::scrivi_stato( $atto_id, array( 'post_status' => 'draft' ) );
+			$esito = self::scrivi_stato( $atto_id, $campi );
 
 			if ( ! is_wp_error( $esito ) ) {
 				$esito = self::controlla_voce_automatica( $atto_id, 'cambio_stato', $prima );
@@ -318,6 +494,11 @@ final class Passaggi {
 						'motivazione' => $motivo,
 					)
 				);
+			}
+
+			if ( ! is_wp_error( $esito ) ) {
+				$controllo = self::controlla_invariato( $atto_id, $partenza, $campi, null );
+				$esito     = is_wp_error( $controllo ) ? $controllo : $esito;
 			}
 
 			if ( is_wp_error( $esito ) ) {
@@ -618,8 +799,6 @@ final class Passaggi {
 	private static function annulla( string $modo, int $atto_id ): void {
 		global $wpdb;
 
-		ChiusuraPubblicazione::revoca();
-
 		if ( 'transazione' === $modo ) {
 			$wpdb->query( 'ROLLBACK' );
 		} else {
@@ -635,7 +814,9 @@ final class Passaggi {
 	 * Passa da `wp_update_post` e non da un'interrogazione diretta perche' i
 	 * passaggi di stato si registrano da se' nel meccanismo comune, e lo fanno
 	 * dagli agganci di WordPress. Il guardiano lascia passare questa scrittura
-	 * e nessun'altra, e scrive lui i campi concessi all'ultima priorita'.
+	 * e nessun'altra, riconoscendola dal gettone, e scrive lui i campi concessi
+	 * all'ultima priorita'. Se il gettone non e' stato consumato, la scrittura
+	 * non e' passata dal guardiano e non vale.
 	 *
 	 * @param int                   $atto_id Atto.
 	 * @param array<string, string> $campi   Campi concessi, stato compreso.
@@ -644,22 +825,19 @@ final class Passaggi {
 	private static function scrivi_stato( int $atto_id, array $campi ) {
 		global $wpdb;
 
-		$richiesta = array( 'ID' => $atto_id ) + $campi;
+		$richiesta = array( 'ID' => $atto_id ) + $campi + array( self::CAMPO_GETTONE => self::$in_corso[ $atto_id ]['gettone'] );
 
 		if ( isset( $campi['post_date'] ) ) {
 			$richiesta['edit_date'] = true;
 		}
 
-		ChiusuraPubblicazione::concedi( $atto_id, $campi );
+		$esito = wp_update_post( $richiesta, true );
 
-		try {
-			$esito = wp_update_post( $richiesta, true );
-		} finally {
-			ChiusuraPubblicazione::revoca();
-		}
-
-		if ( is_wp_error( $esito ) ) {
-			return $esito;
+		if ( is_wp_error( $esito ) || 0 === $esito || ! self::$in_corso[ $atto_id ]['usato'] ) {
+			return new \WP_Error(
+				'albo_stato_non_scritto',
+				__( 'L\'atto resta in verifica: lo stato nuovo non risulta scritto nella banca dati.', 'albo-pretorio-pa' )
+			);
 		}
 
 		clean_post_cache( $atto_id );
@@ -784,5 +962,152 @@ final class Passaggi {
 		}
 
 		return (int) $esito;
+	}
+
+	/**
+	 * Il meccanismo comune ha registrato la data di fine, se e' cambiata.
+	 *
+	 * Se la fine era gia' quella giusta il meccanismo comune non scrive
+	 * niente, e non deve comparire nessuna voce; se cambia, almeno una.
+	 *
+	 * @param int  $atto_id Atto.
+	 * @param int  $prima   Voci della fine prima del passaggio.
+	 * @param bool $cambia  La data di fine cambia.
+	 * @return true|\WP_Error
+	 */
+	private static function controlla_voce_della_fine( int $atto_id, int $prima, bool $cambia ) {
+		$dopo = self::voci_automatiche( $atto_id, 'modifica_fine_pubblicazione' );
+
+		if ( is_wp_error( $dopo ) ) {
+			return $dopo;
+		}
+
+		if ( $cambia ? $dopo <= $prima : $dopo !== $prima ) {
+			return new \WP_Error(
+				'albo_voce_automatica_mancante',
+				__( 'L\'atto resta in verifica: il registro delle modifiche non corrisponde alla data di fine scritta.', 'albo-pretorio-pa' )
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * L'atto com'e' nella banca dati: riga, dati, voci e contenuti figli.
+	 *
+	 * Letto direttamente, senza la memoria di WordPress, perche' serve a
+	 * confrontare quello che la transazione sta per confermare.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return array<string, mixed>
+	 */
+	private static function fotografia( int $atto_id ): array {
+		global $wpdb;
+
+		return array(
+			'riga'  => $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->posts} WHERE ID = %d", $atto_id ), ARRAY_A ),
+			'dati'  => $wpdb->get_results( $wpdb->prepare( "SELECT meta_id, meta_key, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d ORDER BY meta_id", $atto_id ), ARRAY_A ),
+			'voci'  => $wpdb->get_col( $wpdb->prepare( "SELECT term_taxonomy_id FROM {$wpdb->term_relationships} WHERE object_id = %d ORDER BY term_taxonomy_id", $atto_id ) ),
+			'figli' => $wpdb->get_results( $wpdb->prepare( "SELECT ID, post_type, post_status, post_parent FROM {$wpdb->posts} WHERE post_parent = %d ORDER BY ID", $atto_id ), ARRAY_A ),
+		);
+	}
+
+	/**
+	 * I valori della data di fine in una fotografia, nell'ordine in cui sono scritti.
+	 *
+	 * @param array<string, mixed> $fotografia Fotografia.
+	 * @return array<int, string>
+	 */
+	private static function righe_fine( array $fotografia ): array {
+		$chiave = conformita_core_chiave_fine_pubblicazione();
+		$valori = array();
+
+		foreach ( (array) $fotografia['dati'] as $riga ) {
+			if ( $chiave === $riga['meta_key'] ) {
+				$valori[] = (string) $riga['meta_value'];
+			}
+		}
+
+		return $valori;
+	}
+
+	/**
+	 * L'atto e' cambiato solo come il passaggio vuole.
+	 *
+	 * Nella riga cambiano lo stato, le date della pubblicazione, le due date di
+	 * modifica e, alla pubblicazione, il nome nell'indirizzo se non c'era. Nei
+	 * dati cambiano la data di fine della pubblicazione, che deve essere una
+	 * sola e quella calcolata, e i dati di servizio di WordPress. Voci e
+	 * contenuti figli non cambiano.
+	 *
+	 * @param int                   $atto_id  Atto.
+	 * @param array<string, mixed>  $partenza Fotografia di partenza.
+	 * @param array<string, string> $campi    Campi concessi.
+	 * @param string|null           $fine     Data di fine, per la pubblicazione.
+	 * @return true|\WP_Error
+	 */
+	private static function controlla_invariato( int $atto_id, array $partenza, array $campi, ?string $fine ) {
+		if ( ! empty( self::$in_corso[ $atto_id ]['rifiuto'] ) ) {
+			return new \WP_Error(
+				'albo_scrittura_rifiutata_nel_passaggio',
+				__( 'L\'atto resta com\'era: durante il passaggio un\'altra scrittura ha provato a cambiare un atto dell\'albo ed e\' stata rifiutata, e tutto e\' stato annullato.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$arrivo = self::fotografia( $atto_id );
+		$errore = new \WP_Error(
+			'albo_atto_cambiato_nel_passaggio',
+			__( 'L\'atto resta in verifica: durante il passaggio e\' cambiato qualcosa che il passaggio non doveva cambiare, e tutto e\' stato annullato.', 'albo-pretorio-pa' )
+		);
+
+		if ( ! is_array( $partenza['riga'] ) || ! is_array( $arrivo['riga'] ) ) {
+			return $errore;
+		}
+
+		foreach ( $partenza['riga'] as $colonna => $valore ) {
+			$nuovo = isset( $arrivo['riga'][ $colonna ] ) ? (string) $arrivo['riga'][ $colonna ] : null;
+
+			if ( in_array( $colonna, ChiusuraPubblicazione::CAMPI_DI_WORDPRESS, true ) ) {
+				continue;
+			}
+
+			if ( array_key_exists( $colonna, $campi ) ) {
+				if ( $campi[ $colonna ] !== $nuovo ) {
+					return $errore;
+				}
+
+				continue;
+			}
+
+			if ( 'post_name' === $colonna && '' === (string) $valore && null !== $fine && '' !== (string) $nuovo ) {
+				continue;
+			}
+
+			if ( ( null === $valore ? null : (string) $valore ) !== $nuovo ) {
+				return $errore;
+			}
+		}
+
+		$chiave = conformita_core_chiave_fine_pubblicazione();
+		$dati   = static function ( array $fotografia ) use ( $chiave, $fine ): array {
+			return array_values(
+				array_filter(
+					(array) $fotografia['dati'],
+					static function ( $riga ) use ( $chiave, $fine ): bool {
+						return ! in_array( $riga['meta_key'], ChiusuraPubblicazione::CHIAVI_DI_SERVIZIO, true ) && ( null === $fine || $chiave !== $riga['meta_key'] );
+					}
+				)
+			);
+		};
+
+		if ( $dati( $partenza ) !== $dati( $arrivo ) || ( null !== $fine && array( $fine ) !== self::righe_fine( $arrivo ) ) ) {
+			return $errore;
+		}
+
+		if ( $partenza['voci'] !== $arrivo['voci'] || $partenza['figli'] !== $arrivo['figli'] ) {
+			return $errore;
+		}
+
+		return true;
 	}
 }

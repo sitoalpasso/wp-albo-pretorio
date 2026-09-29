@@ -19,15 +19,27 @@
  * perche' non solo lo stato ma nemmeno l'oggetto, le voci o i dati collegati
  * devono cambiare.
  *
- * **Tre cose diverse, e questa classe ne copre una sola.** Gli ingressi
- * supportati passano tutti da `wp_insert_post`, quindi da qui, e vengono
- * fermati prima della scrittura: non esiste nessun istante in cui la riga
- * abbia lo stato pubblicato o programmato. La superficie per programmi non
- * esiste, quindi non e' un ingresso da intercettare. E `wp_publish_post()`,
- * chiamata di persona da codice di terzi, scrive lo stato direttamente nella
- * banca dati e **non passa di qui**: quel caso non si impedisce, e la garanzia
- * e' che il contenuto resti comunque irraggiungibile, perche' il tipo non e'
- * interrogabile dal pubblico.
+ * **Due livelli.** Gli ingressi ordinari passano da `wp_insert_post`, e li
+ * ferma il primo livello prima che la scrittura cominci. Alcune funzioni di
+ * WordPress scrivono invece da se' nella banca dati senza passare di li':
+ * `wp_publish_post()`, che usa anche la pubblicazione programmata del compito
+ * pianificato, e `set_post_type()`. Il secondo livello guarda l'istruzione che
+ * sta per arrivare alla banca dati: una scrittura della riga di un atto che il
+ * primo livello non ha vagliato, e che tocca un atto in verifica, pubblicato
+ * o in un passaggio in corso, oppure porta un atto fuori dalla bozza, ferma
+ * la richiesta prima di partire. I dati collegati hanno le loro difese: i
+ * metadati si fermano con i filtri che WordPress chiama prima di scriverli, e
+ * le voci degli elenchi con gli annunci che WordPress fa prima di assegnarle
+ * o toglierle, anche qui fermando la richiesta. Resta fuori soltanto
+ * un'istruzione scritta a mano da un altro componente in una forma diversa da
+ * quella delle funzioni di WordPress.
+ *
+ * **La concessione e' di `Passaggi`, non di questa classe.** Il guardiano non
+ * ha nessun modo pubblico per concedere un passaggio: chiede a `Passaggi` se
+ * la scrittura porta il gettone del passaggio in corso su quell'atto, e il
+ * gettone si consuma alla prima domanda. Una seconda scrittura, anche dello
+ * stesso atto e anche annidata dentro la prima, trova il gettone gia' usato e
+ * si ferma.
  *
  * @package AlboPretorioPa
  */
@@ -58,15 +70,23 @@ final class ChiusuraPubblicazione {
 	private static $pila = array();
 
 	/**
-	 * Il passaggio concesso da `Passaggi`, o nullo.
+	 * La scrittura concessa da `Passaggi` che sta attraversando WordPress, o nulla.
 	 *
-	 * Porta l'atto e i campi che la scrittura deve avere: stato, e per la
-	 * pubblicazione le due date. Vale per una scrittura sola e si revoca subito
-	 * dopo.
+	 * Si apre quando il primo filtro consuma il gettone e si chiude quando il
+	 * secondo la applica: in mezzo non c'e' nessuna scrittura della banca dati.
 	 *
-	 * @var array{id: int, campi: array<string, string>}|null
+	 * @var array{id: int, gettone: string, campi: array<string, string>}|null
 	 */
-	private static $concesso = null;
+	private static $scrittura = null;
+
+	/**
+	 * Le scritture della riga vagliate dal primo livello, per atto, con lo stato che portano.
+	 *
+	 * Ciascuna ammette una sola istruzione al secondo livello, e si consuma.
+	 *
+	 * @var array<int, array{stato: string, passaggio: bool}>
+	 */
+	private static $vagliate = array();
 
 	/**
 	 * Gli stati di bozza: la bozza vera e quella che WordPress crea aprendo la schermata di un atto nuovo.
@@ -104,6 +124,36 @@ final class ChiusuraPubblicazione {
 	const CAMPI_DI_WORDPRESS = array( 'post_modified', 'post_modified_gmt' );
 
 	/**
+	 * I metadati di servizio che WordPress scrive da se' anche su un atto fermo.
+	 *
+	 * Il blocco della schermata aperta e l'ultimo autore, e i due segni che la
+	 * pubblicazione lascia per gli avvisi ad altri siti. Nessuno dice niente
+	 * dell'atto.
+	 *
+	 * @var array<int, string>
+	 */
+	const CHIAVI_DI_SERVIZIO = array( '_edit_lock', '_edit_last', '_pingme', '_encloseme' );
+
+	/**
+	 * I promemoria di indirizzo che WordPress scrive quando cambiano data o nome di un contenuto pubblicato.
+	 *
+	 * Servono a inoltrare un indirizzo vecchio a quello nuovo. Un atto che si
+	 * pubblica non ha mai avuto un indirizzo pubblico, e un atto pubblicato non
+	 * cambia ne' data ne' nome: su un atto fermo si scartano, e alla
+	 * pubblicazione lo scarto non fa fallire il passaggio.
+	 *
+	 * @var array<int, string>
+	 */
+	const CHIAVI_SCARTATE = array( '_wp_old_date', '_wp_old_slug' );
+
+	/**
+	 * Gli stati in cui un atto puo' trovarsi senza essere passato dai passaggi dell'albo.
+	 *
+	 * @var array<int, string>
+	 */
+	const STATI_LIBERI = array( 'draft', 'auto-draft', 'trash' );
+
+	/**
 	 * Gli stati che nessuna richiesta di WordPress ottiene.
 	 *
 	 * Pubblicato si ottiene solo da `Passaggi`, dalla verifica. Programmato
@@ -117,41 +167,51 @@ final class ChiusuraPubblicazione {
 	}
 
 	/**
-	 * Concede a `Passaggi` la prossima scrittura di un atto in verifica.
+	 * Consuma il gettone del passaggio in corso, se la scrittura lo porta ed e' pulita.
 	 *
-	 * @internal Solo per `Passaggi`, che la revoca subito dopo la scrittura.
+	 * Una scrittura concessa cambia lo stato, e per la pubblicazione le date:
+	 * se porta con se' voci o dati, non e' quella chiesta da `Passaggi`.
 	 *
-	 * @param int                   $atto_id Atto.
-	 * @param array<string, string> $campi   Campi che la scrittura deve avere.
-	 */
-	public static function concedi( int $atto_id, array $campi ): void {
-		self::$concesso = array(
-			'id'    => $atto_id,
-			'campi' => $campi,
-		);
-	}
-
-	/**
-	 * Revoca il passaggio concesso.
-	 *
-	 * @internal Solo per `Passaggi`.
-	 */
-	public static function revoca(): void {
-		self::$concesso = null;
-	}
-
-	/**
-	 * Il passaggio concesso per questo atto, o nullo.
-	 *
-	 * @param int $atto_id Atto.
+	 * @param int                  $atto_id Atto.
+	 * @param array<string, mixed> $postarr Richiesta.
 	 * @return array<string, string>|null I campi concessi.
 	 */
-	private static function concesso( int $atto_id ): ?array {
-		if ( null === self::$concesso || $atto_id <= 0 || $atto_id !== self::$concesso['id'] ) {
+	private static function consuma_concessione( int $atto_id, array $postarr ): ?array {
+		$gettone = isset( $postarr[ Passaggi::CAMPO_GETTONE ] ) ? $postarr[ Passaggi::CAMPO_GETTONE ] : null;
+
+		if ( ! is_string( $gettone ) || self::porta_dati( $postarr ) ) {
 			return null;
 		}
 
-		return self::$concesso['campi'];
+		$campi = Passaggi::consuma( $atto_id, $gettone );
+
+		if ( null === $campi ) {
+			return null;
+		}
+
+		self::$scrittura = array(
+			'id'      => $atto_id,
+			'gettone' => $gettone,
+			'campi'   => $campi,
+		);
+
+		return $campi;
+	}
+
+	/**
+	 * La richiesta porta voci, dati, categorie o etichette.
+	 *
+	 * @param array<string, mixed> $postarr Richiesta.
+	 * @return bool
+	 */
+	private static function porta_dati( array $postarr ): bool {
+		foreach ( array( 'meta_input', 'tax_input', 'tags_input', 'post_category' ) as $chiave ) {
+			if ( ! empty( $postarr[ $chiave ] ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -163,6 +223,14 @@ final class ChiusuraPubblicazione {
 		add_action( 'wp_insert_post', array( self::class, 'da_wp_insert_post' ), 10, 2 );
 		add_filter( 'pre_trash_post', array( self::class, 'da_pre_trash_post' ), PHP_INT_MAX, 2 );
 		add_filter( 'pre_delete_post', array( self::class, 'da_pre_delete_post' ), PHP_INT_MAX, 2 );
+		add_filter( 'query', array( self::class, 'da_query' ), PHP_INT_MAX );
+		add_filter( 'add_post_metadata', array( self::class, 'da_add_post_metadata' ), PHP_INT_MAX, 4 );
+		add_filter( 'update_post_metadata', array( self::class, 'da_update_post_metadata' ), PHP_INT_MAX, 4 );
+		add_filter( 'delete_post_metadata', array( self::class, 'da_delete_post_metadata' ), PHP_INT_MAX, 5 );
+		add_filter( 'update_post_metadata_by_mid', array( self::class, 'da_update_post_metadata_by_mid' ), PHP_INT_MAX, 3 );
+		add_filter( 'delete_post_metadata_by_mid', array( self::class, 'da_delete_post_metadata_by_mid' ), PHP_INT_MAX, 2 );
+		add_action( 'add_term_relationship', array( self::class, 'da_voce_dell_atto' ), PHP_INT_MIN, 1 );
+		add_action( 'delete_term_relationships', array( self::class, 'da_voce_dell_atto' ), PHP_INT_MIN, 1 );
 	}
 
 	/**
@@ -252,6 +320,12 @@ final class ChiusuraPubblicazione {
 	 * @return array<string, string>
 	 */
 	private static function motivi_fermo( string $stato, array $postarr = array() ): array {
+		if ( ! in_array( $stato, self::STATI_FERMI, true ) ) {
+			return array(
+				'albo_passaggio_in_corso' => __( 'L\'atto e\' in mezzo a un passaggio dell\'albo e non si modifica finche\' il passaggio non e\' finito.', 'albo-pretorio-pa' ),
+			);
+		}
+
 		if ( self::PUBBLICATO === $stato ) {
 			return array(
 				'albo_atto_pubblicato' => __( 'L\'atto e\' pubblicato e non si modifica, non torna in bozza o in verifica e non si cancella, da nessuno: una correzione e\' un atto nuovo che rinvia a questo.', 'albo-pretorio-pa' ),
@@ -337,18 +411,24 @@ final class ChiusuraPubblicazione {
 	 * @return bool
 	 */
 	public static function da_wp_insert_post_empty_content( $vuoto, $postarr ) {
-		$atto_id = is_array( $postarr ) && isset( $postarr['ID'] ) ? (int) $postarr['ID'] : 0;
+		$postarr = is_array( $postarr ) ? $postarr : array();
+		$atto_id = isset( $postarr['ID'] ) ? (int) $postarr['ID'] : 0;
 		$stato   = self::stato_memorizzato( $atto_id );
 
-		if ( null === $stato || ! in_array( $stato, self::STATI_FERMI, true ) ) {
+		if ( null === $stato || ( ! in_array( $stato, self::STATI_FERMI, true ) && ! Passaggi::in_corso( $atto_id ) ) ) {
 			return $vuoto;
 		}
 
-		if ( self::IN_VERIFICA === $stato && null !== self::concesso( $atto_id ) ) {
+		/*
+		 * Durante un passaggio l'atto e' fermo qualunque sia il suo stato: dopo
+		 * la scrittura del rimando e' gia' in bozza, ma gli agganci che
+		 * WordPress chiama subito dopo non devono poterlo cambiare.
+		 */
+		if ( self::IN_VERIFICA === $stato && Passaggi::in_corso( $atto_id ) && null !== self::consuma_concessione( $atto_id, $postarr ) ) {
 			return $vuoto;
 		}
 
-		Rifiuti::deposita( $atto_id, self::motivi_fermo( $stato, is_array( $postarr ) ? $postarr : array() ) );
+		Rifiuti::deposita( $atto_id, self::motivi_fermo( $stato, $postarr ) );
 
 		return true;
 	}
@@ -440,9 +520,17 @@ final class ChiusuraPubblicazione {
 		 * quella cambia soltanto i campi concessi: stato e date li scrive questo
 		 * filtro, all'ultima priorita', e nessun altro aggancio li sposta.
 		 */
-		if ( null !== $partenza && in_array( $partenza, self::STATI_FERMI, true ) ) {
+		if ( null !== $partenza && ( in_array( $partenza, self::STATI_FERMI, true ) || Passaggi::in_corso( $atto_id ) ) ) {
 			$memorizzato = get_post( $atto_id, ARRAY_A );
-			$concesso    = self::IN_VERIFICA === $partenza ? self::concesso( $atto_id ) : null;
+			$concesso    = null;
+
+			// La concessione vale solo per la scrittura che ha consumato il gettone.
+			if ( null !== self::$scrittura && $atto_id === self::$scrittura['id'] && is_array( $postarr )
+				&& isset( $postarr[ Passaggi::CAMPO_GETTONE ] ) && self::$scrittura['gettone'] === $postarr[ Passaggi::CAMPO_GETTONE ] ) {
+				$concesso = self::$scrittura['campi'];
+			}
+
+			self::$scrittura = null;
 
 			foreach ( array_keys( $data ) as $campo ) {
 				if ( null !== $concesso && array_key_exists( $campo, $concesso ) ) {
@@ -454,10 +542,21 @@ final class ChiusuraPubblicazione {
 					continue;
 				}
 
+				/*
+				 * Il filtro riceve i valori con le barre di protezione e
+				 * WordPress le toglie subito dopo: quelli riletti dalla banca
+				 * dati le ricevono qui, o una barra rovesciata nel testo
+				 * verificato andrebbe persa.
+				 */
 				if ( is_array( $memorizzato ) && array_key_exists( $campo, $memorizzato ) ) {
-					$data[ $campo ] = $memorizzato[ $campo ];
+					$data[ $campo ] = wp_slash( $memorizzato[ $campo ] );
 				}
 			}
+
+			self::$vagliate[ $atto_id ] = array(
+				'stato'     => (string) $data['post_status'],
+				'passaggio' => null !== $concesso,
+			);
 
 			self::$pila[] = array(
 				'id'     => $atto_id,
@@ -505,11 +604,16 @@ final class ChiusuraPubblicazione {
 			'motivi' => $motivi,
 		);
 
-		if ( array() === $motivi ) {
-			return $data;
+		if ( array() !== $motivi ) {
+			$data['post_status'] = 'draft';
 		}
 
-		$data['post_status'] = 'draft';
+		if ( $atto_id > 0 ) {
+			self::$vagliate[ $atto_id ] = array(
+				'stato'     => (string) $data['post_status'],
+				'passaggio' => false,
+			);
+		}
 
 		return $data;
 	}
@@ -552,5 +656,354 @@ final class ChiusuraPubblicazione {
 		}
 
 		Rifiuti::deposita( $post_id, $voce['motivi'] );
+	}
+
+	/**
+	 * Il secondo livello: l'istruzione che sta per scrivere la riga di un atto.
+	 *
+	 * Riconosce la forma delle scritture di WordPress per identificativo,
+	 * `UPDATE` della tabella dei contenuti con la sola condizione sull'`ID`,
+	 * che e' quella di `wp_insert_post`, `wp_publish_post()` e
+	 * `set_post_type()`. Gira all'ultima priorita', cosi' da giudicare
+	 * l'istruzione che arriva davvero alla banca dati.
+	 *
+	 * @param mixed $istruzione Istruzione.
+	 * @return mixed
+	 */
+	public static function da_query( $istruzione ) {
+		global $wpdb;
+
+		if ( ! is_string( $istruzione ) ) {
+			return $istruzione;
+		}
+
+		$inizio = 'UPDATE `' . $wpdb->posts . '` SET ';
+
+		if ( 0 !== strpos( $istruzione, $inizio ) || 1 !== preg_match( '/ WHERE `ID` = (\d+)$/', $istruzione, $trovato ) ) {
+			return $istruzione;
+		}
+
+		$atto_id = (int) $trovato[1];
+		$insieme = substr( $istruzione, strlen( $inizio ), - strlen( $trovato[0] ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lettura della riga com'e' nella banca dati, senza la memoria di WordPress, per giudicare la scrittura che sta per arrivare.
+		$riga    = $wpdb->get_row(
+			$wpdb->prepare( "SELECT post_type, post_status, post_name FROM {$wpdb->posts} WHERE ID = %d", $atto_id ),
+			ARRAY_A
+		);
+
+		if ( ! is_array( $riga ) || self::riga_ammessa( $atto_id, $riga, self::valore_scritto( $insieme, 'post_status' ), self::valore_scritto( $insieme, 'post_type' ), $insieme ) ) {
+			return $istruzione;
+		}
+
+		self::ferma_richiesta( $atto_id );
+
+		return '';
+	}
+
+	/**
+	 * Il valore che l'istruzione scrive in una colonna, nullo se non la scrive.
+	 *
+	 * Dentro un valore tra apici ogni apice e' preceduto dalla barra di
+	 * protezione, quindi la sequenza cercata compare solo come campo vero. Se
+	 * compare piu' volte con valori diversi il risultato e' un valore che non
+	 * esiste, e la scrittura non corrisponde a niente di ammesso.
+	 *
+	 * @param string $insieme Parte `SET` dell'istruzione.
+	 * @param string $colonna Colonna.
+	 * @return string|null
+	 */
+	private static function valore_scritto( string $insieme, string $colonna ): ?string {
+		if ( false === strpos( $insieme, '`' . $colonna . '`' ) ) {
+			return null;
+		}
+
+		preg_match_all( '/(?:^|, )`' . $colonna . "` = '([a-z0-9_-]*)'/", $insieme, $trovati );
+
+		$valori = array_values( array_unique( $trovati[1] ) );
+
+		return 1 === count( $valori ) ? $valori[0] : '?';
+	}
+
+	/**
+	 * Se la scrittura della riga e' ammessa.
+	 *
+	 * @param int                   $atto_id Atto.
+	 * @param array<string, string> $riga    Tipo, stato e nome memorizzati.
+	 * @param string|null           $stato   Stato scritto, se l'istruzione lo scrive.
+	 * @param string|null           $tipo    Tipo scritto, se l'istruzione lo scrive.
+	 * @param string                $insieme Parte `SET` dell'istruzione.
+	 * @return bool
+	 */
+	private static function riga_ammessa( int $atto_id, array $riga, ?string $stato, ?string $tipo, string $insieme ): bool {
+		$nostro_prima = TIPO === $riga['post_type'];
+		$nostro_dopo  = TIPO === ( null === $tipo ? $riga['post_type'] : $tipo );
+
+		if ( ( ! $nostro_prima && ! $nostro_dopo ) || ! TipoAtto::tipo_nostro() ) {
+			return true;
+		}
+
+		if ( isset( self::$vagliate[ $atto_id ] ) ) {
+			$vagliata = self::$vagliate[ $atto_id ];
+
+			unset( self::$vagliate[ $atto_id ] );
+
+			if ( $vagliata['passaggio'] && ! Passaggi::in_corso( $atto_id ) ) {
+				return false;
+			}
+
+			return $nostro_prima && ( null === $stato || $vagliata['stato'] === $stato ) && ( null === $tipo || TIPO === $tipo );
+		}
+
+		// Il nome nell'indirizzo che WordPress genera subito dopo la pubblicazione.
+		if ( $nostro_prima && self::PUBBLICATO === $riga['post_status'] && '' === (string) $riga['post_name']
+			&& Passaggi::in_corso( $atto_id ) && 1 === preg_match( "/^`post_name` = '[a-z0-9%_-]*'$/", $insieme ) ) {
+			return true;
+		}
+
+		if ( Passaggi::in_corso( $atto_id ) || ( $nostro_prima && in_array( $riga['post_status'], self::STATI_FERMI, true ) ) ) {
+			return false;
+		}
+
+		return ! $nostro_dopo || in_array( null === $stato ? $riga['post_status'] : $stato, self::STATI_LIBERI, true );
+	}
+
+	/**
+	 * Ferma la richiesta: una scrittura che nessun passaggio dell'albo ha concesso.
+	 *
+	 * Rifiutare la sola istruzione non basta: la funzione che l'ha mandata
+	 * proseguirebbe annunciando un passaggio che non e' avvenuto. Dentro un
+	 * passaggio in corso invece la richiesta non si ferma: il rifiuto si
+	 * annota al passaggio, che annulla tutto nella sua transazione e risponde
+	 * con il suo errore, invece di lasciare la transazione aperta.
+	 *
+	 * @param int $atto_id Atto.
+	 */
+	private static function ferma_richiesta( int $atto_id ): void {
+		if ( Passaggi::annota_rifiuto() ) {
+			return;
+		}
+
+		wp_die(
+			esc_html(
+				sprintf(
+					/* translators: %d: identificativo dell'atto. */
+					__( 'Scrittura rifiutata: l\'atto %d dell\'albo e\' in verifica, pubblicato o in mezzo a un passaggio, oppure la scrittura lo porterebbe fuori dalla bozza senza i passaggi dell\'albo. Nessuna modifica e\' stata fatta.', 'albo-pretorio-pa' ),
+					$atto_id
+				)
+			),
+			esc_html__( 'Scrittura rifiutata', 'albo-pretorio-pa' ),
+			array( 'response' => 403 )
+		);
+	}
+
+	/**
+	 * Un metadato di un atto fermo non si aggiunge.
+	 *
+	 * @param mixed $esito   Risposta proposta, nulla per proseguire.
+	 * @param mixed $atto_id Contenuto.
+	 * @param mixed $chiave  Chiave.
+	 * @param mixed $valore  Valore.
+	 * @return mixed
+	 */
+	public static function da_add_post_metadata( $esito, $atto_id, $chiave, $valore ) {
+		return self::metadato_ammesso( (int) $atto_id, (string) $chiave, $valore, false ) ? $esito : self::metadato_rifiutato( (string) $chiave );
+	}
+
+	/**
+	 * Un metadato di un atto fermo non si cambia.
+	 *
+	 * @param mixed $esito   Risposta proposta, nulla per proseguire.
+	 * @param mixed $atto_id Contenuto.
+	 * @param mixed $chiave  Chiave.
+	 * @param mixed $valore  Valore.
+	 * @return mixed
+	 */
+	public static function da_update_post_metadata( $esito, $atto_id, $chiave, $valore ) {
+		return self::metadato_ammesso( (int) $atto_id, (string) $chiave, $valore, false ) ? $esito : self::metadato_rifiutato( (string) $chiave );
+	}
+
+	/**
+	 * Un metadato di un atto fermo non si toglie, nemmeno togliendolo a tutti i contenuti.
+	 *
+	 * @param mixed $esito   Risposta proposta, nulla per proseguire.
+	 * @param mixed $atto_id Contenuto.
+	 * @param mixed $chiave  Chiave.
+	 * @param mixed $valore  Valore.
+	 * @param mixed $tutti   Se la cancellazione vale per tutti i contenuti.
+	 * @return mixed
+	 */
+	public static function da_delete_post_metadata( $esito, $atto_id, $chiave, $valore, $tutti ) {
+		if ( ! $tutti ) {
+			return self::metadato_ammesso( (int) $atto_id, (string) $chiave, null, true ) ? $esito : self::metadato_rifiutato( (string) $chiave );
+		}
+
+		return self::chiave_libera( (string) $chiave ) ? $esito : self::metadato_rifiutato( (string) $chiave );
+	}
+
+	/**
+	 * Lo stesso, per la modifica di una riga indicata per numero.
+	 *
+	 * @param mixed $esito   Risposta proposta, nulla per proseguire.
+	 * @param mixed $meta_id Numero della riga.
+	 * @param mixed $valore  Valore.
+	 * @return mixed
+	 */
+	public static function da_update_post_metadata_by_mid( $esito, $meta_id, $valore ) {
+		$riga = self::riga_di_metadato( (int) $meta_id );
+
+		return null === $riga || self::metadato_ammesso( (int) $riga['post_id'], (string) $riga['meta_key'], $valore, false ) ? $esito : self::metadato_rifiutato( (string) $riga['meta_key'] );
+	}
+
+	/**
+	 * Lo stesso, per la cancellazione di una riga indicata per numero.
+	 *
+	 * @param mixed $esito   Risposta proposta, nulla per proseguire.
+	 * @param mixed $meta_id Numero della riga.
+	 * @return mixed
+	 */
+	public static function da_delete_post_metadata_by_mid( $esito, $meta_id ) {
+		$riga = self::riga_di_metadato( (int) $meta_id );
+
+		return null === $riga || self::metadato_ammesso( (int) $riga['post_id'], (string) $riga['meta_key'], null, true ) ? $esito : self::metadato_rifiutato( (string) $riga['meta_key'] );
+	}
+
+	/**
+	 * Il rifiuto di un metadato: la scrittura non avviene, e dentro un passaggio si annota.
+	 *
+	 * I promemoria di indirizzo di WordPress si scartano senza annotarli: li
+	 * scrive WordPress stesso quando la pubblicazione cambia la data.
+	 *
+	 * @param string $chiave Chiave.
+	 * @return false
+	 */
+	private static function metadato_rifiutato( string $chiave ): bool {
+		if ( ! in_array( $chiave, self::CHIAVI_SCARTATE, true ) ) {
+			Passaggi::annota_rifiuto();
+		}
+
+		return false;
+	}
+
+	/**
+	 * La riga di metadato indicata per numero.
+	 *
+	 * @param int $meta_id Numero della riga.
+	 * @return array<string, string>|null
+	 */
+	private static function riga_di_metadato( int $meta_id ): ?array {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lettura della riga com'e' nella banca dati, senza la memoria di WordPress, per giudicare la scrittura che sta per arrivare.
+		$riga = $wpdb->get_row(
+			$wpdb->prepare( "SELECT post_id, meta_key FROM {$wpdb->postmeta} WHERE meta_id = %d", $meta_id ),
+			ARRAY_A
+		);
+
+		return is_array( $riga ) ? $riga : null;
+	}
+
+	/**
+	 * Se la scrittura di un metadato di questo contenuto e' ammessa.
+	 *
+	 * Su un atto fermo passano solo i metadati di servizio. Durante una
+	 * pubblicazione passa anche la data di fine, e soltanto con il valore che
+	 * `Passaggi` ha calcolato.
+	 *
+	 * @param int    $atto_id       Contenuto.
+	 * @param string $chiave        Chiave.
+	 * @param mixed  $valore        Valore, per una scrittura.
+	 * @param bool   $cancellazione Se e' una cancellazione.
+	 * @return bool
+	 */
+	private static function metadato_ammesso( int $atto_id, string $chiave, $valore, bool $cancellazione ): bool {
+		if ( $atto_id <= 0 || in_array( $chiave, self::CHIAVI_DI_SERVIZIO, true ) || ! TipoAtto::tipo_nostro() ) {
+			return true;
+		}
+
+		$stato = self::stato_diretto( $atto_id );
+
+		if ( null === $stato ) {
+			return true;
+		}
+
+		if ( Passaggi::in_corso( $atto_id ) ) {
+			$fine = Passaggi::fine_attesa( $atto_id );
+
+			return null !== $fine && conformita_core_chiave_fine_pubblicazione() === $chiave && ( $cancellazione || $fine === $valore );
+		}
+
+		return ! in_array( $stato, self::STATI_FERMI, true );
+	}
+
+	/**
+	 * Se una chiave si puo' togliere a tutti i contenuti: nessun atto fermo la porta.
+	 *
+	 * @param string $chiave Chiave.
+	 * @return bool
+	 */
+	private static function chiave_libera( string $chiave ): bool {
+		global $wpdb;
+
+		if ( in_array( $chiave, self::CHIAVI_DI_SERVIZIO, true ) || ! TipoAtto::tipo_nostro() ) {
+			return true;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lettura della riga com'e' nella banca dati, senza la memoria di WordPress, per giudicare la scrittura che sta per arrivare.
+		$atti = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT m.post_id FROM {$wpdb->postmeta} m JOIN {$wpdb->posts} p ON p.ID = m.post_id WHERE m.meta_key = %s AND p.post_type = %s AND p.post_status IN ( %s, %s )",
+				$chiave,
+				TIPO,
+				self::IN_VERIFICA,
+				self::PUBBLICATO
+			)
+		);
+
+		if ( array() !== ( is_array( $atti ) ? $atti : array() ) ) {
+			return false;
+		}
+
+		foreach ( Passaggi::atti_in_corso() as $atto_id ) {
+			if ( metadata_exists( 'post', $atto_id, $chiave ) ) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Lo stato di un atto nostro letto dalla banca dati, o nullo se non e' un atto nostro.
+	 *
+	 * @param int $atto_id Contenuto.
+	 * @return string|null
+	 */
+	private static function stato_diretto( int $atto_id ): ?string {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lettura della riga com'e' nella banca dati, senza la memoria di WordPress, per giudicare la scrittura che sta per arrivare.
+		$riga = $wpdb->get_row(
+			$wpdb->prepare( "SELECT post_type, post_status FROM {$wpdb->posts} WHERE ID = %d", $atto_id ),
+			ARRAY_A
+		);
+
+		return is_array( $riga ) && TIPO === $riga['post_type'] ? (string) $riga['post_status'] : null;
+	}
+
+	/**
+	 * Le voci di un atto fermo non si assegnano e non si tolgono.
+	 *
+	 * WordPress annuncia l'assegnazione e la rimozione prima di farle, senza
+	 * un modo per rifiutarle: la richiesta si ferma.
+	 *
+	 * @param mixed $atto_id Contenuto.
+	 */
+	public static function da_voce_dell_atto( $atto_id ): void {
+		$atto_id = (int) $atto_id;
+		$stato   = TipoAtto::tipo_nostro() ? self::stato_diretto( $atto_id ) : null;
+
+		if ( null !== $stato && ( in_array( $stato, self::STATI_FERMI, true ) || Passaggi::in_corso( $atto_id ) ) ) {
+			self::ferma_richiesta( $atto_id );
+		}
 	}
 }
