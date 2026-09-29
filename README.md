@@ -82,8 +82,9 @@ fonte e criterio di verifica per ciascuno, è in [`docs/requisiti.md`](docs/requ
 confermare contro il regolamento dell'amministrazione. ALBO-22, che riguarda gli stati
 dell'atto e il flusso di pubblicazione, è stato deciso il 2026-09-21 e tre sue
 sotto-decisioni restano aperte, marcate come tali. La colonna Stato dice a che punto è
-ciascun requisito: oggi sono chiusi i quattro sui permessi e sul ruolo proprio, quelli della
-pubblicazione sono in corso, tutti gli altri sono da fare.
+ciascun requisito: oggi sono chiusi i quattro sui permessi e sul ruolo proprio e tre della
+pubblicazione (ALBO-01, ALBO-02, ALBO-11), altri cinque sono in corso, tutti gli altri sono
+da fare.
 
 Un'altra distinzione che il catalogo tiene ferma: dove c'è una fonte normativa, **la norma
 fissa il risultato obbligatorio, non il modo in cui il componente lo ottiene**. Le soluzioni

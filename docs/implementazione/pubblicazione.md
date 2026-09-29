@@ -250,7 +250,15 @@ meccanismo comune e con meccanismo comune incompatibile, tutte verdi in locale s
 con MariaDB. PHPCS pulito. In verifica continua, sul commit dbed178, verdi le stesse suite su
 MySQL 8 con WordPress 6.5 e PHP 8.1 e con l'ultima WordPress e PHP 8.3, più lo standard di
 codifica e la validazione di `publiccode.yml`: A-106, la transazione vera con la seconda
-connessione, gira quindi anche su MySQL.
+connessione, gira quindi anche su MySQL. Lo stesso esito sul commit e05d094, dopo le
+correzioni venute dai guasti. Le righe A-93..A-110 sono passate a "fatto" dopo quell'esito,
+e con loro le righe del catalogo "Requisito per requisito" che questa unità chiude: le due
+di ALBO-01 alla pubblicazione, quella di ALBO-02, le due di ALBO-08 sulla concorrenza e sulla
+richiesta manipolata, quella di ALBO-11, quelle di ALBO-22 su permesso di pubblicare, rimando,
+ritorno da pubblicato e stati intermedi, e le prime due di ALBO-27. Due righe di ALBO-22
+erano già chiuse da A-85 e A-91 del passaggio in verifica e non erano state segnate:
+creazione e risalvataggio della bozza, e verifica saltata. ALBO-01, ALBO-02 e ALBO-11 passano
+a "fatto".
 
 **La prova di non vacuità.** Quarantadue guasti introdotti uno per volta in una copia usa e
 getta, facendo girare ogni volta la suite intera.
