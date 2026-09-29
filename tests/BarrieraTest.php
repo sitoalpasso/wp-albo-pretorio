@@ -333,9 +333,11 @@ class BarrieraTest extends \WP_UnitTestCase {
 		$this->setExpectedIncorrectUsage( 'wp_insert_post' );
 
 		// Nel rimando, un aggancio che normalizza l'oggetto e la data con le interfacce di WordPress.
-		$id         = $this->atto_in_verifica();
-		$normalizza = static function ( $post_id ) use ( $id ) {
-			if ( $id === (int) $post_id ) {
+		$id           = $this->atto_in_verifica();
+		$normalizzato = false;
+		$normalizza   = static function ( $post_id ) use ( $id, &$normalizzato ) {
+			if ( $id === (int) $post_id && ! $normalizzato ) {
+				$normalizzato = true;
 				wp_update_post(
 					array(
 						'ID'         => $id,
@@ -346,7 +348,15 @@ class BarrieraTest extends \WP_UnitTestCase {
 			}
 		};
 
+		$istruite = array();
+		$osserva  = static function ( $istruzione ) use ( &$istruite ) {
+			$istruite[] = (string) $istruzione;
+
+			return $istruzione;
+		};
+
 		add_action( 'save_post', $normalizza );
+		add_filter( 'query', $osserva, PHP_INT_MAX - 1 );
 
 		try {
 			$esito = $this->come(
@@ -357,9 +367,18 @@ class BarrieraTest extends \WP_UnitTestCase {
 			);
 		} finally {
 			remove_action( 'save_post', $normalizza );
+			remove_filter( 'query', $osserva, PHP_INT_MAX - 1 );
 		}
 
+		global $wpdb;
+
+		$this->assertTrue( $normalizzato, 'Precondizione: l\'aggancio e\' partito.' );
 		$this->assertIsInt( $esito, 'Le scritture annidate rifiutate non fermano il rimando.' );
+		$this->assertCount(
+			1,
+			preg_grep( '/^UPDATE `' . preg_quote( $wpdb->posts, '/' ) . '` SET .* WHERE `ID` = ' . $id . '$/', $istruite ),
+			'La riga si scrive una volta sola: la scrittura annidata si ferma prima di cominciare.'
+		);
 		clean_post_cache( $id );
 		$this->assertSame( 'draft', get_post_status( $id ) );
 		$this->assertSame( 'Atto di prova', get_the_title( $id ), 'L\'oggetto e\' quello di prima.' );

@@ -47,7 +47,7 @@ finito si introducono guasti nel codice e si guarda quale prova li vede.
 | `includes/class-riquadro-passaggi.php` | il riquadro "Pubblicazione" nella schermata: elenco dei casi di ALBO-11, conferma, motivo del rimando, due pulsanti, gettone legato all'atto |
 | `includes/class-chiusura-pubblicazione.php` | i passaggi da "in verifica" nell'elenco chiuso, concessi solo a una richiesta dei due passaggi; il fermo esteso all'atto pubblicato |
 | `includes/funzioni-api.php` | `albo_pretorio_pubblica()` e `albo_pretorio_rimanda_in_bozza()` |
-| `albo-pretorio-pa.php` | interfaccia richiesta al meccanismo comune `1.4.0`; il permesso di leggere il registro dato ai ruoli dell'albo |
+| `albo-pretorio-pa.php` | interfaccia richiesta al meccanismo comune `1.4.0`, portata a `1.5.0` al secondo giro; il permesso di leggere il registro dato ai ruoli dell'albo |
 | `tests/PubblicazioneTest.php`, `tests/RimandoInBozzaTest.php` | le prove |
 | `docs/collaudo.md`, `docs/requisiti.md`, `docs/architettura.md`, `docs/dati.md` | righe nuove e stati |
 
@@ -166,6 +166,26 @@ giorno di inizio più la durata del tipo, e che l'atto non si modifichi più.
    un'amministrazione contasse il giorno della pubblicazione come primo, questa lettura
    terrebbe l'atto esposto un giorno in più; se un'amministrazione lo chiederà, il computo
    diventerà una scelta di configurazione.
+3. **Il numero quando chi chiama ha già aperto una transazione. Da decidere.** Di solito la
+   pubblicazione prende il numero e poi apre la sua transazione: se qualcosa va storto
+   dopo, la pubblicazione si annulla ma il numero resta preso, e nessun altro atto lo
+   riceverà mai. C'è però un caso raro: un altro programma, installato sul sito, apre lui
+   una transazione e dentro chiama la pubblicazione dell'albo. Lì il numero si prende
+   dentro la transazione di quel programma. Se poi quel programma annulla tutto,
+   spariscono insieme la pubblicazione e il numero: l'atto torna in verifica, nessuno lo ha
+   visto pubblicato con quel numero, e il numero va al prossimo atto pubblicato. Oggi il
+   plugin fa così, e A-115 lo prova. Le alternative sono due. La prima è prendere il numero
+   con una seconda connessione alla banca dati, tutta sua: il numero resterebbe preso anche
+   se quel programma annulla, ma servirebbe aprire una connessione in più a ogni
+   pubblicazione, e due connessioni che toccano le stesse tabelle possono aspettarsi a
+   vicenda e bloccarsi. La seconda è rifiutare la pubblicazione quando trova una
+   transazione già aperta: semplice, ma le prove di WordPress girano proprio così, e con
+   loro qualche programma di importazione, quindi l'albo smetterebbe di funzionare in quei
+   casi. La scelta consigliata è tenere il comportamento di oggi: il numero sparisce solo
+   insieme alla pubblicazione, mai da solo, quindi non esiste un atto pubblicato che
+   condivida il numero con un altro. Il rischio che resta è che quel programma abbia già
+   mandato fuori il numero, per esempio in una mail, prima di annullare: è il limite
+   dichiarato "la transazione copre la banca dati, non il resto".
 
 ## Com'è andata davvero
 
@@ -314,3 +334,174 @@ verifica, né provava a cambiarlo. A-108 ora lo fa. Guardando perché, è venuto
 l'eccezione del guardiano per il nome era inutile: quando l'atto non ha un nome, WordPress lo
 genera comunque **dopo** aver scritto la riga, con una scrittura sua che il guardiano non
 vede. L'eccezione è stata tolta, e A-108 controlla anche che un atto senza nome lo riceva.
+
+## Il secondo giro: la revisione indipendente
+
+Una revisione indipendente del codice, fatta sul commit dc305e9, ha trovato nove difetti, uno
+critico e sei gravi. Due hanno una causa comune che valeva per quasi tutti: **il guardiano
+proteggeva soltanto la porta principale di WordPress**, e **il permesso dato alla
+pubblicazione non era legato a quella sola scrittura**. Si sono corretti alla radice, non uno
+per uno.
+
+**1. Le funzioni di WordPress che non passano dalla porta principale.** `wp_publish_post()`,
+che usa anche la pubblicazione programmata, e `set_post_type()` scrivono la riga da sé: un
+altro programma poteva pubblicare un atto in verifica senza conferma, numero né data di fine,
+o toglierlo dal tipo dell'albo. Ora sotto WordPress c'è una **barriera**: guarda ogni
+istruzione che sta per scrivere la riga di un contenuto e, se è un atto e la scrittura non è
+passata dal guardiano, la ferma quando l'atto è in verifica, pubblicato o in mezzo a un
+passaggio, o quando la scrittura lo porterebbe fuori dalla bozza. Riconosce la forma delle
+istruzioni che WordPress stesso costruisce. A-111.
+
+**2. I dati collegati.** Il guardiano fermava la riga, ma i dati dell'atto (data di adozione,
+documento principale, data di fine) si potevano cambiare con le funzioni apposite di
+WordPress, e le voci degli elenchi con le loro. Ora su un atto in verifica o pubblicato le
+funzioni dei dati sono rifiutate, anche quelle che indicano la riga per numero e quella che
+toglie un dato a tutti i contenuti; assegnare o togliere una voce ferma la richiesta. Passano
+solo i dati di servizio di WordPress, come il blocco della schermata aperta. A-101 prepara
+ora i suoi atti incompleti scavalcando anche la barriera, dichiaratamente. A-112.
+
+**3. Il permesso della pubblicazione.** Il permesso era un metodo pubblico che chiunque
+poteva chiamare, e restava valido per tutta la durata della chiamata: una scrittura annidata
+dello stesso atto poteva usarlo. Ora non c'è più nessun modo pubblico di ottenerlo. Il
+passaggio crea un **gettone** casuale, lo mette dentro la sua scrittura, e il guardiano lo
+consuma alla prima domanda: una seconda scrittura, anche dello stesso atto e anche con il
+gettone copiato, lo trova già usato. Una scrittura che porta con sé dati o voci non lo ottiene
+comunque. A-108.
+
+**4. Le barre rovesciate.** Rimettendo nella riga i valori verificati, il guardiano li
+passava a WordPress senza le barre di protezione che WordPress toglie subito dopo: un oggetto
+con una barra rovesciata ne perdeva una a ogni passaggio. Corretto, e A-114 lo prova con
+barre, apici e virgolette.
+
+**5. Il numero dentro la transazione di chi chiama.** È una scelta, non un errore di codice:
+vedi il punto aperto 3. A-115 prova il comportamento di oggi.
+
+**6. L'atto durante il passaggio.** Nel rimando, appena l'atto è in bozza, un aggancio di un
+altro programma poteva cambiarlo, e nessuno controllava alla fine. Ora l'atto è **fermo per
+tutto il passaggio**, qualunque sia il suo stato in quel momento, e prima di chiudere la
+transazione riga, dati, voci e documenti si rileggono dalla banca dati e si confrontano con la
+fotografia di partenza: se è cambiato qualcosa che il passaggio non doveva cambiare, si annulla
+tutto. Dentro un passaggio le scritture annidate si trattano in due modi. Quelle che si possono
+rifiutare prima che comincino, dalla porta principale o sui dati, si rifiutano e il passaggio
+prosegue con l'atto com'era: un programma che "sistema" i contenuti negli agganci non impedisce
+la pubblicazione. Quelle che non si possono fermare senza effetti a valle, la riga scritta
+dritta o una voce, fanno annullare il passaggio per intero, con il suo motivo. A-113.
+
+**7. La voce della data di fine.** Il meccanismo comune scrive nel registro anche la modifica
+della data di fine, e se non ci riesce lo annota senza fermarsi. Ora la pubblicazione controlla
+anche quella voce: se la data cambia ce ne deve essere almeno una in più, se era già giusta
+nessuna. A-105 la guasta.
+
+**8. Le prove che non avrebbero visto i difetti.** A-108 non provava una scrittura annidata
+dello stesso atto; A-105 non guastava la voce della data di fine. Aggiunte.
+
+**9. Il cambio dell'ora.** A-98 non attraversava nessun cambio dell'ora, e contava i giorni
+dividendo i secondi per quelli di un giorno, che in un giorno di 23 o 25 ore sbaglia. Ora
+attraversa l'ultima domenica di ottobre e quella di marzo, e conta giorni di calendario.
+
+### Limiti dichiarati, aggiornati
+
+- **Resta fuori un'istruzione scritta a mano** da un altro programma in una forma diversa da
+  quelle che WordPress costruisce: la barriera non la riconosce. Chi scrive nella banca dati
+  a mano scavalca qualunque plugin.
+- **Il limite del passaggio in verifica sulle voci e i dati è chiuso**: ora sono protetti
+  dalle funzioni di WordPress.
+- **Fuori da un passaggio, una scrittura della riga o delle voci rifiutata ferma la
+  richiesta** con un avviso, perché la funzione che l'ha mandata proseguirebbe annunciando un
+  passaggio che non è avvenuto. Per chi usa la schermata non cambia niente: la schermata passa
+  dalla porta principale, che rifiuta con il suo motivo senza fermare nulla.
+- Restano i limiti del primo giro: la transazione copre la banca dati e non il resto, la voce
+  di modifica in più alla pubblicazione, il numero a cavallo d'anno, ALBO-27 con la durata
+  propria, il vincolo di rilascio della pagina pubblica.
+
+### Le prove, al secondo giro
+
+Centotrentasette prove nella suite principale, cinque righe nuove (A-111..A-115, in
+`BarrieraTest.php`) e tre righe allargate (A-98, A-105, A-108), più le due suite separate:
+tutte verdi in locale, PHPCS pulito. Le prove girano ora sul componente comune alla punta del
+suo ramo principale (4446961, interfaccia `1.5.0`, con registro, blocco dei motori di ricerca e
+criterio unico per la chiave della fine), e l'albo richiede la `1.5.0` all'avvio. In verifica
+continua, sul commit f2426e9, verdi le due combinazioni di WordPress e PHP su MySQL, lo
+standard di codifica e la validazione di `publiccode.yml`.
+
+**La prova di non vacuità, rifatta.** Sessantasette guasti, uno per volta, in una copia usa e
+getta, facendo girare ogni volta la suite intera: i trentanove del primo giro ancora
+applicabili (tre non lo erano più, perché la concessione e l'eccezione del nome non esistono
+più) e ventotto nuovi, sulla barriera, sui dati, sul gettone e sul controllo finale. Al primo
+passaggio ne sopravvivevano dodici: otto indicavano prove mancanti, e le prove sono state
+allargate (A-108 con le tre scritture annidate, A-111 con lo stato riscritto nell'istruzione e
+la pubblicazione interrotta, A-113 con la fine riscritta, il dato e la voce scritti a mano e il
+conteggio delle scritture del rimando). Uno faceva girare una prova senza fine, perché
+l'aggancio di prova si richiamava da sé: ora gira una volta sola. Restano quattro guasti che
+non fanno cadere niente, e il motivo è scritto accanto: ciascuno toglie una difesa che ne ha
+un'altra davanti o dietro, e il comportamento visibile resta quello giusto.
+
+| Guasto introdotto | Prove cadute |
+|---|---|
+| Chiavi sconosciute accettate | A-102 |
+| Permesso di pubblicare non controllato | A-93, A-104 |
+| Conferma presa alla larga | A-95 |
+| Conferma ignorata | A-95, A-104 |
+| Data futura fornita accettata | A-96, A-104 |
+| Data futura della bozza accettata | A-96 |
+| Giorno di inizio contato | A-93, A-95, A-96, A-97, A-98, A-99, A-100, A-101 |
+| Orologio fissato ignorato | A-96, A-98, A-102 |
+| Dati non ricontrollati | A-101 |
+| Fine non calcolabile senza il suo motivo | A-100 |
+| Tabelle non controllate | A-107 |
+| Registro fuori dal controllo | A-107 |
+| Annullamento del punto tolto | A-105, A-113 |
+| Annullamento della transazione tolto | A-106 |
+| Sempre punto di ripristino | A-106 |
+| Memoria non svuotata dopo l'annullamento | A-105, A-106 |
+| Stato non riletto | nessuna: lo stato e le date li riconfronta comunque il controllo finale prima di chiudere, che annulla con il suo motivo |
+| Voce automatica non controllata | A-105 |
+| Voce dell'albo non controllata | A-105, A-106 |
+| Rimando senza motivo | A-94, A-104 |
+| Rimando senza permesso | A-94 |
+| Campi concessi non imposti | A-93, A-95, A-96, A-97, A-98, A-99, A-100, A-101, A-102, A-103, A-104, A-105, A-106, A-107, A-108, A-109, A-111, A-112, A-113, A-114, A-115 |
+| Campi estranei liberi nel passaggio concesso | A-108 |
+| Pubblicato non fermo | A-103, A-111, A-112 |
+| Programmazione senza il suo motivo | A-96 |
+| Cestino di un pubblicato permesso | nessuna: il cestino passa da una scrittura dello stato e da un dato, e li fermano la porta principale e i filtri dei dati |
+| Conferma di un altro atto accettata | A-95 |
+| Gettone del riquadro non controllato | A-109 |
+| Gettone del riquadro non legato all'atto | A-109 |
+| Data della schermata ignorata | A-96 |
+| Riquadro registrato per chi redige | A-109 |
+| Riquadro stampato senza permesso | A-109 |
+| Un caso di rivelazione indiretta tolto | A-95 |
+| Conferma già spuntata | A-95 |
+| Registro non dato a chi pubblica | A-110 |
+| Registro dato a chi redige | A-21, A-110 |
+| Barriera sotto WordPress tolta | A-111, A-113 |
+| Barriera: atto portato fuori dalla bozza | A-111 |
+| Barriera: atto fermo scrivibile | A-111, A-113 |
+| Barriera: tipo in entrata ignorato | A-111 |
+| Barriera: scrittura vagliata riusabile | A-113 |
+| Barriera: stato vagliato non confrontato | A-111 |
+| Barriera: passaggio vagliato fuori dal passaggio | A-111 |
+| Rifiuto nel passaggio non annotato | A-105, A-113 |
+| Rifiuto annotato non controllato | A-105, A-113 |
+| Metadati liberi | A-93, A-95, A-96, A-97, A-98, A-99, A-100, A-101, A-102, A-103, A-104, A-105, A-106, A-107, A-108, A-109, A-111, A-112, A-113, A-114, A-115 |
+| Metadati per numero liberi | A-112 |
+| Cancellazione a tutti libera | A-112 |
+| Voci libere | A-112, A-113 |
+| Fine qualunque nel passaggio | A-113 |
+| Dati liberi nel passaggio | A-93, A-95, A-96, A-97, A-98, A-99, A-100, A-101, A-102, A-103, A-104, A-105, A-106, A-107, A-108, A-109, A-111, A-112, A-113, A-114, A-115 |
+| Gettone riutilizzabile | A-108 |
+| Gettone non confrontato | A-108 |
+| Richiesta con dati ammessa | A-108 |
+| Concessione non legata alla scrittura | nessuna: una scrittura dello stesso atto senza il gettone si ferma alla porta principale e non arriva dove il legame si controlla |
+| Concessione tenuta aperta | nessuna: per la stessa ragione, una seconda scrittura non arriva dove la concessione rimasta aperta varrebbe |
+| Atto libero nel passaggio | A-113 |
+| Valori senza barre | A-114 |
+| Controllo finale tolto | A-105, A-113 |
+| Controllo finale del rimando tolto | A-113 |
+| Controllo finale: dati non confrontati | A-113 |
+| Controllo finale: voci non confrontate | A-113 |
+| Voce della fine non controllata | A-105 |
+| Data fornita effettiva | A-97 |
+| Fine fornita effettiva | A-99 |
+| Fine dall'orologio vero | A-93, A-95, A-96, A-97, A-98, A-99, A-100, A-101 |
+| Fine in secondi invece che in giorni | A-98 |
