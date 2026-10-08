@@ -27,6 +27,12 @@
  * i documenti si rileggono dalla banca dati e si confrontano con quelli di
  * partenza: un cambiamento che non e' quello del passaggio annulla tutto.
  *
+ * **Un passaggio alla volta.** Mentre un passaggio e' in corso nessun altro
+ * comincia, nemmeno su un altro atto e nemmeno da un aggancio che usa le
+ * funzioni dell'albo: il secondo aprirebbe la sua transazione dentro la
+ * prima, chiudendola, o sostituirebbe il suo punto di ripristino, e
+ * l'annullamento del primo non tornerebbe piu' indietro.
+ *
  * **Che cosa la transazione non copre.** Il numero di repertorio, quando la
  * transazione e' la nostra; quando la connessione e' gia' dentro quella di un
  * altro, il numero segue quella. E quello che altri componenti fanno negli
@@ -226,8 +232,13 @@ final class Passaggi {
 	 * @param array<string, mixed> $richiesta `conferma`, obbligatoria e vera; `data_inizio` e `data_fine`, mai effettive.
 	 * @return array{anno: int, numero: int, inizio: string, fine: string, voce: int}|\WP_Error
 	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
+	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, con l'eccezione come causa.
 	 */
 	public static function pubblica( int $atto_id, array $richiesta = array() ) {
+		if ( array() !== self::$in_corso ) {
+			return self::errore_annidato();
+		}
+
 		$sconosciute = array_diff( array_map( 'strval', array_keys( $richiesta ) ), self::CHIAVI_RICHIESTA );
 
 		if ( array() !== $sconosciute ) {
@@ -334,6 +345,7 @@ final class Passaggi {
 	 * @param int                           $prima      Voci della pubblicazione prima.
 	 * @return array{anno: int, numero: int, inizio: string, fine: string, voce: int}|\WP_Error
 	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
+	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, con l'eccezione come causa.
 	 */
 	private static function pubblica_dentro( int $atto_id, array $campi, string $fine, array $numero, array $partenza, int $prima_fine, bool $cambia, int $prima ) {
 		$apertura = self::apri();
@@ -380,9 +392,9 @@ final class Passaggi {
 			}
 
 			if ( is_wp_error( $esito ) ) {
-				self::annulla( $apertura, $atto_id );
+				$annullato = self::annulla( $apertura, $atto_id );
 
-				return $esito;
+				return is_wp_error( $annullato ) ? $annullato : $esito;
 			}
 
 			$chiusura = self::chiudi( $apertura, $atto_id );
@@ -391,7 +403,11 @@ final class Passaggi {
 				return $chiusura;
 			}
 		} catch ( \Throwable $errore ) {
-			self::annulla( $apertura, $atto_id );
+			$annullato = self::annulla( $apertura, $atto_id );
+
+			if ( is_wp_error( $annullato ) ) {
+				throw new \RuntimeException( esc_html( $annullato->get_error_message() ), 0, $errore ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- gia' sfuggito.
+			}
 
 			throw $errore;
 		}
@@ -412,8 +428,13 @@ final class Passaggi {
 	 * @param mixed $motivo  Motivo del rimando, testo non vuoto.
 	 * @return int|\WP_Error Numero della voce di registro con il motivo, oppure errore.
 	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
+	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, con l'eccezione come causa.
 	 */
 	public static function rimanda_in_bozza( int $atto_id, $motivo ) {
+		if ( array() !== self::$in_corso ) {
+			return self::errore_annidato();
+		}
+
 		$atto = self::atto_in_verifica( $atto_id, __( 'L\'atto non si rimanda in bozza: si rimanda soltanto un atto in verifica.', 'albo-pretorio-pa' ) );
 
 		if ( is_wp_error( $atto ) ) {
@@ -470,6 +491,7 @@ final class Passaggi {
 	 * @param int                   $prima    Voci del cambio di stato prima.
 	 * @return int|\WP_Error
 	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
+	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, con l'eccezione come causa.
 	 */
 	private static function rimanda_dentro( int $atto_id, array $campi, string $motivo, array $partenza, int $prima ) {
 		$apertura = self::apri();
@@ -502,9 +524,9 @@ final class Passaggi {
 			}
 
 			if ( is_wp_error( $esito ) ) {
-				self::annulla( $apertura, $atto_id );
+				$annullato = self::annulla( $apertura, $atto_id );
 
-				return $esito;
+				return is_wp_error( $annullato ) ? $annullato : $esito;
 			}
 
 			$chiusura = self::chiudi( $apertura, $atto_id );
@@ -513,7 +535,11 @@ final class Passaggi {
 				return $chiusura;
 			}
 		} catch ( \Throwable $errore ) {
-			self::annulla( $apertura, $atto_id );
+			$annullato = self::annulla( $apertura, $atto_id );
+
+			if ( is_wp_error( $annullato ) ) {
+				throw new \RuntimeException( esc_html( $annullato->get_error_message() ), 0, $errore ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- gia' sfuggito.
+			}
 
 			throw $errore;
 		}
@@ -781,7 +807,11 @@ final class Passaggi {
 			: $wpdb->query( 'RELEASE SAVEPOINT albo_pretorio_passaggio' );
 
 		if ( false === $esito ) {
-			self::annulla( $modo, $atto_id );
+			$annullato = self::annulla( $modo, $atto_id );
+
+			if ( is_wp_error( $annullato ) ) {
+				return $annullato;
+			}
 
 			return new \WP_Error(
 				'albo_transazione_non_chiusa',
@@ -795,53 +825,74 @@ final class Passaggi {
 	/**
 	 * Annulla le scritture e svuota la memoria che le ricorda.
 	 *
-	 * Dopo l'annullamento la banca dati e' tornata indietro, la copia in
-	 * memoria dell'atto no: senza svuotarla, il resto della richiesta
-	 * leggerebbe un atto pubblicato che non esiste.
+	 * Dopo l'annullamento la banca dati e' tornata indietro su tutto quello
+	 * che e' stato scritto nella transazione, dall'albo e da chiunque altro
+	 * negli agganci di WordPress: l'atto, le sue voci, i loro conteggi, e
+	 * qualunque altro contenuto un aggancio abbia toccato. La memoria non sa
+	 * che cosa: l'unica di cui fidarsi e' una memoria vuota, e si svuota per
+	 * intero. Succede solo quando un passaggio fallisce. Lo svuotamento
+	 * intero non dipende dalla sospensione che chi chiama puo' aver messo.
+	 *
+	 * Se la banca dati non conferma l'annullamento, le scritture potrebbero
+	 * esserci ancora: lo si dice, invece di dichiarare annullato un passaggio
+	 * che forse non lo e'.
 	 *
 	 * @param string $modo    Come e' stata aperta.
 	 * @param int    $atto_id Atto.
+	 * @return true|\WP_Error
 	 */
-	private static function annulla( string $modo, int $atto_id ): void {
+	private static function annulla( string $modo, int $atto_id ) {
 		global $wpdb;
 
-		if ( 'transazione' === $modo ) {
-			$wpdb->query( 'ROLLBACK' );
-		} else {
-			$wpdb->query( 'ROLLBACK TO SAVEPOINT albo_pretorio_passaggio' );
+		$esito = 'transazione' === $modo
+			? $wpdb->query( 'ROLLBACK' )
+			: $wpdb->query( 'ROLLBACK TO SAVEPOINT albo_pretorio_passaggio' );
+
+		wp_cache_flush();
+
+		if ( false === $esito ) {
+			return new \WP_Error(
+				'albo_annullamento_non_riuscito',
+				sprintf(
+					/* translators: %d: identificativo dell'atto. */
+					__( 'La banca dati non ha confermato l\'annullamento delle scritture del passaggio sull\'atto %d: lo stato dell\'atto non e\' garantito e va controllato prima di qualunque altra operazione.', 'albo-pretorio-pa' ),
+					$atto_id
+				)
+			);
 		}
 
-		self::svuota_memoria( $atto_id );
+		return true;
 	}
 
 	/**
-	 * Svuota la memoria di WordPress sull'atto: riga, dati, voci e i conteggi delle sue voci.
+	 * Il rifiuto di un passaggio cominciato mentre un altro e' in corso.
+	 *
+	 * @return \WP_Error
+	 */
+	private static function errore_annidato(): \WP_Error {
+		return new \WP_Error(
+			'albo_passaggio_annidato',
+			__( 'L\'atto resta com\'era: e\' gia\' in corso una pubblicazione o un rimando in bozza, e un altro passaggio comincia solo quando quello e\' finito.', 'albo-pretorio-pa' )
+		);
+	}
+
+	/**
+	 * Svuota la memoria di WordPress sull'atto, prima di leggerlo: riga, dati e voci.
 	 *
 	 * **Anche quando chi chiama ha sospeso lo svuotamento.** WordPress lascia
 	 * sospendere lo svuotamento della memoria per tutta la richiesta, e in
-	 * quel caso `clean_post_cache()` non fa niente: un aggancio che lo ha
-	 * sospeso e ha letto l'atto durante il passaggio lascerebbe in memoria uno
-	 * stato che l'annullamento ha tolto dalla banca dati. Qui la sospensione si
-	 * toglie per il tempo dello svuotamento, e si rimette com'era.
+	 * quel caso `clean_post_cache()` non fa niente: il passaggio leggerebbe lo
+	 * stato che la memoria ricorda invece di quello della banca dati. Qui la
+	 * sospensione si toglie per il tempo dello svuotamento, e si rimette
+	 * com'era.
 	 *
 	 * @param int $atto_id Atto.
 	 */
 	private static function svuota_memoria( int $atto_id ): void {
-		global $wpdb;
-
 		$sospesa = wp_suspend_cache_invalidation( false );
 
 		try {
 			clean_post_cache( $atto_id );
-
-			$voci = $wpdb->get_col(
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- le voci com'e' nella banca dati, per svuotarne la memoria.
-				$wpdb->prepare( "SELECT term_taxonomy_id FROM {$wpdb->term_relationships} WHERE object_id = %d", $atto_id )
-			);
-
-			if ( is_array( $voci ) && array() !== $voci ) {
-				clean_term_cache( array_map( 'intval', $voci ), '', false );
-			}
 		} finally {
 			wp_suspend_cache_invalidation( (bool) $sospesa );
 		}
