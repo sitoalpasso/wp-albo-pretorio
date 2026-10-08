@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano, e aggiornata a lavor
 com'è andata davvero. È la seconda parte del flusso di pubblicazione deciso con ALBO-22: la
 prima, il passaggio in verifica, è in [`passaggio-in-verifica.md`](passaggio-in-verifica.md).
 
-**Stato: costruita.** Righe di collaudo A-93..A-118. Com'è andata davvero è in fondo, con le
+**Stato: costruita.** Righe di collaudo A-93..A-119. Com'è andata davvero è in fondo, con le
 differenze dal piano, i limiti dichiarati e la prova dei guasti.
 
 ## In tre paragrafi
@@ -709,3 +709,69 @@ per volta, con la suite intera: cadono tutti.
 | Eccezione dopo la chiusura non detta | A-118 |
 | Svuotamento finale tolto dopo la pubblicazione | A-105, A-118 |
 | Svuotamento finale tolto dopo il rimando | A-105, A-118 |
+
+## Il settimo giro: la sesta revisione
+
+La sesta revisione, sul commit 369b9a8, ha trovato tre difetti, uno grave e due medi.
+
+**1. Due richieste sullo stesso atto.** I controlli del passaggio leggono l'atto prima della
+transazione, e niente impediva a un'altra richiesta, per esempio un'altra persona che lavora
+sullo stesso atto, di rimandarlo in bozza, cambiarne l'oggetto o pubblicarlo proprio in quel
+momento. Il passaggio proseguiva sulla copia letta prima: poteva pubblicare un atto ormai in
+bozza, rimettendogli il testo vecchio e cancellando in silenzio la modifica dell'altra persona.
+Ora la fotografia dell'atto si prende quando i controlli lo leggono; appena aperta la
+transazione **la riga dell'atto si blocca** per le altre richieste fino alla chiusura, e l'atto
+si rilegge dalla banca dati: se non è identico a quello controllato, il passaggio non comincia
+e lo dice. Poi la memoria dell'atto si toglie, senza far girare agganci, così che il passaggio
+scriva a partire da quello che la banca dati contiene. Il numero, se già preso, resta
+dell'atto, come deciso. A-119, con una seconda connessione e la scrittura automatica accesa.
+
+**2. L'eccezione dopo la chiusura e la memoria.** Se un aggancio solleva un'eccezione mentre la
+memoria si svuota dopo la chiusura, lo svuotamento resta a metà: con lo svuotamento sospeso da
+chi chiama, il conteggio delle voci restava quello di prima. Ora, prima di rilanciare
+l'eccezione, la memoria si svuota per intero. A-118, con la memoria sospesa.
+
+**3. La prova dell'avviso.** A-118 controllava l'eccezione, la sua causa e il numero dell'atto,
+ma non che l'avviso dicesse davvero che il passaggio è confermato. Ora lo controlla.
+
+### Limiti dichiarati, al settimo giro
+
+- **Il blocco vale fra passaggi e scritture che passano dalla banca dati.** Una richiesta che
+  ha già letto l'atto e lo scrive dopo la chiusura del passaggio trova il guardiano, come per
+  ogni atto pubblicato.
+- **Dentro la transazione di chi chiama** (punto aperto 3) la rilettura sotto il blocco vede
+  la banca dati come la vede quella transazione.
+- **Fra la lettura dell'atto e la fotografia dei controlli** passano due letture consecutive;
+  una modifica di un'altra richiesta proprio lì la trova comunque il controllo finale, che
+  annulla.
+
+### Le prove, al settimo giro
+
+Centoquarantuno prove nella suite principale, una riga nuova (A-119) e A-118 allargata, più le
+due suite separate, tutte verdi in locale; PHPCS pulito. In verifica continua, sul commit
+ccbd75c che porta codice e prove, verdi le due combinazioni di WordPress e PHP su MySQL, lo
+standard di codifica e la validazione di `publiccode.yml`; A-119 è passata a "fatto" dopo
+quell'esito. A-106 usa ora lo stesso aiuto di A-119 per la scrittura automatica accesa.
+
+**La prova di non vacuità.** Nove guasti nuovi, uno per volta, con la suite intera. Al primo
+passaggio ne sopravvivevano due. Il blocco tolto non faceva cadere niente perché la prova
+cercava il blocco solo dopo la prima scrittura del passaggio, che blocca la riga da sé: ora lo
+cerca subito dopo l'apertura, prima di ogni scrittura, e il guasto cade. Resta la memoria non
+tolta sotto il blocco: serve solo nella finestra fra la lettura dell'atto e la fotografia, dove
+il controllo finale annulla comunque.
+
+| Guasto introdotto | Prove cadute |
+|---|---|
+| Blocco della riga tolto | A-119 |
+| Atto non riletto sotto il blocco | A-119 |
+| Solo lo stato riletto sotto il blocco | A-119 |
+| Memoria non tolta sotto il blocco | nessuna: vedi sopra, la copre il controllo finale |
+| Blocco tolto dalla pubblicazione | A-119 |
+| Blocco tolto dal rimando | A-119 |
+| Rifiuto del blocco senza annullamento | A-119 |
+| Svuotamento di recupero tolto | A-118 |
+| Avviso dopo la chiusura senza la conferma | A-118 |
+
+Riprovati sul codice nuovo anche i guasti del quarto e del sesto giro: cadono tutti. Quello
+dell'eccezione dopo la chiusura non detta non si applica più nella forma del sesto giro; lo
+sostituisce l'avviso senza la conferma, qui sopra.
