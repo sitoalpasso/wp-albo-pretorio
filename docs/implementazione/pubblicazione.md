@@ -637,3 +637,36 @@ svuotamento intero, e i primi due vivono ora nella memoria all'inizio del passag
 | Memoria non svuotata prima di leggere l'atto | A-105 |
 | Annullamento della transazione tolto | A-106 |
 | Annullamento del punto di ripristino tolto | A-105, A-113, A-116, A-117 |
+
+## Il quinto giro: la quarta revisione
+
+La quarta revisione, sul commit cce7fd7, ha trovato un solo difetto, medio, con la stessa causa
+di quelli sulla memoria dei giri precedenti: lo svuotamento ordinario di WordPress viene
+saltato quando chi chiama lo ha sospeso.
+
+**La memoria dopo un passaggio riuscito.** Un importatore che sospende lo svuotamento della
+memoria e poi rimanda in bozza un atto: il passaggio all'inizio svuota la memoria dell'atto e
+lo rilegge, quindi la memoria torna a ricordarlo in verifica; poi la scrittura riesce, ma lo
+svuotamento di WordPress e' sospeso, e chi legge dopo trova ancora l'atto in verifica mentre
+la banca dati lo ha in bozza. Lo stesso per una pubblicazione, e per il conteggio delle voci
+dell'atto. Ora il passaggio svuota la memoria dell'atto, compresi i conteggi delle sue voci, in
+**tutte e tre le uscite**: all'inizio, prima di leggere; alla fine di un passaggio riuscito;
+per intero dopo un annullamento. Ogni volta togliendo la sospensione per il tempo necessario e
+rimettendola com'era. A-105 prova il rimando e la pubblicazione riusciti con lo svuotamento
+sospeso fin dall'ingresso, confrontando stato, data di fine e conteggio della voce con la banca
+dati prima di qualunque fotografia.
+
+### Le prove, al quinto giro
+
+Centotrentanove prove nella suite principale, nessuna riga nuova, A-105 allargata, piu' le due
+suite separate, tutte verdi in locale; PHPCS pulito. Sei guasti sulla memoria del passaggio,
+uno per volta, con la suite intera: cadono tutti.
+
+| Guasto introdotto | Prove cadute |
+|---|---|
+| Memoria non svuotata alla fine della pubblicazione | A-105 |
+| Memoria non svuotata alla fine del rimando | A-105 |
+| Conteggi delle voci non svuotati | A-105 |
+| Memoria svuotata solo se lo svuotamento non e' sospeso | A-105 |
+| Sospensione di chi chiama non rimessa | A-105 |
+| Memoria non svuotata prima di leggere l'atto | A-105 |
