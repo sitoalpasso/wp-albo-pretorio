@@ -421,9 +421,12 @@ class BarrieraTest extends \WP_UnitTestCase {
 		$this->assertIsArray( $esito, 'La riscrittura rifiutata non ferma la pubblicazione.' );
 		$this->assertSame( $esito['fine'], conformita_core_fine_pubblicazione( $id ), 'La fine e\' quella calcolata.' );
 
+		// Una voce che nessun atto ha, creata fuori da ogni passaggio.
+		$collegio = $this->voce( TASSONOMIA_ORGANO, 'Collegio dei revisori' );
+
 		// Le scritture che non si fermano prima di cominciare: la riga scritta dritta e le voci.
 		$casi = array(
-			'rimando, riga scritta dritta'       => array(
+			'rimando, riga scritta dritta'         => array(
 				'rimando',
 				'save_post',
 				static function ( int $atto_id ) {
@@ -432,7 +435,7 @@ class BarrieraTest extends \WP_UnitTestCase {
 					$wpdb->update( $wpdb->posts, array( 'post_title' => 'Oggetto cambiato' ), array( 'ID' => $atto_id ) );
 				},
 			),
-			'rimando, voce tolta'                => array(
+			'rimando, voce tolta'                  => array(
 				'rimando',
 				'save_post',
 				static function ( int $atto_id ) {
@@ -446,7 +449,7 @@ class BarrieraTest extends \WP_UnitTestCase {
 					}
 				},
 			),
-			'pubblicazione, voce tolta'          => array(
+			'pubblicazione, voce tolta'            => array(
 				'pubblicazione',
 				'save_post',
 				static function ( int $atto_id ) {
@@ -471,7 +474,16 @@ class BarrieraTest extends \WP_UnitTestCase {
 					$wpdb->update( $wpdb->posts, array( 'post_title' => 'Oggetto cambiato' ), array( 'ID' => $atto_id ) );
 				},
 			),
-			'pubblicazione, stato alla fine'     => array(
+			// Una voce che l'atto non aveva: dopo l'annullamento non e' fra le sue, e la memoria del conteggio va svuotata lo stesso.
+			'pubblicazione, voce aggiunta e letta' => array(
+				'pubblicazione',
+				'save_post',
+				static function ( int $atto_id ) use ( $collegio ) {
+					wp_set_object_terms( $atto_id, array( $collegio ), TASSONOMIA_ORGANO, true );
+					get_term( $collegio );
+				},
+			),
+			'pubblicazione, stato alla fine'       => array(
 				'pubblicazione',
 				'fine',
 				static function ( int $atto_id ) {
@@ -486,7 +498,7 @@ class BarrieraTest extends \WP_UnitTestCase {
 				'altro',
 			),
 			// Scritte a mano, sotto ogni filtro: le vede soltanto il controllo finale.
-			'pubblicazione, dato scritto a mano' => array(
+			'pubblicazione, dato scritto a mano'   => array(
 				'pubblicazione',
 				'save_post',
 				static function ( int $atto_id ) {
@@ -505,7 +517,7 @@ class BarrieraTest extends \WP_UnitTestCase {
 				},
 				'albo_atto_cambiato_nel_passaggio',
 			),
-			'rimando, voce scritta a mano'       => array(
+			'rimando, voce scritta a mano'         => array(
 				'rimando',
 				'save_post',
 				function ( int $atto_id ) {
@@ -574,16 +586,20 @@ class BarrieraTest extends \WP_UnitTestCase {
 			$this->assertTrue( $fatta, $caso . ': precondizione, la scrittura annidata e\' partita.' );
 			$this->assertSame( array( $atteso ), $esito->get_error_codes(), $caso . ': il passaggio e\' annullato.' );
 
-			// Prima di qualunque fotografia, che svuota la memoria da se': il conteggio della voce e' quello della banca dati.
+			// Prima di qualunque fotografia, che svuota la memoria da se': il conteggio di ogni voce e' quello della banca dati.
 			global $wpdb;
 
-			$organo = get_term( $this->voci['organo'] );
+			$conteggi = $wpdb->get_results( $wpdb->prepare( "SELECT term_id, count FROM {$wpdb->term_taxonomy} WHERE taxonomy = %s", TASSONOMIA_ORGANO ) );
 
-			$this->assertSame(
-				(int) $wpdb->get_var( $wpdb->prepare( "SELECT count FROM {$wpdb->term_taxonomy} WHERE term_taxonomy_id = %d", $organo->term_taxonomy_id ) ),
-				(int) $organo->count,
-				$caso . ': la memoria non ricorda un conteggio annullato.'
-			);
+			$this->assertNotEmpty( $conteggi, $caso . ': precondizione, le voci dell\'organo ci sono.' );
+
+			foreach ( $conteggi as $riga ) {
+				$this->assertSame(
+					(int) $riga->count,
+					(int) get_term( (int) $riga->term_id )->count,
+					$caso . ': la memoria non ricorda un conteggio annullato, voce ' . $riga->term_id . '.'
+				);
+			}
 
 			$dopo = $this->fotografia( $id );
 

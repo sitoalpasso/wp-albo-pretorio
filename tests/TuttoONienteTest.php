@@ -1,6 +1,6 @@
 <?php
 /**
- * Tutto o niente, guardiano, riquadro e permesso del registro: righe A-105..A-110.
+ * Tutto o niente, guardiano, riquadro e permesso del registro: righe A-105..A-110, A-116, A-117.
  *
  * I guasti si forzano da fuori, come li produrrebbe la banca dati o un altro
  * componente: un'istruzione che fallisce, un metadato che non si scrive. Il
@@ -274,6 +274,35 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 		$this->assertTrue( $sospesa, 'La sospensione di chi l\'aveva chiesta e\' rimessa com\'era.' );
 		$this->assertSame( 'pending', $in_banca );
 		$this->assertSame( array( 'pending', '' ), $in_memoria, 'La memoria dice quello che dice la banca dati: in verifica, senza data di fine.' );
+
+		/*
+		 * Prima di cominciare, con lo svuotamento sospeso: la memoria ricorda
+		 * l'atto in verifica, la banca dati lo ha gia' in bozza. Il passaggio
+		 * legge la banca dati, e la sospensione resta quella di chi l'ha messa.
+		 */
+		$id = $this->atto_in_verifica();
+
+		$this->assertSame( 'pending', get_post_status( $id ), 'Precondizione: la memoria ricorda l\'atto in verifica.' );
+
+		wp_suspend_cache_invalidation( true );
+
+		try {
+			$this->scavalca_barriera(
+				static function () use ( $wpdb, $id ) {
+					$wpdb->update( $wpdb->posts, array( 'post_status' => 'draft' ), array( 'ID' => $id ) );
+				}
+			);
+
+			$ricordato = get_post_status( $id );
+			$esito     = $this->pubblica_da_codice( $id, $this->pubblicatore );
+			$sospesa   = wp_suspend_cache_invalidation( false );
+		} finally {
+			wp_suspend_cache_invalidation( false );
+		}
+
+		$this->assertSame( 'pending', $ricordato, 'Precondizione: con lo svuotamento sospeso la memoria ricorda ancora l\'atto in verifica.' );
+		$this->assertSame( array( 'albo_atto_non_in_verifica' ), $esito->get_error_codes(), 'Il passaggio legge lo stato della banca dati, non quello ricordato.' );
+		$this->assertTrue( $sospesa, 'La sospensione di chi l\'aveva chiesta e\' rimessa com\'era.' );
 	}
 
 	/**
@@ -802,5 +831,171 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 		}
 
 		$this->assertFalse( get_role( 'author' )->has_cap( $permesso ), 'Un ruolo senza i permessi dell\'albo non lo riceve.' );
+	}
+
+	/**
+	 * Conta le istruzioni che aprono una transazione o un punto di ripristino.
+	 *
+	 * @param int $aperture Contatore.
+	 * @return callable Il filtro da agganciare a `query`.
+	 */
+	private function conta_aperture( int &$aperture ): callable {
+		return static function ( $istruzione ) use ( &$aperture ) {
+			if ( 1 === preg_match( '/^\s*(START TRANSACTION|SAVEPOINT )/i', (string) $istruzione ) ) {
+				++$aperture;
+			}
+
+			return $istruzione;
+		};
+	}
+
+	/**
+	 * A-116: un passaggio non comincia mentre un altro e' in corso, nemmeno dalle funzioni dell'albo.
+	 */
+	public function test_a116_un_passaggio_alla_volta(): void {
+		$casi = array(
+			'pubblicazione, dentro la pubblicazione di un altro atto' => array( 'pubblicazione', 'pubblica', 'altro' ),
+			'pubblicazione, dentro il rimando di un altro atto' => array( 'pubblicazione', 'rimanda', 'altro' ),
+			'pubblicazione, dentro la pubblicazione dello stesso atto' => array( 'pubblicazione', 'pubblica', 'stesso' ),
+			'rimando, dentro la pubblicazione di un altro atto' => array( 'rimando', 'pubblica', 'altro' ),
+		);
+
+		foreach ( $casi as $caso => list( $esterno, $interno, $bersaglio ) ) {
+			$id          = $this->atto_in_verifica();
+			$altro       = $this->atto_in_verifica();
+			$prima       = $this->fotografia( $id );
+			$prima_altro = $this->fotografia( $altro );
+			$obiettivo   = 'stesso' === $bersaglio ? $id : $altro;
+			$risposta    = null;
+			$aperture    = 0;
+
+			$aggancio = static function ( $post_id ) use ( $id, $obiettivo, $interno, &$risposta ) {
+				if ( $id !== (int) $post_id || null !== $risposta ) {
+					return;
+				}
+
+				$risposta = 'pubblica' === $interno
+					? albo_pretorio_pubblica( $obiettivo, array( 'conferma' => true ) )
+					: albo_pretorio_rimanda_in_bozza( $obiettivo, 'Da completare.' );
+			};
+
+			// Il passaggio di fuori fallisce dopo quello di dentro: il suo annullamento deve tornare indietro davvero.
+			if ( 'pubblicazione' === $esterno ) {
+				$this->guasta_istruzioni( array( 'INSERT INTO `' . $this->tabella_registro() . '`', ':' . Passaggi::AZIONE_CONFERMA . ':' . $id . "'" ) );
+			} else {
+				$this->guasta_istruzioni( array( 'INSERT INTO `' . $this->tabella_registro() . '`', "'" . Passaggi::AZIONE_RIMANDO . "'" ) );
+			}
+
+			$conta = $this->conta_aperture( $aperture );
+
+			add_action( 'save_post', $aggancio, 10, 1 );
+			add_filter( 'query', $conta, 1 );
+
+			try {
+				$esito = 'pubblicazione' === $esterno
+					? $this->pubblica_da_codice( $id, $this->pubblicatore )
+					: $this->come(
+						$this->pubblicatore,
+						static function () use ( $id ) {
+							return albo_pretorio_rimanda_in_bozza( $id, 'Da completare.' );
+						}
+					);
+			} finally {
+				remove_action( 'save_post', $aggancio, 10 );
+				remove_filter( 'query', $conta, 1 );
+				$this->ripara();
+			}
+
+			$this->assertWPError( $risposta, $caso . ': precondizione, il passaggio di dentro e\' partito.' );
+			$this->assertSame( array( 'albo_passaggio_annidato' ), $risposta->get_error_codes(), $caso . ': il passaggio di dentro e\' rifiutato prima di cominciare.' );
+			$this->assertSame( 1, $aperture, $caso . ': una sola apertura, quella del passaggio di fuori.' );
+			$this->assertSame( array( 'albo_voce_non_scritta' ), $esito->get_error_codes(), $caso . ': il passaggio di fuori fallisce con il suo motivo, e il suo annullamento riesce.' );
+
+			$dopo = $this->fotografia( $id );
+
+			unset( $prima['numero'], $dopo['numero'] );
+
+			$this->assertSame( $prima, $dopo, $caso . ': l\'atto e\' in verifica e identico, registro compreso.' );
+			$this->assertSame( $prima_altro, $this->fotografia( $altro ), $caso . ': l\'altro atto e\' in verifica e identico, senza numero.' );
+
+			// Finito il passaggio di fuori, quello che era stato rifiutato comincia.
+			$this->assertIsArray( $this->pubblica_da_codice( $altro, $this->pubblicatore ), $caso . ': controllo positivo, l\'altro atto si pubblica dopo.' );
+		}
+	}
+
+	/**
+	 * A-117: un annullamento che la banca dati non conferma non si dichiara riuscito.
+	 */
+	public function test_a117_annullamento_non_confermato(): void {
+		global $wpdb;
+
+		$casi = array(
+			'pubblicazione: voce della conferma, poi annullamento' => array( 'pubblicazione', "'" . Passaggi::AZIONE_CONFERMA . "'", 'errore' ),
+			'pubblicazione: chiusura, poi annullamento'  => array( 'pubblicazione', 'RELEASE SAVEPOINT albo_pretorio_passaggio', 'errore' ),
+			'pubblicazione: eccezione, poi annullamento' => array( 'pubblicazione', null, 'eccezione' ),
+			'rimando: voce del motivo, poi annullamento' => array( 'rimando', "'" . Passaggi::AZIONE_RIMANDO . "'", 'errore' ),
+			'rimando: eccezione, poi annullamento'       => array( 'rimando', null, 'eccezione' ),
+		);
+
+		foreach ( $casi as $caso => list( $passaggio, $pezzo, $come ) ) {
+			$id     = $this->atto_in_verifica();
+			$lancia = static function ( $post_id ) use ( $id ) {
+				if ( $id === (int) $post_id ) {
+					throw new \DomainException( 'Guasto di un altro componente.' );
+				}
+			};
+
+			$wpdb->suppress_errors( true );
+
+			$this->guasto = static function ( string $istruzione ) use ( $pezzo ): bool {
+				if ( 0 === strpos( $istruzione, 'ROLLBACK' ) ) {
+					return true;
+				}
+
+				return null !== $pezzo && false !== strpos( $istruzione, $pezzo );
+			};
+
+			if ( 'eccezione' === $come ) {
+				add_action( 'save_post', $lancia, 10, 1 );
+			}
+
+			$esito    = null;
+			$lanciata = null;
+
+			try {
+				$esito = 'pubblicazione' === $passaggio
+					? $this->pubblica_da_codice( $id, $this->pubblicatore )
+					: $this->come(
+						$this->pubblicatore,
+						static function () use ( $id ) {
+							return albo_pretorio_rimanda_in_bozza( $id, 'Da completare.' );
+						}
+					);
+			} catch ( \RuntimeException $errore ) {
+				$lanciata = $errore;
+			} finally {
+				remove_action( 'save_post', $lancia, 10 );
+				$this->ripara();
+			}
+
+			if ( 'eccezione' === $come ) {
+				$this->assertInstanceOf( \RuntimeException::class, $lanciata, $caso . ': l\'eccezione dice che l\'annullamento non e\' riuscito.' );
+				$this->assertNotInstanceOf( \DomainException::class, $lanciata, $caso . ': non e\' l\'eccezione di partenza.' );
+				$this->assertInstanceOf( \DomainException::class, $lanciata->getPrevious(), $caso . ': l\'eccezione di partenza e\' la causa.' );
+				$this->assertStringContainsString( (string) $id, $lanciata->getMessage(), $caso . ': il messaggio nomina l\'atto.' );
+			} else {
+				$this->assertNull( $lanciata, $caso . ': nessuna eccezione.' );
+				$this->assertSame( array( 'albo_annullamento_non_riuscito' ), $esito->get_error_codes(), $caso . ': l\'annullamento non confermato non si dichiara riuscito.' );
+				$this->assertStringContainsString( (string) $id, $esito->get_error_message(), $caso . ': il messaggio nomina l\'atto.' );
+			}
+
+			// Il messaggio dice il vero: le scritture sono ancora li', finche' non si annulla davvero.
+			$this->assertSame( 'pubblicazione' === $passaggio ? 'publish' : 'draft', (string) $wpdb->get_var( $wpdb->prepare( "SELECT post_status FROM {$wpdb->posts} WHERE ID = %d", $id ) ), $caso . ': precondizione, le scritture ci sono ancora.' );
+
+			$wpdb->query( 'ROLLBACK TO SAVEPOINT albo_pretorio_passaggio' );
+			wp_cache_flush();
+
+			$this->assertSame( 'pending', get_post_status( $id ), $caso . ': annullato a mano, l\'atto torna in verifica.' );
+		}
 	}
 }
