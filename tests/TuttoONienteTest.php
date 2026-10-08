@@ -1,6 +1,6 @@
 <?php
 /**
- * Tutto o niente, guardiano, riquadro e permesso del registro: righe A-105..A-110, A-116..A-118.
+ * Tutto o niente, guardiano, riquadro e permesso del registro: righe A-105..A-110, A-116..A-119.
  *
  * I guasti si forzano da fuori, come li produrrebbe la banca dati o un altro
  * componente: un'istruzione che fallisce, un metadato che non si scrive. Il
@@ -363,7 +363,58 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 
 		$id        = $this->atto_in_verifica();
 		$visto     = array();
-		$contenuti = array_merge(
+		$contenuti = $this->contenuti_dell_atto( $id );
+
+		$this->con_scrittura_automatica(
+			$contenuti,
+			function ( \wpdb $altra ) use ( $wpdb, $id, &$visto ) {
+				$legge = static function () use ( $altra, $wpdb, $id ): string {
+					return (string) $altra->get_var( $altra->prepare( "SELECT post_status FROM {$wpdb->posts} WHERE ID = %d", $id ) );
+				};
+
+				$this->assertSame( '1', (string) $wpdb->get_var( 'SELECT @@autocommit' ), 'Precondizione: scrittura automatica accesa.' );
+				$this->assertSame( 'pending', $legge(), 'Precondizione: la seconda connessione vede l\'atto in verifica.' );
+
+				// Guasto sulla voce dell'albo, l'ultima scrittura: la seconda connessione guarda proprio li'.
+				$this->guasto = function ( string $istruzione ) use ( $legge, &$visto ): bool {
+					if ( false !== strpos( $istruzione, "'" . Passaggi::AZIONE_CONFERMA . "'" ) && 0 === strpos( $istruzione, 'INSERT' ) ) {
+						$visto['durante'] = $legge();
+
+						return true;
+					}
+
+					return false;
+				};
+
+				$wpdb->suppress_errors( true );
+
+				$esito = $this->pubblica_da_codice( $id, $this->pubblicatore );
+
+				$this->ripara();
+
+				$this->assertWPError( $esito );
+				$this->assertSame( 'pending', $visto['durante'] ?? null, 'Mentre la transazione e\' aperta, fuori non si vede niente.' );
+				$this->assertSame( 'pending', $legge(), 'Dopo l\'annullamento l\'atto e\' in verifica anche per gli altri.' );
+				$this->assertSame( 'pending', get_post_status( $id ) );
+				$this->assertSame( '', conformita_core_fine_pubblicazione( $id ) );
+				$this->assertSame( array(), $this->voci_di( $id, array( 'azione' => 'pubblicazione' ) ) );
+
+				// Senza guasto: confermata, e visibile agli altri.
+				$this->assertIsArray( $this->pubblica_da_codice( $id, $this->pubblicatore ) );
+				$this->assertSame( 'publish', $legge(), 'La pubblicazione confermata la vede anche la seconda connessione.' );
+				$this->assertSame( '1', (string) $wpdb->get_var( 'SELECT @@autocommit' ), 'La scrittura automatica resta com\'era.' );
+			}
+		);
+	}
+
+	/**
+	 * L'atto e i suoi allegati.
+	 *
+	 * @param int $id Atto.
+	 * @return array<int, int>
+	 */
+	private function contenuti_dell_atto( int $id ): array {
+		return array_merge(
 			array( $id ),
 			array_map(
 				'intval',
@@ -376,55 +427,30 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 				)
 			)
 		);
+	}
 
-		/*
-		 * La seconda connessione vede solo cio' che e' confermato: prima della
-		 * conferma qui sotto, le opzioni come erano prima di questa prova. Si
-		 * rimettono cosi' alla fine, perche' la conferma rende definitivo anche
-		 * l'assetto, e le prove seguenti non devono trovarlo.
-		 */
+	/**
+	 * Fa girare una prova con la scrittura automatica della banca dati accesa, come su un sito.
+	 *
+	 * La seconda connessione vede solo cio' che e' confermato: prima della
+	 * conferma qui sotto, le opzioni come erano prima della prova. Si
+	 * rimettono cosi' alla fine, perche' la conferma rende definitivo anche
+	 * l'assetto, e le prove seguenti non devono trovarlo.
+	 *
+	 * @param array<int, int> $contenuti Contenuti che la prova rende definitivi, per toglierne registro e repertorio.
+	 * @param callable        $prova     Riceve la seconda connessione.
+	 */
+	private function con_scrittura_automatica( array $contenuti, callable $prova ): void {
+		global $wpdb;
+
 		$altra     = new \wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
 		$originali = $altra->get_results( "SELECT option_name, option_value, autoload FROM {$wpdb->options}", OBJECT_K );
 
 		self::commit_transaction();
 		$wpdb->query( 'SET autocommit = 1' );
 
-		$legge = static function () use ( $altra, $wpdb, $id ): string {
-			return (string) $altra->get_var( $altra->prepare( "SELECT post_status FROM {$wpdb->posts} WHERE ID = %d", $id ) );
-		};
-
 		try {
-			$this->assertSame( '1', (string) $wpdb->get_var( 'SELECT @@autocommit' ), 'Precondizione: scrittura automatica accesa.' );
-			$this->assertSame( 'pending', $legge(), 'Precondizione: la seconda connessione vede l\'atto in verifica.' );
-
-			// Guasto sulla voce dell'albo, l'ultima scrittura: la seconda connessione guarda proprio li'.
-			$this->guasto = function ( string $istruzione ) use ( $legge, &$visto ): bool {
-				if ( false !== strpos( $istruzione, "'" . Passaggi::AZIONE_CONFERMA . "'" ) && 0 === strpos( $istruzione, 'INSERT' ) ) {
-					$visto['durante'] = $legge();
-
-					return true;
-				}
-
-				return false;
-			};
-
-			$wpdb->suppress_errors( true );
-
-			$esito = $this->pubblica_da_codice( $id, $this->pubblicatore );
-
-			$this->ripara();
-
-			$this->assertWPError( $esito );
-			$this->assertSame( 'pending', $visto['durante'] ?? null, 'Mentre la transazione e\' aperta, fuori non si vede niente.' );
-			$this->assertSame( 'pending', $legge(), 'Dopo l\'annullamento l\'atto e\' in verifica anche per gli altri.' );
-			$this->assertSame( 'pending', get_post_status( $id ) );
-			$this->assertSame( '', conformita_core_fine_pubblicazione( $id ) );
-			$this->assertSame( array(), $this->voci_di( $id, array( 'azione' => 'pubblicazione' ) ) );
-
-			// Senza guasto: confermata, e visibile agli altri.
-			$this->assertIsArray( $this->pubblica_da_codice( $id, $this->pubblicatore ) );
-			$this->assertSame( 'publish', $legge(), 'La pubblicazione confermata la vede anche la seconda connessione.' );
-			$this->assertSame( '1', (string) $wpdb->get_var( 'SELECT @@autocommit' ), 'La scrittura automatica resta com\'era.' );
+			$prova( $altra );
 		} finally {
 			$this->ripara();
 
@@ -1058,9 +1084,13 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 			'pubblicazione, fine tolta dopo la chiusura' => array( 'pubblicazione', 'togli' ),
 			'pubblicazione, eccezione dopo la chiusura'  => array( 'pubblicazione', 'lancia' ),
 			'rimando, eccezione dopo la chiusura'        => array( 'rimando', 'lancia' ),
+			'pubblicazione, eccezione dopo la chiusura con la memoria sospesa' => array( 'pubblicazione', 'lancia', true ),
 		);
 
-		foreach ( $casi as $caso => list( $passaggio, $azione ) ) {
+		foreach ( $casi as $caso => $voce_del_caso ) {
+			list( $passaggio, $azione ) = $voce_del_caso;
+
+			$sospesa      = ! empty( $voce_del_caso[2] );
 			$id           = $this->atto_in_verifica();
 			$chiuso       = false;
 			$annullamenti = 0;
@@ -1099,6 +1129,12 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 			add_filter( 'query', $spia, 1 );
 			add_action( 'clean_post_cache', $aggancio, 10, 1 );
 
+			if ( $sospesa ) {
+				// Come un importatore: memoria sospesa, conteggio della voce gia' letto.
+				get_term( $this->voci['organo'] );
+				wp_suspend_cache_invalidation( true );
+			}
+
 			try {
 				$esito = 'pubblicazione' === $passaggio
 					? $this->pubblica_da_codice( $id, $this->pubblicatore )
@@ -1114,6 +1150,19 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 				remove_filter( 'query', $spia, 1 );
 				remove_action( 'clean_post_cache', $aggancio, 10 );
 			}
+
+			// Prima di qualunque fotografia: memoria e banca dati, conteggio della voce compreso.
+			$in_memoria = array( get_post_status( $id ), (int) get_term( $this->voci['organo'] )->count );
+
+			wp_suspend_cache_invalidation( false );
+
+			$organo   = get_term( $this->voci['organo'] );
+			$in_banca = array(
+				(string) $wpdb->get_var( $wpdb->prepare( "SELECT post_status FROM {$wpdb->posts} WHERE ID = %d", $id ) ),
+				(int) $wpdb->get_var( $wpdb->prepare( "SELECT count FROM {$wpdb->term_taxonomy} WHERE term_taxonomy_id = %d", $organo->term_taxonomy_id ) ),
+			);
+
+			$this->assertSame( $in_banca, $in_memoria, $caso . ': la memoria dice quello che dice la banca dati.' );
 
 			$this->assertTrue( $chiuso, $caso . ': precondizione, il passaggio si e\' chiuso.' );
 			$this->assertNotNull( $tolta, $caso . ': precondizione, l\'aggancio e\' partito dopo la chiusura.' );
@@ -1139,8 +1188,151 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 				$this->assertInstanceOf( \RuntimeException::class, $lanciata, $caso . ': l\'eccezione arriva a chi chiama.' );
 				$this->assertInstanceOf( \DomainException::class, $lanciata->getPrevious(), $caso . ': con l\'eccezione del componente come causa.' );
 				$this->assertStringContainsString( (string) $id, $lanciata->getMessage(), $caso . ': il messaggio nomina l\'atto.' );
+				$this->assertStringContainsString( 'confermato nella banca dati', $lanciata->getMessage(), $caso . ': e dice che il passaggio e\' confermato.' );
 				$this->assertNull( $esito, $caso . ': nessun esito restituito.' );
 			}
 		}
+	}
+
+	/**
+	 * Una connessione alla banca dati senza i filtri di WordPress: un'altra richiesta, che scrive davvero.
+	 *
+	 * @return \mysqli
+	 */
+	private function connessione_diretta(): \mysqli {
+		global $wpdb;
+
+		list( $host, $porta, $presa ) = $wpdb->parse_db_host( DB_HOST );
+
+		$connessione = new \mysqli( (string) $host, DB_USER, DB_PASSWORD, DB_NAME, $porta ? (int) $porta : 3306, $presa ? (string) $presa : null ); // phpcs:ignore WordPress.DB.RestrictedClasses.mysql__mysqli -- prova: un'altra richiesta, senza i filtri di WordPress.
+		$connessione->query( 'SET SESSION innodb_lock_wait_timeout = 1' );
+
+		return $connessione;
+	}
+
+	/**
+	 * A-119: due richieste sullo stesso atto, una dopo i controlli dell'altra.
+	 *
+	 * Un'altra richiesta cambia l'atto fra i controlli di un passaggio e la
+	 * sua transazione; poi, a transazione aperta, prova a scriverlo.
+	 */
+	public function test_a119_due_richieste_sullo_stesso_atto(): void {
+		global $wpdb;
+
+		$casi = array(
+			'pubblicazione, l\'altra lo ha rimandato e ha cambiato l\'oggetto' => array(
+				'pubblicazione',
+				array(
+					'post_status' => 'draft',
+					'post_title'  => 'Oggetto dell\'altra richiesta',
+				),
+			),
+			'pubblicazione, l\'altra ha cambiato l\'oggetto e lo ha rimesso in verifica' => array( 'pubblicazione', array( 'post_title' => 'Oggetto dell\'altra richiesta' ) ),
+			'rimando, l\'altra lo ha pubblicato' => array( 'rimando', array( 'post_status' => 'publish' ) ),
+		);
+		$ids  = array();
+
+		foreach ( $casi as $caso => $voce ) {
+			$ids[ $caso ] = $this->atto_in_verifica();
+		}
+
+		$controllo = $this->atto_in_verifica();
+		$contenuti = array();
+
+		foreach ( array_merge( array_values( $ids ), array( $controllo ) ) as $id ) {
+			$contenuti = array_merge( $contenuti, $this->contenuti_dell_atto( $id ) );
+		}
+
+		$this->con_scrittura_automatica(
+			$contenuti,
+			function () use ( $wpdb, $casi, $ids, $controllo ) {
+				$diretta = $this->connessione_diretta();
+
+				try {
+					foreach ( $casi as $caso => list( $passaggio, $campi ) ) {
+						$id     = $ids[ $caso ];
+						$fatta  = false;
+						$prima  = (string) $wpdb->get_var( $wpdb->prepare( "SELECT post_title FROM {$wpdb->posts} WHERE ID = %d", $id ) );
+						$attesi = $campi + array(
+							'post_status' => 'pending',
+							'post_title'  => $prima,
+						);
+
+						// L'altra richiesta scrive e conferma proprio mentre questa sta per aprire la transazione.
+						$spia = static function ( $istruzione ) use ( $diretta, $wpdb, $id, $campi, &$fatta ) {
+							if ( ! $fatta && 0 === strpos( ltrim( (string) $istruzione ), 'START TRANSACTION' ) ) {
+								$fatta   = true;
+								$insiemi = array();
+
+								foreach ( $campi as $colonna => $valore ) {
+									$insiemi[] = $colonna . " = '" . $diretta->real_escape_string( $valore ) . "'";
+								}
+
+								$diretta->query( "UPDATE {$wpdb->posts} SET " . implode( ', ', $insiemi ) . ' WHERE ID = ' . (int) $id );
+							}
+
+							return $istruzione;
+						};
+
+						add_filter( 'query', $spia, 1 );
+
+						try {
+							$esito = 'pubblicazione' === $passaggio
+								? $this->pubblica_da_codice( $id, $this->pubblicatore )
+								: $this->come(
+									$this->pubblicatore,
+									static function () use ( $id ) {
+										return albo_pretorio_rimanda_in_bozza( $id, 'Da completare.' );
+									}
+								);
+						} finally {
+							remove_filter( 'query', $spia, 1 );
+						}
+
+						$riga = $diretta->query( "SELECT post_status, post_title FROM {$wpdb->posts} WHERE ID = " . (int) $id )->fetch_assoc();
+
+						$this->assertTrue( $fatta, $caso . ': precondizione, l\'altra richiesta ha scritto.' );
+						$this->assertWPError( $esito, $caso . ': il passaggio e\' rifiutato.' );
+						$this->assertSame( array( 'albo_atto_cambiato_prima_del_passaggio' ), $esito->get_error_codes(), $caso . ': con il suo motivo.' );
+						$this->assertSame( array( $attesi['post_status'], $attesi['post_title'] ), array( $riga['post_status'], $riga['post_title'] ), $caso . ': resta quello che l\'altra richiesta ha scritto.' );
+						$this->assertSame( $attesi['post_status'], get_post_status( $id ), $caso . ': anche in memoria.' );
+					}
+
+					/*
+					 * Appena aperta la transazione, prima di qualunque scrittura del
+					 * passaggio, l'altra richiesta prova a scrivere l'atto: aspetta il
+					 * blocco e rinuncia, e la pubblicazione riesce. La prova parte alla
+					 * prima rilettura della riga dopo l'apertura.
+					 */
+					$bloccata = null;
+					$aperta   = false;
+					$prova    = static function ( $istruzione ) use ( $diretta, $wpdb, $controllo, &$bloccata, &$aperta ) {
+						$istruzione = ltrim( (string) $istruzione );
+
+						if ( 0 === strpos( $istruzione, 'START TRANSACTION' ) ) {
+							$aperta = true;
+						} elseif ( $aperta && null === $bloccata && 0 === strpos( $istruzione, "SELECT * FROM {$wpdb->posts} WHERE ID = " . (int) $controllo ) ) {
+							$bloccata = false === $diretta->query( "UPDATE {$wpdb->posts} SET post_title = 'Oggetto dell\'altra richiesta' WHERE ID = " . (int) $controllo );
+						}
+
+						return $istruzione;
+					};
+
+					add_filter( 'query', $prova, 1 );
+
+					try {
+						$esito = $this->pubblica_da_codice( $controllo, $this->pubblicatore );
+					} finally {
+						remove_filter( 'query', $prova, 1 );
+					}
+
+					$this->assertTrue( $bloccata, 'A transazione aperta l\'atto e\' bloccato per le altre richieste.' );
+					$this->assertSame( 1205, $diretta->errno, 'Per attesa del blocco.' );
+					$this->assertIsArray( $esito, 'Controllo positivo: la pubblicazione riesce.' );
+				} finally {
+					$diretta->close();
+				}
+			}
+		);
 	}
 }
