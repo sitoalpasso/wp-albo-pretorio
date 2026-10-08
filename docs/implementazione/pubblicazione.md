@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano, e aggiornata a lavor
 com'è andata davvero. È la seconda parte del flusso di pubblicazione deciso con ALBO-22: la
 prima, il passaggio in verifica, è in [`passaggio-in-verifica.md`](passaggio-in-verifica.md).
 
-**Stato: costruita.** Righe di collaudo A-93..A-117. Com'è andata davvero è in fondo, con le
+**Stato: costruita.** Righe di collaudo A-93..A-118. Com'è andata davvero è in fondo, con le
 differenze dal piano, i limiti dichiarati e la prova dei guasti.
 
 ## In tre paragrafi
@@ -166,7 +166,8 @@ giorno di inizio più la durata del tipo, e che l'atto non si modifichi più.
    un'amministrazione contasse il giorno della pubblicazione come primo, questa lettura
    terrebbe l'atto esposto un giorno in più; se un'amministrazione lo chiederà, il computo
    diventerà una scelta di configurazione.
-3. **Il numero quando chi chiama ha già aperto una transazione. Da decidere.** Di solito la
+3. **Il numero quando chi chiama ha già aperto una transazione. Deciso il 2026-10-08: si
+   tiene il comportamento di oggi**, cioè la scelta consigliata qui sotto. Di solito la
    pubblicazione prende il numero e poi apre la sua transazione: se qualcosa va storto
    dopo, la pubblicazione si annulla ma il numero resta preso, e nessun altro atto lo
    riceverà mai. C'è però un caso raro: un altro programma, installato sul sito, apre lui
@@ -374,7 +375,7 @@ con una barra rovesciata ne perdeva una a ogni passaggio. Corretto, e A-114 lo p
 barre, apici e virgolette.
 
 **5. Il numero dentro la transazione di chi chiama.** È una scelta, non un errore di codice:
-vedi il punto aperto 3. A-115 prova il comportamento di oggi.
+vedi il punto aperto 3, deciso il 2026-10-08: si tiene. A-115 prova il comportamento di oggi.
 
 **6. L'atto durante il passaggio.** Nel rimando, appena l'atto è in bozza, un aggancio di un
 altro programma poteva cambiarlo, e nessuno controllava alla fine. Ora l'atto è **fermo per
@@ -672,3 +673,37 @@ uno per volta, con la suite intera: cadono tutti.
 | Memoria svuotata solo se lo svuotamento non e' sospeso | A-105 |
 | Sospensione di chi chiama non rimessa | A-105 |
 | Memoria non svuotata prima di leggere l'atto | A-105 |
+
+## Il sesto giro: la quinta revisione
+
+La quinta revisione, sul commit b46bd3c, ha trovato un difetto grave, nato dalla correzione del
+giro precedente: lo svuotamento della memoria alla fine di un passaggio riuscito girava ancora
+**dentro il passaggio**, dopo la conferma della transazione ma con il passaggio ancora in
+corso. Quello svuotamento fa girare gli agganci di WordPress, cioè codice di altri componenti:
+un aggancio poteva togliere la data di fine appena confermata, perché la concessione della
+pubblicazione era ancora aperta, e la pubblicazione rispondeva riuscita con un atto senza fine.
+E se un aggancio sollevava un'eccezione, il passaggio provava ad annullare una transazione già
+confermata.
+
+Ora lo svuotamento finale avviene **fuori dal passaggio**: la transazione è confermata, il
+passaggio non è più in corso, e l'atto è fermo come ogni atto pubblicato o in bozza, senza
+nessuna concessione. Un'eccezione di un aggancio in quel momento arriva a chi chiama con
+l'avviso che il passaggio è confermato e l'eccezione di partenza come causa: non c'è più niente
+da annullare, e niente si annulla. A-118.
+
+Nello stesso giro è stato deciso il punto aperto 3: si tiene il comportamento di oggi.
+
+### Le prove, al sesto giro
+
+Centoquaranta prove nella suite principale, una riga nuova (A-118, in `TuttoONienteTest.php`),
+più le due suite separate, tutte verdi in locale; PHPCS pulito. Sei guasti, uno per volta, con
+la suite intera: cadono tutti.
+
+| Guasto introdotto | Prove cadute |
+|---|---|
+| Svuotamento finale dentro la pubblicazione, come al quinto giro | A-118 |
+| Svuotamento finale dentro il rimando, come al quinto giro | A-118 |
+| Svuotamento finale con il passaggio ancora in corso | A-118 |
+| Eccezione dopo la chiusura non detta | A-118 |
+| Svuotamento finale tolto dopo la pubblicazione | A-105, A-118 |
+| Svuotamento finale tolto dopo il rimando | A-105, A-118 |
