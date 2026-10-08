@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano, e aggiornata a lavor
 com'è andata davvero. È la seconda parte del flusso di pubblicazione deciso con ALBO-22: la
 prima, il passaggio in verifica, è in [`passaggio-in-verifica.md`](passaggio-in-verifica.md).
 
-**Stato: costruita.** Righe di collaudo A-93..A-110. Com'è andata davvero è in fondo, con le
+**Stato: costruita.** Righe di collaudo A-93..A-117. Com'è andata davvero è in fondo, con le
 differenze dal piano, i limiti dichiarati e la prova dei guasti.
 
 ## In tre paragrafi
@@ -557,3 +557,80 @@ pubblicato, e il guasto cade.
 | Memoria svuotata solo se lo svuotamento non è sospeso | A-105 |
 | Sospensione di chi chiama non rimessa | A-105 |
 | Conteggi delle voci non svuotati | A-113 |
+
+## Il quarto giro: la terza revisione
+
+La terza revisione, sul commit 7d6d7bb, ha trovato due difetti, uno grave e uno medio, tutti e
+due sull'annullamento.
+
+**1. Un passaggio dentro un altro.** Un altro programma, da un aggancio della pubblicazione di
+un atto, poteva chiamare le funzioni dell'albo e pubblicare o rimandare un secondo atto. Il
+secondo passaggio apriva la sua transazione dentro la prima, chiudendola, o sostituiva il suo
+punto di ripristino: se poi la pubblicazione del primo falliva, il suo annullamento non tornava
+piu' indietro, e l'atto poteva restare pubblicato senza conferma mentre la funzione rispondeva
+con un errore. Ora **un passaggio alla volta**: mentre uno e' in corso, nessun altro comincia,
+su nessun atto, e il rifiuto arriva prima di prendere il numero o di scrivere qualunque cosa.
+Finito il primo, il secondo si fa normalmente. A-116.
+
+Accanto, la stessa causa: l'annullamento non controllava la risposta della banca dati. Ora,
+se la banca dati non conferma l'annullamento, il passaggio non dice "annullato": risponde con
+un errore che nomina l'atto e dice che il suo stato va controllato, e dopo un'eccezione la
+rilancia con questo avviso, tenendo l'eccezione di partenza come causa. A-117 lo prova dopo un
+errore, alla chiusura e dopo un'eccezione, nella pubblicazione e nel rimando, e verifica che
+l'avviso dica il vero: le scritture ci sono ancora.
+
+**2. La memoria dopo l'annullamento, ancora.** Al giro precedente lo svuotamento copriva l'atto
+e le voci che l'atto ha nella banca dati. Ma una voce aggiunta durante il passaggio non c'e'
+piu' dopo l'annullamento, e il suo conteggio restava in memoria sbagliato. La causa e' piu'
+larga di quel caso: l'annullamento riporta indietro tutto quello che e' stato scritto nella
+transazione, dall'albo e da qualunque altro programma negli agganci, e la memoria non sa che
+cosa. Ora dopo un annullamento **la memoria si svuota per intero**, senza guardare la
+sospensione che chi chiama puo' aver messo. Prima di cominciare, invece, il passaggio continua
+a svuotare solo la memoria dell'atto, togliendo la sospensione per il tempo necessario, per
+leggerne lo stato dalla banca dati. A-113 confronta ora con la banca dati il conteggio di ogni
+voce dell'elenco degli organi, compresa una aggiunta durante il passaggio; A-105 prova la
+lettura dell'atto all'inizio con la memoria sospesa e gia' superata dalla banca dati.
+
+### Limiti dichiarati, al quarto giro
+
+- **Lo svuotamento intero ha un costo.** Su un sito con una memoria persistente, per esempio
+  un servizio di memoria condiviso, un passaggio annullato la svuota tutta, e le pagine
+  seguenti la ricostruiscono. Succede solo quando un passaggio fallisce, cioe' per un guasto
+  della banca dati o per un altro programma che scrive l'atto durante il passaggio.
+- **Un passaggio alla volta vale per la richiesta**, non per il sito: due persone che
+  pubblicano nello stesso momento lavorano in due richieste separate, ciascuna con la sua
+  transazione, e il numero di repertorio resta unico per i vincoli della banca dati.
+- Resta il limite del primo giro su un aggancio che apre o chiude da se' una transazione: non
+  passa dalle funzioni dell'albo, e chiude anche quella del passaggio.
+
+### Le prove, al quarto giro
+
+Centotrentanove prove nella suite principale, due righe nuove (A-116, A-117, in
+`TuttoONienteTest.php`) e due allargate (A-105, A-113), piu' le due suite separate, tutte
+verdi in locale; PHPCS pulito.
+
+**La prova di non vacuita'.** Sedici guasti, uno per volta, con la suite intera: undici sulle
+correzioni di questo giro, tre sulla memoria all'inizio del passaggio e due che tolgono
+l'annullamento, riscritti sulla forma nuova del codice. Cadono tutti. I tre guasti del giro
+precedente sulla memoria dopo l'annullamento (svuotata solo se non sospesa, sospensione non
+rimessa, conteggi delle voci) non si applicano piu': quel codice e' stato sostituito dallo
+svuotamento intero, e i primi due vivono ora nella memoria all'inizio del passaggio.
+
+| Guasto introdotto | Prove cadute |
+|---|---|
+| Passaggio annidato ammesso nella pubblicazione | A-116 |
+| Passaggio annidato ammesso nel rimando | A-116 |
+| Passaggio annidato rifiutato solo sullo stesso atto | A-116 |
+| Esito dell'annullamento ignorato | A-117 |
+| Annullamento non riuscito ignorato dopo un errore della pubblicazione | A-117 |
+| Annullamento non riuscito ignorato dopo un errore del rimando | A-117 |
+| Annullamento non riuscito ignorato dopo un'eccezione della pubblicazione | A-117 |
+| Annullamento non riuscito ignorato dopo un'eccezione del rimando | A-117 |
+| Annullamento non riuscito ignorato alla chiusura | A-117 |
+| Memoria svuotata solo per l'atto dopo l'annullamento | A-113 |
+| Memoria non svuotata dopo l'annullamento | A-105, A-106, A-113 |
+| Memoria all'inizio svuotata solo se lo svuotamento non e' sospeso | A-105 |
+| Sospensione di chi chiama non rimessa | A-105 |
+| Memoria non svuotata prima di leggere l'atto | A-105 |
+| Annullamento della transazione tolto | A-106 |
+| Annullamento del punto di ripristino tolto | A-105, A-113, A-116, A-117 |
