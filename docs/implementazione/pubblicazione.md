@@ -608,6 +608,9 @@ lettura dell'atto all'inizio con la memoria sospesa e gia' superata dalla banca 
 Centotrentanove prove nella suite principale, due righe nuove (A-116, A-117, in
 `TuttoONienteTest.php`) e due allargate (A-105, A-113), piu' le due suite separate, tutte
 verdi in locale; PHPCS pulito.
+In verifica continua, sul commit 173353d che porta codice e prove, verdi le due combinazioni
+di WordPress e PHP su MySQL, lo standard di codifica e la validazione di `publiccode.yml`. Le
+righe A-116 e A-117 sono passate a "fatto" dopo quell'esito.
 
 **La prova di non vacuita'.** Sedici guasti, uno per volta, con la suite intera: undici sulle
 correzioni di questo giro, tre sulla memoria all'inizio del passaggio e due che tolgono
