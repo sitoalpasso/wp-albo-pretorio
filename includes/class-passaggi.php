@@ -258,6 +258,9 @@ final class Passaggi {
 			return $atto;
 		}
 
+		// L'atto come i controlli lo leggono: sotto il blocco della transazione dovra' essere ancora questo.
+		$partenza = self::fotografia( $atto_id );
+
 		if ( ! current_user_can( 'publish_post', $atto_id ) ) {
 			return new \WP_Error(
 				'albo_pubblicazione_non_permessa',
@@ -320,7 +323,6 @@ final class Passaggi {
 			'post_date'     => $inizio->format( 'Y-m-d H:i:s' ),
 			'post_date_gmt' => $inizio->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' ),
 		);
-		$partenza    = self::fotografia( $atto_id );
 		$fine_uguale = array( $fine ) === self::righe_fine( $partenza );
 
 		self::inizia( $atto_id, $campi, $fine );
@@ -354,6 +356,14 @@ final class Passaggi {
 
 		if ( is_wp_error( $apertura ) ) {
 			return $apertura;
+		}
+
+		$bloccato = self::blocca( $atto_id, $partenza );
+
+		if ( is_wp_error( $bloccato ) ) {
+			$annullato = self::annulla( $apertura, $atto_id );
+
+			return is_wp_error( $annullato ) ? $annullato : $bloccato;
 		}
 
 		try {
@@ -443,6 +453,9 @@ final class Passaggi {
 			return $atto;
 		}
 
+		// L'atto come i controlli lo leggono: sotto il blocco della transazione dovra' essere ancora questo.
+		$partenza = self::fotografia( $atto_id );
+
 		if ( ! current_user_can( 'publish_post', $atto_id ) ) {
 			return new \WP_Error(
 				'albo_rimando_non_permesso',
@@ -471,8 +484,7 @@ final class Passaggi {
 			return $prima;
 		}
 
-		$campi    = array( 'post_status' => 'draft' );
-		$partenza = self::fotografia( $atto_id );
+		$campi = array( 'post_status' => 'draft' );
 
 		self::inizia( $atto_id, $campi, null );
 
@@ -493,9 +505,10 @@ final class Passaggi {
 	 * la transazione e' gia' confermata e il passaggio non e' piu' in corso:
 	 * l'atto e' fermo come ogni atto pubblicato o in bozza, e una scrittura
 	 * da quegli agganci trova il guardiano senza nessuna concessione. Se un
-	 * aggancio solleva un'eccezione, non c'e' piu' niente da annullare: si
-	 * rilancia dicendo che il passaggio e' confermato, con l'eccezione di
-	 * partenza come causa.
+	 * aggancio solleva un'eccezione, non c'e' piu' niente da annullare: la
+	 * memoria, svuotata a meta', si svuota per intero, e l'eccezione si
+	 * rilancia dicendo che il passaggio e' confermato, con quella di partenza
+	 * come causa.
 	 *
 	 * @param int   $atto_id Atto.
 	 * @param mixed $esito   Esito del passaggio.
@@ -510,6 +523,9 @@ final class Passaggi {
 		try {
 			self::svuota_memoria( $atto_id );
 		} catch ( \Throwable $errore ) {
+			// Lo svuotamento e' rimasto a meta': quello intero non fa girare agganci.
+			wp_cache_flush();
+
 			throw new \RuntimeException(
 				esc_html(
 					sprintf(
@@ -543,6 +559,14 @@ final class Passaggi {
 
 		if ( is_wp_error( $apertura ) ) {
 			return $apertura;
+		}
+
+		$bloccato = self::blocca( $atto_id, $partenza );
+
+		if ( is_wp_error( $bloccato ) ) {
+			$annullato = self::annulla( $apertura, $atto_id );
+
+			return is_wp_error( $annullato ) ? $annullato : $bloccato;
 		}
 
 		try {
@@ -835,6 +859,44 @@ final class Passaggi {
 		}
 
 		return $modo;
+	}
+
+	/**
+	 * Blocca la riga dell'atto per le altre richieste e controlla che sia ancora quello controllato.
+	 *
+	 * I controlli del passaggio leggono l'atto prima della transazione, e fra
+	 * quei controlli e la transazione un'altra richiesta puo' averlo rimandato
+	 * in bozza, cambiato, rimesso in verifica o pubblicato. Qui, dentro la
+	 * transazione, la riga si blocca fino alla chiusura, e l'atto si rilegge
+	 * dalla banca dati: se non e' identico alla fotografia dei controlli il
+	 * passaggio non comincia. Poi la memoria dell'atto si toglie senza far
+	 * girare agganci, cosi' che le scritture del passaggio partano da quello
+	 * che la banca dati contiene.
+	 *
+	 * @param int                  $atto_id  Atto.
+	 * @param array<string, mixed> $partenza Fotografia dei controlli.
+	 * @return true|\WP_Error
+	 */
+	private static function blocca( int $atto_id, array $partenza ) {
+		global $wpdb;
+
+		$riga = $wpdb->get_var( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE ID = %d FOR UPDATE", $atto_id ) );
+
+		if ( null === $riga || self::fotografia( $atto_id ) !== $partenza ) {
+			return new \WP_Error(
+				'albo_atto_cambiato_prima_del_passaggio',
+				__( 'L\'atto non e\' piu\' quello controllato: un\'altra operazione lo ha cambiato mentre il passaggio cominciava. Niente e\' stato scritto; si riapra l\'atto e si ripeta, se serve.', 'albo-pretorio-pa' )
+			);
+		}
+
+		wp_cache_delete( $atto_id, 'posts' );
+		wp_cache_delete( $atto_id, 'post_meta' );
+
+		foreach ( get_object_taxonomies( TIPO ) as $tassonomia ) {
+			wp_cache_delete( $atto_id, $tassonomia . '_relationships' );
+		}
+
+		return true;
 	}
 
 	/**
