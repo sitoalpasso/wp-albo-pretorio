@@ -232,7 +232,7 @@ final class Passaggi {
 	 * @param array<string, mixed> $richiesta `conferma`, obbligatoria e vera; `data_inizio` e `data_fine`, mai effettive.
 	 * @return array{anno: int, numero: int, inizio: string, fine: string, voce: int}|\WP_Error
 	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
-	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, con l'eccezione come causa.
+	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, o se un altro componente solleva un'eccezione dopo la conferma; con l'eccezione come causa.
 	 */
 	public static function pubblica( int $atto_id, array $richiesta = array() ) {
 		if ( array() !== self::$in_corso ) {
@@ -326,10 +326,12 @@ final class Passaggi {
 		self::inizia( $atto_id, $campi, $fine );
 
 		try {
-			return self::pubblica_dentro( $atto_id, $campi, $fine, $numero, $partenza, $prima_fine, ! $fine_uguale, $prima );
+			$esito = self::pubblica_dentro( $atto_id, $campi, $fine, $numero, $partenza, $prima_fine, ! $fine_uguale, $prima );
 		} finally {
 			unset( self::$in_corso[ $atto_id ] );
 		}
+
+		return self::dopo_la_chiusura( $atto_id, $esito );
 	}
 
 	/**
@@ -402,8 +404,6 @@ final class Passaggi {
 			if ( is_wp_error( $chiusura ) ) {
 				return $chiusura;
 			}
-
-			self::svuota_memoria( $atto_id );
 		} catch ( \Throwable $errore ) {
 			$annullato = self::annulla( $apertura, $atto_id );
 
@@ -430,7 +430,7 @@ final class Passaggi {
 	 * @param mixed $motivo  Motivo del rimando, testo non vuoto.
 	 * @return int|\WP_Error Numero della voce di registro con il motivo, oppure errore.
 	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
-	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, con l'eccezione come causa.
+	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, o se un altro componente solleva un'eccezione dopo la conferma; con l'eccezione come causa.
 	 */
 	public static function rimanda_in_bozza( int $atto_id, $motivo ) {
 		if ( array() !== self::$in_corso ) {
@@ -477,10 +477,53 @@ final class Passaggi {
 		self::inizia( $atto_id, $campi, null );
 
 		try {
-			return self::rimanda_dentro( $atto_id, $campi, $motivo, $partenza, $prima );
+			$esito = self::rimanda_dentro( $atto_id, $campi, $motivo, $partenza, $prima );
 		} finally {
 			unset( self::$in_corso[ $atto_id ] );
 		}
+
+		return self::dopo_la_chiusura( $atto_id, $esito );
+	}
+
+	/**
+	 * Dopo un passaggio riuscito e chiuso: svuota la memoria dell'atto.
+	 *
+	 * **Fuori dal passaggio, non dentro.** Lo svuotamento della memoria fa
+	 * girare gli agganci di WordPress, cioe' codice di altri componenti. Qui
+	 * la transazione e' gia' confermata e il passaggio non e' piu' in corso:
+	 * l'atto e' fermo come ogni atto pubblicato o in bozza, e una scrittura
+	 * da quegli agganci trova il guardiano senza nessuna concessione. Se un
+	 * aggancio solleva un'eccezione, non c'e' piu' niente da annullare: si
+	 * rilancia dicendo che il passaggio e' confermato, con l'eccezione di
+	 * partenza come causa.
+	 *
+	 * @param int   $atto_id Atto.
+	 * @param mixed $esito   Esito del passaggio.
+	 * @return mixed L'esito, invariato.
+	 * @throws \RuntimeException Se un aggancio solleva un'eccezione dopo la conferma.
+	 */
+	private static function dopo_la_chiusura( int $atto_id, $esito ) {
+		if ( is_wp_error( $esito ) ) {
+			return $esito;
+		}
+
+		try {
+			self::svuota_memoria( $atto_id );
+		} catch ( \Throwable $errore ) {
+			throw new \RuntimeException(
+				esc_html(
+					sprintf(
+						/* translators: %d: identificativo dell'atto. */
+						__( 'Il passaggio sull\'atto %d e\' confermato nella banca dati; un altro componente ha sollevato un\'eccezione subito dopo, durante lo svuotamento della memoria.', 'albo-pretorio-pa' ),
+						$atto_id
+					)
+				),
+				0,
+				$errore // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- causa, non testo.
+			);
+		}
+
+		return $esito;
 	}
 
 	/**
@@ -536,8 +579,6 @@ final class Passaggi {
 			if ( is_wp_error( $chiusura ) ) {
 				return $chiusura;
 			}
-
-			self::svuota_memoria( $atto_id );
 		} catch ( \Throwable $errore ) {
 			$annullato = self::annulla( $apertura, $atto_id );
 
@@ -883,8 +924,9 @@ final class Passaggi {
 	/**
 	 * Svuota la memoria di WordPress sull'atto: riga, dati, voci e i conteggi delle sue voci.
 	 *
-	 * Si usa all'inizio del passaggio, prima di leggere l'atto, e alla fine di
-	 * un passaggio riuscito, perche' chi legge dopo trovi lo stato scritto.
+	 * Si usa all'inizio del passaggio, prima di leggere l'atto, e dopo un
+	 * passaggio riuscito e chiuso, perche' chi legge dopo trovi lo stato
+	 * scritto.
 	 * Dopo un annullamento la memoria si svuota invece per intero.
 	 *
 	 * **Anche quando chi chiama ha sospeso lo svuotamento.** WordPress lascia

@@ -1,6 +1,6 @@
 <?php
 /**
- * Tutto o niente, guardiano, riquadro e permesso del registro: righe A-105..A-110, A-116, A-117.
+ * Tutto o niente, guardiano, riquadro e permesso del registro: righe A-105..A-110, A-116..A-118.
  *
  * I guasti si forzano da fuori, come li produrrebbe la banca dati o un altro
  * componente: un'istruzione che fallisce, un metadato che non si scrive. Il
@@ -1040,6 +1040,107 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 			wp_cache_flush();
 
 			$this->assertSame( 'pending', get_post_status( $id ), $caso . ': annullato a mano, l\'atto torna in verifica.' );
+		}
+	}
+
+	/**
+	 * A-118: dopo la chiusura il passaggio non e' piu' in corso, e niente si annulla.
+	 *
+	 * Lo svuotamento finale della memoria fa girare gli agganci di altri
+	 * componenti: qui uno prova a togliere la data di fine appena confermata,
+	 * un altro solleva un'eccezione.
+	 */
+	public function test_a118_dopo_la_chiusura(): void {
+		global $wpdb;
+
+		$chiave = conformita_core_chiave_fine_pubblicazione();
+		$casi   = array(
+			'pubblicazione, fine tolta dopo la chiusura' => array( 'pubblicazione', 'togli' ),
+			'pubblicazione, eccezione dopo la chiusura'  => array( 'pubblicazione', 'lancia' ),
+			'rimando, eccezione dopo la chiusura'        => array( 'rimando', 'lancia' ),
+		);
+
+		foreach ( $casi as $caso => list( $passaggio, $azione ) ) {
+			$id           = $this->atto_in_verifica();
+			$chiuso       = false;
+			$annullamenti = 0;
+			$tolta        = null;
+			$lanciata     = null;
+			$esito        = null;
+
+			$spia = static function ( $istruzione ) use ( &$chiuso, &$annullamenti ) {
+				$istruzione = ltrim( (string) $istruzione );
+
+				if ( 'COMMIT' === $istruzione || 0 === strpos( $istruzione, 'RELEASE SAVEPOINT albo_pretorio_passaggio' ) ) {
+					$chiuso = true;
+				} elseif ( $chiuso && 0 === stripos( $istruzione, 'ROLLBACK' ) ) {
+					++$annullamenti;
+				}
+
+				return $istruzione;
+			};
+
+			$aggancio = static function ( $post_id ) use ( $id, $chiave, $azione, &$chiuso, &$tolta ) {
+				if ( $id !== (int) $post_id || ! $chiuso || null !== $tolta ) {
+					return;
+				}
+
+				if ( 'togli' === $azione ) {
+					$tolta = delete_post_meta( $id, $chiave );
+
+					return;
+				}
+
+				$tolta = false;
+
+				throw new \DomainException( 'Guasto di un altro componente.' );
+			};
+
+			add_filter( 'query', $spia, 1 );
+			add_action( 'clean_post_cache', $aggancio, 10, 1 );
+
+			try {
+				$esito = 'pubblicazione' === $passaggio
+					? $this->pubblica_da_codice( $id, $this->pubblicatore )
+					: $this->come(
+						$this->pubblicatore,
+						static function () use ( $id ) {
+							return albo_pretorio_rimanda_in_bozza( $id, 'Da completare.' );
+						}
+					);
+			} catch ( \RuntimeException $errore ) {
+				$lanciata = $errore;
+			} finally {
+				remove_filter( 'query', $spia, 1 );
+				remove_action( 'clean_post_cache', $aggancio, 10 );
+			}
+
+			$this->assertTrue( $chiuso, $caso . ': precondizione, il passaggio si e\' chiuso.' );
+			$this->assertNotNull( $tolta, $caso . ': precondizione, l\'aggancio e\' partito dopo la chiusura.' );
+			$this->assertSame( 0, $annullamenti, $caso . ': dopo la chiusura nessun annullamento.' );
+
+			$stato = (string) $wpdb->get_var( $wpdb->prepare( "SELECT post_status FROM {$wpdb->posts} WHERE ID = %d", $id ) );
+			$fine  = (string) $wpdb->get_var( $wpdb->prepare( "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s", $id, $chiave ) );
+
+			if ( 'pubblicazione' === $passaggio ) {
+				$this->assertSame( 'publish', $stato, $caso . ': l\'atto e\' pubblicato.' );
+				$this->assertNotSame( '', $fine, $caso . ': con la sua data di fine.' );
+			} else {
+				$this->assertSame( 'draft', $stato, $caso . ': l\'atto e\' in bozza.' );
+			}
+
+			if ( 'togli' === $azione ) {
+				$this->assertNull( $lanciata, $caso . ': nessuna eccezione.' );
+				$this->assertFalse( $tolta, $caso . ': la data di fine di un atto pubblicato non si toglie, nemmeno subito dopo la chiusura.' );
+				$this->assertIsArray( $esito, $caso . ': riuscita.' );
+				$this->assertSame( $esito['fine'], $fine, $caso . ': la fine e\' quella calcolata.' );
+				$this->assertSame( $fine, get_post_meta( $id, $chiave, true ), $caso . ': anche in memoria.' );
+			} else {
+				$this->assertInstanceOf( \RuntimeException::class, $lanciata, $caso . ': l\'eccezione arriva a chi chiama.' );
+				$this->assertInstanceOf( \DomainException::class, $lanciata->getPrevious(), $caso . ': con l\'eccezione del componente come causa.' );
+				$this->assertStringContainsString( (string) $id, $lanciata->getMessage(), $caso . ': il messaggio nomina l\'atto.' );
+				$this->assertNull( $esito, $caso . ': nessun esito restituito.' );
+			}
 		}
 	}
 }
