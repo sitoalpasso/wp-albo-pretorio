@@ -402,6 +402,8 @@ final class Passaggi {
 			if ( is_wp_error( $chiusura ) ) {
 				return $chiusura;
 			}
+
+			self::svuota_memoria( $atto_id );
 		} catch ( \Throwable $errore ) {
 			$annullato = self::annulla( $apertura, $atto_id );
 
@@ -534,6 +536,8 @@ final class Passaggi {
 			if ( is_wp_error( $chiusura ) ) {
 				return $chiusura;
 			}
+
+			self::svuota_memoria( $atto_id );
 		} catch ( \Throwable $errore ) {
 			$annullato = self::annulla( $apertura, $atto_id );
 
@@ -877,22 +881,38 @@ final class Passaggi {
 	}
 
 	/**
-	 * Svuota la memoria di WordPress sull'atto, prima di leggerlo: riga, dati e voci.
+	 * Svuota la memoria di WordPress sull'atto: riga, dati, voci e i conteggi delle sue voci.
+	 *
+	 * Si usa all'inizio del passaggio, prima di leggere l'atto, e alla fine di
+	 * un passaggio riuscito, perche' chi legge dopo trovi lo stato scritto.
+	 * Dopo un annullamento la memoria si svuota invece per intero.
 	 *
 	 * **Anche quando chi chiama ha sospeso lo svuotamento.** WordPress lascia
 	 * sospendere lo svuotamento della memoria per tutta la richiesta, e in
 	 * quel caso `clean_post_cache()` non fa niente: il passaggio leggerebbe lo
-	 * stato che la memoria ricorda invece di quello della banca dati. Qui la
+	 * stato che la memoria ricorda invece di quello della banca dati, e chi
+	 * legge dopo un passaggio riuscito lo stato di prima. Qui la
 	 * sospensione si toglie per il tempo dello svuotamento, e si rimette
 	 * com'era.
 	 *
 	 * @param int $atto_id Atto.
 	 */
 	private static function svuota_memoria( int $atto_id ): void {
+		global $wpdb;
+
 		$sospesa = wp_suspend_cache_invalidation( false );
 
 		try {
 			clean_post_cache( $atto_id );
+
+			// I conteggi delle voci: una pubblicazione riuscita conta l'atto, un rimando non piu'.
+			$voci = $wpdb->get_col(
+				$wpdb->prepare( "SELECT term_taxonomy_id FROM {$wpdb->term_relationships} WHERE object_id = %d", $atto_id )
+			);
+
+			if ( is_array( $voci ) && array() !== $voci ) {
+				clean_term_cache( array_map( 'intval', $voci ), '', false );
+			}
 		} finally {
 			wp_suspend_cache_invalidation( (bool) $sospesa );
 		}

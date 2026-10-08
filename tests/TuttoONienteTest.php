@@ -303,6 +303,50 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 		$this->assertSame( 'pending', $ricordato, 'Precondizione: con lo svuotamento sospeso la memoria ricorda ancora l\'atto in verifica.' );
 		$this->assertSame( array( 'albo_atto_non_in_verifica' ), $esito->get_error_codes(), 'Il passaggio legge lo stato della banca dati, non quello ricordato.' );
 		$this->assertTrue( $sospesa, 'La sospensione di chi l\'aveva chiesta e\' rimessa com\'era.' );
+
+		/*
+		 * Passaggi riusciti con lo svuotamento sospeso fin dall'ingresso, come
+		 * fa un importatore: subito dopo, prima di qualunque fotografia, la
+		 * memoria dice quello che dice la banca dati, conteggio della voce
+		 * compreso, e la sospensione resta.
+		 */
+		foreach ( array( 'rimando', 'pubblicazione' ) as $passaggio ) {
+			$id = $this->atto_in_verifica();
+
+			$this->assertSame( 'pending', get_post_status( $id ), $passaggio . ': precondizione, la memoria ricorda l\'atto in verifica.' );
+			get_term( $this->voci['organo'] );
+
+			wp_suspend_cache_invalidation( true );
+
+			try {
+				$esito = 'rimando' === $passaggio
+					? $this->come(
+						$this->pubblicatore,
+						static function () use ( $id ) {
+							return albo_pretorio_rimanda_in_bozza( $id, 'Da completare.' );
+						}
+					)
+					: $this->pubblica_da_codice( $id, $this->pubblicatore );
+
+				$in_memoria = array( get_post_status( $id ), get_post_meta( $id, $chiave, true ), (int) get_term( $this->voci['organo'] )->count );
+				$sospesa    = wp_suspend_cache_invalidation( false );
+			} finally {
+				wp_suspend_cache_invalidation( false );
+			}
+
+			$this->assertNotWPError( $esito, $passaggio . ': riuscito.' );
+
+			$organo   = get_term( $this->voci['organo'] );
+			$in_banca = array(
+				(string) $wpdb->get_var( $wpdb->prepare( "SELECT post_status FROM {$wpdb->posts} WHERE ID = %d", $id ) ),
+				(string) $wpdb->get_var( $wpdb->prepare( "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s", $id, $chiave ) ),
+				(int) $wpdb->get_var( $wpdb->prepare( "SELECT count FROM {$wpdb->term_taxonomy} WHERE term_taxonomy_id = %d", $organo->term_taxonomy_id ) ),
+			);
+
+			$this->assertSame( 'rimando' === $passaggio ? 'draft' : 'publish', $in_banca[0], $passaggio . ': precondizione, la banca dati ha lo stato scritto.' );
+			$this->assertSame( $in_banca, $in_memoria, $passaggio . ': la memoria dice quello che dice la banca dati, conteggio della voce compreso.' );
+			$this->assertTrue( $sospesa, $passaggio . ': la sospensione di chi l\'aveva chiesta e\' rimessa com\'era.' );
+		}
 	}
 
 	/**
