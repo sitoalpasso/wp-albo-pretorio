@@ -659,7 +659,9 @@ dati prima di qualunque fotografia.
 ### Le prove, al quinto giro
 
 Centotrentanove prove nella suite principale, nessuna riga nuova, A-105 allargata, piu' le due
-suite separate, tutte verdi in locale; PHPCS pulito. Sei guasti sulla memoria del passaggio,
+suite separate, tutte verdi in locale; PHPCS pulito. In verifica continua, sul commit 4c31c12,
+verdi le due combinazioni di WordPress e PHP su MySQL, lo standard di codifica e la validazione
+di `publiccode.yml`. Sei guasti sulla memoria del passaggio,
 uno per volta, con la suite intera: cadono tutti.
 
 | Guasto introdotto | Prove cadute |
