@@ -696,8 +696,10 @@ Nello stesso giro è stato deciso il punto aperto 3: si tiene il comportamento d
 ### Le prove, al sesto giro
 
 Centoquaranta prove nella suite principale, una riga nuova (A-118, in `TuttoONienteTest.php`),
-più le due suite separate, tutte verdi in locale; PHPCS pulito. Sei guasti, uno per volta, con
-la suite intera: cadono tutti.
+più le due suite separate, tutte verdi in locale; PHPCS pulito. In verifica continua, sul
+commit 83c6491, verdi le due combinazioni di WordPress e PHP su MySQL, lo standard di codifica e
+la validazione di `publiccode.yml`; A-118 è passata a "fatto" dopo quell'esito. Sei guasti, uno
+per volta, con la suite intera: cadono tutti.
 
 | Guasto introdotto | Prove cadute |
 |---|---|
