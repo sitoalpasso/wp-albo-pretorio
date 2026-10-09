@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano, e aggiornata a lavor
 com'è andata davvero. È la seconda parte del flusso di pubblicazione deciso con ALBO-22: la
 prima, il passaggio in verifica, è in [`passaggio-in-verifica.md`](passaggio-in-verifica.md).
 
-**Stato: costruita.** Righe di collaudo A-93..A-123. Com'è andata davvero è in fondo, con le
+**Stato: costruita.** Righe di collaudo A-93..A-126. Com'è andata davvero è in fondo, con le
 differenze dal piano, i limiti dichiarati e la prova dei guasti.
 
 ## In tre paragrafi
@@ -951,3 +951,94 @@ due suite separate, tutte verdi in locale; PHPCS pulito. In verifica continua, s
 | Apertura rifiutata dalla banca dati che non ferma il passaggio | A-123 (prima della prova nuova: nessuna) |
 
 Riprovati sul codice nuovo i guasti del nono e del decimo giro: cadono tutti.
+
+## Il dodicesimo giro: l'undicesima revisione
+
+L'undicesima revisione, sul commit 6bc0aac, ha trovato tre difetti alti. Due hanno la stessa
+causa del giro prima, e la correzione chiude la famiglia intera.
+
+**1. Una lettura che non risponde valeva come permesso.** Le funzioni di lettura di WordPress
+restituiscono nulla sia quando la riga non c'è sia quando la banca dati non ha risposto. La
+barriera, leggendo la riga di un atto prima di lasciar passare una scrittura, prendeva il
+secondo caso per il primo: una `wp_publish_post()` con quella sola lettura guasta avrebbe
+pubblicato l'atto senza passaggio. Ora ogni lettura da cui dipende una decisione passa da una
+classe nuova, `Lettura`, che restituisce un elenco, anche vuoto, solo se la banca dati ha
+risposto e ogni riga ha le colonne attese, e nulla altrimenti. Le letture rifatte così sono
+tutte quelle della barriera (riga dell'atto, stato dell'atto, riga di metadato, atti che
+portano una chiave da togliere a tutti, conferme dopo l'aggiunta e la rimozione di voci e dati)
+e la fotografia dell'atto nei passaggi. Una lettura mancata ferma la richiesta, o dentro un
+passaggio lo annota e il passaggio annulla con `albo_atto_non_letto`. Lo stato di un atto che
+non si legge vale come pubblicato, il caso più protetto. Dopo un passaggio riuscito, se le voci
+da dimenticare non si leggono, la memoria si svuota per intero. Riga nuova A-124.
+
+**2. Il numero di repertorio poteva essere zero.** Se il contatore avanzava ma la lettura del
+numero appena preso falliva, il nulla diventava zero e l'atto si pubblicava con il numero zero.
+Ora il numero si usa solo se la lettura risponde con un intero fra 1 e il massimo del
+contatore; altrimenti la numerazione rifiuta con `albo_repertorio_non_letto`, il numero
+consumato resta un buco e l'atto non si numera. Lo stesso per la lettura che dice se l'atto
+ha già un numero, prima e dopo l'inserimento: una lettura mancata non fa prendere un secondo
+numero. Riga nuova A-125, nella numerazione e nella pubblicazione.
+
+**3. Le scritture su molti contenuti insieme passavano.** La barriera riconosceva solo le
+istruzioni sulla riga di un atto indicato per numero. La cancellazione di un utente con
+l'attribuzione dei suoi contenuti a un altro cambia l'autore di tutti con un'istruzione sola,
+atti in verifica e pubblicati compresi. Ora ogni modifica della tabella dei contenuti nella
+forma di WordPress che non indica una riga sola porta con sé la condizione che salta gli atti
+in verifica e pubblicati. Se scrive lo stato o il tipo, salta ogni atto; se fa diventare atti
+altri contenuti, non scrive niente. Un'istruzione senza condizione da completare riceve la
+condizione come unica, qui e nelle scritture dei dati e delle voci. Riga nuova A-126.
+
+**La scelta sull'autore.** La revisione chiedeva anche di non lasciare atti con l'autore di un
+utente cancellato, rifiutando la cancellazione. Non si è fatto: l'autore di un atto fermo è un
+fatto, e la cancellazione dell'utente lo lascia com'è, che è quello che WordPress fa da sé quando
+l'utente si cancella senza attribuire i contenuti, perché gli atti non si cancellano con chi li
+ha scritti. Rifiutare la cancellazione impedirebbe per sempre di togliere l'utenza di chi ha
+pubblicato anche un solo atto. Il registro conserva chi ha fatto cosa.
+
+### Limiti dichiarati, al dodicesimo giro
+
+- **Una lettura che non risponde ferma anche le scritture dei contenuti ordinari** che la
+  barriera deve giudicare: finché la banca dati non risponde, la barriera non lascia passare
+  niente che non sappia classificare.
+- **Un componente che falsifica una lettura**, rispondendo con un risultato valido ma
+  sbagliato, non è una lettura mancata: un componente che riscrive le istruzioni del sito può
+  fare qualunque cosa, ed è fuori dal perimetro.
+- **L'autore di un atto fermo resta quello dell'utente cancellato**, come detto sopra.
+- **Il numero preso resta consumato** quando una lettura successiva non risponde, come per ogni
+  rifiuto dopo l'assegnazione.
+
+### Le prove, al dodicesimo giro
+
+Centocinquanta prove nella suite principale, tre righe nuove (A-124, A-125 in due prove,
+A-126), più le due suite separate, tutte verdi in locale; PHPCS pulito. In verifica continua, sul commit ca18183 che porta codice e prove, verdi le due combinazioni di WordPress e PHP su MySQL, lo standard di codifica e la validazione di `publiccode.yml`; A-124, A-125 e A-126 sono passate a "fatto" dopo quell'esito.
+
+**La prova di non vacuità.** Ventidue guasti nuovi, uno per volta, con la suite intera.
+
+| Guasto introdotto | Prove cadute |
+|---|---|
+| Riga della barriera non letta che lascia passare | A-124 |
+| Stato non letto che vale come contenuto non dell'albo | A-124 |
+| Stato non letto senza fermare la richiesta | A-124 |
+| Riga di metadato non letta che vale come assente | A-124 |
+| Chiave da togliere a tutti non letta che vale come libera | A-124 |
+| Conferma della voce aggiunta non letta, ignorata | A-124 |
+| Conferma delle voci tolte non letta, ignorata | A-124 |
+| Conferma dei dati tolti non letta, ignorata | A-124 |
+| Fotografia con le voci non lette | A-124 |
+| Fotografia di partenza non controllata | A-124 |
+| Blocco con la fotografia non letta | A-124 |
+| Controllo finale con la fotografia non letta | A-124 |
+| Memoria non svuotata se le voci non si leggono | A-124 |
+| Numero non letto che vale zero | A-125, nella numerazione e nella pubblicazione |
+| Assegnazione non letta che vale come assente | A-125 |
+| Rilettura dopo l'inserimento con il vecchio errore | A-125 |
+| Scritture su molti contenuti senza condizione | A-126 |
+| Stato scritto a molti contenuti che salta solo gli atti fermi | A-126, dopo la prova allargata (prima: nessuna) |
+| Contenuti che diventano atti | A-126 |
+| Molti contenuti senza condizione da completare | A-126 |
+| Dati senza condizione da completare | A-126 |
+| Lettura che accetta un'istruzione riuscita senza righe | A-124, dopo la prova allargata (prima: nessuna) |
+
+Due guasti sono sopravvissuti al primo passaggio e hanno fatto allargare le prove: lo stato scritto a tutti gli atti era quello che la bozza aveva già, e la banca dati non contava la riga come cambiata; e nessuna prova sostituiva la lettura con un'istruzione che riesce senza leggere. Dopo l'allargamento cadono anche quei due.
+
+Riprovati sul codice nuovo i guasti del decimo e dell'undicesimo giro: cadono tutti.

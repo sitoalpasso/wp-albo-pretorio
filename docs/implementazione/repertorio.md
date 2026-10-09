@@ -1,7 +1,7 @@
 # Numero di repertorio
 
 Scheda di lavorazione. Scritta prima del codice come piano e aggiornata a lavoro finito:
-la sezione in fondo dice com'è andata davvero e cosa è cambiato rispetto al piano. Righe di collaudo A-58..A-68, più le righe di ALBO-08 nella
+la sezione in fondo dice com'è andata davvero e cosa è cambiato rispetto al piano. Righe di collaudo A-58..A-68 e A-125, più le righe di ALBO-08 nella
 tabella per requisito.
 
 ## In tre paragrafi
