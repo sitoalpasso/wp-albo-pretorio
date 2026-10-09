@@ -755,9 +755,11 @@ class BarrieraTest extends \WP_UnitTestCase {
 	 *
 	 * Ogni lettura con cui la barriera decide se una scrittura e' ammessa
 	 * fallisce, una per volta: la richiesta si ferma, l'atto resta identico e
-	 * WordPress non annuncia nessun cambio di stato. Dentro un passaggio
-	 * fallisce ogni lettura dell'atto da confrontare: il passaggio rifiuta e
-	 * annulla.
+	 * WordPress non annuncia nessun cambio di stato. Le verifiche dopo una
+	 * scrittura su una bozza fermano la richiesta se non si leggono. Dopo un
+	 * passaggio riuscito la memoria si svuota per intero se non si leggono le
+	 * voci da dimenticare. Dentro un passaggio fallisce ogni lettura dell'atto
+	 * da confrontare: il passaggio rifiuta e annulla.
 	 */
 	public function test_a124_lettura_che_non_risponde(): void {
 		global $wpdb;
@@ -830,6 +832,84 @@ class BarrieraTest extends \WP_UnitTestCase {
 		} finally {
 			remove_action( 'transition_post_status', $ascolta, 10 );
 		}
+
+		/*
+		 * Le verifiche dopo la scrittura, su una bozza: la scrittura c'e'
+		 * stata, ma se la lettura che lo conferma non risponde non si sa, e la
+		 * richiesta si ferma invece di annunciarla.
+		 */
+		$bozza = $this->atto_completo();
+		$altra = $this->voce( TASSONOMIA_ORGANO, 'Consiglio' );
+		$dopo  = array(
+			'voce aggiunta a una bozza, conferma non letta' => array(
+				array( 'SELECT COUNT(*) AS n FROM' ),
+				static function () use ( $bozza, $altra ) {
+					wp_set_object_terms( $bozza, array( $altra ), TASSONOMIA_ORGANO, true );
+				},
+			),
+			'voce tolta a una bozza, conferma non letta' => array(
+				array( 'SELECT COUNT(*) AS n FROM' ),
+				static function () use ( $bozza, $altra ) {
+					wp_remove_object_terms( $bozza, array( $altra ), TASSONOMIA_ORGANO );
+				},
+			),
+			'dato tolto a una bozza, conferma non letta' => array(
+				array( 'SELECT post_id FROM ' . $wpdb->postmeta . ' WHERE meta_id IN' ),
+				function () use ( $bozza ) {
+					delete_metadata_by_mid( 'post', $this->riga_di( $bozza, META_DATA_ADOZIONE ) );
+				},
+			),
+		);
+
+		foreach ( $dopo as $caso => list( $pezzi, $scrittura ) ) {
+			list( $messaggio, $viste ) = $this->con_guasto(
+				$pezzi,
+				function () use ( $scrittura, $caso ) {
+					return $this->richiesta_fermata( $scrittura, $caso );
+				}
+			);
+
+			$this->assertSame( 1, $viste, $caso . ': precondizione, la conferma e\' stata tentata una volta.' );
+			$this->assertStringContainsString( 'non ha risposto', $messaggio, $caso . ': il rifiuto dice perche\'.' );
+		}
+
+		/*
+		 * Dopo un passaggio riuscito, con lo svuotamento sospeso come fa un
+		 * importatore: se la lettura delle voci da dimenticare non risponde, si
+		 * dimentica tutto, e il conteggio della voce e' quello della banca dati.
+		 */
+		$id     = $this->atto_in_verifica();
+		$voci   = 'SELECT term_taxonomy_id FROM `' . $wpdb->term_relationships . '` WHERE object_id = ' . $id;
+		$viste  = 0;
+		$guasta = static function ( $istruzione ) use ( $voci, &$viste ) {
+			if ( $voci !== $istruzione ) {
+				return $istruzione;
+			}
+
+			++$viste;
+
+			return 'SELECT guasto_forzato FROM tabella_che_non_esiste';
+		};
+
+		get_term( $this->voci['organo'] );
+		add_filter( 'query', $guasta );
+		$wpdb->suppress_errors( true );
+		wp_suspend_cache_invalidation( true );
+
+		try {
+			$esito      = $this->pubblica_da_codice( $id, $this->pubblicatore );
+			$in_memoria = (int) get_term( $this->voci['organo'] )->count;
+		} finally {
+			wp_suspend_cache_invalidation( false );
+			remove_filter( 'query', $guasta );
+			$wpdb->suppress_errors( false );
+		}
+
+		$organo = get_term( $this->voci['organo'] );
+
+		$this->assertIsArray( $esito, 'Memoria: il passaggio riesce.' );
+		$this->assertGreaterThan( 0, $viste, 'Memoria: precondizione, la lettura delle voci e\' stata tentata.' );
+		$this->assertSame( (int) $wpdb->get_var( $wpdb->prepare( "SELECT count FROM {$wpdb->term_taxonomy} WHERE term_taxonomy_id = %d", $organo->term_taxonomy_id ) ), $in_memoria, 'Memoria: il conteggio della voce e\' quello della banca dati.' );
 
 		foreach ( array( 'pubblicazione', 'rimando' ) as $passaggio ) {
 			for ( $volta = 1; $volta <= 3; $volta++ ) {
@@ -966,5 +1046,17 @@ class BarrieraTest extends \WP_UnitTestCase {
 		}
 
 		$this->assertSame( 1, $wpdb->update( $wpdb->posts, array( 'post_status' => 'private' ), array( 'post_type' => 'page' ) ), 'Controllo positivo: lo stato dei contenuti ordinari si scrive.' );
+
+		// Senza condizione da completare, nella forma di WordPress: la condizione diventa l'unica.
+		$prima = array_map( array( $this, 'fotografia' ), $fermi );
+
+		$wpdb->query( $wpdb->prepare( 'UPDATE %i SET `post_author` = %d', $wpdb->posts, $erede ) );
+		$wpdb->query( $wpdb->prepare( 'UPDATE %i SET `meta_value` = %s', $wpdb->postmeta, '2041-01-01' ) );
+
+		foreach ( $fermi as $caso => $fermo ) {
+			$this->assertSame( $prima[ $caso ], $this->fotografia( $fermo ), $caso . ': identico dopo le scritture senza condizione.' );
+		}
+
+		$this->assertSame( '2041-01-01', get_post_meta( $bozza, META_DATA_ADOZIONE, true ), 'Controllo positivo: i dati della bozza si scrivono.' );
 	}
 }

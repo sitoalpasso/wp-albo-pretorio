@@ -939,8 +939,9 @@ class RepertorioTest extends \WP_UnitTestCase {
 	 *
 	 * La lettura del numero appena preso fallisce: niente assegnazione, tanto
 	 * meno lo zero, e il numero consumato resta un buco. Poi fallisce la lettura
-	 * che dice se l'atto ha gia' un numero: il contatore non si muove. Tolto il
-	 * guasto, l'atto riceve il numero successivo.
+	 * che dice se l'atto ha gia' un numero: il contatore non si muove. Poi
+	 * fallisce solo la rilettura dopo l'inserimento: la chiamata rifiuta. Tolto
+	 * il guasto, l'atto ha il numero successivo al buco.
 	 */
 	public function test_a125_numero_non_letto(): void {
 		global $wpdb;
@@ -949,8 +950,16 @@ class RepertorioTest extends \WP_UnitTestCase {
 
 		$atto   = $this->atto();
 		$guasto = null;
-		$guasta = static function ( $istruzione ) use ( &$guasto ) {
-			return null !== $guasto && false !== strpos( (string) $istruzione, $guasto ) ? 'SELECT guasto_forzato FROM tabella_che_non_esiste' : $istruzione;
+		$dal    = 1;
+		$viste  = 0;
+		$guasta = static function ( $istruzione ) use ( &$guasto, &$dal, &$viste ) {
+			if ( null === $guasto || false === strpos( (string) $istruzione, $guasto ) ) {
+				return $istruzione;
+			}
+
+			++$viste;
+
+			return $viste >= $dal ? 'SELECT guasto_forzato FROM tabella_che_non_esiste' : $istruzione;
 		};
 		$ultimo = function (): int {
 			return (int) $this->righe_anni()[0]['ultimo'];
@@ -978,6 +987,17 @@ class RepertorioTest extends \WP_UnitTestCase {
 			$this->assertSame( 'albo_repertorio_non_letto', $esito->get_error_code() );
 			$this->assertSame( 122, $ultimo(), 'Assegnazione non letta: il contatore non si muove.' );
 			$this->assertSame( array(), $this->righe_assegnazioni(), 'Assegnazione non letta: nessuna assegnazione.' );
+
+			// La rilettura dopo l'inserimento non risponde: il numero e' dell'atto, ma la chiamata non lo dichiara.
+			$guasto = 'SELECT anno, numero FROM';
+			$dal    = 2;
+			$viste  = 0;
+			$esito  = Repertorio::assegna( $atto, $this->istante() );
+			$guasto = null;
+
+			$this->assertSame( 2, $viste, 'Rilettura non riuscita: precondizione, due letture.' );
+			$this->assertWPError( $esito, 'Rilettura non riuscita: nessun numero dichiarato.' );
+			$this->assertSame( 'albo_repertorio_non_letto', $esito->get_error_code() );
 		} finally {
 			remove_filter( 'query', $guasta );
 			$wpdb->suppress_errors( false );
@@ -989,8 +1009,9 @@ class RepertorioTest extends \WP_UnitTestCase {
 				'numero' => 123,
 			),
 			Repertorio::assegna( $atto, $this->istante() ),
-			'Senza guasti: il numero successivo al buco.'
+			'Senza guasti: il numero successivo al buco, preso nella rilettura non riuscita.'
 		);
+		$this->assertSame( 123, $ultimo(), 'Senza guasti: il contatore non si muove di nuovo.' );
 		$this->assertSame( array( $this->assegnazione( self::ANNO, 123, $atto ) ), $this->righe_assegnazioni() );
 	}
 }
