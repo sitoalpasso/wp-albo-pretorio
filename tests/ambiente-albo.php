@@ -174,6 +174,10 @@ trait AmbienteAlbo {
 			array( 'delete_post_metadata_by_mid', 'da_delete_post_metadata_by_mid', PHP_INT_MAX, 2 ),
 			array( 'add_term_relationship', 'da_voce_dell_atto', PHP_INT_MIN, 1 ),
 			array( 'delete_term_relationships', 'da_voce_dell_atto', PHP_INT_MIN, 1 ),
+			array( 'transition_post_status', 'da_transition_post_status', PHP_INT_MIN, 3 ),
+			array( 'added_term_relationship', 'da_voce_aggiunta', PHP_INT_MIN, 2 ),
+			array( 'deleted_term_relationships', 'da_voci_tolte', PHP_INT_MIN, 2 ),
+			array( 'deleted_post_meta', 'da_metadati_tolti', PHP_INT_MIN, 1 ),
 		);
 		$staccati = array();
 

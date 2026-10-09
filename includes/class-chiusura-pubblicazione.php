@@ -244,6 +244,9 @@ final class ChiusuraPubblicazione {
 		add_action( 'add_term_relationship', array( self::class, 'da_voce_dell_atto' ), PHP_INT_MIN, 1 );
 		add_action( 'delete_term_relationships', array( self::class, 'da_voce_dell_atto' ), PHP_INT_MIN, 1 );
 		add_action( 'transition_post_status', array( self::class, 'da_transition_post_status' ), PHP_INT_MIN, 3 );
+		add_action( 'added_term_relationship', array( self::class, 'da_voce_aggiunta' ), PHP_INT_MIN, 2 );
+		add_action( 'deleted_term_relationships', array( self::class, 'da_voci_tolte' ), PHP_INT_MIN, 2 );
+		add_action( 'deleted_post_meta', array( self::class, 'da_metadati_tolti' ), PHP_INT_MIN, 1 );
 	}
 
 	/**
@@ -692,6 +695,12 @@ final class ChiusuraPubblicazione {
 			return $istruzione;
 		}
 
+		$dipendente = self::condiziona_dipendente( $istruzione );
+
+		if ( null !== $dipendente ) {
+			return $dipendente;
+		}
+
 		$inizio = 'UPDATE `' . $wpdb->posts . '` SET ';
 
 		if ( 0 !== strpos( $istruzione, $inizio ) || 1 !== preg_match( '/ WHERE `ID` = (\d+)$/', $istruzione, $trovato ) ) {
@@ -781,6 +790,325 @@ final class ChiusuraPubblicazione {
 
 		if ( null !== $stato && $attesa['scritto'] !== $stato && $attesa['letto'] !== $stato ) {
 			self::ferma_richiesta( $atto_id );
+		}
+	}
+
+	/**
+	 * Le scritture dei dati e delle voci di un atto, condizionate allo stato dell'atto in quel momento.
+	 *
+	 * **Il controllo e la scrittura in un colpo solo, anche qui.** I filtri dei
+	 * metadati e gli annunci delle voci giudicano lo stato prima della
+	 * scrittura, e fra quel giudizio e l'istruzione WordPress fa girare altri
+	 * agganci: intanto un'altra richiesta puo' mandare l'atto in verifica e
+	 * pubblicarlo. L'istruzione che scrive un dato o una voce porta con se' la
+	 * condizione che l'atto non sia fermo, letta dalla banca dati nell'istante
+	 * della scrittura; i dati di servizio restano liberi come nei filtri, salvo
+	 * quando l'istruzione li rinomina. Gli atti di un passaggio in corso in
+	 * questa richiesta ne sono esclusi: li governano la concessione del
+	 * passaggio e il suo controllo finale. Un'istruzione in una forma diversa
+	 * da quelle di WordPress non si tocca.
+	 *
+	 * @param string $istruzione Istruzione.
+	 * @return string|null L'istruzione condizionata, o nulla se non scrive dati o voci.
+	 */
+	private static function condiziona_dipendente( string $istruzione ): ?string {
+		global $wpdb;
+
+		if ( ! TipoAtto::tipo_nostro() ) {
+			return null;
+		}
+
+		$tabelle = array(
+			$wpdb->postmeta           => 'post_id',
+			$wpdb->term_relationships => 'object_id',
+		);
+
+		foreach ( $tabelle as $tabella => $colonna ) {
+			$nome = '`?' . preg_quote( $tabella, '/' ) . '`?';
+
+			if ( 1 === preg_match( '/^INSERT INTO ' . $nome . ' \(([^()]*)\) VALUES \((.*)\)$/s', $istruzione, $parti ) ) {
+				return self::inserimento_condizionato( $istruzione, $tabella, $colonna, $parti[1], $parti[2] );
+			}
+
+			if ( 1 === preg_match( '/^(?:UPDATE ' . $nome . ' SET |DELETE FROM ' . $nome . ' WHERE )/', $istruzione ) ) {
+				return self::modifica_condizionata( $istruzione, $tabella, $colonna );
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Un inserimento di una riga sola, riscritto perche' avvenga solo se l'atto non e' fermo.
+	 *
+	 * @param string $istruzione Istruzione.
+	 * @param string $tabella    Tabella.
+	 * @param string $colonna    Colonna dell'atto.
+	 * @param string $colonne    Elenco delle colonne.
+	 * @param string $valori     Elenco dei valori.
+	 * @return string
+	 */
+	private static function inserimento_condizionato( string $istruzione, string $tabella, string $colonna, string $colonne, string $valori ): string {
+		global $wpdb;
+
+		$nomi   = array_map(
+			static function ( string $nome ): string {
+				return trim( $nome, " `\t\n" );
+			},
+			explode( ',', $colonne )
+		);
+		$elenco = self::valori( $valori );
+
+		if ( null === $elenco || count( $elenco ) !== count( $nomi ) ) {
+			return $istruzione;
+		}
+
+		$riga = array_combine( $nomi, $elenco );
+
+		if ( ! isset( $riga[ $colonna ] ) || 1 !== preg_match( '/^\d+$/', $riga[ $colonna ] ) ) {
+			return $istruzione;
+		}
+
+		if ( $wpdb->postmeta === $tabella && isset( $riga['meta_key'] ) && in_array( $riga['meta_key'], self::chiavi_di_servizio_scritte(), true ) ) {
+			return $istruzione;
+		}
+
+		return substr( $istruzione, 0, (int) strpos( $istruzione, ' VALUES (' ) ) . ' SELECT ' . $valori . ' FROM DUAL WHERE ' . self::non_fermo( $riga[ $colonna ] );
+	}
+
+	/**
+	 * Una modifica o una cancellazione, condizionata riga per riga allo stato del suo atto.
+	 *
+	 * @param string $istruzione Istruzione.
+	 * @param string $tabella    Tabella.
+	 * @param string $colonna    Colonna dell'atto.
+	 * @return string
+	 */
+	private static function modifica_condizionata( string $istruzione, string $tabella, string $colonna ): string {
+		global $wpdb;
+
+		$dove = self::fuori_dalle_virgolette( $istruzione, ' WHERE ' );
+
+		if ( null === $dove ) {
+			return $istruzione;
+		}
+
+		$testa      = substr( $istruzione, 0, $dove );
+		$condizione = self::non_fermo( '`' . $tabella . '`.`' . $colonna . '`' );
+
+		// Una riga di servizio resta libera, finche' l'istruzione non la rinomina.
+		if ( $wpdb->postmeta === $tabella && null === self::fuori_dalle_virgolette( $testa, '`meta_key` = ' ) ) {
+			$condizione = '( `' . $tabella . '`.`meta_key` IN ( ' . implode( ', ', self::chiavi_di_servizio_scritte() ) . ' ) OR ' . $condizione . ' )';
+		}
+
+		return $testa . ' WHERE ( ' . substr( $istruzione, $dove + strlen( ' WHERE ' ) ) . ' ) AND ' . $condizione;
+	}
+
+	/**
+	 * La condizione che l'atto indicato non sia un atto fermo, fuori dai passaggi in corso qui.
+	 *
+	 * @param string $riferimento Numero dell'atto, o colonna che lo contiene.
+	 * @return string
+	 */
+	private static function non_fermo( string $riferimento ): string {
+		global $wpdb;
+
+		$in_corso = array_map( 'intval', Passaggi::atti_in_corso() );
+		$fermi    = array_map(
+			static function ( string $stato ): string {
+				return "'" . esc_sql( $stato ) . "'";
+			},
+			self::STATI_FERMI
+		);
+
+		return 'NOT EXISTS ( SELECT 1 FROM `' . $wpdb->posts . '` AS albo_atto WHERE albo_atto.ID = ' . $riferimento
+			. " AND albo_atto.post_type = '" . esc_sql( TIPO ) . "' AND albo_atto.post_status IN ( " . implode( ', ', $fermi ) . ' )'
+			. ( array() === $in_corso ? '' : ' AND albo_atto.ID NOT IN ( ' . implode( ', ', $in_corso ) . ' )' )
+			. ' )';
+	}
+
+	/**
+	 * Le chiavi di servizio come le scrive un'istruzione.
+	 *
+	 * @return array<int, string>
+	 */
+	private static function chiavi_di_servizio_scritte(): array {
+		return array_map(
+			static function ( string $chiave ): string {
+				return "'" . esc_sql( $chiave ) . "'";
+			},
+			self::CHIAVI_DI_SERVIZIO
+		);
+	}
+
+	/**
+	 * La prima posizione di un pezzo fuori dai valori tra apici, o nulla.
+	 *
+	 * @param string $istruzione Istruzione.
+	 * @param string $pezzo      Pezzo cercato.
+	 * @return int|null
+	 */
+	private static function fuori_dalle_virgolette( string $istruzione, string $pezzo ): ?int {
+		$lunghezza = strlen( $istruzione );
+		$dentro    = false;
+
+		for ( $i = 0; $i < $lunghezza; $i++ ) {
+			$carattere = $istruzione[ $i ];
+
+			if ( $dentro ) {
+				if ( '\\' === $carattere ) {
+					++$i;
+				} elseif ( "'" === $carattere ) {
+					$dentro = false;
+				}
+
+				continue;
+			}
+
+			if ( "'" === $carattere ) {
+				$dentro = true;
+			} elseif ( 0 === substr_compare( $istruzione, $pezzo, $i, strlen( $pezzo ) ) ) {
+				return $i;
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * I valori di una riga sola, separati, o nulla se l'elenco non e' una riga sola di valori semplici.
+	 *
+	 * @param string $valori Elenco dei valori.
+	 * @return array<int, string>|null
+	 */
+	private static function valori( string $valori ): ?array {
+		$elenco    = array();
+		$corrente  = '';
+		$dentro    = false;
+		$lunghezza = strlen( $valori );
+
+		for ( $i = 0; $i < $lunghezza; $i++ ) {
+			$carattere = $valori[ $i ];
+
+			if ( $dentro ) {
+				$corrente .= $carattere;
+
+				if ( '\\' === $carattere && $i + 1 < $lunghezza ) {
+					$corrente .= $valori[ ++$i ];
+				} elseif ( "'" === $carattere ) {
+					$dentro = false;
+				}
+
+				continue;
+			}
+
+			if ( '(' === $carattere || ')' === $carattere ) {
+				return null;
+			}
+
+			if ( ',' === $carattere ) {
+				$elenco[] = trim( $corrente );
+				$corrente = '';
+
+				continue;
+			}
+
+			if ( "'" === $carattere ) {
+				$dentro = true;
+			}
+
+			$corrente .= $carattere;
+		}
+
+		if ( $dentro ) {
+			return null;
+		}
+
+		$elenco[] = trim( $corrente );
+
+		return $elenco;
+	}
+
+	/**
+	 * Dopo l'assegnazione di una voce a un atto: ferma la richiesta se l'assegnazione non e' avvenuta.
+	 *
+	 * WordPress annuncia l'assegnazione senza guardare se l'istruzione ha
+	 * scritto; se l'atto nel frattempo e' diventato fermo, non l'ha fatto.
+	 *
+	 * @param mixed $atto_id Contenuto.
+	 * @param mixed $voce    Voce, come numero della coppia voce ed elenco.
+	 */
+	public static function da_voce_aggiunta( $atto_id, $voce ): void {
+		global $wpdb;
+
+		$atto_id = (int) $atto_id;
+
+		if ( ! TipoAtto::tipo_nostro() || null === self::stato_diretto( $atto_id ) ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lettura della banca dati com'e', senza la memoria di WordPress, per sapere se la scrittura e' avvenuta.
+		$c_e = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->term_relationships} WHERE object_id = %d AND term_taxonomy_id = %d", $atto_id, (int) $voce ) );
+
+		if ( 0 === $c_e ) {
+			self::ferma_richiesta( $atto_id );
+		}
+	}
+
+	/**
+	 * Dopo la rimozione di voci da un atto: ferma la richiesta se la rimozione non e' avvenuta.
+	 *
+	 * @param mixed $atto_id Contenuto.
+	 * @param mixed $voci    Voci tolte, come numeri delle coppie voce ed elenco.
+	 */
+	public static function da_voci_tolte( $atto_id, $voci ): void {
+		global $wpdb;
+
+		$atto_id = (int) $atto_id;
+		$voci    = array_map( 'intval', (array) $voci );
+
+		if ( ! TipoAtto::tipo_nostro() || array() === $voci || null === self::stato_diretto( $atto_id ) ) {
+			return;
+		}
+
+		$segnaposto = implode( ', ', array_fill( 0, count( $voci ), '%d' ) );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- lettura della banca dati com'e', con segnaposto costruiti qui sopra.
+		$restano = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->term_relationships} WHERE object_id = %d AND term_taxonomy_id IN ( {$segnaposto} )", array_merge( array( $atto_id ), $voci ) ) );
+
+		if ( 0 !== $restano ) {
+			self::ferma_richiesta( $atto_id );
+		}
+	}
+
+	/**
+	 * Dopo la cancellazione di dati di un atto: ferma la richiesta se la cancellazione non e' avvenuta.
+	 *
+	 * WordPress annuncia la cancellazione per numero di riga anche quando
+	 * l'istruzione non ha tolto niente.
+	 *
+	 * L'atto si rilegge dalle righe rimaste, non si prende dall'annuncio.
+	 *
+	 * @param mixed $righe Numeri delle righe tolte.
+	 */
+	public static function da_metadati_tolti( $righe ): void {
+		global $wpdb;
+
+		$righe = array_map( 'intval', (array) $righe );
+
+		if ( ! TipoAtto::tipo_nostro() || array() === $righe ) {
+			return;
+		}
+
+		$segnaposto = implode( ', ', array_fill( 0, count( $righe ), '%d' ) );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- lettura della banca dati com'e', con segnaposto costruiti qui sopra.
+		$restano = $wpdb->get_col( $wpdb->prepare( "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_id IN ( {$segnaposto} )", $righe ) );
+
+		foreach ( array_unique( array_map( 'intval', (array) $restano ) ) as $atto ) {
+			if ( null !== self::stato_diretto( $atto ) ) {
+				self::ferma_richiesta( $atto );
+			}
 		}
 	}
 

@@ -1,6 +1,6 @@
 <?php
 /**
- * Tutto o niente, guardiano, riquadro e permesso del registro: righe A-105..A-110, A-116..A-121.
+ * Tutto o niente, guardiano, riquadro e permesso del registro: righe A-105..A-110, A-116..A-122.
  *
  * I guasti si forzano da fuori, come li produrrebbe la banca dati o un altro
  * componente: un'istruzione che fallisce, un metadato che non si scrive. Il
@@ -13,12 +13,14 @@ declare( strict_types = 1 );
 
 namespace AlboPretorioPa\Tests;
 
+use AlboPretorioPa\DocumentiAtto;
 use AlboPretorioPa\Installazione;
 use AlboPretorioPa\Passaggi;
 use AlboPretorioPa\Permessi;
 use AlboPretorioPa\Repertorio;
 use AlboPretorioPa\RiquadroPassaggi;
 
+use const AlboPretorioPa\META_DATA_ADOZIONE;
 use const AlboPretorioPa\RUOLO;
 use const AlboPretorioPa\TASSONOMIA_ORGANO;
 use const AlboPretorioPa\TIPO;
@@ -1582,6 +1584,236 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 
 						$this->assertSame( 'pending', (string) $wpdb->get_var( $wpdb->prepare( "SELECT post_status FROM {$wpdb->posts} WHERE ID = %d", $id ) ), $caso . ': l\'atto resta in verifica.' );
 						$this->assertSame( 'pending', get_post_status( $id ), $caso . ': anche in memoria.' );
+					}
+				} finally {
+					$diretta->close();
+				}
+			}
+		);
+	}
+
+	/**
+	 * A-122: un dato, una voce o un documento di una bozza scritti dopo il controllo, quando intanto l'atto e' stato pubblicato.
+	 *
+	 * Ogni scrittura di un dato, di una voce o di un documento supera il controllo sulla bozza
+	 * e si ferma nell'aggancio che WordPress fa girare subito prima
+	 * dell'istruzione; un'altra richiesta, da una seconda connessione, scrive
+	 * e conferma l'atto pubblicato; poi la scrittura riprende.
+	 */
+	public function test_a122_dati_e_voci_dopo_il_controllo(): void {
+		global $wpdb;
+
+		$altro_organo = (int) get_term( $this->voce( TASSONOMIA_ORGANO, 'Collegio di garanzia' ) )->term_taxonomy_id;
+		$organo       = (int) get_term( $this->voci['organo'] )->term_taxonomy_id;
+
+		$riga = static function ( int $id, string $chiave ): ?int {
+			global $wpdb;
+
+			$meta_id = $wpdb->get_var( $wpdb->prepare( "SELECT meta_id FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s", $id, $chiave ) );
+
+			return null === $meta_id ? null : (int) $meta_id;
+		};
+
+		/*
+		 * Per ogni caso: la scrittura, l'aggancio in cui si ferma, quello che
+		 * risponde se l'atto e' diventato fermo, e i dati che devono restare.
+		 */
+		$casi = array(
+			'dato aggiornato'                        => array(
+				static function ( int $id ) {
+					return update_post_meta( $id, META_DATA_ADOZIONE, '2041-09-11' );
+				},
+				'update_post_meta',
+				false,
+			),
+			'dato aggiunto'                          => array(
+				static function ( int $id ) {
+					return add_post_meta( $id, 'albo_dato_nuovo', 'x' );
+				},
+				'add_post_meta',
+				false,
+			),
+			'dato tolto'                             => array(
+				static function ( int $id ) {
+					return delete_post_meta( $id, META_DATA_ADOZIONE );
+				},
+				'delete_post_meta',
+				false,
+			),
+			'dato aggiornato per numero di riga'     => array(
+				static function ( int $id ) use ( $riga ) {
+					return update_metadata_by_mid( 'post', (int) $riga( $id, META_DATA_ADOZIONE ), '2041-09-11' );
+				},
+				'update_post_meta',
+				false,
+			),
+			'dato tolto per numero di riga'          => array(
+				static function ( int $id ) use ( $riga ) {
+					return delete_metadata_by_mid( 'post', (int) $riga( $id, META_DATA_ADOZIONE ) );
+				},
+				'delete_post_meta',
+				'fermata',
+			),
+			'riga di servizio rinominata in un dato' => array(
+				static function ( int $id ) use ( $riga ) {
+					return update_metadata_by_mid( 'post', (int) $riga( $id, '_edit_lock' ), 'x', 'albo_dato_nuovo' );
+				},
+				'update_post_meta',
+				false,
+			),
+			'voce aggiunta'                          => array(
+				static function ( int $id ) use ( $organo, $altro_organo ) {
+					return wp_set_object_terms( $id, array( $organo, $altro_organo ), TASSONOMIA_ORGANO );
+				},
+				'add_term_relationship',
+				'fermata',
+			),
+			'voce tolta'                             => array(
+				static function ( int $id ) use ( $organo ) {
+					return wp_remove_object_terms( $id, array( $organo ), TASSONOMIA_ORGANO );
+				},
+				'delete_term_relationships',
+				'fermata',
+			),
+			'documento principale tolto'             => array(
+				static function ( int $id ) {
+					return DocumentiAtto::togli( $id, (int) DocumentiAtto::principale( $id ) );
+				},
+				'delete_post_meta',
+				'rifiuto',
+			),
+			'documento principale sostituito'        => array(
+				function ( int $id ) {
+					return DocumentiAtto::deposita( $id, $this->file_temporaneo( 'nuovo.pdf' ), DocumentiAtto::PRINCIPALE, 'percorso_locale' );
+				},
+				'update_post_meta',
+				'rifiuto',
+			),
+			'allegato ulteriore depositato'          => array(
+				function ( int $id ) {
+					return DocumentiAtto::deposita( $id, $this->file_temporaneo( 'allegato.pdf' ), DocumentiAtto::ULTERIORE, 'percorso_locale' );
+				},
+				'add_post_meta',
+				'rifiuto',
+			),
+			'controllo: dato aggiornato senza nessuno in mezzo' => array(
+				static function ( int $id ) {
+					return update_post_meta( $id, META_DATA_ADOZIONE, '2041-09-11' );
+				},
+				null,
+				true,
+			),
+			'controllo: riga di servizio di un atto pubblicato' => array(
+				static function ( int $id ) {
+					return update_post_meta( $id, '_edit_lock', '2:1' );
+				},
+				'pubblicato prima',
+				true,
+			),
+		);
+		$ids  = array();
+
+		foreach ( $casi as $caso => $voce ) {
+			$ids[ $caso ] = $this->atto_completo();
+
+			add_post_meta( $ids[ $caso ], '_edit_lock', '1:1' );
+		}
+
+		$contenuti = array();
+
+		foreach ( $ids as $id ) {
+			$contenuti = array_merge( $contenuti, $this->contenuti_dell_atto( $id ) );
+		}
+
+		$this->con_scrittura_automatica(
+			$contenuti,
+			function () use ( $wpdb, $casi, $ids ) {
+				$diretta = $this->connessione_diretta();
+
+				// Dati, voci e documenti dell'atto, letti dalla seconda connessione: solo cio' che e' confermato.
+				$stato_dell_atto = static function ( int $id ) use ( $diretta, $wpdb ): array {
+					$dati      = array();
+					$voci      = array();
+					$documenti = array();
+
+					foreach ( $diretta->query( "SELECT ID FROM {$wpdb->posts} WHERE post_parent = " . (int) $id . ' ORDER BY ID' )->fetch_all() as $documento ) {
+						$documenti[] = (int) $documento[0];
+					}
+
+					foreach ( $diretta->query( "SELECT meta_key, meta_value FROM {$wpdb->postmeta} WHERE post_id = " . (int) $id . ' ORDER BY meta_id' )->fetch_all() as $dato ) {
+						$dati[] = $dato[0] . '=' . $dato[1];
+					}
+
+					foreach ( $diretta->query( "SELECT term_taxonomy_id FROM {$wpdb->term_relationships} WHERE object_id = " . (int) $id . ' ORDER BY term_taxonomy_id' )->fetch_all() as $voce ) {
+						$voci[] = (int) $voce[0];
+					}
+
+					return array( $dati, $voci, $documenti );
+				};
+
+				try {
+					foreach ( $casi as $caso => list( $scrittura, $aggancio, $atteso ) ) {
+						$id       = $ids[ $caso ];
+						$fatta    = false;
+						$pubblica = static function () use ( $diretta, $wpdb, $id, &$fatta ) {
+							$fatta = true;
+
+							$diretta->query( "UPDATE {$wpdb->posts} SET post_status = 'publish', post_title = 'Oggetto pubblicato' WHERE ID = " . (int) $id );
+						};
+
+						if ( 'pubblicato prima' === $aggancio ) {
+							$pubblica();
+							clean_post_cache( $id );
+						}
+
+						$prima = $stato_dell_atto( $id );
+						// Gli annunci dei dati passano l'atto per secondo, quelli delle voci per primo.
+						$ferma = static function ( $primo, $secondo = null ) use ( $id, $pubblica, &$fatta ) {
+							if ( ! $fatta && ( ( is_numeric( $primo ) && $id === (int) $primo ) || ( is_numeric( $secondo ) && $id === (int) $secondo ) ) ) {
+								$pubblica();
+							}
+						};
+
+						if ( null !== $aggancio && 'pubblicato prima' !== $aggancio ) {
+							add_action( $aggancio, $ferma, 10, 2 );
+						}
+
+						$esito   = null;
+						$fermata = null;
+
+						try {
+							$esito = $scrittura( $id );
+						} catch ( \WPDieException $errore ) {
+							$fermata = $errore;
+						} finally {
+							if ( null !== $aggancio && 'pubblicato prima' !== $aggancio ) {
+								remove_action( $aggancio, $ferma, 10 );
+							}
+						}
+
+						$dopo = $stato_dell_atto( $id );
+
+						if ( true === $atteso ) {
+							$this->assertNull( $fermata, $caso . ': nessun rifiuto.' );
+							$this->assertNotFalse( $esito, $caso . ': la scrittura riesce.' );
+							$this->assertNotSame( $prima, $dopo, $caso . ': ed e\' nella banca dati.' );
+
+							continue;
+						}
+
+						$this->assertTrue( $fatta, $caso . ': precondizione, l\'altra richiesta ha pubblicato l\'atto dopo il controllo.' );
+						$this->assertSame( $prima, $dopo, $caso . ': dati e voci dell\'atto pubblicato restano quelli di prima.' );
+
+						if ( 'fermata' === $atteso ) {
+							$this->assertInstanceOf( \WPDieException::class, $fermata, $caso . ': WordPress annuncerebbe una scrittura che non c\'e\' stata, e la richiesta si ferma.' );
+						} elseif ( 'rifiuto' === $atteso ) {
+							$this->assertNull( $fermata, $caso . ': nessuna fermata.' );
+							$this->assertWPError( $esito, $caso . ': il documento non si tocca.' );
+							$this->assertSame( array( 'albo_documenti_non_in_bozza' ), $esito->get_error_codes(), $caso . ': perche\' l\'atto non e\' piu\' in bozza.' );
+						} else {
+							$this->assertNull( $fermata, $caso . ': nessuna fermata.' );
+							$this->assertFalse( $esito, $caso . ': la scrittura risponde che non e\' avvenuta.' );
+						}
 					}
 				} finally {
 					$diretta->close();
