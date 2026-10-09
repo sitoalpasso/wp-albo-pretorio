@@ -1410,6 +1410,16 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 							add_filter( 'query', $prima_della_scrittura, PHP_INT_MAX );
 						}
 
+						// Un altro componente che ascolta il cambio di stato: non deve sentire una scrittura che non c'e' stata.
+						$annunciata = false;
+						$ascolta    = static function ( $nuovo, $vecchio, $atto ) use ( $id, &$annunciata ) {
+							if ( $atto instanceof \WP_Post && $id === (int) $atto->ID ) {
+								$annunciata = true;
+							}
+						};
+
+						add_action( 'transition_post_status', $ascolta, 10, 3 );
+
 						$sospensione = $sospesa ? wp_suspend_cache_invalidation( true ) : null;
 						$fermata     = null;
 
@@ -1430,6 +1440,7 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 							$fermata = $errore;
 						} finally {
 							remove_action( 'pre_post_update', $dopo_il_vaglio, 10 );
+							remove_action( 'transition_post_status', $ascolta, 10 );
 							remove_filter( 'query', $prima_della_scrittura, PHP_INT_MAX );
 
 							if ( $sospesa ) {
@@ -1443,6 +1454,7 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 
 						if ( null === $quando ) {
 							$this->assertNull( $fermata, $caso . ': nessun rifiuto.' );
+							$this->assertTrue( $annunciata, $caso . ': il cambio di stato e\' annunciato.' );
 							$this->assertSame( array( 'draft', 'Oggetto di chi redige' ), array( $riga['post_status'], $riga['post_title'] ), $caso . ': la bozza e\' salvata.' );
 
 							continue;
@@ -1450,6 +1462,7 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 
 						$this->assertTrue( $fatta, $caso . ': precondizione, l\'altra richiesta ha scritto.' );
 						$this->assertInstanceOf( \WPDieException::class, $fermata, $caso . ': la richiesta si ferma.' );
+						$this->assertFalse( $annunciata, $caso . ': prima che gli altri componenti sentano l\'annuncio.' );
 						$this->assertSame(
 							array( 'publish', 'Oggetto pubblicato', '2041-10-01 09:00:00', '2041-10-16' ),
 							array( $riga['post_status'], $riga['post_title'], $riga['post_date'], is_array( $fine ) ? $fine['meta_value'] : null ),
