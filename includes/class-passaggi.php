@@ -358,16 +358,17 @@ final class Passaggi {
 			return $apertura;
 		}
 
-		$bloccato = self::blocca( $atto_id, $partenza );
-
-		if ( is_wp_error( $bloccato ) ) {
-			$annullato = self::annulla( $apertura, $atto_id );
-
-			return is_wp_error( $annullato ) ? $annullato : $bloccato;
-		}
-
+		/*
+		 * Dalla transazione aperta in poi tutto sta dentro la stessa difesa,
+		 * blocco compreso: un rifiuto o un'eccezione mentre la riga si blocca
+		 * e si rilegge annullano come quelli delle scritture.
+		 */
 		try {
-			$esito = self::scrivi_stato( $atto_id, $campi );
+			$esito = self::blocca( $atto_id, $partenza );
+
+			if ( ! is_wp_error( $esito ) ) {
+				$esito = self::scrivi_stato( $atto_id, $campi );
+			}
 
 			if ( ! is_wp_error( $esito ) ) {
 				$esito = self::scrivi_fine( $atto_id, $fine );
@@ -561,16 +562,17 @@ final class Passaggi {
 			return $apertura;
 		}
 
-		$bloccato = self::blocca( $atto_id, $partenza );
-
-		if ( is_wp_error( $bloccato ) ) {
-			$annullato = self::annulla( $apertura, $atto_id );
-
-			return is_wp_error( $annullato ) ? $annullato : $bloccato;
-		}
-
+		/*
+		 * Dalla transazione aperta in poi tutto sta dentro la stessa difesa,
+		 * blocco compreso: un rifiuto o un'eccezione mentre la riga si blocca
+		 * e si rilegge annullano come quelli delle scritture.
+		 */
 		try {
-			$esito = self::scrivi_stato( $atto_id, $campi );
+			$esito = self::blocca( $atto_id, $partenza );
+
+			if ( ! is_wp_error( $esito ) ) {
+				$esito = self::scrivi_stato( $atto_id, $campi );
+			}
 
 			if ( ! is_wp_error( $esito ) ) {
 				$esito = self::controlla_voce_automatica( $atto_id, 'cambio_stato', $prima );

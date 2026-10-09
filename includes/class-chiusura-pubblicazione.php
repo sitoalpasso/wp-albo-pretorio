@@ -34,6 +34,15 @@
  * un'istruzione scritta a mano da un altro componente in una forma diversa da
  * quella delle funzioni di WordPress.
  *
+ * **Il vaglio vale per lo stato da cui parte.** Fra il primo livello e
+ * l'istruzione WordPress fa girare altri agganci, e un'altra richiesta puo'
+ * intanto mandare in verifica o pubblicare lo stesso atto. Il secondo livello
+ * ammette la scrittura vagliata solo se la riga, riletta dalla banca dati, ha
+ * ancora lo stato su cui il vaglio e' stato fatto, e l'istruzione stessa
+ * scrive solo a quella condizione: se un'altra richiesta cambia la riga anche
+ * nell'ultimo istante, la scrittura non avviene e la richiesta si ferma prima
+ * degli annunci di WordPress.
+ *
  * **La concessione e' di `Passaggi`, non di questa classe.** Il guardiano non
  * ha nessun modo pubblico per concedere un passaggio: chiede a `Passaggi` se
  * la scrittura porta il gettone del passaggio in corso su quell'atto, e il
@@ -83,10 +92,25 @@ final class ChiusuraPubblicazione {
 	 * Le scritture della riga vagliate dal primo livello, per atto, con lo stato che portano.
 	 *
 	 * Ciascuna ammette una sola istruzione al secondo livello, e si consuma.
+	 * Porta anche lo stato da cui il vaglio e' partito: il vaglio vale per
+	 * quello stato e per nessun altro, perche' fra il vaglio e l'istruzione
+	 * un'altra richiesta puo' aver cambiato l'atto.
 	 *
-	 * @var array<int, array{stato: string, passaggio: bool}>
+	 * @var array<int, array{stato: string, partenza: string|null, passaggio: bool}>
 	 */
 	private static $vagliate = array();
+
+	/**
+	 * Le scritture della riga ammesse dal secondo livello e non ancora verificate, per atto.
+	 *
+	 * L'istruzione ammessa scrive solo se la riga ha ancora lo stato letto dal
+	 * secondo livello; se nel frattempo un'altra richiesta l'ha cambiato, non
+	 * scrive niente, e la richiesta va fermata prima che WordPress annunci una
+	 * scrittura che non c'e' stata.
+	 *
+	 * @var array<int, array{scritto: string, letto: string}>
+	 */
+	private static $attese = array();
 
 	/**
 	 * Gli stati di bozza: la bozza vera e quella che WordPress crea aprendo la schermata di un atto nuovo.
@@ -219,6 +243,7 @@ final class ChiusuraPubblicazione {
 		add_filter( 'delete_post_metadata_by_mid', array( self::class, 'da_delete_post_metadata_by_mid' ), PHP_INT_MAX, 2 );
 		add_action( 'add_term_relationship', array( self::class, 'da_voce_dell_atto' ), PHP_INT_MIN, 1 );
 		add_action( 'delete_term_relationships', array( self::class, 'da_voce_dell_atto' ), PHP_INT_MIN, 1 );
+		add_action( 'transition_post_status', array( self::class, 'da_transition_post_status' ), PHP_INT_MIN, 3 );
 	}
 
 	/**
@@ -543,6 +568,7 @@ final class ChiusuraPubblicazione {
 
 			self::$vagliate[ $atto_id ] = array(
 				'stato'     => (string) $data['post_status'],
+				'partenza'  => $partenza,
 				'passaggio' => null !== $concesso,
 			);
 
@@ -599,6 +625,7 @@ final class ChiusuraPubblicazione {
 		if ( $atto_id > 0 ) {
 			self::$vagliate[ $atto_id ] = array(
 				'stato'     => (string) $data['post_status'],
+				'partenza'  => $partenza,
 				'passaggio' => false,
 			);
 		}
@@ -671,21 +698,90 @@ final class ChiusuraPubblicazione {
 			return $istruzione;
 		}
 
-		$atto_id = (int) $trovato[1];
-		$insieme = substr( $istruzione, strlen( $inizio ), - strlen( $trovato[0] ) );
+		$atto_id  = (int) $trovato[1];
+		$insieme  = substr( $istruzione, strlen( $inizio ), - strlen( $trovato[0] ) );
+		$vagliata = isset( self::$vagliate[ $atto_id ] );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lettura della riga com'e' nella banca dati, senza la memoria di WordPress, per giudicare la scrittura che sta per arrivare.
 		$riga = $wpdb->get_row(
 			$wpdb->prepare( "SELECT post_type, post_status, post_name FROM {$wpdb->posts} WHERE ID = %d", $atto_id ),
 			ARRAY_A
 		);
 
-		if ( ! is_array( $riga ) || self::riga_ammessa( $atto_id, $riga, self::valore_scritto( $insieme, 'post_status' ), self::valore_scritto( $insieme, 'post_type' ), $insieme ) ) {
+		if ( ! is_array( $riga ) ) {
 			return $istruzione;
 		}
 
-		self::ferma_richiesta( $atto_id );
+		$stato = self::valore_scritto( $insieme, 'post_status' );
+		$tipo  = self::valore_scritto( $insieme, 'post_type' );
 
-		return '';
+		if ( ! self::riga_ammessa( $atto_id, $riga, $stato, $tipo, $insieme ) ) {
+			self::ferma_richiesta( $atto_id );
+
+			return '';
+		}
+
+		if ( ! TipoAtto::tipo_nostro() || ( TIPO !== $riga['post_type'] && TIPO !== $tipo ) ) {
+			return $istruzione;
+		}
+
+		/*
+		 * **Il controllo e la scrittura in un colpo solo.** La riga e' stata
+		 * giudicata con lo stato appena letto, ma fra questa lettura e
+		 * l'istruzione un'altra richiesta puo' ancora cambiarla: l'istruzione
+		 * scrive solo se la riga ha ancora quello stato. Se non scrive, lo
+		 * scopre la verifica che segue, prima degli annunci di WordPress.
+		 */
+		if ( $vagliata ) {
+			self::$attese[ $atto_id ] = array(
+				'scritto' => null === $stato ? (string) $riga['post_status'] : $stato,
+				'letto'   => (string) $riga['post_status'],
+			);
+		}
+
+		return $istruzione . " AND `post_status` = '" . esc_sql( (string) $riga['post_status'] ) . "'";
+	}
+
+	/**
+	 * Il primo annuncio dopo la scrittura della riga: la verifica, prima di tutti gli altri.
+	 *
+	 * Fra l'istruzione e questo annuncio `wp_insert_post` assegna solo voci e
+	 * dati collegati, che su un atto fermo hanno le loro difese.
+	 *
+	 * @param mixed $nuovo   Stato nuovo.
+	 * @param mixed $vecchio Stato vecchio.
+	 * @param mixed $atto    Contenuto.
+	 */
+	public static function da_transition_post_status( $nuovo, $vecchio, $atto ): void {
+		if ( $atto instanceof \WP_Post ) {
+			self::verifica_scrittura( (int) $atto->ID );
+		}
+	}
+
+	/**
+	 * Ferma la richiesta se la scrittura vagliata non e' arrivata alla banca dati.
+	 *
+	 * La riga ha lo stato scritto, o quello letto se l'istruzione non e'
+	 * nemmeno arrivata, per un errore della banca dati che WordPress riferisce
+	 * da se'. Uno stato diverso dai due vuol dire che un'altra richiesta ha
+	 * cambiato l'atto e che questa non ha scritto niente: WordPress
+	 * annuncerebbe una scrittura che non c'e' stata, e la richiesta si ferma.
+	 *
+	 * @param int $atto_id Atto.
+	 */
+	private static function verifica_scrittura( int $atto_id ): void {
+		if ( ! isset( self::$attese[ $atto_id ] ) ) {
+			return;
+		}
+
+		$attesa = self::$attese[ $atto_id ];
+
+		unset( self::$attese[ $atto_id ] );
+
+		$stato = self::stato_diretto( $atto_id );
+
+		if ( null !== $stato && $attesa['scritto'] !== $stato && $attesa['letto'] !== $stato ) {
+			self::ferma_richiesta( $atto_id );
+		}
 	}
 
 	/**
@@ -736,6 +832,11 @@ final class ChiusuraPubblicazione {
 			unset( self::$vagliate[ $atto_id ] );
 
 			if ( $vagliata['passaggio'] && ! Passaggi::in_corso( $atto_id ) ) {
+				return false;
+			}
+
+			// Il vaglio vale per lo stato da cui e' partito: se la riga ne ha un altro, non vale piu'.
+			if ( null === $vagliata['partenza'] || $vagliata['partenza'] !== $riga['post_status'] ) {
 				return false;
 			}
 

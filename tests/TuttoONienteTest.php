@@ -1,6 +1,6 @@
 <?php
 /**
- * Tutto o niente, guardiano, riquadro e permesso del registro: righe A-105..A-110, A-116..A-119.
+ * Tutto o niente, guardiano, riquadro e permesso del registro: righe A-105..A-110, A-116..A-121.
  *
  * I guasti si forzano da fuori, come li produrrebbe la banca dati o un altro
  * componente: un'istruzione che fallisce, un metadato che non si scrive. Il
@@ -1329,6 +1329,247 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 					$this->assertTrue( $bloccata, 'A transazione aperta l\'atto e\' bloccato per le altre richieste.' );
 					$this->assertSame( 1205, $diretta->errno, 'Per attesa del blocco.' );
 					$this->assertIsArray( $esito, 'Controllo positivo: la pubblicazione riesce.' );
+				} finally {
+					$diretta->close();
+				}
+			}
+		);
+	}
+
+	/**
+	 * A-120: una scrittura vagliata su una bozza non vale piu' se intanto un'altra richiesta ha pubblicato l'atto.
+	 *
+	 * Il salvataggio di una bozza si ferma dopo il vaglio, e un'altra
+	 * richiesta, da una seconda connessione, scrive e conferma l'atto
+	 * pubblicato, con la sua data di inizio e la sua data di fine; poi il
+	 * salvataggio riprende. Negli ultimi due casi l'altra richiesta scrive
+	 * nell'ultimo istante possibile: fra la rilettura della riga e
+	 * l'istruzione che la scrive.
+	 */
+	public function test_a120_scrittura_vagliata_e_pubblicazione_in_mezzo(): void {
+		global $wpdb;
+
+		$casi = array(
+			'bozza risalvata, pubblicata dopo il vaglio' => array( 'draft', 'vaglio', false ),
+			'bozza mandata in verifica, pubblicata dopo il vaglio' => array( 'pending', 'vaglio', false ),
+			'bozza risalvata, pubblicata fra la rilettura e la scrittura' => array( 'draft', 'istruzione', false ),
+			'come sopra, con lo svuotamento della memoria sospeso' => array( 'draft', 'istruzione', true ),
+			'controllo: nessuno in mezzo'                => array( 'draft', null, false ),
+		);
+		$ids  = array();
+
+		foreach ( $casi as $caso => $voce ) {
+			$ids[ $caso ] = $this->atto_completo();
+		}
+
+		$contenuti = array();
+
+		foreach ( $ids as $id ) {
+			$contenuti = array_merge( $contenuti, $this->contenuti_dell_atto( $id ) );
+		}
+
+		$this->con_scrittura_automatica(
+			$contenuti,
+			function () use ( $wpdb, $casi, $ids ) {
+				$diretta = $this->connessione_diretta();
+				$chiave  = conformita_core_chiave_fine_pubblicazione();
+
+				try {
+					foreach ( $casi as $caso => list( $stato, $quando, $sospesa ) ) {
+						$id    = $ids[ $caso ];
+						$fatta = false;
+						$voci  = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE contenuto = %d', $this->tabella_registro(), $id ) );
+
+						// L'altra richiesta: l'atto pubblicato, confermato.
+						$pubblica = static function () use ( $diretta, $wpdb, $id, $chiave, &$fatta ) {
+							$fatta = true;
+
+							$diretta->query( "UPDATE {$wpdb->posts} SET post_status = 'publish', post_title = 'Oggetto pubblicato', post_date = '2041-10-01 09:00:00' WHERE ID = " . (int) $id );
+							$diretta->query( "INSERT INTO {$wpdb->postmeta} ( post_id, meta_key, meta_value ) VALUES ( " . (int) $id . ", '" . $diretta->real_escape_string( $chiave ) . "', '2041-10-16' )" );
+						};
+
+						$dopo_il_vaglio = static function ( $post_id ) use ( $id, $pubblica, &$fatta ) {
+							if ( ! $fatta && $id === (int) $post_id ) {
+								$pubblica();
+							}
+						};
+
+						$prima_della_scrittura = static function ( $istruzione ) use ( $wpdb, $id, $pubblica, &$fatta ) {
+							if ( ! $fatta && is_string( $istruzione ) && 0 === strpos( $istruzione, 'UPDATE `' . $wpdb->posts . '` SET ' )
+								&& 1 === preg_match( '/ WHERE `ID` = ' . (int) $id . '( |$)/', $istruzione ) ) {
+								$pubblica();
+							}
+
+							return $istruzione;
+						};
+
+						if ( 'vaglio' === $quando ) {
+							add_action( 'pre_post_update', $dopo_il_vaglio, 10, 1 );
+						} elseif ( 'istruzione' === $quando ) {
+							// Alla stessa priorita' della barriera e aggiunto dopo: gira dopo di lei.
+							add_filter( 'query', $prima_della_scrittura, PHP_INT_MAX );
+						}
+
+						$sospensione = $sospesa ? wp_suspend_cache_invalidation( true ) : null;
+						$fermata     = null;
+
+						try {
+							$this->come(
+								$this->redattore,
+								static function () use ( $id, $stato ) {
+									return wp_update_post(
+										array(
+											'ID'          => $id,
+											'post_title'  => 'Oggetto di chi redige',
+											'post_status' => $stato,
+										)
+									);
+								}
+							);
+						} catch ( \WPDieException $errore ) {
+							$fermata = $errore;
+						} finally {
+							remove_action( 'pre_post_update', $dopo_il_vaglio, 10 );
+							remove_filter( 'query', $prima_della_scrittura, PHP_INT_MAX );
+
+							if ( $sospesa ) {
+								wp_suspend_cache_invalidation( (bool) $sospensione );
+							}
+						}
+
+						$riga = $diretta->query( "SELECT post_status, post_title, post_date FROM {$wpdb->posts} WHERE ID = " . (int) $id )->fetch_assoc();
+						$fine = $diretta->query( "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = " . (int) $id . " AND meta_key = '" . $diretta->real_escape_string( $chiave ) . "'" )->fetch_assoc();
+						$dopo = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE contenuto = %d', $this->tabella_registro(), $id ) );
+
+						if ( null === $quando ) {
+							$this->assertNull( $fermata, $caso . ': nessun rifiuto.' );
+							$this->assertSame( array( 'draft', 'Oggetto di chi redige' ), array( $riga['post_status'], $riga['post_title'] ), $caso . ': la bozza e\' salvata.' );
+
+							continue;
+						}
+
+						$this->assertTrue( $fatta, $caso . ': precondizione, l\'altra richiesta ha scritto.' );
+						$this->assertInstanceOf( \WPDieException::class, $fermata, $caso . ': la richiesta si ferma.' );
+						$this->assertSame(
+							array( 'publish', 'Oggetto pubblicato', '2041-10-01 09:00:00', '2041-10-16' ),
+							array( $riga['post_status'], $riga['post_title'], $riga['post_date'], is_array( $fine ) ? $fine['meta_value'] : null ),
+							$caso . ': stato, oggetto e date restano quelli pubblicati.'
+						);
+						$this->assertSame( $voci, $dopo, $caso . ': nessuna voce nuova nel registro.' );
+					}
+				} finally {
+					$diretta->close();
+				}
+			}
+		);
+	}
+
+	/**
+	 * A-121: un'eccezione mentre la riga si blocca e si rilegge annulla come quelle delle scritture.
+	 *
+	 * Un altro componente solleva un'eccezione dal filtro delle istruzioni
+	 * subito dopo il blocco della riga, durante la rilettura dell'atto.
+	 */
+	public function test_a121_eccezione_durante_il_blocco(): void {
+		global $wpdb;
+
+		$casi = array(
+			'pubblicazione, annullamento riuscito'     => array( 'pubblicazione', true ),
+			'rimando, annullamento riuscito'           => array( 'rimando', true ),
+			'pubblicazione, annullamento non riuscito' => array( 'pubblicazione', false ),
+			'rimando, annullamento non riuscito'       => array( 'rimando', false ),
+		);
+		$ids  = array();
+
+		foreach ( $casi as $caso => $voce ) {
+			$ids[ $caso ] = $this->atto_in_verifica();
+		}
+
+		$contenuti = array();
+
+		foreach ( $ids as $id ) {
+			$contenuti = array_merge( $contenuti, $this->contenuti_dell_atto( $id ) );
+		}
+
+		$this->con_scrittura_automatica(
+			$contenuti,
+			function () use ( $wpdb, $casi, $ids ) {
+				$diretta = $this->connessione_diretta();
+
+				try {
+					foreach ( $casi as $caso => list( $passaggio, $riesce ) ) {
+						$id         = $ids[ $caso ];
+						$bloccata   = false;
+						$lanciata   = false;
+						$annullata  = false;
+						$componente = static function ( $istruzione ) use ( $id, &$bloccata, &$lanciata, &$annullata ) {
+							$istruzione = ltrim( (string) $istruzione );
+
+							if ( $lanciata && 0 === strpos( $istruzione, 'ROLLBACK' ) ) {
+								$annullata = true;
+							} elseif ( ! $bloccata && false !== strpos( $istruzione, 'FOR UPDATE' ) && false !== strpos( $istruzione, 'ID = ' . (int) $id ) ) {
+								$bloccata = true;
+							} elseif ( $bloccata && ! $lanciata ) {
+								$lanciata = true;
+
+								throw new \DomainException( 'Guasto di un altro componente.' );
+							}
+
+							return $istruzione;
+						};
+
+						if ( ! $riesce ) {
+							$wpdb->suppress_errors( true );
+
+							$this->guasto = static function ( string $istruzione ): bool {
+								return 0 === strpos( $istruzione, 'ROLLBACK' );
+							};
+						}
+
+						add_filter( 'query', $componente, 1 );
+
+						$errore = null;
+
+						try {
+							'pubblicazione' === $passaggio
+								? $this->pubblica_da_codice( $id, $this->pubblicatore )
+								: $this->come(
+									$this->pubblicatore,
+									static function () use ( $id ) {
+										return albo_pretorio_rimanda_in_bozza( $id, 'Da completare.' );
+									}
+								);
+						} catch ( \Throwable $lanciato ) {
+							$errore = $lanciato;
+						} finally {
+							remove_filter( 'query', $componente, 1 );
+							$this->guasto = null;
+						}
+
+						$this->assertTrue( $lanciata, $caso . ': precondizione, l\'eccezione e\' partita durante la rilettura sotto il blocco.' );
+						$this->assertTrue( $annullata, $caso . ': il passaggio ha annullato.' );
+						$this->assertSame( array(), Passaggi::atti_in_corso(), $caso . ': nessun passaggio resta in corso.' );
+
+						// Un'altra richiesta prova a scrivere l'atto: trova il blocco solo se la transazione e' ancora aperta.
+						$libera = $diretta->query( "UPDATE {$wpdb->posts} SET post_title = post_title WHERE ID = " . (int) $id );
+
+						if ( $riesce ) {
+							$this->assertInstanceOf( \DomainException::class, $errore, $caso . ': arriva a chi chiama l\'eccezione del componente.' );
+							$this->assertTrue( $libera, $caso . ': il blocco e\' liberato.' );
+						} else {
+							$this->assertInstanceOf( \RuntimeException::class, $errore, $caso . ': l\'eccezione dice che l\'annullamento non e\' riuscito.' );
+							$this->assertNotInstanceOf( \DomainException::class, $errore, $caso . ': non e\' l\'eccezione di partenza.' );
+							$this->assertInstanceOf( \DomainException::class, $errore->getPrevious(), $caso . ': l\'eccezione del componente e\' la causa.' );
+							$this->assertStringContainsString( (string) $id, $errore->getMessage(), $caso . ': il messaggio nomina l\'atto.' );
+							$this->assertFalse( $libera, $caso . ': il messaggio dice il vero, la transazione e\' ancora aperta.' );
+
+							$wpdb->suppress_errors( false );
+							$wpdb->query( 'ROLLBACK' );
+						}
+
+						$this->assertSame( 'pending', (string) $wpdb->get_var( $wpdb->prepare( "SELECT post_status FROM {$wpdb->posts} WHERE ID = %d", $id ) ), $caso . ': l\'atto resta in verifica.' );
+						$this->assertSame( 'pending', get_post_status( $id ), $caso . ': anche in memoria.' );
+					}
 				} finally {
 					$diretta->close();
 				}
