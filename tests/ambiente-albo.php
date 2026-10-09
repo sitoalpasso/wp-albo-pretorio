@@ -57,6 +57,10 @@ trait AmbienteAlbo {
 					$oggetto->remove_cap( (string) $permesso );
 				}
 			}
+
+			if ( function_exists( 'conformita_core_capacita_registro' ) && $oggetto->has_cap( conformita_core_capacita_registro() ) ) {
+				$oggetto->remove_cap( conformita_core_capacita_registro() );
+			}
 		}
 
 		if ( null !== get_role( \AlboPretorioPa\RUOLO ) ) {
@@ -146,5 +150,49 @@ trait AmbienteAlbo {
 		}
 
 		return $stampato;
+	}
+
+	/**
+	 * Esegue una scrittura scavalcando anche la barriera sotto WordPress.
+	 *
+	 * Serve alle prove che preparano un atto in una condizione che i passaggi
+	 * dell'albo non producono, come farebbe chi scrive nella banca dati con
+	 * uno strumento esterno al sito: la barriera guarda le istruzioni, i
+	 * metadati e le voci, e qui si stacca per la sola scrittura della prova.
+	 *
+	 * @param callable $scrittura Scrittura da eseguire.
+	 * @return mixed Quello che la scrittura restituisce.
+	 */
+	protected function scavalca_barriera( callable $scrittura ) {
+		$classe   = \AlboPretorioPa\ChiusuraPubblicazione::class;
+		$agganci  = array(
+			array( 'query', 'da_query', PHP_INT_MAX, 1 ),
+			array( 'add_post_metadata', 'da_add_post_metadata', PHP_INT_MAX, 4 ),
+			array( 'update_post_metadata', 'da_update_post_metadata', PHP_INT_MAX, 4 ),
+			array( 'delete_post_metadata', 'da_delete_post_metadata', PHP_INT_MAX, 5 ),
+			array( 'update_post_metadata_by_mid', 'da_update_post_metadata_by_mid', PHP_INT_MAX, 4 ),
+			array( 'delete_post_metadata_by_mid', 'da_delete_post_metadata_by_mid', PHP_INT_MAX, 2 ),
+			array( 'add_term_relationship', 'da_voce_dell_atto', PHP_INT_MIN, 1 ),
+			array( 'delete_term_relationships', 'da_voce_dell_atto', PHP_INT_MIN, 1 ),
+			array( 'transition_post_status', 'da_transition_post_status', PHP_INT_MIN, 3 ),
+			array( 'added_term_relationship', 'da_voce_aggiunta', PHP_INT_MIN, 2 ),
+			array( 'deleted_term_relationships', 'da_voci_tolte', PHP_INT_MIN, 2 ),
+			array( 'deleted_post_meta', 'da_metadati_tolti', PHP_INT_MIN, 1 ),
+		);
+		$staccati = array();
+
+		foreach ( $agganci as $aggancio ) {
+			if ( remove_filter( $aggancio[0], array( $classe, $aggancio[1] ), $aggancio[2] ) ) {
+				$staccati[] = $aggancio;
+			}
+		}
+
+		try {
+			return $scrittura();
+		} finally {
+			foreach ( $staccati as $aggancio ) {
+				add_filter( $aggancio[0], array( $classe, $aggancio[1] ), $aggancio[2], $aggancio[3] );
+			}
+		}
 	}
 }
