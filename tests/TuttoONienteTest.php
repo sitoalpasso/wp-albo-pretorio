@@ -1925,4 +1925,69 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 			}
 		);
 	}
+
+	/**
+	 * A-123, seconda meta': la lettura e' certa, ma la banca dati rifiuta di
+	 * aprire. Con la scrittura automatica accesa si rifiuta l'inizio della
+	 * transazione; con quella spenta, come nella suite, il punto di ripristino.
+	 */
+	public function test_a123_apertura_rifiutata(): void {
+		global $wpdb;
+
+		$prova = function ( int $id, string $passaggio, string $pezzo, string $caso ) use ( $wpdb ): void {
+			$prima = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->posts} WHERE ID = %d", $id ), ARRAY_A );
+			$dati  = $wpdb->get_results( $wpdb->prepare( "SELECT meta_key, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d ORDER BY meta_id", $id ), ARRAY_A );
+			$voci  = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE contenuto = %d', $this->tabella_registro(), $id ) );
+
+			$this->guasta_istruzioni( array( $pezzo ) );
+
+			try {
+				$esito = 'pubblicazione' === $passaggio
+					? $this->pubblica_da_codice( $id, $this->pubblicatore )
+					: $this->come(
+						$this->pubblicatore,
+						static function () use ( $id ) {
+							return albo_pretorio_rimanda_in_bozza( $id, 'Da completare.' );
+						}
+					);
+			} finally {
+				$this->ripara();
+			}
+
+			$this->assertWPError( $esito, $caso . ': il passaggio e\' rifiutato.' );
+			$this->assertSame( array( 'albo_transazione_non_aperta' ), $esito->get_error_codes(), $caso . ': perche\' la transazione non si apre.' );
+			$this->assertSame( $prima, $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->posts} WHERE ID = %d", $id ), ARRAY_A ), $caso . ': la riga dell\'atto e\' identica.' );
+			$this->assertSame( $dati, $wpdb->get_results( $wpdb->prepare( "SELECT meta_key, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d ORDER BY meta_id", $id ), ARRAY_A ), $caso . ': i suoi dati, anche le date, sono identici.' );
+			$this->assertSame( $voci, (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE contenuto = %d', $this->tabella_registro(), $id ) ), $caso . ': nessuna voce nuova nel registro.' );
+			$this->assertSame( 'pending', get_post_status( $id ), $caso . ': l\'atto resta in verifica, anche in memoria.' );
+		};
+
+		$punto = array(
+			'pubblicazione' => $this->atto_in_verifica(),
+			'rimando'       => $this->atto_in_verifica(),
+		);
+		$ids   = array(
+			'pubblicazione' => $this->atto_in_verifica(),
+			'rimando'       => $this->atto_in_verifica(),
+		);
+
+		foreach ( $punto as $passaggio => $id ) {
+			$prova( $id, $passaggio, 'SAVEPOINT albo_pretorio_passaggio', $passaggio . ', punto di ripristino rifiutato' );
+		}
+
+		$contenuti = array();
+
+		foreach ( array_merge( array_values( $punto ), array_values( $ids ) ) as $id ) {
+			$contenuti = array_merge( $contenuti, $this->contenuti_dell_atto( $id ) );
+		}
+
+		$this->con_scrittura_automatica(
+			$contenuti,
+			function () use ( $prova, $ids ) {
+				foreach ( $ids as $passaggio => $id ) {
+					$prova( $id, $passaggio, 'START TRANSACTION', $passaggio . ', transazione rifiutata' );
+				}
+			}
+		);
+	}
 }
