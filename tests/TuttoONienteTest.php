@@ -1,6 +1,6 @@
 <?php
 /**
- * Tutto o niente, guardiano, riquadro e permesso del registro: righe A-105..A-110, A-116..A-122.
+ * Tutto o niente, guardiano, riquadro e permesso del registro: righe A-105..A-110, A-116..A-123.
  *
  * I guasti si forzano da fuori, come li produrrebbe la banca dati o un altro
  * componente: un'istruzione che fallisce, un metadato che non si scrive. Il
@@ -1837,6 +1837,90 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 					}
 				} finally {
 					$diretta->close();
+				}
+			}
+		);
+	}
+
+	/**
+	 * A-123: una lettura della scrittura automatica che non risponde 0 o 1 non apre nessun passaggio.
+	 *
+	 * Con la scrittura automatica davvero accesa, la sola lettura del suo
+	 * stato fallisce, oppure risponde un valore che non e' ne' acceso ne'
+	 * spento.
+	 */
+	public function test_a123_scrittura_automatica_non_letta(): void {
+		global $wpdb;
+
+		$casi = array(
+			'pubblicazione, lettura fallita'      => array( 'pubblicazione', 'fallita' ),
+			'rimando, lettura fallita'            => array( 'rimando', 'fallita' ),
+			'pubblicazione, risposta impossibile' => array( 'pubblicazione', 'impossibile' ),
+			'rimando, risposta impossibile'       => array( 'rimando', 'impossibile' ),
+		);
+		$ids  = array();
+
+		foreach ( $casi as $caso => $voce ) {
+			$ids[ $caso ] = $this->atto_in_verifica();
+		}
+
+		$contenuti = array();
+
+		foreach ( $ids as $id ) {
+			$contenuti = array_merge( $contenuti, $this->contenuti_dell_atto( $id ) );
+		}
+
+		$this->con_scrittura_automatica(
+			$contenuti,
+			function () use ( $wpdb, $casi, $ids ) {
+				foreach ( $casi as $caso => list( $passaggio, $come ) ) {
+					$id     = $ids[ $caso ];
+					$prima  = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->posts} WHERE ID = %d", $id ), ARRAY_A );
+					$dati   = $wpdb->get_results( $wpdb->prepare( "SELECT meta_key, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d ORDER BY meta_id", $id ), ARRAY_A );
+					$voci   = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE contenuto = %d', $this->tabella_registro(), $id ) );
+					$aperte = array();
+
+					if ( 'fallita' === $come ) {
+						$this->guasta_istruzioni( array( 'SELECT @@autocommit' ) );
+					}
+
+					$osserva = static function ( $istruzione ) use ( $come, &$aperte ) {
+						$istruzione = (string) $istruzione;
+
+						if ( 'impossibile' === $come && 'SELECT @@autocommit' === $istruzione ) {
+							return 'SELECT 2';
+						}
+
+						if ( 0 === strpos( $istruzione, 'START TRANSACTION' ) || 0 === strpos( $istruzione, 'SAVEPOINT' ) ) {
+							$aperte[] = $istruzione;
+						}
+
+						return $istruzione;
+					};
+
+					add_filter( 'query', $osserva, 1 );
+
+					try {
+						$esito = 'pubblicazione' === $passaggio
+							? $this->pubblica_da_codice( $id, $this->pubblicatore )
+							: $this->come(
+								$this->pubblicatore,
+								static function () use ( $id ) {
+									return albo_pretorio_rimanda_in_bozza( $id, 'Da completare.' );
+								}
+							);
+					} finally {
+						remove_filter( 'query', $osserva, 1 );
+						$this->ripara();
+					}
+
+					$this->assertWPError( $esito, $caso . ': il passaggio e\' rifiutato.' );
+					$this->assertSame( array( 'albo_transazione_non_aperta' ), $esito->get_error_codes(), $caso . ': perche\' la transazione non si apre.' );
+					$this->assertSame( array(), $aperte, $caso . ': nessuna transazione e nessun punto di ripristino.' );
+					$this->assertSame( $prima, $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->posts} WHERE ID = %d", $id ), ARRAY_A ), $caso . ': la riga dell\'atto e\' identica.' );
+					$this->assertSame( $dati, $wpdb->get_results( $wpdb->prepare( "SELECT meta_key, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d ORDER BY meta_id", $id ), ARRAY_A ), $caso . ': i suoi dati, anche le date, sono identici.' );
+					$this->assertSame( $voci, (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE contenuto = %d', $this->tabella_registro(), $id ) ), $caso . ': nessuna voce nuova nel registro.' );
+					$this->assertSame( 'pending', get_post_status( $id ), $caso . ': l\'atto resta in verifica, anche in memoria.' );
 				}
 			}
 		);

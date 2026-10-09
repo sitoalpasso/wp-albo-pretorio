@@ -847,13 +847,27 @@ final class Passaggi {
 	private static function apri() {
 		global $wpdb;
 
-		$automatica = (string) $wpdb->get_var( 'SELECT @@autocommit' );
-		$modo       = '1' === $automatica ? 'transazione' : 'punto';
-		$esito      = 'transazione' === $modo
-			? $wpdb->query( 'START TRANSACTION' )
-			: $wpdb->query( 'SAVEPOINT albo_pretorio_passaggio' );
+		/*
+		 * Si decide solo su una risposta certa. Una lettura fallita non vuol
+		 * dire scrittura automatica spenta: un punto di ripristino fuori da una
+		 * transazione non trattiene niente, e le scritture del passaggio
+		 * diventerebbero definitive una per una.
+		 */
+		$automatica = $wpdb->get_var( 'SELECT @@autocommit' );
+		$modi       = array(
+			'1' => 'transazione',
+			'0' => 'punto',
+		);
+		$modo       = null === $automatica ? null : ( $modi[ (string) $automatica ] ?? null );
+		$esito      = false;
 
-		if ( false === $esito ) {
+		if ( 'transazione' === $modo ) {
+			$esito = $wpdb->query( 'START TRANSACTION' );
+		} elseif ( 'punto' === $modo ) {
+			$esito = $wpdb->query( 'SAVEPOINT albo_pretorio_passaggio' );
+		}
+
+		if ( null === $modo || false === $esito ) {
 			return new \WP_Error(
 				'albo_transazione_non_aperta',
 				__( 'L\'atto resta in verifica: la banca dati non ha aperto la transazione che rende la pubblicazione tutta o niente.', 'albo-pretorio-pa' )
