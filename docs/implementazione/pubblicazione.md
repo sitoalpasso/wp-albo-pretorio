@@ -894,3 +894,22 @@ codifica e la validazione di `publiccode.yml`; A-122 è passata a "fatto" dopo q
 | Documento tolto anche se il dato non si scrive | A-122 |
 
 Riprovati sul codice nuovo i guasti dell'ottavo giro: cadono tutti.
+
+## Il decimo giro: la nona revisione
+
+La nona revisione, sul commit bd36383, ha trovato un difetto medio, nato dalla correzione del
+nono giro. La condizione sulle scritture dei dati toglieva l'esenzione delle righe di servizio
+a ogni istruzione che scrive la chiave, per fermare la rinomina di una riga di servizio in un
+dato. Ma l'aggiornamento per numero di riga di WordPress riscrive sempre la chiave insieme al
+valore, anche quando non la cambia: aggiornare così il blocco della schermata aperta di un atto
+in verifica o pubblicato non riusciva più. Ora la riga di servizio resta libera quando anche
+la chiave scritta è di servizio, e smette di esserlo solo nella rinomina in un dato. A-122 ha
+due controlli positivi nuovi, con l'aggiornamento per numero di riga su un atto in verifica e
+su uno pubblicato, e tiene la prova della rinomina vietata.
+
+### Le prove, al decimo giro
+
+Centoquarantaquattro prove nella suite principale, A-122 allargata, più le due suite separate,
+tutte verdi in locale; PHPCS pulito. In verifica continua, sul commit b68a295, verdi le due
+combinazioni di WordPress e PHP su MySQL, lo standard di codifica e la validazione di
+`publiccode.yml`. La prova dei guasti del nono giro, ripetuta sul codice nuovo con un guasto in più (la riga di servizio non libera quando la chiave si riscrive), fa cadere A-122 ogni volta, e il passaggio in corso non escluso fa cadere quasi tutte le prove dei passaggi.
