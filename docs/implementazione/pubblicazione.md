@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano, e aggiornata a lavor
 com'è andata davvero. È la seconda parte del flusso di pubblicazione deciso con ALBO-22: la
 prima, il passaggio in verifica, è in [`passaggio-in-verifica.md`](passaggio-in-verifica.md).
 
-**Stato: costruita.** Righe di collaudo A-93..A-119. Com'è andata davvero è in fondo, con le
+**Stato: costruita.** Righe di collaudo A-93..A-121. Com'è andata davvero è in fondo, con le
 differenze dal piano, i limiti dichiarati e la prova dei guasti.
 
 ## In tre paragrafi
@@ -775,3 +775,64 @@ il controllo finale annulla comunque.
 Riprovati sul codice nuovo anche i guasti del quarto e del sesto giro: cadono tutti. Quello
 dell'eccezione dopo la chiusura non detta non si applica più nella forma del sesto giro; lo
 sostituisce l'avviso senza la conferma, qui sopra.
+
+## L'ottavo giro: la settima revisione
+
+La settima revisione, sul commit 664b31b, ha trovato due difetti, uno grave e uno medio.
+
+**1. Una scrittura vagliata su una bozza e una pubblicazione in mezzo.** La barriera ammetteva
+la scrittura che il primo livello aveva vagliato senza guardare lo stato della riga in quel
+momento. Chi salvava una bozza poteva fermarsi dopo il vaglio, per esempio dentro un aggancio
+di WordPress; un'altra persona intanto mandava l'atto in verifica e lo pubblicava; il
+salvataggio riprendeva e riportava l'atto pubblicato in bozza, con il testo vecchio. Ora il
+vaglio porta con sé **lo stato da cui è partito**, e la barriera lo ammette solo se la riga,
+riletta dalla banca dati, ha ancora quello stato. Fra la rilettura e la scrittura non gira
+nessun aggancio, ma un'altra richiesta può ancora scrivere proprio lì: per questo l'istruzione
+stessa scrive solo se la riga ha ancora lo stato letto. Se non scrive niente, la richiesta si
+ferma al primo annuncio del cambio di stato, prima di ogni altro componente, così che nessuno
+annunci una scrittura che non c'è stata. A-120, con una seconda connessione e la scrittura
+automatica accesa, anche con lo svuotamento della memoria sospeso.
+
+**2. Un'eccezione mentre la riga si blocca.** Il blocco della riga, aggiunto al settimo giro,
+stava dopo l'apertura della transazione ma fuori dalla gestione delle eccezioni: un'eccezione
+di un altro componente durante la rilettura dell'atto lasciava la transazione aperta e la riga
+bloccata, mentre l'albo considerava il passaggio finito. Ora il blocco sta dentro la stessa
+difesa delle scritture: un rifiuto o un'eccezione annullano, e se l'annullamento non riesce
+l'eccezione lo dice, con quella di partenza come causa. A-121.
+
+### Limiti dichiarati, all'ottavo giro
+
+- **Due richieste che mandano in verifica la stessa bozza nello stesso istante.** Se l'altra
+  richiesta scrive proprio fra la rilettura e l'istruzione, e porta l'atto nello stesso stato
+  che questa voleva scrivere, la verifica non distingue le due scritture: questa prosegue
+  come se avesse scritto, ma l'atto porta i dati dell'altra, che sono passati dal loro vaglio.
+  Un atto fermo non viene mai riscritto.
+- **Un altro componente agganciato al cambio di stato alla stessa prima priorità** e
+  registrato prima dell'albo sente l'annuncio prima della verifica.
+
+### Le prove, all'ottavo giro
+
+Centoquarantatré prove nella suite principale, due righe nuove (A-120, A-121), più le due
+suite separate, tutte verdi in locale; PHPCS pulito. In verifica continua, sul commit 955ae22
+che porta codice e prove, verdi le due combinazioni di WordPress e PHP su MySQL, lo standard
+di codifica e la validazione di `publiccode.yml`; lo stesso sul commit 9b459c2, che rinforza
+A-120, e A-120 e A-121 sono passate a "fatto" dopo quell'esito.
+
+**La prova di non vacuità.** Sette guasti nuovi, uno per volta, con la suite intera. Al primo
+passaggio ne sopravviveva uno: la verifica spostata dopo gli altri agganci, perché la prova
+guardava solo che la richiesta si fermasse, non quando. Ora A-120 controlla anche che un altro
+componente in ascolto del cambio di stato non senta niente, e il guasto cade.
+
+| Guasto introdotto | Prove cadute |
+|---|---|
+| Vaglio senza lo stato di partenza | A-120 |
+| Istruzione senza la condizione sullo stato | A-120 |
+| Scrittura mancata non verificata | A-120 |
+| Verifica non agganciata | A-120 |
+| Verifica dopo gli altri agganci | A-120 |
+| Blocco fuori dalla difesa nella pubblicazione | A-121 |
+| Blocco fuori dalla difesa nel rimando | A-121 |
+
+Riprovati sul codice nuovo i guasti del settimo giro, adattati alla forma nuova del blocco:
+cadono tutti salvo la memoria non tolta sotto il blocco, che resta coperta dal controllo
+finale come detto al settimo giro.
