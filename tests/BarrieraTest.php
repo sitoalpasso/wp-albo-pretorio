@@ -719,13 +719,14 @@ class BarrieraTest extends \WP_UnitTestCase {
 	 * @param array<int, string> $pezzi    Pezzi dell'istruzione.
 	 * @param callable           $funzione Funzione.
 	 * @param int                $dal      Prima volta guastata, contando da uno.
+	 * @param string             $al_posto Istruzione che prende il posto di quella guastata.
 	 * @return array{0: mixed, 1: int} Esito della funzione e istruzioni riconosciute.
 	 */
-	private function con_guasto( array $pezzi, callable $funzione, int $dal = 1 ): array {
+	private function con_guasto( array $pezzi, callable $funzione, int $dal = 1, string $al_posto = 'SELECT guasto_forzato FROM tabella_che_non_esiste' ): array {
 		global $wpdb;
 
 		$viste  = 0;
-		$guasta = static function ( $istruzione ) use ( $pezzi, $dal, &$viste ) {
+		$guasta = static function ( $istruzione ) use ( $pezzi, $dal, $al_posto, &$viste ) {
 			foreach ( $pezzi as $pezzo ) {
 				if ( false === strpos( (string) $istruzione, $pezzo ) ) {
 					return $istruzione;
@@ -734,7 +735,7 @@ class BarrieraTest extends \WP_UnitTestCase {
 
 			++$viste;
 
-			return $viste >= $dal ? 'SELECT guasto_forzato FROM tabella_che_non_esiste' : $istruzione;
+			return $viste >= $dal ? $al_posto : $istruzione;
 		};
 
 		add_filter( 'query', $guasta );
@@ -832,6 +833,31 @@ class BarrieraTest extends \WP_UnitTestCase {
 		} finally {
 			remove_action( 'transition_post_status', $ascolta, 10 );
 		}
+
+		/*
+		 * La lettura della riga sostituita da un'istruzione che riesce ma non
+		 * e' una lettura: nessuna riga, e nemmeno una risposta.
+		 */
+		$prima = $this->fotografia( $in_verifica );
+
+		list( $messaggio ) = $this->con_guasto(
+			array( 'SELECT post_type, post_status, post_name FROM' ),
+			function () use ( $in_verifica ) {
+				return $this->richiesta_fermata(
+					static function () use ( $in_verifica ) {
+						wp_publish_post( $in_verifica );
+					},
+					'lettura sostituita'
+				);
+			},
+			1,
+			'CREATE TEMPORARY TABLE IF NOT EXISTS albo_prova_non_lettura ( x INT )'
+		);
+
+		$wpdb->query( 'DROP TEMPORARY TABLE IF EXISTS albo_prova_non_lettura' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- toglie la tabella temporanea della prova.
+
+		$this->assertStringContainsString( 'non ha risposto', $messaggio, 'Lettura sostituita: il rifiuto dice perche\'.' );
+		$this->assertSame( $prima, $this->fotografia( $in_verifica ), 'Lettura sostituita: l\'atto e\' identico.' );
 
 		/*
 		 * Le verifiche dopo la scrittura, su una bozza: la scrittura c'e'
@@ -1023,7 +1049,7 @@ class BarrieraTest extends \WP_UnitTestCase {
 
 		$prima = array_map( array( $this, 'fotografia' ), $fermi + array( 'bozza' => $bozza ) );
 
-		$this->assertSame( 0, $wpdb->update( $wpdb->posts, array( 'post_status' => 'draft' ), array( 'post_type' => TIPO ) ), 'Lo stato scritto a molti contenuti non tocca nessun atto.' );
+		$this->assertSame( 0, $wpdb->update( $wpdb->posts, array( 'post_status' => 'private' ), array( 'post_type' => TIPO ) ), 'Lo stato scritto a molti contenuti non tocca nessun atto, nemmeno la bozza.' );
 
 		$pagina = self::factory()->post->create( array( 'post_type' => 'page' ) );
 
