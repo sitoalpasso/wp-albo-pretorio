@@ -896,12 +896,42 @@ final class ChiusuraPubblicazione {
 		$testa      = substr( $istruzione, 0, $dove );
 		$condizione = self::non_fermo( '`' . $tabella . '`.`' . $colonna . '`' );
 
-		// Una riga di servizio resta libera, finche' l'istruzione non la rinomina.
-		if ( $wpdb->postmeta === $tabella && null === self::fuori_dalle_virgolette( $testa, '`meta_key` = ' ) ) {
+		/*
+		 * Una riga di servizio resta libera, anche quando WordPress riscrive la
+		 * chiave insieme al valore, come fa l'aggiornamento per numero di riga:
+		 * conta che la chiave nuova sia anch'essa di servizio. Rinominata in un
+		 * dato, la riga non e' piu' libera.
+		 */
+		if ( $wpdb->postmeta === $tabella && self::chiave_nuova_di_servizio( $testa ) ) {
 			$condizione = '( `' . $tabella . '`.`meta_key` IN ( ' . implode( ', ', self::chiavi_di_servizio_scritte() ) . ' ) OR ' . $condizione . ' )';
 		}
 
 		return $testa . ' WHERE ( ' . substr( $istruzione, $dove + strlen( ' WHERE ' ) ) . ' ) AND ' . $condizione;
+	}
+
+	/**
+	 * Se la chiave che l'istruzione scrive e' di servizio, o se l'istruzione non scrive nessuna chiave.
+	 *
+	 * @param string $testa Parte dell'istruzione prima della condizione.
+	 * @return bool
+	 */
+	private static function chiave_nuova_di_servizio( string $testa ): bool {
+		$campo     = '`meta_key` = ';
+		$posizione = self::fuori_dalle_virgolette( $testa, $campo );
+
+		if ( null === $posizione ) {
+			return true;
+		}
+
+		$resto = substr( $testa, $posizione + strlen( $campo ) );
+
+		foreach ( self::chiavi_di_servizio_scritte() as $chiave ) {
+			if ( $resto === $chiave || 0 === strpos( $resto, $chiave . ',' ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**

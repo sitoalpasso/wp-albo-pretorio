@@ -1710,6 +1710,20 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 				'pubblicato prima',
 				true,
 			),
+			'controllo: riga di servizio per numero di riga, atto in verifica' => array(
+				static function ( int $id ) use ( $riga ) {
+					return update_metadata_by_mid( 'post', (int) $riga( $id, '_edit_lock' ), '2:1' );
+				},
+				'in verifica prima',
+				true,
+			),
+			'controllo: riga di servizio per numero di riga, atto pubblicato' => array(
+				static function ( int $id ) use ( $riga ) {
+					return update_metadata_by_mid( 'post', (int) $riga( $id, '_edit_lock' ), '2:1' );
+				},
+				'pubblicato prima',
+				true,
+			),
 		);
 		$ids  = array();
 
@@ -1755,18 +1769,24 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 					foreach ( $casi as $caso => list( $scrittura, $aggancio, $atteso ) ) {
 						$id       = $ids[ $caso ];
 						$fatta    = false;
-						$pubblica = static function () use ( $diretta, $wpdb, $id, &$fatta ) {
+						$pubblica = static function ( string $stato = 'publish' ) use ( $diretta, $wpdb, $id, &$fatta ) {
 							$fatta = true;
 
-							$diretta->query( "UPDATE {$wpdb->posts} SET post_status = 'publish', post_title = 'Oggetto pubblicato' WHERE ID = " . (int) $id );
+							$diretta->query( "UPDATE {$wpdb->posts} SET post_status = '" . $diretta->real_escape_string( $stato ) . "', post_title = 'Oggetto pubblicato' WHERE ID = " . (int) $id );
 						};
+						$prima    = array(
+							'pubblicato prima'  => 'publish',
+							'in verifica prima' => 'pending',
+						);
 
-						if ( 'pubblicato prima' === $aggancio ) {
-							$pubblica();
+						if ( isset( $prima[ (string) $aggancio ] ) ) {
+							$pubblica( $prima[ $aggancio ] );
 							clean_post_cache( $id );
+
+							$aggancio = null;
 						}
 
-						$prima = $stato_dell_atto( $id );
+						$prima_della_scrittura = $stato_dell_atto( $id );
 						// Gli annunci dei dati passano l'atto per secondo, quelli delle voci per primo.
 						$ferma = static function ( $primo, $secondo = null ) use ( $id, $pubblica, &$fatta ) {
 							if ( ! $fatta && ( ( is_numeric( $primo ) && $id === (int) $primo ) || ( is_numeric( $secondo ) && $id === (int) $secondo ) ) ) {
@@ -1774,7 +1794,7 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 							}
 						};
 
-						if ( null !== $aggancio && 'pubblicato prima' !== $aggancio ) {
+						if ( null !== $aggancio ) {
 							add_action( $aggancio, $ferma, 10, 2 );
 						}
 
@@ -1786,7 +1806,7 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 						} catch ( \WPDieException $errore ) {
 							$fermata = $errore;
 						} finally {
-							if ( null !== $aggancio && 'pubblicato prima' !== $aggancio ) {
+							if ( null !== $aggancio ) {
 								remove_action( $aggancio, $ferma, 10 );
 							}
 						}
@@ -1796,13 +1816,13 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 						if ( true === $atteso ) {
 							$this->assertNull( $fermata, $caso . ': nessun rifiuto.' );
 							$this->assertNotFalse( $esito, $caso . ': la scrittura riesce.' );
-							$this->assertNotSame( $prima, $dopo, $caso . ': ed e\' nella banca dati.' );
+							$this->assertNotSame( $prima_della_scrittura, $dopo, $caso . ': ed e\' nella banca dati.' );
 
 							continue;
 						}
 
 						$this->assertTrue( $fatta, $caso . ': precondizione, l\'altra richiesta ha pubblicato l\'atto dopo il controllo.' );
-						$this->assertSame( $prima, $dopo, $caso . ': dati e voci dell\'atto pubblicato restano quelli di prima.' );
+						$this->assertSame( $prima_della_scrittura, $dopo, $caso . ': dati e voci dell\'atto pubblicato restano quelli di prima.' );
 
 						if ( 'fermata' === $atteso ) {
 							$this->assertInstanceOf( \WPDieException::class, $fermata, $caso . ': WordPress annuncerebbe una scrittura che non c\'e\' stata, e la richiesta si ferma.' );
