@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano, e aggiornata a lavor
 com'è andata davvero. È la seconda parte del flusso di pubblicazione deciso con ALBO-22: la
 prima, il passaggio in verifica, è in [`passaggio-in-verifica.md`](passaggio-in-verifica.md).
 
-**Stato: costruita.** Righe di collaudo A-93..A-122. Com'è andata davvero è in fondo, con le
+**Stato: costruita.** Righe di collaudo A-93..A-123. Com'è andata davvero è in fondo, con le
 differenze dal piano, i limiti dichiarati e la prova dei guasti.
 
 ## In tre paragrafi
@@ -913,3 +913,41 @@ Centoquarantaquattro prove nella suite principale, A-122 allargata, più le due 
 tutte verdi in locale; PHPCS pulito. In verifica continua, sul commit b68a295, verdi le due
 combinazioni di WordPress e PHP su MySQL, lo standard di codifica e la validazione di
 `publiccode.yml`. La prova dei guasti del nono giro, ripetuta sul codice nuovo con un guasto in più (la riga di servizio non libera quando la chiave si riscrive), fa cadere A-122 ogni volta, e il passaggio in corso non escluso fa cadere quasi tutte le prove dei passaggi.
+
+## L'undicesimo giro: la decima revisione
+
+La decima revisione, sul commit 94020b0, ha trovato un difetto alto, raggiungibile solo con un
+guasto: per scegliere fra una transazione nuova e un punto di ripristino il passaggio legge se
+la banca dati ha la scrittura automatica accesa, e trattava ogni risposta diversa da "accesa",
+anche una lettura fallita, come "spenta, c'è già una transazione". Con la scrittura automatica
+in realtà accesa, il punto di ripristino non apre nessuna transazione: ogni scrittura del
+passaggio sarebbe stata definitiva da sola, e un errore a metà avrebbe lasciato un atto
+pubblicato senza la voce della conferma. Ora il passaggio decide solo su una risposta certa,
+"accesa" o "spenta"; una lettura fallita o qualunque altro valore lo fermano con
+`albo_transazione_non_aperta`, prima di aprire alcunché e prima di qualunque scrittura. Riga
+nuova A-123. La prova dei guasti ha mostrato che nessuna prova copriva un caso vicino, già
+gestito dal codice: la banca dati che risponde con certezza ma poi rifiuta di aprire la
+transazione o il punto di ripristino. A-123 copre anche quello.
+
+### Limiti dichiarati, all'undicesimo giro
+
+- **Il numero preso resta consumato.** Come per ogni rifiuto che arriva dopo l'assegnazione,
+  il numero di repertorio preso prima della transazione non torna disponibile: è la regola
+  dell'intestazione di `Passaggi`, un numero non si riusa mai.
+
+### Le prove, all'undicesimo giro
+
+Centoquarantasei prove nella suite principale, una riga nuova (A-123) con due prove, più le
+due suite separate, tutte verdi in locale; PHPCS pulito. In verifica continua, sul commit 98b0b0a che porta codice e prove, verdi le due combinazioni di WordPress e PHP su MySQL, lo standard di codifica e la validazione di `publiccode.yml`; A-123 è passata a "fatto" dopo quell'esito.
+
+**La prova di non vacuità.** Cinque guasti nuovi, uno per volta, con la suite intera.
+
+| Guasto introdotto | Prove cadute |
+|---|---|
+| Lettura assente trattata come punto di ripristino | A-123 |
+| Valore ignoto trattato come punto di ripristino | A-123 |
+| Come prima: ogni risposta diversa da "accesa" vale "spenta" | A-123 |
+| Modo assente che non ferma il passaggio | A-123 |
+| Apertura rifiutata dalla banca dati che non ferma il passaggio | A-123 (prima della prova nuova: nessuna) |
+
+Riprovati sul codice nuovo i guasti del nono e del decimo giro: cadono tutti.
