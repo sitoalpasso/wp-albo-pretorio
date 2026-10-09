@@ -1,6 +1,6 @@
 <?php
 /**
- * Numero di repertorio: righe A-58..A-68.
+ * Numero di repertorio: righe A-58..A-68 e A-125.
  *
  * Ogni esito si verifica rileggendo le due tabelle dalla banca dati, non la
  * risposta della funzione. Gli istanti sono espliciti e scelti dalla prova, in
@@ -932,5 +932,65 @@ class RepertorioTest extends \WP_UnitTestCase {
 		$this->assertSame( '', $stampato, 'Nessun errore della banca dati mostrato.' );
 		$this->assertSame( '', $errore, 'Nessun errore della banca dati.' );
 		$this->assertSame( array(), $this->righe_anni() );
+	}
+
+	/**
+	 * A-125: il numero preso si usa solo se la banca dati lo dice con certezza.
+	 *
+	 * La lettura del numero appena preso fallisce: niente assegnazione, tanto
+	 * meno lo zero, e il numero consumato resta un buco. Poi fallisce la lettura
+	 * che dice se l'atto ha gia' un numero: il contatore non si muove. Tolto il
+	 * guasto, l'atto riceve il numero successivo.
+	 */
+	public function test_a125_numero_non_letto(): void {
+		global $wpdb;
+
+		$this->assertTrue( Repertorio::dichiara( 121, $this->amministratore, $this->istante() ) );
+
+		$atto   = $this->atto();
+		$guasto = null;
+		$guasta = static function ( $istruzione ) use ( &$guasto ) {
+			return null !== $guasto && false !== strpos( (string) $istruzione, $guasto ) ? 'SELECT guasto_forzato FROM tabella_che_non_esiste' : $istruzione;
+		};
+		$ultimo = function (): int {
+			return (int) $this->righe_anni()[0]['ultimo'];
+		};
+
+		add_filter( 'query', $guasta );
+		$wpdb->suppress_errors( true );
+
+		try {
+			$guasto = 'SELECT LAST_INSERT_ID()';
+			$esito  = Repertorio::assegna( $atto, $this->istante() );
+			$guasto = null;
+
+			$this->assertWPError( $esito, 'Numero non letto: nessun numero.' );
+			$this->assertSame( 'albo_repertorio_non_letto', $esito->get_error_code() );
+			$this->assertSame( array(), $this->righe_assegnazioni(), 'Numero non letto: nessuna assegnazione, nemmeno lo zero.' );
+			$this->assertSame( 122, $ultimo(), 'Numero non letto: il numero preso resta consumato.' );
+			$this->assertNull( Repertorio::di( $atto ), 'Numero non letto: l\'atto e\' senza numero.' );
+
+			$guasto = 'SELECT anno, numero FROM';
+			$esito  = Repertorio::assegna( $atto, $this->istante() );
+			$guasto = null;
+
+			$this->assertWPError( $esito, 'Assegnazione non letta: nessun numero.' );
+			$this->assertSame( 'albo_repertorio_non_letto', $esito->get_error_code() );
+			$this->assertSame( 122, $ultimo(), 'Assegnazione non letta: il contatore non si muove.' );
+			$this->assertSame( array(), $this->righe_assegnazioni(), 'Assegnazione non letta: nessuna assegnazione.' );
+		} finally {
+			remove_filter( 'query', $guasta );
+			$wpdb->suppress_errors( false );
+		}
+
+		$this->assertSame(
+			array(
+				'anno'   => self::ANNO,
+				'numero' => 123,
+			),
+			Repertorio::assegna( $atto, $this->istante() ),
+			'Senza guasti: il numero successivo al buco.'
+		);
+		$this->assertSame( array( $this->assegnazione( self::ANNO, 123, $atto ) ), $this->righe_assegnazioni() );
 	}
 }

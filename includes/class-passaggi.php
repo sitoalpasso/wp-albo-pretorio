@@ -261,6 +261,10 @@ final class Passaggi {
 		// L'atto come i controlli lo leggono: sotto il blocco della transazione dovra' essere ancora questo.
 		$partenza = self::fotografia( $atto_id );
 
+		if ( null === $partenza ) {
+			return self::errore_lettura();
+		}
+
 		if ( ! current_user_can( 'publish_post', $atto_id ) ) {
 			return new \WP_Error(
 				'albo_pubblicazione_non_permessa',
@@ -456,6 +460,10 @@ final class Passaggi {
 
 		// L'atto come i controlli lo leggono: sotto il blocco della transazione dovra' essere ancora questo.
 		$partenza = self::fotografia( $atto_id );
+
+		if ( null === $partenza ) {
+			return self::errore_lettura();
+		}
 
 		if ( ! current_user_can( 'publish_post', $atto_id ) ) {
 			return new \WP_Error(
@@ -898,7 +906,13 @@ final class Passaggi {
 
 		$riga = $wpdb->get_var( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE ID = %d FOR UPDATE", $atto_id ) );
 
-		if ( null === $riga || self::fotografia( $atto_id ) !== $partenza ) {
+		$adesso = self::fotografia( $atto_id );
+
+		if ( null === $adesso ) {
+			return self::errore_lettura();
+		}
+
+		if ( null === $riga || $adesso !== $partenza ) {
 			return new \WP_Error(
 				'albo_atto_cambiato_prima_del_passaggio',
 				__( 'L\'atto non e\' piu\' quello controllato: un\'altra operazione lo ha cambiato mentre il passaggio cominciava. Niente e\' stato scritto; si riapra l\'atto e si ripeta, se serve.', 'albo-pretorio-pa' )
@@ -1026,12 +1040,16 @@ final class Passaggi {
 			clean_post_cache( $atto_id );
 
 			// I conteggi delle voci: una pubblicazione riuscita conta l'atto, un rimando non piu'.
-			$voci = $wpdb->get_col(
-				$wpdb->prepare( "SELECT term_taxonomy_id FROM {$wpdb->term_relationships} WHERE object_id = %d", $atto_id )
+			$voci = Lettura::righe(
+				$wpdb->prepare( 'SELECT term_taxonomy_id FROM %i WHERE object_id = %d', $wpdb->term_relationships, $atto_id ),
+				array( 'term_taxonomy_id' )
 			);
 
-			if ( is_array( $voci ) && array() !== $voci ) {
-				clean_term_cache( array_map( 'intval', $voci ), '', false );
+			// Senza sapere quali voci, si dimentica tutto: una memoria in piu' svuotata costa meno di un conteggio sbagliato.
+			if ( null === $voci ) {
+				wp_cache_flush();
+			} elseif ( array() !== $voci ) {
+				clean_term_cache( array_map( 'intval', array_column( $voci, 'term_taxonomy_id' ) ), '', false );
 			}
 		} finally {
 			wp_suspend_cache_invalidation( (bool) $sospesa );
@@ -1223,22 +1241,47 @@ final class Passaggi {
 	}
 
 	/**
+	 * Il rifiuto per una lettura dell'atto che non ha risposto.
+	 *
+	 * @return \WP_Error
+	 */
+	private static function errore_lettura(): \WP_Error {
+		return new \WP_Error(
+			'albo_atto_non_letto',
+			__( 'L\'atto resta in verifica: la banca dati non ha risposto a una lettura dell\'atto, e senza quella lettura non si puo\' sapere se e\' ancora quello controllato.', 'albo-pretorio-pa' )
+		);
+	}
+
+	/**
 	 * L'atto com'e' nella banca dati: riga, dati, voci e contenuti figli.
 	 *
 	 * Letto direttamente, senza la memoria di WordPress, perche' serve a
 	 * confrontare quello che la transazione sta per confermare.
 	 *
+	 * Se anche una sola lettura non risponde non c'e' fotografia: una lettura
+	 * fallita darebbe un elenco vuoto, e due letture fallite allo stesso modo
+	 * sembrerebbero un atto che non e' cambiato.
+	 *
 	 * @param int $atto_id Atto.
-	 * @return array<string, mixed>
+	 * @return array<string, mixed>|null
 	 */
-	private static function fotografia( int $atto_id ): array {
+	private static function fotografia( int $atto_id ): ?array {
 		global $wpdb;
 
+		$riga  = Lettura::righe( $wpdb->prepare( 'SELECT * FROM %i WHERE ID = %d', $wpdb->posts, $atto_id ), array( 'ID', 'post_status' ) );
+		$dati  = Lettura::righe( $wpdb->prepare( 'SELECT meta_id, meta_key, meta_value FROM %i WHERE post_id = %d ORDER BY meta_id', $wpdb->postmeta, $atto_id ), array( 'meta_id', 'meta_key', 'meta_value' ) );
+		$voci  = Lettura::righe( $wpdb->prepare( 'SELECT term_taxonomy_id FROM %i WHERE object_id = %d ORDER BY term_taxonomy_id', $wpdb->term_relationships, $atto_id ), array( 'term_taxonomy_id' ) );
+		$figli = Lettura::righe( $wpdb->prepare( 'SELECT ID, post_type, post_status, post_parent FROM %i WHERE post_parent = %d ORDER BY ID', $wpdb->posts, $atto_id ), array( 'ID', 'post_type', 'post_status', 'post_parent' ) );
+
+		if ( null === $riga || null === $dati || null === $voci || null === $figli ) {
+			return null;
+		}
+
 		return array(
-			'riga'  => $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->posts} WHERE ID = %d", $atto_id ), ARRAY_A ),
-			'dati'  => $wpdb->get_results( $wpdb->prepare( "SELECT meta_id, meta_key, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d ORDER BY meta_id", $atto_id ), ARRAY_A ),
-			'voci'  => $wpdb->get_col( $wpdb->prepare( "SELECT term_taxonomy_id FROM {$wpdb->term_relationships} WHERE object_id = %d ORDER BY term_taxonomy_id", $atto_id ) ),
-			'figli' => $wpdb->get_results( $wpdb->prepare( "SELECT ID, post_type, post_status, post_parent FROM {$wpdb->posts} WHERE post_parent = %d ORDER BY ID", $atto_id ), ARRAY_A ),
+			'riga'  => $riga[0] ?? null,
+			'dati'  => $dati,
+			'voci'  => array_column( $voci, 'term_taxonomy_id' ),
+			'figli' => $figli,
 		);
 	}
 
@@ -1285,6 +1328,11 @@ final class Passaggi {
 		}
 
 		$arrivo = self::fotografia( $atto_id );
+
+		if ( null === $arrivo ) {
+			return self::errore_lettura();
+		}
+
 		$errore = new \WP_Error(
 			'albo_atto_cambiato_nel_passaggio',
 			__( 'L\'atto resta in verifica: durante il passaggio e\' cambiato qualcosa che il passaggio non doveva cambiare, e tutto e\' stato annullato.', 'albo-pretorio-pa' )

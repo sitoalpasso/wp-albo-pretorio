@@ -1,6 +1,7 @@
 <?php
 /**
- * La barriera sotto WordPress e l'atto fermo per tutto il passaggio: righe A-111..A-115.
+ * La barriera sotto WordPress e l'atto fermo per tutto il passaggio: righe A-111..A-115,
+ * A-124, A-125 per la pubblicazione, A-126.
  *
  * Le scritture arrivano dalle funzioni di WordPress che non passano da
  * `wp_insert_post` e dalle interfacce dei metadati e degli elenchi, come le
@@ -15,6 +16,7 @@ declare( strict_types = 1 );
 
 namespace AlboPretorioPa\Tests;
 
+use AlboPretorioPa\Permessi;
 use AlboPretorioPa\Repertorio;
 
 use const AlboPretorioPa\META_DATA_ADOZIONE;
@@ -709,5 +711,260 @@ class BarrieraTest extends \WP_UnitTestCase {
 
 		$this->assertIsArray( $ancora );
 		$this->assertSame( $primo, $ancora['numero'], 'Il numero va alla pubblicazione che resta.' );
+	}
+
+	/**
+	 * Esegue una funzione con un guasto sulle istruzioni che contengono tutti i pezzi, dalla volta indicata in poi.
+	 *
+	 * @param array<int, string> $pezzi    Pezzi dell'istruzione.
+	 * @param callable           $funzione Funzione.
+	 * @param int                $dal      Prima volta guastata, contando da uno.
+	 * @return array{0: mixed, 1: int} Esito della funzione e istruzioni riconosciute.
+	 */
+	private function con_guasto( array $pezzi, callable $funzione, int $dal = 1 ): array {
+		global $wpdb;
+
+		$viste  = 0;
+		$guasta = static function ( $istruzione ) use ( $pezzi, $dal, &$viste ) {
+			foreach ( $pezzi as $pezzo ) {
+				if ( false === strpos( (string) $istruzione, $pezzo ) ) {
+					return $istruzione;
+				}
+			}
+
+			++$viste;
+
+			return $viste >= $dal ? 'SELECT guasto_forzato FROM tabella_che_non_esiste' : $istruzione;
+		};
+
+		add_filter( 'query', $guasta );
+		$wpdb->suppress_errors( true );
+
+		try {
+			$esito = $funzione();
+		} finally {
+			remove_filter( 'query', $guasta );
+			$wpdb->suppress_errors( false );
+		}
+
+		return array( $esito, $viste );
+	}
+
+	/**
+	 * A-124: ALBO-22, una lettura che non risponde non vale come permesso.
+	 *
+	 * Ogni lettura con cui la barriera decide se una scrittura e' ammessa
+	 * fallisce, una per volta: la richiesta si ferma, l'atto resta identico e
+	 * WordPress non annuncia nessun cambio di stato. Dentro un passaggio
+	 * fallisce ogni lettura dell'atto da confrontare: il passaggio rifiuta e
+	 * annulla.
+	 */
+	public function test_a124_lettura_che_non_risponde(): void {
+		global $wpdb;
+
+		$in_verifica = $this->atto_in_verifica();
+		$pubblicato  = $this->atto_pubblicato();
+		$annunci     = array();
+		$ascolta     = static function ( $nuovo, $vecchio, $atto ) use ( &$annunci ) {
+			$annunci[] = (int) $atto->ID;
+		};
+
+		add_action( 'transition_post_status', $ascolta, 10, 3 );
+
+		try {
+			$casi = array(
+				'wp_publish_post, riga dell\'atto non letta' => array(
+					$in_verifica,
+					array( 'SELECT post_type, post_status, post_name FROM' ),
+					static function () use ( $in_verifica ) {
+						get_post( $in_verifica );
+						wp_publish_post( $in_verifica );
+					},
+				),
+				'dato di un atto pubblicato, stato non letto' => array(
+					$pubblicato,
+					array( 'SELECT post_type, post_status FROM' ),
+					static function () use ( $pubblicato ) {
+						update_post_meta( $pubblicato, META_DATA_ADOZIONE, '2041-01-01' );
+					},
+				),
+				'voce di un atto pubblicato, stato non letto' => array(
+					$pubblicato,
+					array( 'SELECT post_type, post_status FROM' ),
+					function () use ( $pubblicato ) {
+						wp_set_object_terms( $pubblicato, array( $this->voci['scelto'] ), TASSONOMIA_TIPO_ATTO );
+					},
+				),
+				'dato per numero di riga, riga non letta' => array(
+					$in_verifica,
+					array( 'SELECT post_id, meta_key FROM' ),
+					function () use ( $in_verifica ) {
+						update_metadata_by_mid( 'post', $this->riga_di( $in_verifica, META_DATA_ADOZIONE ), '2041-01-01' );
+					},
+				),
+				'dato tolto a tutti, atti che lo portano non letti' => array(
+					$pubblicato,
+					array( 'SELECT m.post_id FROM' ),
+					static function () {
+						delete_post_meta_by_key( META_DATA_ADOZIONE );
+					},
+				),
+			);
+
+			foreach ( $casi as $caso => list( $id, $pezzi, $scrittura ) ) {
+				$prima   = $this->fotografia( $id );
+				$annunci = array();
+
+				list( $messaggio, $viste ) = $this->con_guasto(
+					$pezzi,
+					function () use ( $scrittura, $caso ) {
+						return $this->richiesta_fermata( $scrittura, $caso );
+					}
+				);
+
+				$this->assertGreaterThan( 0, $viste, $caso . ': precondizione, la lettura e\' stata tentata.' );
+				$this->assertStringContainsString( 'non ha risposto', $messaggio, $caso . ': il rifiuto dice perche\'.' );
+				$this->assertSame( $prima, $this->fotografia( $id ), $caso . ': l\'atto e\' identico.' );
+				$this->assertSame( array(), $annunci, $caso . ': nessun cambio di stato annunciato.' );
+			}
+		} finally {
+			remove_action( 'transition_post_status', $ascolta, 10 );
+		}
+
+		foreach ( array( 'pubblicazione', 'rimando' ) as $passaggio ) {
+			for ( $volta = 1; $volta <= 3; $volta++ ) {
+				$id    = $this->atto_in_verifica();
+				$prima = $this->fotografia( $id, false );
+				$caso  = $passaggio . ', lettura dell\'atto ' . $volta . ' non riuscita';
+
+				list( $esito, $viste ) = $this->con_guasto(
+					array( 'SELECT term_taxonomy_id FROM `' . $wpdb->term_relationships . '` WHERE object_id = ' . $id . ' ORDER BY' ),
+					function () use ( $passaggio, $id ) {
+						return 'pubblicazione' === $passaggio
+							? $this->pubblica_da_codice( $id, $this->pubblicatore )
+							: $this->come(
+								$this->pubblicatore,
+								static function () use ( $id ) {
+									return albo_pretorio_rimanda_in_bozza( $id, 'Da completare.' );
+								}
+							);
+					},
+					$volta
+				);
+
+				$this->assertSame( $volta, $viste, $caso . ': precondizione, la lettura guastata e\' l\'ultima tentata.' );
+				$this->assertWPError( $esito, $caso . ': il passaggio e\' rifiutato.' );
+				$this->assertSame( array( 'albo_atto_non_letto' ), $esito->get_error_codes(), $caso . ': perche\' l\'atto non si e\' letto.' );
+				$this->assertSame( $prima, $this->fotografia( $id, false ), $caso . ': l\'atto e\' identico.' );
+				$this->assertSame( 'pending', get_post_status( $id ), $caso . ': l\'atto resta in verifica, anche in memoria.' );
+			}
+		}
+	}
+
+	/**
+	 * A-125, nella pubblicazione: il numero preso che non si legge ferma il passaggio.
+	 */
+	public function test_a125_pubblicazione_con_numero_non_letto(): void {
+		$id    = $this->atto_in_verifica();
+		$prima = $this->fotografia( $id );
+
+		list( $esito, $viste ) = $this->con_guasto(
+			array( 'SELECT LAST_INSERT_ID()' ),
+			function () use ( $id ) {
+				return $this->pubblica_da_codice( $id, $this->pubblicatore );
+			}
+		);
+
+		$this->assertSame( 1, $viste, 'Precondizione: il numero si legge una volta.' );
+		$this->assertWPError( $esito );
+		$this->assertSame( array( 'albo_repertorio_non_letto' ), $esito->get_error_codes() );
+		$this->assertSame( $prima, $this->fotografia( $id ), 'L\'atto e\' identico, senza numero.' );
+		$this->assertSame( 'pending', get_post_status( $id ) );
+	}
+
+	/**
+	 * A-126: ALBO-22, le scritture di WordPress su molti contenuti insieme saltano gli atti fermi.
+	 *
+	 * La cancellazione di un utente con l'attribuzione dei suoi contenuti a un
+	 * altro: gli atti in verifica e pubblicati restano identici, autore
+	 * compreso, la bozza e i contenuti ordinari passano al nuovo autore.
+	 * Un'istruzione su molti contenuti che scrive lo stato non tocca nessun
+	 * atto, nemmeno in bozza; una che fa diventare atti altri contenuti non
+	 * scrive niente.
+	 */
+	public function test_a126_scritture_su_molti_contenuti(): void {
+		global $wpdb;
+
+		require_once ABSPATH . 'wp-admin/includes/user.php';
+
+		$autore   = $this->utente_con( Permessi::CHIAVI_REDAZIONE );
+		$erede    = self::factory()->user->create( array( 'role' => 'editor' ) );
+		$bozza    = $this->atto_completo( 'normativo', array( 'post_author' => $autore ) );
+		$verifica = $this->atto_completo( 'normativo', array( 'post_author' => $autore ) );
+		$id       = $this->atto_completo( 'normativo', array( 'post_author' => $autore ) );
+
+		foreach ( array( $verifica, $id ) as $da_inviare ) {
+			$this->come(
+				$autore,
+				static function () use ( $da_inviare ) {
+					return wp_update_post(
+						array(
+							'ID'          => $da_inviare,
+							'post_status' => 'pending',
+						)
+					);
+				}
+			);
+
+			clean_post_cache( $da_inviare );
+
+			$this->assertSame( 'pending', get_post_status( $da_inviare ), 'Precondizione: in verifica.' );
+		}
+
+		$this->assertIsArray( $this->pubblica_da_codice( $id, $this->pubblicatore ), 'Precondizione: pubblicato.' );
+
+		$ordinario = self::factory()->post->create( array( 'post_author' => $autore ) );
+		$fermi     = array(
+			'in verifica' => $verifica,
+			'pubblicato'  => $id,
+		);
+		$prima     = array_map( array( $this, 'fotografia' ), $fermi );
+
+		$this->assertTrue( wp_delete_user( $autore, $erede ), 'L\'utente si cancella.' );
+		$this->assertFalse( get_userdata( $autore ), 'Precondizione: l\'utente non c\'e\' piu\'.' );
+
+		foreach ( $fermi as $caso => $fermo ) {
+			$this->assertSame( $prima[ $caso ], $this->fotografia( $fermo ), $caso . ': l\'atto e\' identico, autore compreso.' );
+			$this->assertSame( (string) $autore, $wpdb->get_var( $wpdb->prepare( "SELECT post_author FROM {$wpdb->posts} WHERE ID = %d", $fermo ) ), $caso . ': l\'autore resta chi l\'ha scritto.' );
+		}
+
+		$this->assertSame( (string) $erede, get_post( $bozza )->post_author, 'La bozza passa al nuovo autore.' );
+		$this->assertSame( (string) $erede, get_post( $ordinario )->post_author, 'Il contenuto ordinario passa al nuovo autore.' );
+
+		$prima = array_map( array( $this, 'fotografia' ), $fermi + array( 'bozza' => $bozza ) );
+
+		$this->assertSame( 0, $wpdb->update( $wpdb->posts, array( 'post_status' => 'draft' ), array( 'post_type' => TIPO ) ), 'Lo stato scritto a molti contenuti non tocca nessun atto.' );
+
+		$pagina = self::factory()->post->create( array( 'post_type' => 'page' ) );
+
+		$this->assertSame(
+			0,
+			$wpdb->update(
+				$wpdb->posts,
+				array( 'post_type' => TIPO ),
+				array(
+					'ID'        => $pagina,
+					'post_type' => 'page',
+				)
+			),
+			'Nessun contenuto diventa un atto.'
+		);
+		$this->assertSame( 'page', $wpdb->get_var( $wpdb->prepare( "SELECT post_type FROM {$wpdb->posts} WHERE ID = %d", $pagina ) ) );
+
+		foreach ( $prima as $caso => $foto ) {
+			$this->assertSame( $foto, $this->fotografia( $fermi[ $caso ] ?? $bozza ), $caso . ': identico dopo le scritture su molti contenuti.' );
+		}
+
+		$this->assertSame( 1, $wpdb->update( $wpdb->posts, array( 'post_status' => 'private' ), array( 'post_type' => 'page' ) ), 'Controllo positivo: lo stato dei contenuti ordinari si scrive.' );
 	}
 }

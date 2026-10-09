@@ -175,28 +175,44 @@ final class Repertorio {
 	 * @return array{anno: int, numero: int}|null
 	 */
 	public static function di( int $atto_id ): ?array {
-		global $wpdb;
-
 		if ( ! self::tabelle_presenti() ) {
 			return null;
 		}
 
-		$riga = $wpdb->get_row(
+		$assegnazione = self::assegnazione( $atto_id );
+
+		return false === $assegnazione ? null : $assegnazione;
+	}
+
+	/**
+	 * Il numero di un atto letto per assegnarlo, distinguendo l'atto senza numero dalla lettura mancata.
+	 *
+	 * @param int $atto_id Identificativo dell'atto.
+	 * @return array{anno: int, numero: int}|null|false Nulla se l'atto non ha numero, falso se la lettura non ha risposto.
+	 */
+	private static function assegnazione( int $atto_id ) {
+		global $wpdb;
+
+		$righe = Lettura::righe(
 			$wpdb->prepare(
 				'SELECT anno, numero FROM %i WHERE atto_id = %d',
 				self::tabella_assegnazioni(),
 				$atto_id
 			),
-			ARRAY_A
+			array( 'anno', 'numero' )
 		);
 
-		if ( ! is_array( $riga ) ) {
+		if ( null === $righe ) {
+			return false;
+		}
+
+		if ( array() === $righe ) {
 			return null;
 		}
 
 		return array(
-			'anno'   => (int) $riga['anno'],
-			'numero' => (int) $riga['numero'],
+			'anno'   => (int) $righe[0]['anno'],
+			'numero' => (int) $righe[0]['numero'],
 		);
 	}
 
@@ -381,7 +397,11 @@ final class Repertorio {
 			return self::errore_tabelle();
 		}
 
-		$gia = self::di( $atto_id );
+		$gia = self::assegnazione( $atto_id );
+
+		if ( false === $gia ) {
+			return self::errore_lettura();
+		}
 
 		if ( null !== $gia ) {
 			return $gia;
@@ -434,7 +454,19 @@ final class Repertorio {
 			);
 		}
 
-		$numero = (int) $wpdb->get_var( 'SELECT LAST_INSERT_ID()' );
+		/*
+		 * Il numero appena preso, letto solo se la lettura risponde con un
+		 * intero del contatore. Una lettura mancata non e' lo zero: se il
+		 * contatore e' avanzato e il numero non si legge, resta un buco e
+		 * l'atto non si numera.
+		 */
+		$preso = Lettura::righe( 'SELECT LAST_INSERT_ID() AS n', array( 'n' ) );
+
+		if ( null === $preso || 1 !== count( $preso ) || 1 !== preg_match( '/^[1-9]\d*$/', (string) $preso[0]['n'] ) || (int) $preso[0]['n'] > self::MASSIMO ) {
+			return self::errore_lettura();
+		}
+
+		$numero = (int) $preso[0]['n'];
 
 		$wpdb->query(
 			$wpdb->prepare(
@@ -453,7 +485,11 @@ final class Repertorio {
 		 * scartato questa riga: l'atto ha il numero dell'altra, e questo resta
 		 * un buco.
 		 */
-		$assegnato = self::di( $atto_id );
+		$assegnato = self::assegnazione( $atto_id );
+
+		if ( false === $assegnato ) {
+			return self::errore_lettura();
+		}
 
 		if ( null === $assegnato ) {
 			return new \WP_Error(
@@ -505,6 +541,18 @@ final class Repertorio {
 		);
 
 		return (int) $conteggio > 0;
+	}
+
+	/**
+	 * Il rifiuto per una lettura della numerazione che non ha risposto.
+	 *
+	 * @return \WP_Error
+	 */
+	private static function errore_lettura(): \WP_Error {
+		return new \WP_Error(
+			'albo_repertorio_non_letto',
+			__( 'Numero non assegnato: la banca dati non ha risposto a una lettura della numerazione. Un numero eventualmente gia\' preso resta inutilizzato.', 'albo-pretorio-pa' )
+		);
 	}
 
 	/**

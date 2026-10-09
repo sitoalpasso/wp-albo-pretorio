@@ -703,22 +703,38 @@ final class ChiusuraPubblicazione {
 
 		$inizio = 'UPDATE `' . $wpdb->posts . '` SET ';
 
-		if ( 0 !== strpos( $istruzione, $inizio ) || 1 !== preg_match( '/ WHERE `ID` = (\d+)$/', $istruzione, $trovato ) ) {
+		if ( 0 !== strpos( $istruzione, $inizio ) ) {
 			return $istruzione;
+		}
+
+		if ( 1 !== preg_match( '/ WHERE `ID` = (\d+)$/', $istruzione, $trovato ) ) {
+			return self::collettiva_condizionata( $istruzione );
 		}
 
 		$atto_id  = (int) $trovato[1];
 		$insieme  = substr( $istruzione, strlen( $inizio ), - strlen( $trovato[0] ) );
 		$vagliata = isset( self::$vagliate[ $atto_id ] );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lettura della riga com'e' nella banca dati, senza la memoria di WordPress, per giudicare la scrittura che sta per arrivare.
-		$riga = $wpdb->get_row(
-			$wpdb->prepare( "SELECT post_type, post_status, post_name FROM {$wpdb->posts} WHERE ID = %d", $atto_id ),
-			ARRAY_A
+		$righe    = Lettura::righe(
+			$wpdb->prepare( 'SELECT post_type, post_status, post_name FROM %i WHERE ID = %d', $wpdb->posts, $atto_id ),
+			array( 'post_type', 'post_status', 'post_name' )
 		);
 
-		if ( ! is_array( $riga ) ) {
+		/*
+		 * Una riga che non c'e' non e' un atto, e l'istruzione non scrive
+		 * niente. Una lettura che non ha risposto non dice ne' l'una ne'
+		 * l'altra cosa: la scrittura non passa.
+		 */
+		if ( null === $righe ) {
+			self::ferma_per_lettura( $atto_id );
+
+			return '';
+		}
+
+		if ( array() === $righe ) {
 			return $istruzione;
 		}
+
+		$riga = $righe[0];
 
 		$stato = self::valore_scritto( $insieme, 'post_status' );
 		$tipo  = self::valore_scritto( $insieme, 'post_type' );
@@ -877,6 +893,52 @@ final class ChiusuraPubblicazione {
 	}
 
 	/**
+	 * Una modifica della tabella dei contenuti che non indica una riga sola, condizionata riga per riga.
+	 *
+	 * WordPress scrive cosi' quando cambia molti contenuti insieme: per esempio
+	 * la cancellazione di un utente con l'attribuzione dei suoi contenuti a un
+	 * altro cambia l'autore di tutti con un'istruzione sola, senza passare dalla
+	 * porta principale. L'istruzione salta gli atti fermi, che restano come
+	 * sono, autore compreso: e' quello che WordPress fa da se' quando l'utente
+	 * si cancella senza attribuire i contenuti, perche' gli atti non si
+	 * cancellano con chi li ha scritti. Se l'istruzione scrive lo stato o il
+	 * tipo, salta ogni atto, in qualunque stato; se fa diventare atti altri
+	 * contenuti, non scrive niente: un atto nasce in bozza dalla porta
+	 * principale, e cambia stato solo con i passaggi. Senza una condizione da
+	 * completare, la condizione diventa l'unica.
+	 *
+	 * @param string $istruzione Istruzione.
+	 * @return string
+	 */
+	private static function collettiva_condizionata( string $istruzione ): string {
+		global $wpdb;
+
+		if ( ! TipoAtto::tipo_nostro() ) {
+			return $istruzione;
+		}
+
+		$dove    = self::fuori_dalle_virgolette( $istruzione, ' WHERE ' );
+		$testa   = null === $dove ? $istruzione : substr( $istruzione, 0, $dove );
+		$insieme = substr( $testa, strlen( 'UPDATE `' . $wpdb->posts . '` SET ' ) );
+		$tipo    = self::valore_scritto( $insieme, 'post_type' );
+
+		// Un tipo scritto che non si legge con certezza vale come il nostro.
+		if ( TIPO === $tipo || '?' === $tipo ) {
+			$condizione = '0 = 1';
+		} elseif ( null !== $tipo || null !== self::valore_scritto( $insieme, 'post_status' ) ) {
+			$condizione = $wpdb->prepare( '%i.`post_type` <> %s', $wpdb->posts, TIPO );
+		} else {
+			$condizione = $wpdb->prepare( 'NOT ( %i.`post_type` = %s AND %i.`post_status` IN ( %s, %s ) )', $wpdb->posts, TIPO, $wpdb->posts, self::IN_VERIFICA, self::PUBBLICATO );
+		}
+
+		if ( null === $dove ) {
+			return $istruzione . ' WHERE ' . $condizione;
+		}
+
+		return $testa . ' WHERE ( ' . substr( $istruzione, $dove + strlen( ' WHERE ' ) ) . ' ) AND ' . $condizione;
+	}
+
+	/**
 	 * Una modifica o una cancellazione, condizionata riga per riga allo stato del suo atto.
 	 *
 	 * @param string $istruzione Istruzione.
@@ -887,13 +949,8 @@ final class ChiusuraPubblicazione {
 	private static function modifica_condizionata( string $istruzione, string $tabella, string $colonna ): string {
 		global $wpdb;
 
-		$dove = self::fuori_dalle_virgolette( $istruzione, ' WHERE ' );
-
-		if ( null === $dove ) {
-			return $istruzione;
-		}
-
-		$testa      = substr( $istruzione, 0, $dove );
+		$dove       = self::fuori_dalle_virgolette( $istruzione, ' WHERE ' );
+		$testa      = null === $dove ? $istruzione : substr( $istruzione, 0, $dove );
 		$condizione = self::non_fermo( '`' . $tabella . '`.`' . $colonna . '`' );
 
 		/*
@@ -904,6 +961,10 @@ final class ChiusuraPubblicazione {
 		 */
 		if ( $wpdb->postmeta === $tabella && self::chiave_nuova_di_servizio( $testa ) ) {
 			$condizione = '( `' . $tabella . '`.`meta_key` IN ( ' . implode( ', ', self::chiavi_di_servizio_scritte() ) . ' ) OR ' . $condizione . ' )';
+		}
+
+		if ( null === $dove ) {
+			return $istruzione . ' WHERE ' . $condizione;
 		}
 
 		return $testa . ' WHERE ( ' . substr( $istruzione, $dove + strlen( ' WHERE ' ) ) . ' ) AND ' . $condizione;
@@ -1077,10 +1138,11 @@ final class ChiusuraPubblicazione {
 			return;
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lettura della banca dati com'e', senza la memoria di WordPress, per sapere se la scrittura e' avvenuta.
-		$c_e = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->term_relationships} WHERE object_id = %d AND term_taxonomy_id = %d", $atto_id, (int) $voce ) );
+		$c_e = Lettura::conteggio( $wpdb->prepare( 'SELECT COUNT(*) AS n FROM %i WHERE object_id = %d AND term_taxonomy_id = %d', $wpdb->term_relationships, $atto_id, (int) $voce ) );
 
-		if ( 0 === $c_e ) {
+		if ( null === $c_e ) {
+			self::ferma_per_lettura( $atto_id );
+		} elseif ( 0 === $c_e ) {
 			self::ferma_richiesta( $atto_id );
 		}
 	}
@@ -1103,10 +1165,12 @@ final class ChiusuraPubblicazione {
 
 		$segnaposto = implode( ', ', array_fill( 0, count( $voci ), '%d' ) );
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- lettura della banca dati com'e', con segnaposto costruiti qui sopra.
-		$restano = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->term_relationships} WHERE object_id = %d AND term_taxonomy_id IN ( {$segnaposto} )", array_merge( array( $atto_id ), $voci ) ) );
+		// phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- segnaposto costruiti qui sopra.
+		$restano = Lettura::conteggio( $wpdb->prepare( "SELECT COUNT(*) AS n FROM {$wpdb->term_relationships} WHERE object_id = %d AND term_taxonomy_id IN ( {$segnaposto} )", array_merge( array( $atto_id ), $voci ) ) );
 
-		if ( 0 !== $restano ) {
+		if ( null === $restano ) {
+			self::ferma_per_lettura( $atto_id );
+		} elseif ( 0 !== $restano ) {
 			self::ferma_richiesta( $atto_id );
 		}
 	}
@@ -1132,10 +1196,16 @@ final class ChiusuraPubblicazione {
 
 		$segnaposto = implode( ', ', array_fill( 0, count( $righe ), '%d' ) );
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- lettura della banca dati com'e', con segnaposto costruiti qui sopra.
-		$restano = $wpdb->get_col( $wpdb->prepare( "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_id IN ( {$segnaposto} )", $righe ) );
+		// phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- segnaposto costruiti qui sopra.
+		$restano = Lettura::righe( $wpdb->prepare( "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_id IN ( {$segnaposto} )", $righe ), array( 'post_id' ) );
 
-		foreach ( array_unique( array_map( 'intval', (array) $restano ) ) as $atto ) {
+		if ( null === $restano ) {
+			self::ferma_per_lettura( 0 );
+
+			return;
+		}
+
+		foreach ( array_unique( array_map( 'intval', array_column( $restano, 'post_id' ) ) ) as $atto ) {
 			if ( null !== self::stato_diretto( $atto ) ) {
 				self::ferma_richiesta( $atto );
 			}
@@ -1248,6 +1318,34 @@ final class ChiusuraPubblicazione {
 	}
 
 	/**
+	 * Ferma la richiesta perche' una lettura da cui dipende la decisione non ha risposto.
+	 *
+	 * Come per un rifiuto: dentro un passaggio lo annota, e il passaggio
+	 * annulla; fuori, la richiesta si ferma.
+	 *
+	 * @param int $atto_id Atto, o zero se la lettura doveva dire quale.
+	 */
+	private static function ferma_per_lettura( int $atto_id ): void {
+		if ( Passaggi::annota_rifiuto() ) {
+			return;
+		}
+
+		wp_die(
+			esc_html(
+				0 === $atto_id
+					? __( 'Scrittura rifiutata: la banca dati non ha risposto alla lettura che decide se la scrittura riguarda un atto dell\'albo in verifica o pubblicato.', 'albo-pretorio-pa' )
+					: sprintf(
+						/* translators: %d: identificativo del contenuto. */
+						__( 'Scrittura rifiutata: la banca dati non ha risposto alla lettura che decide se la scrittura del contenuto %d e\' ammessa.', 'albo-pretorio-pa' ),
+						$atto_id
+					)
+			),
+			esc_html__( 'Scrittura rifiutata', 'albo-pretorio-pa' ),
+			array( 'response' => 403 )
+		);
+	}
+
+	/**
 	 * Un metadato di un atto fermo non si aggiunge.
 	 *
 	 * @param mixed $esito   Risposta proposta, nulla per proseguire.
@@ -1308,6 +1406,10 @@ final class ChiusuraPubblicazione {
 	public static function da_update_post_metadata_by_mid( $esito, $meta_id, $valore, $nuova = false ) {
 		$riga = self::riga_di_metadato( (int) $meta_id );
 
+		if ( false === $riga ) {
+			return false;
+		}
+
 		if ( null === $riga ) {
 			return $esito;
 		}
@@ -1333,6 +1435,10 @@ final class ChiusuraPubblicazione {
 	public static function da_delete_post_metadata_by_mid( $esito, $meta_id ) {
 		$riga = self::riga_di_metadato( (int) $meta_id );
 
+		if ( false === $riga ) {
+			return false;
+		}
+
 		return null === $riga || self::metadato_ammesso( (int) $riga['post_id'], (string) $riga['meta_key'], null, true ) ? $esito : false;
 	}
 
@@ -1340,18 +1446,23 @@ final class ChiusuraPubblicazione {
 	 * La riga di metadato indicata per numero.
 	 *
 	 * @param int $meta_id Numero della riga.
-	 * @return array<string, string>|null
+	 * @return array<string, string>|null|false Nulla se la riga non c'e', falso se la lettura non ha risposto.
 	 */
-	private static function riga_di_metadato( int $meta_id ): ?array {
+	private static function riga_di_metadato( int $meta_id ) {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lettura della riga com'e' nella banca dati, senza la memoria di WordPress, per giudicare la scrittura che sta per arrivare.
-		$riga = $wpdb->get_row(
-			$wpdb->prepare( "SELECT post_id, meta_key FROM {$wpdb->postmeta} WHERE meta_id = %d", $meta_id ),
-			ARRAY_A
+		$righe = Lettura::righe(
+			$wpdb->prepare( 'SELECT post_id, meta_key FROM %i WHERE meta_id = %d', $wpdb->postmeta, $meta_id ),
+			array( 'post_id', 'meta_key' )
 		);
 
-		return is_array( $riga ) ? $riga : null;
+		if ( null === $righe ) {
+			self::ferma_per_lettura( 0 );
+
+			return false;
+		}
+
+		return array() === $righe ? null : $righe[0];
 	}
 
 	/**
@@ -1400,18 +1511,26 @@ final class ChiusuraPubblicazione {
 			return true;
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lettura della riga com'e' nella banca dati, senza la memoria di WordPress, per giudicare la scrittura che sta per arrivare.
-		$atti = $wpdb->get_col(
+		$atti = Lettura::righe(
 			$wpdb->prepare(
-				"SELECT m.post_id FROM {$wpdb->postmeta} m JOIN {$wpdb->posts} p ON p.ID = m.post_id WHERE m.meta_key = %s AND p.post_type = %s AND p.post_status IN ( %s, %s )",
+				'SELECT m.post_id FROM %i m JOIN %i p ON p.ID = m.post_id WHERE m.meta_key = %s AND p.post_type = %s AND p.post_status IN ( %s, %s )',
+				$wpdb->postmeta,
+				$wpdb->posts,
 				$chiave,
 				TIPO,
 				self::IN_VERIFICA,
 				self::PUBBLICATO
-			)
+			),
+			array( 'post_id' )
 		);
 
-		if ( array() !== ( is_array( $atti ) ? $atti : array() ) ) {
+		if ( null === $atti ) {
+			self::ferma_per_lettura( 0 );
+
+			return false;
+		}
+
+		if ( array() !== $atti ) {
 			return false;
 		}
 
@@ -1427,19 +1546,27 @@ final class ChiusuraPubblicazione {
 	/**
 	 * Lo stato di un atto nostro letto dalla banca dati, o nullo se non e' un atto nostro.
 	 *
+	 * Se la lettura non risponde la richiesta si ferma, e il contenuto vale
+	 * come un atto pubblicato, il caso piu' protetto: chi chiama rifiuta.
+	 *
 	 * @param int $atto_id Contenuto.
 	 * @return string|null
 	 */
 	private static function stato_diretto( int $atto_id ): ?string {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lettura della riga com'e' nella banca dati, senza la memoria di WordPress, per giudicare la scrittura che sta per arrivare.
-		$riga = $wpdb->get_row(
-			$wpdb->prepare( "SELECT post_type, post_status FROM {$wpdb->posts} WHERE ID = %d", $atto_id ),
-			ARRAY_A
+		$righe = Lettura::righe(
+			$wpdb->prepare( 'SELECT post_type, post_status FROM %i WHERE ID = %d', $wpdb->posts, $atto_id ),
+			array( 'post_type', 'post_status' )
 		);
 
-		return is_array( $riga ) && TIPO === $riga['post_type'] ? (string) $riga['post_status'] : null;
+		if ( null === $righe ) {
+			self::ferma_per_lettura( $atto_id );
+
+			return self::PUBBLICATO;
+		}
+
+		return array() !== $righe && TIPO === $righe[0]['post_type'] ? (string) $righe[0]['post_status'] : null;
 	}
 
 	/**
