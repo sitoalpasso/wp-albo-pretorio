@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano, e aggiornata a lavor
 com'è andata davvero. È la seconda parte del flusso di pubblicazione deciso con ALBO-22: la
 prima, il passaggio in verifica, è in [`passaggio-in-verifica.md`](passaggio-in-verifica.md).
 
-**Stato: costruita.** Righe di collaudo A-93..A-121. Com'è andata davvero è in fondo, con le
+**Stato: costruita.** Righe di collaudo A-93..A-122. Com'è andata davvero è in fondo, con le
 differenze dal piano, i limiti dichiarati e la prova dei guasti.
 
 ## In tre paragrafi
@@ -836,3 +836,61 @@ componente in ascolto del cambio di stato non senta niente, e il guasto cade.
 Riprovati sul codice nuovo i guasti del settimo giro, adattati alla forma nuova del blocco:
 cadono tutti salvo la memoria non tolta sotto il blocco, che resta coperta dal controllo
 finale come detto al settimo giro.
+
+## Il nono giro: l'ottava revisione
+
+L'ottava revisione, sul commit 37cffa7, ha trovato un difetto grave, della stessa famiglia del
+rilievo grave del giro prima.
+
+**Un dato o una voce scritti dopo il controllo.** I filtri dei metadati e gli annunci delle
+voci controllano lo stato dell'atto prima della scrittura, e fra il controllo e l'istruzione
+WordPress fa girare altri agganci. Chi aggiornava la data di adozione di una bozza poteva
+fermarsi lì; un'altra persona intanto mandava l'atto in verifica e lo pubblicava; la
+scrittura riprendeva e cambiava il dato di un atto ormai pubblicato. Il blocco della riga
+protegge i passaggi, non le scritture delle tabelle collegate. La correzione chiude la
+famiglia intera, non il solo caso trovato: **ogni istruzione che scrive un dato o una voce di
+un atto porta con sé la condizione che l'atto non sia in verifica o pubblicato**, letta dalla
+banca dati nell'istante della scrittura. Vale per aggiunta, aggiornamento e cancellazione dei
+dati, anche per numero di riga e per tutti i contenuti, e per l'assegnazione e la rimozione
+delle voci. I dati di servizio restano liberi come nei filtri, salvo quando un'istruzione li
+rinomina. Gli atti di un passaggio in corso nella stessa richiesta ne sono esclusi: li
+governano la concessione del passaggio e il suo controllo finale. Se la condizione non regge,
+l'istruzione non scrive niente: le funzioni dei dati rispondono che la scrittura non è
+avvenuta, e dove WordPress annuncerebbe comunque una voce o una cancellazione che non c'è
+stata, la richiesta si ferma. **I documenti** seguono il dato dell'atto: il deposito e la
+rimozione toccano gli allegati solo se il dato che li elenca è cambiato davvero; altrimenti il
+documento appena depositato si toglie, quello da togliere resta, e la risposta è che l'atto
+non è più in bozza. A-122, con una seconda connessione e la scrittura automatica accesa.
+
+### Limiti dichiarati, al nono giro
+
+- **Un'istruzione scritta a mano in una forma diversa da quelle di WordPress**, per esempio
+  un inserimento di più righe insieme, non si condiziona, come per la riga dell'atto.
+- **Gli annunci prima della scrittura** (quelli che WordPress fa prima dell'istruzione)
+  restano: un componente che li ascolta sente una scrittura che poi non avviene.
+
+### Le prove, al nono giro
+
+Centoquarantaquattro prove nella suite principale, una riga nuova (A-122), più le due suite
+separate, tutte verdi in locale; PHPCS pulito. In verifica continua, sul commit 2fc53ca che
+porta codice e prove, verdi le due combinazioni di WordPress e PHP su MySQL, lo standard di
+codifica e la validazione di `publiccode.yml`; A-122 è passata a "fatto" dopo quell'esito.
+
+**La prova di non vacuità.** Dodici guasti nuovi, uno per volta, con la suite intera.
+
+| Guasto introdotto | Prove cadute |
+|---|---|
+| Inserimento di dati e voci senza condizione | A-122 |
+| Modifica e cancellazione senza condizione | A-122 |
+| Condizione solo sugli atti in verifica | A-122 |
+| Riga di servizio libera anche nella rinomina | A-122 |
+| Riga di servizio non libera | A-122 |
+| Passaggio in corso non escluso dalla condizione | quasi tutte le prove dei passaggi, da A-93 a A-119 |
+| Voce aggiunta non verificata | A-122 |
+| Voci tolte non verificate | A-122 |
+| Dati tolti non verificati | A-122 |
+| Documento depositato anche se il dato non si scrive | A-122 |
+| Documento nuovo lasciato all'atto | A-122 |
+| Documento tolto anche se il dato non si scrive | A-122 |
+
+Riprovati sul codice nuovo i guasti dell'ottavo giro: cadono tutti.
