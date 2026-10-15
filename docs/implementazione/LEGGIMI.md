@@ -37,3 +37,6 @@ Schede presenti:
 - [`proroga-per-disservizio.md`](proroga-per-disservizio.md): la proroga degli atti in
   pubblicazione dopo un disservizio, con attestazione obbligatoria e tutto o niente su più
   atti. Righe di collaudo A-127..A-138 e A-147..A-155.
+- [`slittamento-ai-festivi.md`](slittamento-ai-festivi.md): la scelta dell'amministrazione
+  sulla fine che cade in un giorno festivo, l'elenco dei festivi e lo slittamento nella
+  pubblicazione e nella proroga. Righe di collaudo A-139..A-143 e A-156..A-164.
