@@ -153,7 +153,7 @@ nuova fine.
 
 ## Com'è andata davvero
 
-**Differenze dal piano.** Nessuna nella sostanza. I giorni si indicano nella schermata come
+**Differenze dal piano.** Nessuna nella sostanza. `class-chiusura-pubblicazione.php` non è cambiato: la concessione dei passaggi in corso, che lascia passare la sola data di fine attesa, bastava anche per molti atti insieme. I giorni si indicano nella schermata come
 primo e ultimo di una serie consecutiva; giorni non consecutivi sono proroghe separate. Una
 proroga attesta al massimo 366 giorni. Un atto pubblicato senza data di fine leggibile non si
 salta: la proroga si rifiuta e lo nomina. I messaggi dei pezzi comuni ai passaggi parlano
