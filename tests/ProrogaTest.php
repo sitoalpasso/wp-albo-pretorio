@@ -1,6 +1,6 @@
 <?php
 /**
- * Proroga per disservizio: righe A-127..A-138 e A-147..A-150 (ALBO-31).
+ * Proroga per disservizio: righe A-127..A-138 e A-147..A-152 (ALBO-31).
  *
  * Gli atti si pubblicano con il passaggio vero, a orologio fissato; poi
  * l'orologio va avanti e la proroga si dispone da codice o dalla schermata.
@@ -20,6 +20,8 @@ use AlboPretorioPa\SchermataProroga;
 
 use const AlboPretorioPa\META_DATA_ADOZIONE;
 use const AlboPretorioPa\SEZIONE;
+
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: si osserva la banca dati da due connessioni.
 
 /**
  * La proroga, riuscita e rifiutata.
@@ -843,8 +845,27 @@ class ProrogaTest extends \WP_UnitTestCase {
 
 		$this->fissa_orologi( '2041-10-08 11:00:00' );
 
-		$chiave = conformita_core_chiave_fine_pubblicazione();
-		$fatto  = false;
+		$chiave      = conformita_core_chiave_fine_pubblicazione();
+		$fatto       = false;
+		$connessione = new \wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
+		$turno       = \AlboPretorioPa\Passaggi::nome_turno();
+		$tabella     = $wpdb->prefix . 'conformita_core_registro';
+		$durante     = null;
+
+		/*
+		 * Mentre la proroga scrive, cioe' dopo il calcolo, un'altra connessione
+		 * prova a prendere il turno: non deve riuscirci.
+		 */
+		$guarda = static function ( $istruzione ) use ( $connessione, $turno, $tabella, &$durante ) {
+			if ( null === $durante && is_string( $istruzione ) && 0 === strpos( $istruzione, 'INSERT INTO `' . $tabella . '`' ) && false !== strpos( $istruzione, "'" . Proroga::AZIONE_PROROGA . "'" ) ) {
+				$durante = array(
+					'libero' => (string) $connessione->get_var( $connessione->prepare( 'SELECT IS_FREE_LOCK( %s )', $turno ) ),
+					'preso'  => (string) $connessione->get_var( $connessione->prepare( 'SELECT GET_LOCK( %s, 0 )', $turno ) ),
+				);
+			}
+
+			return $istruzione;
+		};
 
 		// La fine e' gia' stata letta in questa richiesta: il calcolo deve rileggerla dalla banca dati.
 		$this->assertSame( '2041-10-16', conformita_core_fine_pubblicazione( $id ) );
@@ -874,6 +895,7 @@ class ProrogaTest extends \WP_UnitTestCase {
 		};
 
 		add_filter( 'query', $altra );
+		add_filter( 'query', $guarda );
 
 		try {
 			$esito = $this->proroga(
@@ -885,9 +907,18 @@ class ProrogaTest extends \WP_UnitTestCase {
 			);
 		} finally {
 			remove_filter( 'query', $altra );
+			remove_filter( 'query', $guarda );
 		}
 
 		$this->assertTrue( $fatto, 'Precondizione: la proroga prende il turno.' );
+		$this->assertSame(
+			array(
+				'libero' => '0',
+				'preso'  => '0',
+			),
+			$durante,
+			'Mentre la proroga scrive, il turno e\' suo: un\'altra connessione non lo prende.'
+		);
 		$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
 		$this->assertSame( '2041-10-19', conformita_core_fine_pubblicazione( $id ), 'I due giorni si sommano al giorno dell\'altra proroga.' );
 
@@ -898,7 +929,10 @@ class ProrogaTest extends \WP_UnitTestCase {
 		$this->assertSame( '2041-10-19', $voci[0]['dettagli']['fine_nuova'] );
 
 		// Il turno e' stato lasciato: un'altra connessione lo prende subito.
-		$this->assertSame( '1', (string) $wpdb->get_var( $wpdb->prepare( 'SELECT IS_FREE_LOCK( %s )', \AlboPretorioPa\Passaggi::nome_turno() ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lo stato del turno nella banca dati.
+		$this->assertSame( '1', (string) $connessione->get_var( $connessione->prepare( 'SELECT GET_LOCK( %s, 0 )', $turno ) ) );
+		$this->assertSame( '1', (string) $connessione->get_var( $connessione->prepare( 'SELECT RELEASE_LOCK( %s )', $turno ) ) );
+
+		$connessione->close();
 	}
 
 	/**
@@ -948,5 +982,246 @@ class ProrogaTest extends \WP_UnitTestCase {
 
 		// Finita la proroga, il rimando si fa.
 		$this->assertTrue( ! is_wp_error( $this->come( $this->pubblicatore, static fn() => albo_pretorio_rimanda_in_bozza( $in_verifica, 'Da completare.' ) ) ) );
+	}
+
+	/**
+	 * Fa girare una prova con i dati confermati e la scrittura automatica accesa, come su un sito.
+	 *
+	 * Serve quando una seconda connessione deve vedere e cambiare i dati della
+	 * prova. Alla fine si toglie quello che la conferma ha reso definitivo e si
+	 * rimettono le opzioni com'erano.
+	 *
+	 * @param callable $prova Riceve la seconda connessione.
+	 */
+	private function con_dati_confermati( callable $prova ): void {
+		global $wpdb;
+
+		$altra     = new \wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
+		$originali = $altra->get_results( "SELECT option_name, option_value, autoload FROM {$wpdb->options}", OBJECT_K );
+		$registro  = $wpdb->prefix . 'conformita_core_registro';
+		$ultima    = (int) $altra->get_var( $altra->prepare( 'SELECT COALESCE( MAX( id ), 0 ) FROM %i', $registro ) );
+
+		self::commit_transaction();
+		$wpdb->query( 'SET autocommit = 1' );
+
+		try {
+			$prova( $altra );
+		} finally {
+			$wpdb->query( 'ROLLBACK' );
+			$wpdb->query( 'SET autocommit = 1' );
+
+			_delete_all_data();
+
+			$wpdb->query( $wpdb->prepare( 'DELETE FROM %i WHERE id > %d', $registro, $ultima ) );
+			$wpdb->query( $wpdb->prepare( 'DELETE FROM %i', Repertorio::tabella_assegnazioni() ) );
+			$wpdb->query( $wpdb->prepare( 'DELETE FROM %i', Repertorio::tabella_anni() ) );
+
+			$attuali = $wpdb->get_results( "SELECT option_name, option_value, autoload FROM {$wpdb->options}", OBJECT_K );
+
+			foreach ( $attuali as $nome => $riga ) {
+				if ( ! isset( $originali[ $nome ] ) ) {
+					$wpdb->delete( $wpdb->options, array( 'option_name' => $nome ) );
+				} elseif ( $originali[ $nome ]->option_value !== $riga->option_value || $originali[ $nome ]->autoload !== $riga->autoload ) {
+					$wpdb->update(
+						$wpdb->options,
+						array(
+							'option_value' => $originali[ $nome ]->option_value,
+							'autoload'     => $originali[ $nome ]->autoload,
+						),
+						array( 'option_name' => $nome )
+					);
+				}
+			}
+
+			foreach ( array_diff_key( $originali, $attuali ) as $nome => $riga ) {
+				$wpdb->insert(
+					$wpdb->options,
+					array(
+						'option_name'  => $nome,
+						'option_value' => $riga->option_value,
+						'autoload'     => $riga->autoload,
+					)
+				);
+			}
+
+			wp_cache_flush();
+			$altra->close();
+
+			$wpdb->query( 'SET autocommit = 0' );
+			self::commit_transaction();
+		}
+	}
+
+	/**
+	 * Lascia il turno delle proroghe, se questa connessione lo tiene ancora.
+	 */
+	private function lascia_il_turno(): void {
+		global $wpdb;
+
+		$volte = 0;
+
+		while ( $volte < 10 && '1' === (string) $wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', \AlboPretorioPa\Passaggi::nome_turno() ) ) ) {
+			++$volte;
+		}
+	}
+
+	/**
+	 * A-151: dentro la transazione di un altro programma, con una lettura coerente nata prima di un'altra proroga.
+	 */
+	public function test_a151_transazione_di_chi_chiama_con_dati_vecchi(): void {
+		$this->con_dati_confermati(
+			function ( \wpdb $altra ): void {
+				global $wpdb;
+
+				$id     = $this->pubblicato_il( '2041-10-01 09:30:00' );
+				$chiave = conformita_core_chiave_fine_pubblicazione();
+				$legge  = static function () use ( $altra, $wpdb, $id, $chiave ): string {
+					return (string) $altra->get_var( $altra->prepare( "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s", $id, $chiave ) );
+				};
+
+				$this->fissa_orologi( '2041-10-08 11:00:00' );
+				$this->assertSame( '1', (string) $wpdb->get_var( 'SELECT @@autocommit' ), 'Precondizione: scrittura automatica accesa.' );
+				$this->assertSame( '2041-10-16', $legge(), 'Precondizione: la pubblicazione e\' confermata.' );
+
+				// Un programma apre la sua transazione e legge: la sua lettura coerente nasce qui.
+				$wpdb->query( 'SET autocommit = 0' );
+
+				try {
+					$this->assertSame( '2041-10-16', conformita_core_fine_pubblicazione( $id ) );
+
+					// Un'altra richiesta conferma la sua proroga: fine al 17.
+					mysqli_query( $altra->dbh, $altra->prepare( "UPDATE {$wpdb->postmeta} SET meta_value = %s WHERE post_id = %d AND meta_key = %s", '2041-10-17', $id, $chiave ) ); // phpcs:ignore WordPress.DB.RestrictedFunctions.mysql_mysqli_query -- la scrittura dell'altra richiesta, fuori dai filtri.
+
+					$this->assertSame( '2041-10-17', $legge(), 'Precondizione: l\'altra proroga e\' confermata.' );
+					$this->assertSame( '2041-10-16', conformita_core_fine_pubblicazione( $id ), 'Precondizione: il programma vede ancora la fine di prima.' );
+
+					$esito = $this->proroga(
+						$this->pubblicatore,
+						array(
+							'giorni'       => array( '2041-10-04', '2041-10-05' ),
+							'attestazione' => 'Attestazione',
+						)
+					);
+
+					$this->assertWPError( $esito );
+					$this->assertSame( 'albo_proroga_lettura_superata', $esito->get_error_code(), $esito->get_error_message() );
+				} finally {
+					$wpdb->query( 'ROLLBACK' );
+					$wpdb->query( 'SET autocommit = 1' );
+				}
+
+				$this->assertSame( '2041-10-17', $legge(), 'Niente scritto sopra la proroga dell\'altra richiesta.' );
+				$this->nessuna_proroga( 'Dati vecchi' );
+
+				// Fuori da quella transazione la proroga calcola dalla fine confermata.
+				$esito = $this->proroga(
+					$this->pubblicatore,
+					array(
+						'giorni'       => array( '2041-10-04', '2041-10-05' ),
+						'attestazione' => 'Attestazione',
+					)
+				);
+
+				$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+				$this->assertSame( '2041-10-19', $legge(), 'Confermata, e visibile alla seconda connessione.' );
+				$this->assertSame( '2041-10-17', $this->voci_di( $id, array( 'azione' => Proroga::AZIONE_ATTO ) )[0]['dettagli']['fine_precedente'] );
+			}
+		);
+	}
+
+	/**
+	 * A-152: il turno che la banca dati non conferma di aver lasciato, e l'eccezione durante il rilascio.
+	 */
+	public function test_a152_turno_non_lasciato(): void {
+		global $wpdb;
+
+		$id = $this->pubblicato_il( '2041-10-01 09:30:00' );
+
+		$this->fissa_orologi( '2041-10-08 11:00:00' );
+
+		$chiave      = conformita_core_chiave_fine_pubblicazione();
+		$turno       = \AlboPretorioPa\Passaggi::nome_turno();
+		$connessione = new \wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
+
+		// La memoria ricorda la fine di prima: dopo la conferma deve essere svuotata comunque.
+		$this->assertSame( '2041-10-16', get_post_meta( $id, $chiave, true ) );
+
+		$fallisce = static function ( $istruzione ) {
+			return ( is_string( $istruzione ) && false !== strpos( $istruzione, 'RELEASE_LOCK' ) ) ? '' : $istruzione;
+		};
+
+		add_filter( 'query', $fallisce );
+
+		try {
+			$esito = $this->proroga(
+				$this->pubblicatore,
+				array(
+					'giorni'       => array( '2041-10-05' ),
+					'attestazione' => 'Prima',
+				)
+			);
+		} finally {
+			remove_filter( 'query', $fallisce );
+		}
+
+		$this->assertWPError( $esito );
+		$this->assertSame( array( 'albo_proroga_turno_non_lasciato' ), $esito->get_error_codes() );
+		$this->assertStringContainsString( 'confermata', $esito->get_error_message(), 'Dice che la proroga e\' confermata.' );
+		$this->assertArrayHasKey( $id, $esito->get_error_data()['atti'] ?? array(), 'E porta l\'esito della proroga.' );
+		$this->assertSame( '2041-10-17', conformita_core_fine_pubblicazione( $id ) );
+		$this->assertSame( '2041-10-17', get_post_meta( $id, $chiave, true ), 'Memoria svuotata.' );
+		$this->assertSame( '0', (string) $connessione->get_var( $connessione->prepare( 'SELECT IS_FREE_LOCK( %s )', $turno ) ), 'Il turno e\' davvero ancora preso, come dice il messaggio.' );
+
+		$this->lascia_il_turno();
+
+		// Eccezione durante il rilascio: la memoria si svuota lo stesso, e l'eccezione dice che la proroga e' confermata.
+		$solleva = static function ( $istruzione ) {
+			if ( is_string( $istruzione ) && false !== strpos( $istruzione, 'RELEASE_LOCK' ) ) {
+				throw new \LogicException( 'Componente di prova.' );
+			}
+
+			return $istruzione;
+		};
+		$preso   = null;
+
+		$this->assertSame( '2041-10-17', get_post_meta( $id, $chiave, true ) );
+
+		add_filter( 'query', $solleva );
+
+		try {
+			$this->proroga(
+				$this->pubblicatore,
+				array(
+					'giorni'       => array( '2041-10-06' ),
+					'attestazione' => 'Seconda',
+				)
+			);
+		} catch ( \RuntimeException $errore ) {
+			$preso = $errore;
+		} finally {
+			remove_filter( 'query', $solleva );
+		}
+
+		$this->assertInstanceOf( \RuntimeException::class, $preso );
+		$this->assertStringContainsString( 'confermata', $preso->getMessage() );
+		$this->assertInstanceOf( \LogicException::class, $preso->getPrevious() );
+		$this->assertSame( '2041-10-18', conformita_core_fine_pubblicazione( $id ) );
+		$this->assertSame( '2041-10-18', get_post_meta( $id, $chiave, true ), 'Memoria svuotata.' );
+
+		$this->lascia_il_turno();
+
+		// Il fermo dell'operazione e' tolto: la proroga successiva si fa, e lascia il turno.
+		$this->assertIsArray(
+			$this->proroga(
+				$this->pubblicatore,
+				array(
+					'giorni'       => array( '2041-10-07' ),
+					'attestazione' => 'Terza',
+				)
+			)
+		);
+		$this->assertSame( '1', (string) $connessione->get_var( $connessione->prepare( 'SELECT IS_FREE_LOCK( %s )', $turno ) ) );
+
+		$connessione->close();
 	}
 }
