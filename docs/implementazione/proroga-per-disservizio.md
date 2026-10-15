@@ -249,6 +249,21 @@ Guasti del quarto giro, tutti visti: concessione del nome a ogni passaggio (A-15
 rimasta non recuperata (A-152, A-153), turno creduto libero sulla sola risposta del
 rilascio (A-152), svuotamento della memoria tolto dopo l'eccezione (A-152).
 
+**Quinto giro: un difetto e una prova, corretti.**
+
+- *La memoria dopo un annullamento.* Lo svuotamento dopo un rilascio del turno non riuscito
+  valeva solo per la proroga confermata. Ora, se il rilascio non riesce o un componente
+  solleva un'eccezione, la memoria si svuota per intero su ogni strada, confermata,
+  annullata o interrotta da un'eccezione, prima di rispondere. A-152.
+- *Le due difese del nome.* A-153 ora guarda il guardiano subito dopo la scrittura del nome,
+  e scrive il nome anche scavalcando il guardiano, perché lo veda il controllo finale: ogni
+  difesa tolta da sola fa fallire la prova.
+
+Guasti del quinto giro, tutti visti: svuotamento dopo il rilascio mancato tolto (A-152);
+concessione del nome riportata a ogni passaggio nel solo guardiano, poi nel solo controllo
+finale (A-153). Lo svuotamento atto per atto dopo un'eccezione del rilascio, tolto, ora resta
+verde: lo copre lo svuotamento intero, che viene prima.
+
 **Limiti dichiarati.** Come nei passaggi già costruiti, quello che altri componenti fanno
 negli agganci durante la scrittura non si ritira con un annullamento se esce dalla banca
 dati. La proroga non si annulla.
