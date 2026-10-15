@@ -16,6 +16,10 @@
  * passato. I giorni fra la vecchia fine e la proroga non erano giorni di
  * pubblicazione, e una proroga successiva non li conta.
  *
+ * **I festivi.** La fine nuova passa poi dallo slittamento ai festivi
+ * (ALBO-32) come quella della pubblicazione: senza la scelta
+ * dell'amministrazione la proroga si rifiuta.
+ *
  * Questa classe calcola e legge, non scrive: le scritture le fa `Passaggi`,
  * dentro la sua transazione.
  *
@@ -195,7 +199,7 @@ final class Proroga {
 	 *
 	 * @param array<int, string> $giorni Giorni sotto soglia, gia' controllati.
 	 * @param \DateTimeImmutable $adesso Istante della proroga.
-	 * @return array<int, array{fine: string, nuova: string, giorni: int, numero: string, oggetto: string}>|\WP_Error
+	 * @return array<int, array{fine: string, nuova: string, giorni: int, numero: string, oggetto: string, calcolata: string, slittamento: string, saltati: array<int, array{giorno: string, descrizione: string}>}>|\WP_Error
 	 */
 	public static function atti_toccati( array $giorni, \DateTimeImmutable $adesso ) {
 		global $wpdb;
@@ -217,6 +221,10 @@ final class Proroga {
 				'albo_proroga_non_letta',
 				__( 'Nessuna proroga disposta: la banca dati non ha risposto alla lettura degli atti pubblicati o del registro.', 'albo-pretorio-pa' )
 			);
+		}
+
+		if ( null === Festivi::scelta() ) {
+			return Festivi::errore_non_scelta( __( 'Nessuna proroga disposta:', 'albo-pretorio-pa' ) );
 		}
 
 		$oggi    = $adesso->setTimezone( wp_timezone() )->format( 'Y-m-d' );
@@ -251,16 +259,25 @@ final class Proroga {
 				continue;
 			}
 
-			$base   = max( $fine, $oggi );
-			$nuova  = \DateTimeImmutable::createFromFormat( '!Y-m-d', $base, wp_timezone() )->add( new \DateInterval( 'P' . $conta . 'D' ) )->format( 'Y-m-d' );
+			$base      = max( $fine, $oggi );
+			$calcolata = \DateTimeImmutable::createFromFormat( '!Y-m-d', $base, wp_timezone() )->add( new \DateInterval( 'P' . $conta . 'D' ) )->format( 'Y-m-d' );
+			$slittata  = Passaggi::fine_slittata( $calcolata, __( 'Nessuna proroga disposta:', 'albo-pretorio-pa' ) );
+
+			if ( is_wp_error( $slittata ) ) {
+				return $slittata;
+			}
+
 			$numero = Repertorio::di( $atto_id );
 
 			$toccati[ $atto_id ] = array(
-				'fine'    => $fine,
-				'nuova'   => $nuova,
-				'giorni'  => $conta,
-				'numero'  => is_array( $numero ) ? $numero['numero'] . '/' . $numero['anno'] : '',
-				'oggetto' => (string) $atto['post_title'],
+				'fine'        => $fine,
+				'nuova'       => $slittata['fine'],
+				'giorni'      => $conta,
+				'numero'      => is_array( $numero ) ? $numero['numero'] . '/' . $numero['anno'] : '',
+				'oggetto'     => (string) $atto['post_title'],
+				'calcolata'   => $slittata['calcolata'],
+				'slittamento' => $slittata['slittamento'],
+				'saltati'     => $slittata['saltati'],
 			);
 		}
 

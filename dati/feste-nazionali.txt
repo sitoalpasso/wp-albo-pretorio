@@ -1,0 +1,15 @@
+# Proposta con le feste nazionali vigenti a ottobre 2026: controllarla prima di salvare.
+# Fonte: l. 260/1949 art. 2 e successive modificazioni. Le domeniche sono festive e non si scrivono.
+01/01 | Capodanno (l. 260/1949 art. 2)
+06/01 | Epifania (l. 260/1949 art. 2)
+Pasqua+1 | Lunedì dell'Angelo (l. 260/1949 art. 2)
+25/04 | Anniversario della Liberazione (l. 260/1949 art. 2)
+01/05 | Festa del lavoro (l. 260/1949 art. 2)
+02/06 | Festa della Repubblica (l. 260/1949 art. 2)
+15/08 | Assunzione (l. 260/1949 art. 2)
+04/10 | San Francesco d'Assisi, festa nazionale dal 2026 (l. 260/1949 art. 2, come modificato)
+01/11 | Ognissanti (l. 260/1949 art. 2)
+08/12 | Immacolata Concezione (l. 260/1949 art. 2)
+25/12 | Natale (l. 260/1949 art. 2)
+26/12 | Santo Stefano (l. 260/1949 art. 2)
+# Aggiungere il santo patrono, per esempio: 29/06 | Santo patrono

@@ -339,6 +339,19 @@ final class Passaggi {
 			return $durata;
 		}
 
+		/*
+		 * La fine si calcola qui, prima del numero: senza la scelta sui
+		 * festivi non si sa quale fine scrivere, e il rifiuto non deve
+		 * consumare numeri.
+		 */
+		$inizio    = $adesso->setTimezone( wp_timezone() );
+		$calcolata = $inizio->setTime( 0, 0 )->add( new \DateInterval( 'P' . $durata . 'D' ) )->format( 'Y-m-d' );
+		$slittata  = self::fine_slittata( $calcolata, __( 'L\'atto resta in verifica:', 'albo-pretorio-pa' ) );
+
+		if ( is_wp_error( $slittata ) ) {
+			return $slittata;
+		}
+
 		$tabelle = self::tabelle_senza_transazioni();
 
 		if ( array() !== $tabelle ) {
@@ -367,8 +380,7 @@ final class Passaggi {
 			return $numero;
 		}
 
-		$inizio      = $adesso->setTimezone( wp_timezone() );
-		$fine        = $inizio->setTime( 0, 0 )->add( new \DateInterval( 'P' . $durata . 'D' ) )->format( 'Y-m-d' );
+		$fine        = $slittata['fine'];
 		$campi       = array(
 			'post_status'   => 'publish',
 			'post_date'     => $inizio->format( 'Y-m-d H:i:s' ),
@@ -379,7 +391,7 @@ final class Passaggi {
 		self::inizia( $atto_id, $campi, $fine, 'pubblicazione' );
 
 		try {
-			$esito = self::pubblica_dentro( $atto_id, $campi, $fine, $numero, $partenza, $prima_fine, ! $fine_uguale, $prima );
+			$esito = self::pubblica_dentro( $atto_id, $campi, $slittata, $numero, $partenza, $prima_fine, ! $fine_uguale, $prima );
 		} finally {
 			unset( self::$in_corso[ $atto_id ] );
 		}
@@ -392,7 +404,7 @@ final class Passaggi {
 	 *
 	 * @param int                           $atto_id    Atto.
 	 * @param array<string, string>         $campi      Stato e date.
-	 * @param string                        $fine       Data di fine.
+	 * @param array<string, mixed>          $slittata   Data di fine, con la fine calcolata e i festivi saltati.
 	 * @param array{anno: int, numero: int} $numero     Numero preso.
 	 * @param array<string, mixed>          $partenza   Fotografia di partenza.
 	 * @param int                           $prima_fine Voci della fine prima del passaggio.
@@ -402,7 +414,8 @@ final class Passaggi {
 	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
 	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, con l'eccezione come causa.
 	 */
-	private static function pubblica_dentro( int $atto_id, array $campi, string $fine, array $numero, array $partenza, int $prima_fine, bool $cambia, int $prima ) {
+	private static function pubblica_dentro( int $atto_id, array $campi, array $slittata, array $numero, array $partenza, int $prima_fine, bool $cambia, int $prima ) {
+		$fine     = (string) $slittata['fine'];
 		$apertura = self::apri();
 
 		if ( is_wp_error( $apertura ) ) {
@@ -440,10 +453,13 @@ final class Passaggi {
 						'azione'    => self::AZIONE_CONFERMA,
 						'contenuto' => $atto_id,
 						'dettagli'  => array(
-							'anno'   => $numero['anno'],
-							'numero' => $numero['numero'],
-							'inizio' => $campi['post_date'],
-							'fine'   => $fine,
+							'anno'            => $numero['anno'],
+							'numero'          => $numero['numero'],
+							'inizio'          => $campi['post_date'],
+							'fine'            => $fine,
+							'fine_calcolata'  => $slittata['calcolata'],
+							'slittamento'     => $slittata['slittamento'],
+							'festivi_saltati' => self::saltati_per_registro( $slittata['saltati'] ),
 						),
 						'chiave'    => SEZIONE . ':' . self::AZIONE_CONFERMA . ':' . $atto_id,
 					)
@@ -859,6 +875,10 @@ final class Passaggi {
 			);
 		}
 
+		if ( null === Festivi::scelta() ) {
+			return Festivi::errore_non_scelta( __( 'Nessuna proroga disposta:', 'albo-pretorio-pa' ) );
+		}
+
 		$attestazione = isset( $richiesta['attestazione'] ) && is_string( $richiesta['attestazione'] ) ? trim( sanitize_textarea_field( $richiesta['attestazione'] ) ) : '';
 
 		if ( '' === $attestazione ) {
@@ -1097,6 +1117,9 @@ final class Passaggi {
 								'giorni_contati'  => $atto['giorni'],
 								'giorno_proroga'  => $giorno,
 								'proroga'         => $voce,
+								'fine_calcolata'  => $atto['calcolata'],
+								'slittamento'     => $atto['slittamento'],
+								'festivi_saltati' => self::saltati_per_registro( $atto['saltati'] ),
 							),
 						)
 					);
@@ -1216,7 +1239,7 @@ final class Passaggi {
 	 */
 	private static function errore_proroga( \WP_Error $motivo ): \WP_Error {
 		// Rifiuti decisi prima di scrivere: il loro messaggio dice gia' tutto.
-		if ( in_array( $motivo->get_error_code(), array( 'albo_proroga_giorno_gia_attestato', 'albo_proroga_anteprima_superata', 'albo_proroga_lettura_superata' ), true ) ) {
+		if ( in_array( $motivo->get_error_code(), array( 'albo_proroga_giorno_gia_attestato', 'albo_proroga_anteprima_superata', 'albo_proroga_lettura_superata', 'albo_festivi_non_scelti' ), true ) ) {
 			return $motivo;
 		}
 
@@ -1515,6 +1538,42 @@ final class Passaggi {
 		}
 
 		return (int) $durata['giorni'];
+	}
+
+	/**
+	 * I festivi saltati nella forma che il registro accetta: un elenco di testi.
+	 *
+	 * @param array<int, array{giorno: string, descrizione: string}> $saltati Festivi saltati.
+	 * @return array<int, string> Un testo per giorno, `AAAA-MM-GG (descrizione)`.
+	 */
+	private static function saltati_per_registro( array $saltati ): array {
+		return array_map(
+			static fn( array $saltato ): string => $saltato['giorno'] . ' (' . $saltato['descrizione'] . ')',
+			$saltati
+		);
+	}
+
+	/**
+	 * La fine dopo lo slittamento ai festivi (ALBO-32), o il motivo per cui non si calcola.
+	 *
+	 * @param string $calcolata Fine calcolata, AAAA-MM-GG.
+	 * @param string $prefisso  Frase di apertura del rifiuto.
+	 * @return array{fine: string, calcolata: string, slittamento: string, saltati: array<int, array{giorno: string, descrizione: string}>}|\WP_Error
+	 */
+	public static function fine_slittata( string $calcolata, string $prefisso ) {
+		$impostazione = Festivi::impostazione();
+
+		if ( null === $impostazione ) {
+			return Festivi::errore_non_scelta( $prefisso );
+		}
+
+		$slittata = Festivi::slitta( $calcolata, $impostazione );
+
+		if ( is_wp_error( $slittata ) ) {
+			return new \WP_Error( $slittata->get_error_code(), $prefisso . ' ' . $slittata->get_error_message() );
+		}
+
+		return $slittata;
 	}
 
 	/**
