@@ -898,7 +898,7 @@ class ProrogaTest extends \WP_UnitTestCase {
 		$this->assertSame( '2041-10-19', $voci[0]['dettagli']['fine_nuova'] );
 
 		// Il turno e' stato lasciato: un'altra connessione lo prende subito.
-		$this->assertSame( '1', (string) $wpdb->get_var( $wpdb->prepare( 'SELECT IS_FREE_LOCK( %s )', \AlboPretorioPa\Passaggi::nome_turno() ) ) );
+		$this->assertSame( '1', (string) $wpdb->get_var( $wpdb->prepare( 'SELECT IS_FREE_LOCK( %s )', \AlboPretorioPa\Passaggi::nome_turno() ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lo stato del turno nella banca dati.
 	}
 
 	/**
