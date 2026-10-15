@@ -106,6 +106,13 @@ final class Passaggi {
 	private static $in_corso = array();
 
 	/**
+	 * Una proroga e' in corso in questa richiesta, anche senza atti toccati.
+	 *
+	 * @var bool
+	 */
+	private static $operazione = false;
+
+	/**
 	 * Istante fissato dalle prove, o nullo per l'ora vera.
 	 *
 	 * @var \DateTimeImmutable|null
@@ -235,7 +242,7 @@ final class Passaggi {
 	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, o se un altro componente solleva un'eccezione dopo la conferma; con l'eccezione come causa.
 	 */
 	public static function pubblica( int $atto_id, array $richiesta = array() ) {
-		if ( array() !== self::$in_corso ) {
+		if ( self::occupato() ) {
 			return self::errore_annidato();
 		}
 
@@ -448,7 +455,7 @@ final class Passaggi {
 	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, o se un altro componente solleva un'eccezione dopo la conferma; con l'eccezione come causa.
 	 */
 	public static function rimanda_in_bozza( int $atto_id, $motivo ) {
-		if ( array() !== self::$in_corso ) {
+		if ( self::occupato() ) {
 			return self::errore_annidato();
 		}
 
@@ -511,7 +518,14 @@ final class Passaggi {
 	 *
 	 * @var array<int, string>
 	 */
-	const CHIAVI_PROROGA = array( 'giorni', 'attestazione' );
+	const CHIAVI_PROROGA = array( 'giorni', 'attestazione', 'attese' );
+
+	/**
+	 * Quanti secondi una proroga aspetta che finisca quella in corso in un'altra richiesta.
+	 *
+	 * @var int
+	 */
+	const ATTESA_TURNO = 5;
 
 	/**
 	 * Gli atti che una proroga toccherebbe adesso, senza scrivere niente.
@@ -520,7 +534,7 @@ final class Passaggi {
 	 * che la schermata mostra prima della conferma.
 	 *
 	 * @param array<string, mixed> $richiesta `giorni` e `attestazione`.
-	 * @return array{giorni: array<int, string>, atti: array<int, array<string, mixed>>}|\WP_Error
+	 * @return array{giorni: array<int, string>, atti: array<int, array<string, mixed>>, attese: array<int, string>}|\WP_Error
 	 */
 	public static function anteprima_proroga( array $richiesta ) {
 		$controllo = self::controlla_proroga( $richiesta );
@@ -538,19 +552,20 @@ final class Passaggi {
 		return array(
 			'giorni' => $controllo['giorni'],
 			'atti'   => $atti,
+			'attese' => self::attese( $atti ),
 		);
 	}
 
 	/**
 	 * Dispone la proroga per disservizio (ALBO-31): tutti gli atti toccati o nessuno.
 	 *
-	 * @param array<string, mixed> $richiesta `giorni`, elenco di date AAAA-MM-GG gia' trascorse; `attestazione`, testo non vuoto.
+	 * @param array<string, mixed> $richiesta `giorni`, elenco di date AAAA-MM-GG gia' trascorse; `attestazione`, testo non vuoto; `attese`, facoltativo, il risultato dell'anteprima che chi dispone ha visto, come restituito da `anteprima_proroga()`.
 	 * @return array{voce: int, giorni: array<int, string>, atti: array<int, array<string, mixed>>}|\WP_Error
 	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
 	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, o se un altro componente solleva un'eccezione dopo la conferma; con l'eccezione come causa.
 	 */
 	public static function proroga( array $richiesta ) {
-		if ( array() !== self::$in_corso ) {
+		if ( self::occupato() ) {
 			return self::errore_annidato();
 		}
 
@@ -566,51 +581,94 @@ final class Passaggi {
 			return self::errore_tabelle( $tabelle );
 		}
 
-		$adesso = self::ora();
-		$atti   = Proroga::atti_toccati( $controllo['giorni'], $adesso );
-
-		if ( is_wp_error( $atti ) ) {
-			return $atti;
-		}
-
-		$partenze = array();
-		$prime    = array();
-
-		foreach ( array_keys( $atti ) as $atto_id ) {
-			$partenza = self::fotografia( $atto_id );
-			$prima    = self::voci_automatiche( $atto_id, 'modifica_fine_pubblicazione' );
-
-			if ( null === $partenza ) {
-				return self::errore_lettura();
-			}
-
-			if ( is_wp_error( $prima ) ) {
-				return $prima;
-			}
-
-			$partenze[ $atto_id ] = $partenza;
-			$prime[ $atto_id ]    = $prima;
-		}
-
-		foreach ( $atti as $atto_id => $atto ) {
-			self::inizia( $atto_id, array(), $atto['nuova'] );
-		}
+		/*
+		 * Il fermo dell'operazione vale da qui alla fine, anche quando la
+		 * proroga non tocca nessun atto: nessun altro passaggio comincia
+		 * mentre la sua transazione e' aperta.
+		 */
+		self::$operazione = true;
 
 		try {
-			$esito = self::proroga_dentro( $controllo, $atti, $partenze, $prime, $adesso );
+			$turno = self::prendi_turno();
+
+			if ( is_wp_error( $turno ) ) {
+				return $turno;
+			}
+
+			try {
+				$esito = self::proroga_dentro( $controllo, self::ora() );
+			} finally {
+				self::lascia_turno();
+			}
 		} finally {
-			self::$in_corso = array();
+			self::$in_corso   = array();
+			self::$operazione = false;
 		}
 
 		if ( is_wp_error( $esito ) ) {
 			return $esito;
 		}
 
-		foreach ( array_keys( $atti ) as $atto_id ) {
+		foreach ( array_keys( $esito['atti'] ) as $atto_id ) {
 			self::dopo_la_chiusura( $atto_id, $esito );
 		}
 
 		return $esito;
+	}
+
+	/**
+	 * Se un passaggio o una proroga sono in corso in questa richiesta.
+	 *
+	 * @return bool
+	 */
+	private static function occupato(): bool {
+		return array() !== self::$in_corso || self::$operazione;
+	}
+
+	/**
+	 * Il nome del turno delle proroghe nella banca dati, uno per sito.
+	 *
+	 * @return string
+	 */
+	public static function nome_turno(): string {
+		global $wpdb;
+
+		return $wpdb->prefix . 'albo_pretorio_proroga';
+	}
+
+	/**
+	 * Prende il turno delle proroghe: una alla volta, fra tutte le richieste.
+	 *
+	 * Il calcolo legge le fini e il registro: se due proroghe calcolassero
+	 * insieme, la seconda scriverebbe una fine calcolata su quella che la
+	 * prima sta cambiando. Il turno si prende prima di aprire la transazione,
+	 * cosi' che le letture dentro la transazione vedano quello che la proroga
+	 * precedente ha confermato.
+	 *
+	 * @return true|\WP_Error
+	 */
+	private static function prendi_turno() {
+		global $wpdb;
+
+		$preso = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK( %s, %d )', self::nome_turno(), self::ATTESA_TURNO ) );
+
+		if ( '1' !== (string) $preso ) {
+			return new \WP_Error(
+				'albo_proroga_occupata',
+				__( 'Nessuna proroga disposta: un\'altra proroga e\' in corso in questo momento. Riprovare fra poco, ripartendo dall\'anteprima.', 'albo-pretorio-pa' )
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Lascia il turno delle proroghe.
+	 */
+	private static function lascia_turno(): void {
+		global $wpdb;
+
+		$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', self::nome_turno() ) );
 	}
 
 	/**
@@ -672,10 +730,68 @@ final class Passaggi {
 			return self::errore_giorni_ripetuti( $ripetuti );
 		}
 
+		$attese = $richiesta['attese'] ?? null;
+
+		if ( null !== $attese && ( ! is_array( $attese ) || array() !== array_filter( $attese, static fn( $valore ): bool => ! is_string( $valore ) ) ) ) {
+			return new \WP_Error(
+				'albo_richiesta_non_valida',
+				__( 'Nessuna proroga disposta: il risultato atteso deve essere un elenco di atti con la loro fine nuova.', 'albo-pretorio-pa' )
+			);
+		}
+
 		return array(
 			'giorni'       => $giorni,
 			'attestazione' => $attestazione,
+			'attese'       => $attese,
 		);
+	}
+
+	/**
+	 * Il risultato atteso, nella forma con cui si confronta: atto, fine attuale e fine nuova.
+	 *
+	 * @param array<int, array<string, mixed>> $atti Atti toccati.
+	 * @return array<int, string>
+	 */
+	public static function attese( array $atti ): array {
+		$attese = array();
+
+		foreach ( $atti as $atto_id => $atto ) {
+			$attese[ (int) $atto_id ] = $atto['fine'] . '>' . $atto['nuova'];
+		}
+
+		ksort( $attese );
+
+		return $attese;
+	}
+
+	/**
+	 * Il calcolo coincide con il risultato che chi dispone ha visto.
+	 *
+	 * @param array<int, array<string, mixed>> $atti   Atti toccati, calcolati ora.
+	 * @param array<int|string, string>|null   $attese Risultato atteso, o nulla se la richiesta non lo porta.
+	 * @return true|\WP_Error
+	 */
+	private static function confronta_attese( array $atti, ?array $attese ) {
+		if ( null === $attese ) {
+			return true;
+		}
+
+		$normali = array();
+
+		foreach ( $attese as $atto_id => $valore ) {
+			$normali[ (int) $atto_id ] = $valore;
+		}
+
+		ksort( $normali );
+
+		if ( self::attese( $atti ) !== $normali ) {
+			return new \WP_Error(
+				'albo_proroga_anteprima_superata',
+				__( 'Nessuna proroga disposta: da quando e\' stata mostrata l\'anteprima gli atti da prorogare o le loro date sono cambiati. Ripetere l\'anteprima e controllarla prima di confermare.', 'albo-pretorio-pa' )
+			);
+		}
+
+		return true;
 	}
 
 	/**
@@ -696,35 +812,60 @@ final class Passaggi {
 	}
 
 	/**
-	 * Le scritture della proroga, dentro la transazione.
+	 * Il calcolo e le scritture della proroga, dentro la transazione.
 	 *
-	 * @param array{giorni: array<int, string>, attestazione: string} $controllo Giorni e attestazione.
-	 * @param array<int, array<string, mixed>>                        $atti      Atti toccati.
-	 * @param array<int, array<string, mixed>>                        $partenze  Fotografie di partenza.
-	 * @param array<int, int>                                         $prime     Voci della fine prima, per atto.
-	 * @param \DateTimeImmutable                                      $adesso    Istante della proroga.
+	 * Gli atti toccati si calcolano qui, a turno preso e transazione aperta,
+	 * dalla banca dati: nessuna proroga confermata nel frattempo sfugge al
+	 * calcolo. Se la richiesta porta il risultato che chi la dispone ha visto
+	 * nell'anteprima e il calcolo non coincide, niente si scrive.
+	 *
+	 * @param array{giorni: array<int, string>, attestazione: string, attese: array<int, string>|null} $controllo Giorni, attestazione e risultato atteso.
+	 * @param \DateTimeImmutable                                                                       $adesso    Istante della proroga.
 	 * @return array{voce: int, giorni: array<int, string>, atti: array<int, array<string, mixed>>}|\WP_Error
 	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
 	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, con l'eccezione come causa.
 	 */
-	private static function proroga_dentro( array $controllo, array $atti, array $partenze, array $prime, \DateTimeImmutable $adesso ) {
+	private static function proroga_dentro( array $controllo, \DateTimeImmutable $adesso ) {
 		$apertura = self::apri();
 
 		if ( is_wp_error( $apertura ) ) {
 			return self::errore_proroga( $apertura );
 		}
 
-		$primo  = array() === $atti ? 0 : (int) array_key_first( $atti );
+		$primo  = 0;
+		$atti   = array();
 		$giorno = $adesso->setTimezone( wp_timezone() )->format( 'Y-m-d' );
 
 		try {
-			$esito = true;
+			$esito = Proroga::atti_toccati( $controllo['giorni'], $adesso );
+
+			if ( ! is_wp_error( $esito ) ) {
+				$atti  = $esito;
+				$primo = array() === $atti ? 0 : (int) array_key_first( $atti );
+				$esito = self::confronta_attese( $atti, $controllo['attese'] );
+			}
+
+			$partenze = array();
+			$prime    = array();
 
 			foreach ( $atti as $atto_id => $atto ) {
-				$esito = self::blocca( $atto_id, $partenze[ $atto_id ] );
-
 				if ( is_wp_error( $esito ) ) {
 					break;
+				}
+
+				$partenza = self::fotografia( $atto_id );
+				$prima    = self::voci_automatiche( $atto_id, 'modifica_fine_pubblicazione' );
+
+				if ( null === $partenza ) {
+					$esito = self::errore_lettura();
+				} elseif ( is_wp_error( $prima ) ) {
+					$esito = $prima;
+				} else {
+					$partenze[ $atto_id ] = $partenza;
+					$prime[ $atto_id ]    = $prima;
+					$esito                = self::blocca( $atto_id, $partenza );
+
+					self::inizia( $atto_id, array(), $atto['nuova'] );
 				}
 			}
 
@@ -846,7 +987,8 @@ final class Passaggi {
 	 * @return \WP_Error
 	 */
 	private static function errore_proroga( \WP_Error $motivo ): \WP_Error {
-		if ( 'albo_proroga_giorno_gia_attestato' === $motivo->get_error_code() ) {
+		// Rifiuti decisi prima di scrivere: il loro messaggio dice gia' tutto.
+		if ( in_array( $motivo->get_error_code(), array( 'albo_proroga_giorno_gia_attestato', 'albo_proroga_anteprima_superata' ), true ) ) {
 			return $motivo;
 		}
 
