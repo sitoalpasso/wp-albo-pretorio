@@ -564,6 +564,35 @@ propria. **Nessuna riga prova la raggiungibilità pubblica** di un atto pubblica
 non consultabile finché non c'è la pagina pubblica, e la scadenza qui si osserva con la
 funzione del meccanismo comune.
 
+## Proroga per disservizio, festivi e dati del procedimento
+
+Stesso prefisso `A-`. Le righe di ALBO-31 sono quelle della scheda
+[`proroga-per-disservizio.md`](implementazione/proroga-per-disservizio.md); quelle di
+ALBO-32 e ALBO-33 aspettano le loro unità. La riga sul referto aspetta ALBO-07.
+
+| ID | Stato | Caso | Atteso |
+|---|---|---|---|
+| A-127 | da fare | Proroga (ALBO-31): un giorno sotto soglia, già trascorso, con attestazione, disposta da chi pubblica; un atto in pubblicazione quel giorno | la fine si sposta avanti di un giorno; inizio e numero di repertorio invariati; nel registro fine precedente, nuova, chi e attestazione |
+| A-128 | da fare | Proroga di tre giorni sotto soglia, di cui uno solo dentro il periodo di un atto; un secondo atto pubblicato proprio in uno di quei giorni | il primo atto riceve un giorno, non tre: contano i giorni sotto soglia caduti nel suo periodo. Il secondo non riceve niente per il giorno in cui è stato pubblicato, che non conta come per il calcolo della fine (ALBO-27), e riceve un giorno per ciascuno dei successivi |
+| A-129 | da fare | Proroga senza attestazione, con attestazione vuota o di soli spazi | rifiutata, nessuna data cambia, nessuna voce di registro di proroga |
+| A-130 | da fare | [attacco] Proroga chiesta da chi ha il solo permesso di redigere, e da un utente senza permessi dell'albo, da schermata e da richiesta diretta. **Controllo positivo**: la stessa proroga da chi pubblica | rifiutata, nessuna data cambia; il controllo positivo riesce |
+| A-131 | da fare | Proroga con un giorno di oggi o futuro, anche insieme a giorni passati | rifiutata per intero: si attesta un disservizio avvenuto, non uno previsto. Il giorno è quello del fuso del sito |
+| A-132 | da fare | Atti in bozza, in verifica, annullati, e atti pubblicati dopo i giorni indicati | nessuno è toccato, fotografia intera identica |
+| A-133 | da fare | [attacco] Spostare in avanti la fine di un atto pubblicato per qualunque strada diversa dalla proroga: schermata, aggiornamento dei metadati da codice, interfaccia per programmi; e, durante una proroga, un aggancio che scrive sull'atto prorogato un'altra fine o un altro dato | rifiutato; la fine avanza solo per proroga e solo del valore calcolato |
+| A-134 | da fare | Referto (ALBO-07) di un atto prorogato | riporta la proroga, l'attestazione e la fine effettiva |
+| A-135 | da fare | **Atto già uscito dalla vista** (punto aperto 1 della scheda): fine il giorno 10, giorno 10 sotto soglia, proroga disposta il giorno 13 | la fine nuova è il 14: i giorni mancanti si contano dal giorno della proroga, che non conta, e non dalla fine vecchia, che li farebbe cadere nel passato. L'atto torna consultabile fino al 14. Una proroga successiva non conta come sotto soglia gli 11, 12 e 13, in cui l'atto non era in pubblicazione |
+| A-136 | da fare | Proroga che ripete un giorno già attestato in una proroga precedente, da sola e insieme a un giorno nuovo | rifiutata per intero, con il giorno ripetuto nel motivo: nessun atto riceve due volte lo stesso giorno |
+| A-137 | da fare | [attacco] **Tutto o niente su più atti**: tre atti da prorogare, la fine del secondo non si scrive; poi la voce di registro del terzo; poi la voce della proroga | nessun atto cambia, nessuna voce scritta, la proroga non risulta disposta e i suoi giorni restano attestabili |
+| A-138 | da fare | **Anteprima** nella schermata: giorni e attestazione inseriti, prima della conferma; poi una proroga che non tocca nessun atto | l'anteprima elenca gli atti che saranno prorogati, con numero, fine attuale e fine nuova, e non scrive niente. Senza atti lo dice, e confermata la proroga si registra lo stesso, con i suoi giorni |
+| A-139 | da fare | Festivi (ALBO-32), scelta non ancora fatta | la pubblicazione è rifiutata con una frase che rimanda alla schermata; la schermata non ha nessuna opzione preselezionata |
+| A-140 | da fare | Slittamento acceso, fine calcolata di domenica, poi in un festivo dell'elenco, poi in un festivo seguito da domenica | la fine va al primo giorno non festivo in tutti e tre i casi, nel fuso del sito |
+| A-141 | da fare | Slittamento spento, fine calcolata di domenica | la fine resta quella calcolata |
+| A-142 | da fare | Slittamento acceso e proroga (ALBO-31) che porta la fine su un festivo | la fine slitta anche dopo la proroga |
+| A-143 | da fare | Un giorno tolto dall'elenco dei festivi dopo la pubblicazione di un atto | la fine già scritta non cambia: l'elenco vale al momento del calcolo |
+| A-144 | da fare | Dati del procedimento (ALBO-33), scelta "non mostrare e non chiedere" | la scheda di redazione non ha i campi; la scheda pubblica non li mostra; gli atti migrati li conservano nella banca dati |
+| A-145 | da fare | Scelta "mostrare e chiedere" | i campi compaiono, sono facoltativi, la scheda pubblica li mostra solo se compilati, con l'escaping in uscita |
+| A-146 | da fare | Ogni schermata di impostazione del componente (regola delle scelte dell'amministrazione) | ciascuna contiene la norma per estremi, le scelte e gli effetti per il cittadino e per chi redige, e nessuna opzione preselezionata |
+
 ## Collaudo congiunto con la trasparenza
 
 Con entrambi i plugin attivi sullo stesso sito: le pagine dell'albo hanno noindex e sono
