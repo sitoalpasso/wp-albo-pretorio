@@ -1133,6 +1133,90 @@ class ProrogaTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-152: la memoria dopo un'eccezione nel recupero di una presa rimasta del turno.
+	 */
+	public function test_a152_memoria_nel_recupero_del_turno(): void {
+		global $wpdb;
+
+		$id = $this->pubblicato_il( '2041-10-01 09:30:00' );
+
+		$this->fissa_orologi( '2041-10-08 11:00:00' );
+
+		$chiave = conformita_core_chiave_fine_pubblicazione();
+		$turno  = \AlboPretorioPa\Passaggi::nome_turno();
+
+		// Una proroga confermata il cui turno resta preso.
+		$fallisce = static function ( $istruzione ) {
+			return ( is_string( $istruzione ) && false !== strpos( $istruzione, 'RELEASE_LOCK' ) ) ? '' : $istruzione;
+		};
+
+		add_filter( 'query', $fallisce );
+
+		try {
+			$esito = $this->proroga(
+				$this->pubblicatore,
+				array(
+					'giorni'       => array( '2041-10-05' ),
+					'attestazione' => 'Prima',
+				)
+			);
+		} finally {
+			remove_filter( 'query', $fallisce );
+		}
+
+		$this->assertSame( array( 'albo_proroga_turno_non_lasciato' ), $esito->get_error_codes(), 'Precondizione: turno rimasto preso.' );
+		$this->assertSame( '2041-10-17', conformita_core_fine_pubblicazione( $id ) );
+
+		// Alla proroga successiva, il rilascio di recupero rimette in memoria la fine di prima e solleva un'eccezione.
+		$recuperi = 0;
+		$solleva  = static function ( $istruzione ) use ( $id, $chiave, &$recuperi ) {
+			if ( is_string( $istruzione ) && false !== strpos( $istruzione, 'RELEASE_LOCK' ) && false === strpos( $istruzione, 'lasciato' ) ) {
+				++$recuperi;
+				wp_cache_set( $id, array( $chiave => array( '2041-10-16' ) ), 'post_meta' );
+
+				throw new \LogicException( 'Componente di prova.' );
+			}
+
+			return $istruzione;
+		};
+		$preso    = null;
+
+		add_filter( 'query', $solleva );
+
+		try {
+			$this->proroga(
+				$this->pubblicatore,
+				array(
+					'giorni'       => array( '2041-10-06' ),
+					'attestazione' => 'Seconda',
+				)
+			);
+		} catch ( \LogicException $errore ) {
+			$preso = $errore;
+		} finally {
+			remove_filter( 'query', $solleva );
+		}
+
+		$this->assertSame( 1, $recuperi, 'Precondizione: il guasto e\' arrivato al rilascio di recupero.' );
+		$this->assertInstanceOf( \LogicException::class, $preso );
+		$this->assertSame( '2041-10-17', get_post_meta( $id, $chiave, true ), 'Memoria svuotata: non la fine rimessa dal componente.' );
+
+		// La presa rimasta si lascia a mano; poi la proroga si fa.
+		$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', $turno ) );
+
+		$this->assertIsArray(
+			$this->proroga(
+				$this->pubblicatore,
+				array(
+					'giorni'       => array( '2041-10-06' ),
+					'attestazione' => 'Terza',
+				)
+			)
+		);
+		$this->assertSame( '2041-10-18', conformita_core_fine_pubblicazione( $id ) );
+	}
+
+	/**
 	 * A-152: il turno che la banca dati non conferma di aver lasciato, e l'eccezione durante il rilascio.
 	 */
 	public function test_a152_turno_non_lasciato(): void {
@@ -1505,8 +1589,19 @@ class ProrogaTest extends \WP_UnitTestCase {
 			return ( $secondo === (int) $atto_id && $chiave === $meta_key ) ? false : $esito;
 		};
 
+		// Al rilascio del turno, prima dello svuotamento finale, la memoria e' gia' quella dell'annullamento.
+		$nel_rilascio = 'non osservata';
+		$osserva      = static function ( $istruzione ) use ( $primo, &$nel_rilascio ) {
+			if ( is_string( $istruzione ) && false !== strpos( $istruzione, 'RELEASE_LOCK' ) && false !== strpos( $istruzione, 'lasciato' ) ) {
+				$nel_rilascio = wp_cache_get( $primo, 'post_meta' );
+			}
+
+			return $istruzione;
+		};
+
 		add_action( 'updated_post_meta', $legge, 10, 3 );
 		add_filter( 'update_post_metadata', $guasto, 10, 3 );
+		add_filter( 'query', $osserva );
 
 		try {
 			$esito = $this->proroga(
@@ -1519,9 +1614,11 @@ class ProrogaTest extends \WP_UnitTestCase {
 		} finally {
 			remove_action( 'updated_post_meta', $legge, 10 );
 			remove_filter( 'update_post_metadata', $guasto, 10 );
+			remove_filter( 'query', $osserva );
 		}
 
 		$this->assertSame( '2041-10-17', $letta, 'Precondizione: la memoria ha visto la fine tentata.' );
+		$this->assertFalse( $nel_rilascio, 'L\'annullamento stesso ha svuotato la memoria, prima del rilascio.' );
 		$this->assertWPError( $esito );
 		$this->assertSame( 'albo_proroga_non_riuscita', $esito->get_error_code() );
 

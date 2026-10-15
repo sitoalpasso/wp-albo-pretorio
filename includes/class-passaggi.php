@@ -629,7 +629,21 @@ final class Passaggi {
 		$rilascio         = true;
 
 		try {
-			$turno = self::prendi_turno();
+			$turno = null;
+
+			try {
+				$turno = self::prendi_turno();
+			} finally {
+				/*
+				 * Il recupero di una presa rimasta passa da un rilascio, dove un
+				 * componente agganciato puo' lasciare in memoria dati che la
+				 * banca dati non ha: se il turno non e' preso, per un rifiuto o
+				 * un'eccezione, la memoria si svuota prima di uscire.
+				 */
+				if ( true !== $turno ) {
+					wp_cache_flush();
+				}
+			}
 
 			if ( is_wp_error( $turno ) ) {
 				return $turno;
