@@ -3,7 +3,7 @@
 Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro finito con
 com'è andata davvero.
 
-**Stato: costruita, sulla proposta del punto aperto 1, che aspetta conferma.** Requisito
+**Stato: costruita; il punto aperto 1 è deciso.** Requisito
 ALBO-31, righe di collaudo A-127..A-138 e A-147..A-155, tutte a fatto tranne A-134 (il
 referto). Com'è andata davvero è in fondo.
 
@@ -77,7 +77,7 @@ quando ci sarà.
 l'inizio fino alla fine compresa, nel fuso del sito: il giorno di pubblicazione non conta,
 come nel calcolo della fine (ALBO-27). Si contano i giorni sotto soglia che cadono nel
 periodo; se sono zero, l'atto non è toccato. Altrimenti la fine nuova è il più tardo fra la
-fine attuale e il giorno della proroga, più quei giorni (vedi il punto aperto 1).
+fine attuale e il giorno della proroga, più quei giorni (vedi il punto 1 dei punti decisi).
 
 **Gli atti candidati** sono quelli pubblicati, letti dalla banca dati sotto il blocco della
 transazione. Bozze, atti in verifica e annullati non si toccano mai.
@@ -146,15 +146,16 @@ ieri; disporre una proroga per un giorno della settimana passata; controllare ne
 e poi nel registro le due fini nuove, e che il secondo atto torni consultabile fino alla
 nuova fine.
 
-## Punti aperti
+## Punti decisi
 
-1. **Atto già uscito dalla vista** (costruito sulla proposta, in attesa di conferma). Se un atto aveva la fine il 10, il 10 il sito è stato
+1. **Atto già uscito dalla vista** (deciso: si conta dal giorno della proroga). Se un atto aveva la fine il 10, il 10 il sito è stato
    giù e la proroga viene disposta il 13, contare il giorno in più dalla vecchia fine porta
    la fine nuova all'11, già passato: l'atto non tornerebbe mai visibile e il suo periodo
    resterebbe incompleto. **Proposta**: contare i giorni mancanti dal giorno della proroga,
    che non conta come il giorno di pubblicazione; l'atto torna consultabile fino al 14.
-   Alternative: non toccare gli atti già usciti, che l'ente ripubblica con un numero nuovo;
-   oppure contare dalla vecchia fine anche se cade nel passato. Riga A-135.
+   Alternative scartate: non toccare gli atti già usciti, che l'ente ripubblica con un
+   numero nuovo; oppure contare dalla vecchia fine anche se cade nel passato, che lascia il
+   periodo incompleto. Riga A-135.
 
 ## Com'è andata davvero
 
