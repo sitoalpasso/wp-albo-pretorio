@@ -1781,6 +1781,14 @@ final class Passaggi {
 			}
 		} finally {
 			wp_suspend_cache_invalidation( (bool) $sospesa );
+
+			/*
+			 * La pulizia fa girare gli agganci degli altri componenti, che
+			 * possono rimettere in memoria dati vecchi di questo atto o di un
+			 * altro gia' pulito: lo svuotamento intero, che non fa girare
+			 * agganci, viene per ultimo, su ogni uscita.
+			 */
+			wp_cache_flush();
 		}
 	}
 

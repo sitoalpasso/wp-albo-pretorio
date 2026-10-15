@@ -1133,6 +1133,51 @@ class ProrogaTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-152: la memoria dopo la pulizia finale degli atti prorogati.
+	 */
+	public function test_a152_memoria_dopo_la_pulizia_finale(): void {
+		$primo   = $this->pubblicato_il( '2041-10-01 09:30:00' );
+		$secondo = $this->pubblicato_il( '2041-10-02 09:30:00' );
+
+		$this->fissa_orologi( '2041-10-08 11:00:00' );
+
+		$chiave = conformita_core_chiave_fine_pubblicazione();
+		$volte  = 0;
+
+		// Un componente agganciato alla pulizia del secondo atto rimette in memoria la fine vecchia del primo, gia' pulito, e del secondo stesso.
+		$rimette = static function ( $atto_id ) use ( $primo, $secondo, $chiave, &$volte ) {
+			if ( $secondo === (int) $atto_id ) {
+				++$volte;
+				wp_cache_set( $primo, array( $chiave => array( '2041-10-16' ) ), 'post_meta' );
+				wp_cache_set( $secondo, array( $chiave => array( '2041-10-16' ) ), 'post_meta' );
+			}
+		};
+
+		add_action( 'clean_post_cache', $rimette );
+
+		try {
+			$esito = $this->proroga(
+				$this->pubblicatore,
+				array(
+					'giorni'       => array( '2041-10-05' ),
+					'attestazione' => 'Attestazione',
+				)
+			);
+		} finally {
+			remove_action( 'clean_post_cache', $rimette );
+		}
+
+		$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+		$this->assertGreaterThan( 0, $volte, 'Precondizione: la pulizia del secondo atto e\' avvenuta.' );
+
+		// Subito dopo il ritorno, prima di qualunque pulizia della prova.
+		$this->assertSame( '2041-10-17', get_post_meta( $primo, $chiave, true ), 'La memoria non ricorda la fine vecchia del primo.' );
+		$this->assertSame( '2041-10-18', get_post_meta( $secondo, $chiave, true ), 'Ne\' quella rimessa sul secondo.' );
+		$this->assertSame( '2041-10-17', conformita_core_fine_pubblicazione( $primo ) );
+		$this->assertSame( '2041-10-18', conformita_core_fine_pubblicazione( $secondo ) );
+	}
+
+	/**
 	 * A-152: la memoria dopo un'eccezione nel recupero di una presa rimasta del turno.
 	 */
 	public function test_a152_memoria_nel_recupero_del_turno(): void {
