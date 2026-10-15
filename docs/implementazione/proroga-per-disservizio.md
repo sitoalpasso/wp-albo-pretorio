@@ -299,6 +299,21 @@ Guasti del settimo giro, tutti visti: revoca tolta e guardiano che ignora la rev
 (A-155); svuotamento dopo il rilascio di nuovo condizionato (A-152); guasto su qualunque
 voce di atto (A-137).
 
+**Ottavo giro: un difetto e una prova, corretti.**
+
+- *La memoria nel recupero del turno.* Quando una proroga trova il turno rimasto preso da
+  una precedente, lo lascia prima di cominciare; un componente agganciato a quel rilascio
+  poteva rimettere in memoria una fine vecchia e sollevare un'eccezione, uscendo prima di
+  ogni svuotamento. Ora, se il turno non risulta preso, per un rifiuto o un'eccezione, la
+  memoria si svuota prima di uscire. A-152.
+- *Lo svuotamento dell'annullamento.* Dopo il sesto giro lo svuotamento finale, che vale
+  su ogni strada, copriva anche quello dell'annullamento, e toglierlo non faceva fallire
+  A-137. Ora A-137 guarda la memoria anche al rilascio del turno, prima dello svuotamento
+  finale.
+
+Guasti dell'ottavo giro, tutti visti: svuotamento tolto dall'uscita del recupero (A-152);
+svuotamento tolto dall'annullamento (A-137).
+
 **Limiti dichiarati.** Come nei passaggi già costruiti, quello che altri componenti fanno
 negli agganci durante la scrittura non si ritira con un annullamento se esce dalla banca
 dati. La proroga non si annulla.
