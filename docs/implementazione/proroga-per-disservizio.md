@@ -3,8 +3,9 @@
 Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro finito con
 com'è andata davvero.
 
-**Stato: piano.** Requisito ALBO-31, righe di collaudo A-127..A-138. Un punto aperto da
-decidere prima del codice (sotto, "Punti aperti").
+**Stato: costruita, sulla proposta del punto aperto 1, che aspetta conferma.** Requisito
+ALBO-31, righe di collaudo A-127..A-138, tutte a fatto tranne A-134 (il referto). Com'è
+andata davvero è in fondo.
 
 ## In tre paragrafi
 
@@ -142,10 +143,38 @@ nuova fine.
 
 ## Punti aperti
 
-1. **Atto già uscito dalla vista.** Se un atto aveva la fine il 10, il 10 il sito è stato
+1. **Atto già uscito dalla vista** (costruito sulla proposta, in attesa di conferma). Se un atto aveva la fine il 10, il 10 il sito è stato
    giù e la proroga viene disposta il 13, contare il giorno in più dalla vecchia fine porta
    la fine nuova all'11, già passato: l'atto non tornerebbe mai visibile e il suo periodo
    resterebbe incompleto. **Proposta**: contare i giorni mancanti dal giorno della proroga,
    che non conta come il giorno di pubblicazione; l'atto torna consultabile fino al 14.
    Alternative: non toccare gli atti già usciti, che l'ente ripubblica con un numero nuovo;
    oppure contare dalla vecchia fine anche se cade nel passato. Riga A-135.
+
+## Com'è andata davvero
+
+**Differenze dal piano.** Nessuna nella sostanza. I giorni si indicano nella schermata come
+primo e ultimo di una serie consecutiva; giorni non consecutivi sono proroghe separate. Una
+proroga attesta al massimo 366 giorni. Un atto pubblicato senza data di fine leggibile non si
+salta: la proroga si rifiuta e lo nomina. I messaggi dei pezzi comuni ai passaggi parlano
+dell'atto in verifica: un rifiuto della proroga ha come primo messaggio
+`albo_proroga_non_riuscita`, e il motivo vero resta fra gli altri con il suo codice.
+
+**Due difese per il giorno ripetuto.** I giorni già attestati si leggono dal registro prima
+di cominciare, anche nell'anteprima; poi la chiave unica della voce di ciascun giorno lo
+impedisce nella banca dati, se un'altra richiesta lo ha attestato nel frattempo. A-136
+prova tutte e due.
+
+**Prova dei guasti.** Tredici guasti introdotti uno per volta nel codice, ciascuno visto da
+almeno una prova: giorno di pubblicazione contato (A-128); conteggio dalla vecchia fine e
+giorni fuori periodo contati (A-135); permesso non controllato (A-130); oggi ammesso e oggi
+calcolato in tempo universale (A-131); attestazione facoltativa (A-129); giorni già
+attestati non letti (A-136, dall'anteprima); errore confermato invece che annullato (A-137);
+atti in verifica al posto dei pubblicati (sette righe); qualunque data di fine ammessa
+durante la proroga (A-133); controllo finale tolto (A-133, con il dato scritto a mano);
+anteprima che scrive (A-127, A-138). Due erano sfuggiti al primo giro, i giorni ripetuti e
+il controllo finale: le prove sono state completate.
+
+**Limiti dichiarati.** Come nei passaggi già costruiti, quello che altri componenti fanno
+negli agganci durante la scrittura non si ritira con un annullamento se esce dalla banca
+dati. La proroga non si annulla.
