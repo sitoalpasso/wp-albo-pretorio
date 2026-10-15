@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro
 com'è andata davvero.
 
 **Stato: costruita, sulla proposta del punto aperto 1, che aspetta conferma.** Requisito
-ALBO-31, righe di collaudo A-127..A-138 e A-147..A-154, tutte a fatto tranne A-134 (il
+ALBO-31, righe di collaudo A-127..A-138 e A-147..A-155, tutte a fatto tranne A-134 (il
 referto). Com'è andata davvero è in fondo.
 
 ## In tre paragrafi
@@ -126,7 +126,7 @@ sicurezza. Nessun permesso nuovo.
 
 ### 7. Prove che si aggiungeranno
 
-Righe A-127..A-138 e A-147..A-154 di `collaudo.md`. A-134, il referto, resta da fare finché non esiste il
+Righe A-127..A-138 e A-147..A-155 di `collaudo.md`. A-134, il referto, resta da fare finché non esiste il
 referto (ALBO-07). A-142, slittamento ai festivi dopo una proroga, appartiene a ALBO-32 e si
 chiude con quella unità.
 
@@ -278,6 +278,25 @@ verde: lo copre lo svuotamento intero, che viene prima.
 
 Guasti del sesto giro, tutti visti: concessioni tolte dopo il rilascio, fermo tolto insieme
 alle concessioni (A-154); svuotamento della memoria tolto dall'annullamento (A-137).
+
+**Settimo giro: un difetto, una lacuna e una prova, corretti.**
+
+- *Le concessioni durante i controlli finali.* Le concessioni restavano attive dopo
+  l'ultima scrittura, mentre si controllavano gli atti uno per uno e fino alla conferma: un
+  aggancio durante il controllo del secondo atto poteva cancellare la fine del primo, già
+  controllato, e la conferma l'avrebbe resa definitiva. Ora finita l'ultima scrittura le
+  concessioni si revocano tutte, anche nella condizione del guardiano dentro la banca dati;
+  restano il fermo dell'operazione, il tipo e i rifiuti annotati. A-155.
+- *La memoria dopo un rilascio riuscito.* Dopo un annullamento la memoria si svuotava di
+  nuovo solo se il rilascio del turno non riusciva: un componente che rimette in memoria la
+  fine tentata e lascia riuscire il rilascio la lasciava lì. Ora lo svuotamento dopo il
+  rilascio vale su ogni strada. A-152.
+- *Il guasto sul terzo atto.* A-137 riconosce la voce del terzo atto dalla sua fine nuova
+  e conta le voci passate prima: un guasto che blocca già la prima voce fa fallire la prova.
+
+Guasti del settimo giro, tutti visti: revoca tolta e guardiano che ignora la revoca
+(A-155); svuotamento dopo il rilascio di nuovo condizionato (A-152); guasto su qualunque
+voce di atto (A-137).
 
 **Limiti dichiarati.** Come nei passaggi già costruiti, quello che altri componenti fanno
 negli agganci durante la scrittura non si ritira con un annullamento se esce dalla banca
