@@ -561,8 +561,7 @@ final class Passaggi {
 	 *
 	 * @param array<string, mixed> $richiesta `giorni`, elenco di date AAAA-MM-GG gia' trascorse; `attestazione`, testo non vuoto; `attese`, facoltativo, il risultato dell'anteprima che chi dispone ha visto, come restituito da `anteprima_proroga()`.
 	 * @return array{voce: int, giorni: array<int, string>, atti: array<int, array<string, mixed>>}|\WP_Error
-	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
-	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, o se un altro componente solleva un'eccezione dopo la conferma; con l'eccezione come causa.
+	 * @throws \RuntimeException Se dopo un'eccezione l'annullamento non e' riuscito, se un altro componente solleva un'eccezione dopo la conferma, o durante il rilascio del turno; con l'eccezione come causa. Un'eccezione sollevata durante le scritture esce invece com'e', dopo averle annullate.
 	 */
 	public static function proroga( array $richiesta ) {
 		if ( self::occupato() ) {
@@ -587,6 +586,7 @@ final class Passaggi {
 		 * mentre la sua transazione e' aperta.
 		 */
 		self::$operazione = true;
+		$rilascio         = true;
 
 		try {
 			$turno = self::prendi_turno();
@@ -598,7 +598,8 @@ final class Passaggi {
 			try {
 				$esito = self::proroga_dentro( $controllo, self::ora() );
 			} finally {
-				self::lascia_turno();
+				// Anche dopo un'eccezione: il turno non resta preso da una proroga finita.
+				$rilascio = self::lascia_turno();
 			}
 		} finally {
 			self::$in_corso   = array();
@@ -606,14 +607,41 @@ final class Passaggi {
 		}
 
 		if ( is_wp_error( $esito ) ) {
+			if ( true !== $rilascio ) {
+				$esito->add( 'albo_proroga_turno_non_lasciato', self::messaggio_turno_non_lasciato( false ) );
+			}
+
 			return $esito;
 		}
 
+		// La memoria degli atti prorogati si svuota prima di dire qualunque cosa sul turno.
 		foreach ( array_keys( $esito['atti'] ) as $atto_id ) {
 			self::dopo_la_chiusura( $atto_id, $esito );
 		}
 
+		if ( $rilascio instanceof \Throwable ) {
+			throw new \RuntimeException( esc_html( self::messaggio_turno_non_lasciato( true ) ), 0, $rilascio ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- gia' sfuggito.
+		}
+
+		if ( true !== $rilascio ) {
+			return new \WP_Error( 'albo_proroga_turno_non_lasciato', self::messaggio_turno_non_lasciato( true ), $esito );
+		}
+
 		return $esito;
+	}
+
+	/**
+	 * Il messaggio del turno non lasciato, che dice se la proroga e' confermata o no.
+	 *
+	 * @param bool $confermata Se la proroga e' confermata nella banca dati.
+	 * @return string
+	 */
+	private static function messaggio_turno_non_lasciato( bool $confermata ): string {
+		$turno = __( 'La banca dati non ha confermato di aver lasciato il turno delle proroghe: finche\' questa connessione resta aperta, le altre proroghe sono rifiutate come se una fosse in corso. Il turno si libera da solo alla chiusura della connessione.', 'albo-pretorio-pa' );
+
+		return $confermata
+			? __( 'La proroga e\' disposta e confermata nella banca dati: le date di fine e il registro sono gia\' scritti, e non va ripetuta.', 'albo-pretorio-pa' ) . ' ' . $turno
+			: $turno;
 	}
 
 	/**
@@ -663,12 +691,24 @@ final class Passaggi {
 	}
 
 	/**
-	 * Lascia il turno delle proroghe.
+	 * Lascia il turno delle proroghe, e dice se la banca dati lo ha lasciato davvero.
+	 *
+	 * Un'eccezione sollevata da un altro componente durante il rilascio non
+	 * esce da qui: chi chiama deve prima svuotare la memoria degli atti
+	 * prorogati, e poi riferirla.
+	 *
+	 * @return true|false|\Throwable Vero se lasciato; falso se la banca dati non lo conferma; l'eccezione, se una e' stata sollevata.
 	 */
-	private static function lascia_turno(): void {
+	private static function lascia_turno() {
 		global $wpdb;
 
-		$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', self::nome_turno() ) );
+		try {
+			$righe = Lettura::righe( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s ) AS lasciato', self::nome_turno() ), array( 'lasciato' ) );
+		} catch ( \Throwable $errore ) {
+			return $errore;
+		}
+
+		return null !== $righe && 1 === count( $righe ) && '1' === (string) $righe[0]['lasciato'];
 	}
 
 	/**
@@ -837,7 +877,11 @@ final class Passaggi {
 		$giorno = $adesso->setTimezone( wp_timezone() )->format( 'Y-m-d' );
 
 		try {
-			$esito = Proroga::atti_toccati( $controllo['giorni'], $adesso );
+			$esito = self::lettura_aggiornata();
+
+			if ( ! is_wp_error( $esito ) ) {
+				$esito = Proroga::atti_toccati( $controllo['giorni'], $adesso );
+			}
 
 			if ( ! is_wp_error( $esito ) ) {
 				$atti  = $esito;
@@ -977,6 +1021,68 @@ final class Passaggi {
 	}
 
 	/**
+	 * Le letture del calcolo vedono l'ultima versione confermata dei dati.
+	 *
+	 * Prima di qualunque altra lettura della proroga, gli atti, le loro date di
+	 * fine e le voci di registro dell'albo si leggono bloccandoli: una lettura
+	 * che blocca aspetta le scritture non ancora confermate di altre richieste
+	 * e vede l'ultima versione confermata. Poi si rileggono senza bloccare,
+	 * come li leggono il calcolo e il meccanismo comune.
+	 *
+	 * In una transazione aperta qui le due letture coincidono, perche' la
+	 * lettura coerente della transazione nasce con la seconda. Dentro la
+	 * transazione di un altro programma, invece, la lettura coerente puo' essere
+	 * nata prima che un'altra richiesta confermasse una proroga: allora le due
+	 * letture differiscono, e la proroga si rifiuta invece di calcolare su dati
+	 * vecchi. I blocchi restano fino alla chiusura della transazione di chi
+	 * chiama, anche dopo che il turno e' stato lasciato: la proroga successiva
+	 * li aspetta con le stesse letture.
+	 *
+	 * @return true|\WP_Error
+	 */
+	private static function lettura_aggiornata() {
+		global $wpdb;
+
+		$letture  = array(
+			array(
+				$wpdb->prepare( 'SELECT ID, post_status, post_date, post_modified_gmt FROM %i WHERE post_type = %s ORDER BY ID', $wpdb->posts, TIPO ),
+				array( 'ID', 'post_status', 'post_date', 'post_modified_gmt' ),
+			),
+			array(
+				$wpdb->prepare( 'SELECT meta_id, post_id, meta_value FROM %i WHERE meta_key = %s ORDER BY meta_id', $wpdb->postmeta, conformita_core_chiave_fine_pubblicazione() ),
+				array( 'meta_id', 'post_id', 'meta_value' ),
+			),
+			array(
+				$wpdb->prepare( 'SELECT id FROM %i WHERE sezione = %s ORDER BY id', $wpdb->prefix . 'conformita_core_registro', SEZIONE ),
+				array( 'id' ),
+			),
+		);
+		$bloccate = array();
+		$semplici = array();
+
+		foreach ( $letture as $lettura ) {
+			$bloccate[] = Lettura::righe( $lettura[0] . ' FOR UPDATE', $lettura[1] );
+		}
+
+		foreach ( $letture as $lettura ) {
+			$semplici[] = Lettura::righe( $lettura[0], $lettura[1] );
+		}
+
+		if ( in_array( null, $bloccate, true ) || in_array( null, $semplici, true ) ) {
+			return self::errore_lettura();
+		}
+
+		if ( $bloccate !== $semplici ) {
+			return new \WP_Error(
+				'albo_proroga_lettura_superata',
+				__( 'Nessuna proroga disposta: la proroga e\' stata chiamata dentro una transazione gia\' aperta da un altro programma, che vede i dati come erano prima di modifiche confermate nel frattempo da altre richieste. Calcolare su quei dati darebbe date sbagliate: la proroga va ripetuta fuori da quella transazione.', 'albo-pretorio-pa' )
+			);
+		}
+
+		return true;
+	}
+
+	/**
 	 * Il rifiuto di una proroga fallita a meta' e annullata, con il motivo di partenza in coda.
 	 *
 	 * I messaggi dei pezzi comuni ai passaggi parlano dell'atto in verifica:
@@ -988,7 +1094,7 @@ final class Passaggi {
 	 */
 	private static function errore_proroga( \WP_Error $motivo ): \WP_Error {
 		// Rifiuti decisi prima di scrivere: il loro messaggio dice gia' tutto.
-		if ( in_array( $motivo->get_error_code(), array( 'albo_proroga_giorno_gia_attestato', 'albo_proroga_anteprima_superata' ), true ) ) {
+		if ( in_array( $motivo->get_error_code(), array( 'albo_proroga_giorno_gia_attestato', 'albo_proroga_anteprima_superata', 'albo_proroga_lettura_superata' ), true ) ) {
 			return $motivo;
 		}
 
