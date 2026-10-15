@@ -1,6 +1,6 @@
 <?php
 /**
- * Proroga per disservizio: righe A-127..A-138 e A-147..A-153 (ALBO-31).
+ * Proroga per disservizio: righe A-127..A-138 e A-147..A-154 (ALBO-31).
  *
  * Gli atti si pubblicano con il passaggio vero, a orologio fissato; poi
  * l'orologio va avanti e la proroga si dispone da codice o dalla schermata.
@@ -1436,5 +1436,138 @@ class ProrogaTest extends \WP_UnitTestCase {
 		$this->assertSame( '1', (string) $connessione->get_var( $connessione->prepare( 'SELECT IS_FREE_LOCK( %s )', $turno ) ) );
 
 		$connessione->close();
+	}
+
+	/**
+	 * A-137: dopo l'annullamento la memoria non ricorda la fine tentata.
+	 */
+	public function test_a137_memoria_dopo_l_annullamento(): void {
+		$primo   = $this->pubblicato_il( '2041-10-01 09:30:00' );
+		$secondo = $this->pubblicato_il( '2041-10-02 09:30:00' );
+
+		$this->fissa_orologi( '2041-10-08 11:00:00' );
+
+		$chiave = conformita_core_chiave_fine_pubblicazione();
+		$letta  = null;
+
+		// Un aggancio comune legge la fine appena scritta del primo atto: la memoria la ricorda.
+		$legge = static function ( $meta_id, $atto_id, $meta_key ) use ( $primo, $chiave, &$letta ) {
+			if ( $primo === (int) $atto_id && $chiave === $meta_key ) {
+				$letta = get_post_meta( $primo, $chiave, true );
+			}
+		};
+		// Poi la fine del secondo non si scrive, e la proroga si annulla.
+		$guasto = static function ( $esito, $atto_id, $meta_key ) use ( $secondo, $chiave ) {
+			return ( $secondo === (int) $atto_id && $chiave === $meta_key ) ? false : $esito;
+		};
+
+		add_action( 'updated_post_meta', $legge, 10, 3 );
+		add_filter( 'update_post_metadata', $guasto, 10, 3 );
+
+		try {
+			$esito = $this->proroga(
+				$this->pubblicatore,
+				array(
+					'giorni'       => array( '2041-10-05' ),
+					'attestazione' => 'Attestazione',
+				)
+			);
+		} finally {
+			remove_action( 'updated_post_meta', $legge, 10 );
+			remove_filter( 'update_post_metadata', $guasto, 10 );
+		}
+
+		$this->assertSame( '2041-10-17', $letta, 'Precondizione: la memoria ha visto la fine tentata.' );
+		$this->assertWPError( $esito );
+		$this->assertSame( 'albo_proroga_non_riuscita', $esito->get_error_code() );
+
+		// Prima di qualunque pulizia della prova: la memoria dice la fine vera.
+		$this->assertSame( '2041-10-16', get_post_meta( $primo, $chiave, true ), 'La memoria non ricorda la fine annullata.' );
+		$this->assertSame( '2041-10-16', conformita_core_fine_pubblicazione( $primo ) );
+		$this->nessuna_proroga( 'Annullata' );
+	}
+
+	/**
+	 * A-154: durante il rilascio del turno, dopo la conferma o dopo l'annullamento, nessuna concessione resta.
+	 */
+	public function test_a154_nessuna_concessione_durante_il_rilascio(): void {
+		global $wpdb;
+
+		$id = $this->pubblicato_il( '2041-10-01 09:30:00' );
+
+		$this->fissa_orologi( '2041-10-08 11:00:00' );
+
+		$in_verifica = $this->atto_in_verifica();
+		$chiave      = conformita_core_chiave_fine_pubblicazione();
+		$tabella     = $wpdb->prefix . 'conformita_core_registro';
+		$tentativi   = array();
+
+		// Durante il rilascio un componente prova a cancellare la fine, a scriverne un'altra e a rimandare in bozza.
+		$rilascio = static function ( $istruzione ) use ( $id, $chiave, $in_verifica, &$tentativi ) {
+			if ( array() === $tentativi && is_string( $istruzione ) && false !== strpos( $istruzione, 'RELEASE_LOCK' ) ) {
+				$tentativi = array(
+					'cancella' => delete_post_meta( $id, $chiave ),
+					'scrive'   => update_post_meta( $id, $chiave, '2041-10-17' ),
+					'rimanda'  => albo_pretorio_rimanda_in_bozza( $in_verifica, 'Da completare.' ),
+				);
+			}
+
+			return $istruzione;
+		};
+		$annulla  = static function ( $istruzione ) use ( $tabella ) {
+			return ( is_string( $istruzione ) && 0 === strpos( $istruzione, 'INSERT INTO `' . $tabella . '`' ) && false !== strpos( $istruzione, "'" . Proroga::AZIONE_PROROGA . "'" ) ) ? '' : $istruzione;
+		};
+
+		// Dopo l'annullamento.
+		add_filter( 'query', $annulla );
+		add_filter( 'query', $rilascio );
+
+		try {
+			$esito = $this->proroga(
+				$this->pubblicatore,
+				array(
+					'giorni'       => array( '2041-10-05' ),
+					'attestazione' => 'Attestazione',
+				)
+			);
+		} finally {
+			remove_filter( 'query', $annulla );
+			remove_filter( 'query', $rilascio );
+		}
+
+		$this->assertWPError( $esito );
+		$this->assertSame( 'albo_proroga_non_riuscita', $esito->get_error_code() );
+		$this->assertFalse( $tentativi['cancella'], 'Dopo l\'annullamento la fine non si cancella.' );
+		$this->assertFalse( $tentativi['scrive'], 'Ne\' si scrive la fine tentata.' );
+		$this->assertSame( 'albo_passaggio_annidato', is_wp_error( $tentativi['rimanda'] ) ? $tentativi['rimanda']->get_error_code() : null, 'Il fermo dell\'operazione resta fino alla fine del rilascio.' );
+		$this->assertSame( '2041-10-16', conformita_core_fine_pubblicazione( $id ) );
+		$this->nessuna_proroga( 'Annullata' );
+
+		// Dopo la conferma.
+		$tentativi = array();
+		$prima     = count( $this->voci_di( $id, array( 'azione' => 'modifica_fine_pubblicazione' ) ) );
+
+		add_filter( 'query', $rilascio );
+
+		try {
+			$esito = $this->proroga(
+				$this->pubblicatore,
+				array(
+					'giorni'       => array( '2041-10-06' ),
+					'attestazione' => 'Attestazione',
+				)
+			);
+		} finally {
+			remove_filter( 'query', $rilascio );
+		}
+
+		$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+		$this->assertFalse( $tentativi['cancella'], 'Dopo la conferma la fine non si cancella.' );
+		$this->assertFalse( $tentativi['scrive'], 'Ne\' se ne scrive un\'altra.' );
+		$this->assertSame( 'albo_passaggio_annidato', is_wp_error( $tentativi['rimanda'] ) ? $tentativi['rimanda']->get_error_code() : null );
+		$this->assertSame( '2041-10-17', conformita_core_fine_pubblicazione( $id ), 'La fine e\' quella della proroga.' );
+		$this->assertCount( $prima + 1, $this->voci_di( $id, array( 'azione' => 'modifica_fine_pubblicazione' ) ), 'Una sola modifica della fine, quella della proroga.' );
+		$this->assertCount( 1, $this->voci_di( $id, array( 'azione' => Proroga::AZIONE_ATTO ) ) );
+		$this->assertSame( 'pending', get_post_status( $in_verifica ) );
 	}
 }
