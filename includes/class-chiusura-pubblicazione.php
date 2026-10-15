@@ -1273,7 +1273,7 @@ final class ChiusuraPubblicazione {
 
 		// Il nome nell'indirizzo che WordPress genera subito dopo la pubblicazione.
 		if ( $nostro_prima && self::PUBBLICATO === $riga['post_status'] && '' === (string) $riga['post_name']
-			&& Passaggi::in_corso( $atto_id ) && 1 === preg_match( "/^`post_name` = '[a-z0-9%_-]*'$/", $insieme ) ) {
+			&& Passaggi::pubblicazione_in_corso( $atto_id ) && 1 === preg_match( "/^`post_name` = '[a-z0-9%_-]*'$/", $insieme ) ) {
 			return true;
 		}
 

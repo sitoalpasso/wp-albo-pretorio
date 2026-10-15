@@ -159,6 +159,19 @@ final class Passaggi {
 	}
 
 	/**
+	 * Se il passaggio in corso su questo atto e' una pubblicazione.
+	 *
+	 * Solo la pubblicazione lascia scrivere a WordPress il nome nell'indirizzo
+	 * di un atto pubblicato che non lo ha ancora: la proroga e il rimando no.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return bool
+	 */
+	public static function pubblicazione_in_corso( int $atto_id ): bool {
+		return isset( self::$in_corso[ $atto_id ] ) && 'pubblicazione' === self::$in_corso[ $atto_id ]['tipo'];
+	}
+
+	/**
 	 * Gli atti con un passaggio in corso.
 	 *
 	 * @return array<int, int>
@@ -221,9 +234,11 @@ final class Passaggi {
 	 * @param int                   $atto_id Atto.
 	 * @param array<string, string> $campi   Campi della scrittura: lo stato, pubblicato o bozza, e per la pubblicazione le date.
 	 * @param string|null           $fine    Data di fine che la pubblicazione scrive.
+	 * @param string                $tipo    `pubblicazione`, `rimando` o `proroga`.
 	 */
-	private static function inizia( int $atto_id, array $campi, ?string $fine ): void {
+	private static function inizia( int $atto_id, array $campi, ?string $fine, string $tipo ): void {
 		self::$in_corso[ $atto_id ] = array(
+			'tipo'    => $tipo,
 			'gettone' => bin2hex( random_bytes( 16 ) ),
 			'campi'   => $campi,
 			'usato'   => false,
@@ -336,7 +351,7 @@ final class Passaggi {
 		);
 		$fine_uguale = array( $fine ) === self::righe_fine( $partenza );
 
-		self::inizia( $atto_id, $campi, $fine );
+		self::inizia( $atto_id, $campi, $fine, 'pubblicazione' );
 
 		try {
 			$esito = self::pubblica_dentro( $atto_id, $campi, $fine, $numero, $partenza, $prima_fine, ! $fine_uguale, $prima );
@@ -502,7 +517,7 @@ final class Passaggi {
 
 		$campi = array( 'post_status' => 'draft' );
 
-		self::inizia( $atto_id, $campi, null );
+		self::inizia( $atto_id, $campi, null, 'rimando' );
 
 		try {
 			$esito = self::rimanda_dentro( $atto_id, $campi, $motivo, $partenza, $prima );
@@ -637,7 +652,7 @@ final class Passaggi {
 	 * @return string
 	 */
 	private static function messaggio_turno_non_lasciato( bool $confermata ): string {
-		$turno = __( 'La banca dati non ha confermato di aver lasciato il turno delle proroghe: finche\' questa connessione resta aperta, le altre proroghe sono rifiutate come se una fosse in corso. Il turno si libera da solo alla chiusura della connessione.', 'albo-pretorio-pa' );
+		$turno = __( 'La banca dati non ha confermato di aver lasciato il turno delle proroghe: finche\' questa connessione resta aperta, le altre proroghe sono rifiutate come se una fosse in corso. Il turno si libera da solo alla chiusura della connessione, o alla prossima proroga chiesta su questa stessa connessione.', 'albo-pretorio-pa' );
 
 		return $confermata
 			? __( 'La proroga e\' disposta e confermata nella banca dati: le date di fine e il registro sono gia\' scritti, e non va ripetuta.', 'albo-pretorio-pa' ) . ' ' . $turno
@@ -678,6 +693,28 @@ final class Passaggi {
 	private static function prendi_turno() {
 		global $wpdb;
 
+		/*
+		 * Il turno e' rientrante: se questa connessione lo tiene ancora da una
+		 * proroga finita il cui rilascio non e' riuscito, prenderlo di nuovo ne
+		 * aggiungerebbe un'altra presa, e il rilascio di questa proroga non lo
+		 * libererebbe. Quella proroga e' finita, e nessun'altra e' in corso in
+		 * questa richiesta: la presa rimasta si lascia prima, e se non si lascia
+		 * la proroga non comincia.
+		 */
+		$volte = 0;
+
+		while ( true === self::turno_mio() && $volte < 10 ) {
+			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', self::nome_turno() ) );
+			++$volte;
+		}
+
+		if ( false !== self::turno_mio() ) {
+			return new \WP_Error(
+				'albo_proroga_turno_bloccato',
+				__( 'Nessuna proroga disposta: questa connessione alla banca dati tiene ancora il turno delle proroghe da una proroga precedente, e non lo lascia. Riprovare da una nuova richiesta.', 'albo-pretorio-pa' )
+			);
+		}
+
 		$preso = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK( %s, %d )', self::nome_turno(), self::ATTESA_TURNO ) );
 
 		if ( '1' !== (string) $preso ) {
@@ -708,7 +745,33 @@ final class Passaggi {
 			return $errore;
 		}
 
-		return null !== $righe && 1 === count( $righe ) && '1' === (string) $righe[0]['lasciato'];
+		if ( null === $righe || 1 !== count( $righe ) || '1' !== (string) $righe[0]['lasciato'] ) {
+			return false;
+		}
+
+		// Una presa lasciata non basta: il turno e' libero solo se questa connessione non ne tiene altre.
+		try {
+			return false === self::turno_mio();
+		} catch ( \Throwable $errore ) {
+			return $errore;
+		}
+	}
+
+	/**
+	 * Se questa connessione tiene il turno delle proroghe.
+	 *
+	 * @return bool|null Nulla se la banca dati non risponde.
+	 */
+	private static function turno_mio(): ?bool {
+		global $wpdb;
+
+		$righe = Lettura::righe( $wpdb->prepare( 'SELECT COALESCE( IS_USED_LOCK( %s ) = CONNECTION_ID(), 0 ) AS mio', self::nome_turno() ), array( 'mio' ) );
+
+		if ( null === $righe || 1 !== count( $righe ) || ! in_array( (string) $righe[0]['mio'], array( '0', '1' ), true ) ) {
+			return null;
+		}
+
+		return '1' === (string) $righe[0]['mio'];
 	}
 
 	/**
@@ -909,7 +972,7 @@ final class Passaggi {
 					$prime[ $atto_id ]    = $prima;
 					$esito                = self::blocca( $atto_id, $partenza );
 
-					self::inizia( $atto_id, array(), $atto['nuova'] );
+					self::inizia( $atto_id, array(), $atto['nuova'], 'proroga' );
 				}
 			}
 
@@ -1963,7 +2026,7 @@ final class Passaggi {
 				continue;
 			}
 
-			if ( 'post_name' === $colonna && '' === (string) $valore && null !== $fine && '' !== (string) $nuovo ) {
+			if ( 'post_name' === $colonna && '' === (string) $valore && self::pubblicazione_in_corso( $atto_id ) && '' !== (string) $nuovo ) {
 				continue;
 			}
 
