@@ -1301,20 +1301,26 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 					}
 
 					/*
-					 * Appena aperta la transazione, prima di qualunque scrittura del
-					 * passaggio, l'altra richiesta prova a scrivere l'atto: aspetta il
-					 * blocco e rinuncia, e la pubblicazione riesce. La prova parte alla
-					 * prima rilettura della riga dopo l'apertura.
+					 * Dentro la transazione, prima della prima scrittura del passaggio,
+					 * l'altra richiesta prova a scrivere l'atto: aspetta il blocco e
+					 * rinuncia, e la pubblicazione riesce. La prova parte nell'istante
+					 * in cui il passaggio sta per scrivere la riga, riconosciuta dalla
+					 * forma dell'istruzione e non da una lettura che lo precede, e
+					 * conta le scritture partite prima: nessuna.
 					 */
 					$bloccata = null;
 					$aperta   = false;
-					$prova    = static function ( $istruzione ) use ( $diretta, $wpdb, $controllo, &$bloccata, &$aperta ) {
+					$prima    = array();
+					$riga_sua = 'UPDATE `' . $wpdb->posts . '` SET ';
+					$prova    = static function ( $istruzione ) use ( $diretta, $wpdb, $controllo, $riga_sua, &$bloccata, &$aperta, &$prima ) {
 						$istruzione = ltrim( (string) $istruzione );
 
 						if ( 0 === strpos( $istruzione, 'START TRANSACTION' ) ) {
 							$aperta = true;
-						} elseif ( $aperta && null === $bloccata && 0 === strpos( $istruzione, "SELECT * FROM {$wpdb->posts} WHERE ID = " . (int) $controllo ) ) {
+						} elseif ( $aperta && null === $bloccata && 0 === strpos( $istruzione, $riga_sua ) && str_ends_with( $istruzione, ' WHERE `ID` = ' . (int) $controllo ) ) {
 							$bloccata = false === $diretta->query( "UPDATE {$wpdb->posts} SET post_title = 'Oggetto dell\'altra richiesta' WHERE ID = " . (int) $controllo );
+						} elseif ( $aperta && null === $bloccata && 1 === preg_match( '/^(INSERT|UPDATE|DELETE|REPLACE)\b/i', $istruzione ) ) {
+							$prima[] = $istruzione;
 						}
 
 						return $istruzione;
@@ -1328,6 +1334,8 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 						remove_filter( 'query', $prova, 1 );
 					}
 
+					$this->assertNotNull( $bloccata, 'Precondizione: l\'altra richiesta ha provato a scrivere, quando il passaggio stava per scrivere la riga.' );
+					$this->assertSame( array(), $prima, 'Precondizione: prima di quel momento il passaggio non ha scritto niente.' );
 					$this->assertTrue( $bloccata, 'A transazione aperta l\'atto e\' bloccato per le altre richieste.' );
 					$this->assertSame( 1205, $diretta->errno, 'Per attesa del blocco.' );
 					$this->assertIsArray( $esito, 'Controllo positivo: la pubblicazione riesce.' );

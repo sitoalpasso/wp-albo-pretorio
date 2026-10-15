@@ -1042,3 +1042,23 @@ A-126), più le due suite separate, tutte verdi in locale; PHPCS pulito. In veri
 Due guasti sono sopravvissuti al primo passaggio e hanno fatto allargare le prove: lo stato scritto a tutti gli atti era quello che la bozza aveva già, e la banca dati non contava la riga come cambiata; e nessuna prova sostituiva la lettura con un'istruzione che riesce senza leggere. Dopo l'allargamento cadono anche quei due.
 
 Riprovati sul codice nuovo i guasti del decimo e dell'undicesimo giro: cadono tutti.
+
+## Il tredicesimo giro: la dodicesima revisione
+
+La dodicesima revisione, sul commit 425e329, ha trovato un difetto medio in una prova. A-119
+faceva partire il tentativo dell'altra richiesta alla prima rilettura della riga dopo
+l'apertura della transazione, riconosciuta dal testo dell'istruzione. Con `Lettura` la
+fotografia scrive il nome della tabella fra apici inversi, e quel testo non coincideva più. La
+revisione ne deduceva che la prova dovesse fallire; non falliva, perché la stessa forma di
+lettura la fa poco dopo WordPress stesso, prima di scrivere la riga, e la prova partiva lì. Era
+comunque un aggancio fragile, legato a un'istruzione che non è del passaggio. Ora la prova
+parte nell'istante in cui il passaggio sta per scrivere la riga, riconosciuto dalla forma
+dell'istruzione di scrittura, e controlla in più che prima di quell'istante il passaggio non
+abbia scritto niente. Tolto il blocco della riga (`FOR UPDATE`), A-119 cade, e con lei A-121.
+Nessun cambio al codice del componente.
+
+### Le prove, al tredicesimo giro
+
+Centocinquanta prove nella suite principale, più le due suite separate, tutte verdi in locale;
+PHPCS pulito. Le altre prove che riconoscono istruzioni dal testo guardano scritture, apertura e
+chiusura della transazione o il blocco della riga, nessuna una lettura cambiata con `Lettura`.
