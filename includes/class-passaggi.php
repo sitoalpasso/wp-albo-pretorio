@@ -615,6 +615,17 @@ final class Passaggi {
 			} finally {
 				// Anche dopo un'eccezione: il turno non resta preso da una proroga finita.
 				$rilascio = self::lascia_turno();
+
+				/*
+				 * Un rilascio non riuscito, o con un'eccezione di un altro
+				 * componente, puo' aver lasciato in memoria dati che la banca
+				 * dati non ha, su ogni strada: confermata, annullata o interrotta
+				 * da un'eccezione. La memoria si svuota per intero, che non fa
+				 * girare agganci, prima di rispondere o di rilanciare.
+				 */
+				if ( true !== $rilascio ) {
+					wp_cache_flush();
+				}
 			}
 		} finally {
 			self::$in_corso   = array();
