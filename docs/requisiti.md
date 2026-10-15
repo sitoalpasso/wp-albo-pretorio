@@ -249,7 +249,7 @@ e non corregge.
   Il documento non si tocca: scriverci sopra romperebbe la firma digitale e lo renderebbe
   diverso dall'atto adottato (ALBO-09). Quello che il componente può fare senza toccarlo è
   dare al file scaricato **un nome che porta il numero di repertorio e le date di
-  pubblicazione**, per esempio `albo-2026-0123-dal-01-10-al-15-10.pdf`. Il nome non contiene
+  pubblicazione**, per esempio `albo-2026-0123-dal-01-10-al-16-10.pdf`. Il nome non contiene
   né l'oggetto dell'atto né il nome originale del file, perché l'uno e l'altro possono
   contenere dati personali. Il contenuto scaricato resta identico, byte per byte, a quello
   pubblicato.
@@ -284,17 +284,17 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 
 | ID | Stato | In una riga | Fonte principale |
 |---|---|---|---|
-| ALBO-01 | da fare | Scheda atto: dati, documento principale `[1..1]`, allegati ulteriori `[0..n]`. La bozza si salva incompleta, la pubblicazione no | **norma** l'atto pubblicato dev'essere identificabile e completo dei suoi estremi (l. 69/2009 art. 32). **Prodotto** l'elenco preciso dei campi e la separazione fra salvataggio e pubblicazione |
-| ALBO-02 | da fare | Data di fine **obbligatoria per pubblicare**, cioè calcolabile da inizio più durata applicabile. In bozza non esiste ancora | **norma** nessuna pubblicazione a tempo indeterminato (Garante, provv. marzo 2026). **Prodotto** la data come valore che il sistema scrive al passaggio a pubblicato e che nessuno fornisce a mano |
+| ALBO-01 | fatto | Scheda atto: dati, documento principale `[1..1]`, allegati ulteriori `[0..n]`. La bozza si salva incompleta, la pubblicazione no | **norma** l'atto pubblicato dev'essere identificabile e completo dei suoi estremi (l. 69/2009 art. 32). **Prodotto** l'elenco preciso dei campi e la separazione fra salvataggio e pubblicazione |
+| ALBO-02 | fatto | Data di fine **obbligatoria per pubblicare**, cioè calcolabile da inizio più durata applicabile. In bozza non esiste ancora | **norma** nessuna pubblicazione a tempo indeterminato (Garante, provv. marzo 2026). **Prodotto** la data come valore che il sistema scrive al passaggio a pubblicato e che nessuno fornisce a mano |
 | ALBO-03 | da fare | L'atto scaduto smette di essere pubblico tempestivamente | **norma** il risultato, senza dipendere dal traffico del sito (Garante). **Prodotto** i tre strati, cron esterno, filtro e battito: architettura nostra, non un obbligo |
 | ALBO-04 | da fare | Durate per tipo di atto, configurabili, senza default, **ciascuna con l'origine dichiarata**: norma, con i suoi estremi, oppure scelta dell'amministrazione | **norma** l'esistenza di una durata (TUEL art. 124, valido per comuni e province, non universale), e la distinzione fra termine prescritto e periodo scelto dall'amministrazione, che il Garante vuole valutato caso per caso. **Prodotto** la configurabilità per tipo e la forma in cui l'origine è dichiarata, decisa il 2026-09-22. **Da confermare** le durate dei singoli tipi, che dipendono dal regolamento |
 | ALBO-05 | da fare | L'atto defisso esce dalla vista pubblica | **norma** il risultato (Garante, provvedimenti). **Prodotto** la politica `irraggiungibile` dichiarata al meccanismo comune |
 | ALBO-06 | da fare | Le pagine dell'atto non vengono indicizzate | **norma** il risultato (Garante, che raccomanda i metatag). **Prodotto** `noindex`, esclusione dalla mappa e politica dichiarata |
 | ALBO-07 | da fare | Referto di pubblicazione congelato | **da confermare**: la prassi non è una fonte. Contenuto e obbligatorietà vanno verificati contro il regolamento, e l'unità è bloccata da quella conferma |
 | ALBO-08 | in corso | Repertorio progressivo annuale, assegnato dal sistema. Unico, progressivo, assegnato una sola volta, mai riutilizzato. Nel primo anno d'uso il numero di partenza lo dichiara l'amministrazione, senza valore predefinito | **prodotto** scelta decisa il 2026-09-23: la prassi della pubblicità legale usa il repertorio, le fonti non lo impongono. Decisi lo stesso giorno la partenza dichiarata e il divieto di correggerla dopo il primo numero. L'assenza assoluta di buchi non è promessa |
-| ALBO-09 | da fare | Integrità del documento pubblicato | **norma** il risultato (linee guida AgID doc. informatici). **Prodotto** immodificabilità e rettifica come atto nuovo, con **un'unica eccezione dichiarata**, la sostituzione per oscuramento di ALBO-12 |
-| ALBO-10 | da fare | Tracciabilità delle operazioni sugli atti | **norma** responsabilizzazione e tracciabilità (GDPR art. 5). **Prodotto** il registro solo in aggiunta del meccanismo comune è la soluzione scelta, non l'unica |
-| ALBO-11 | da fare | Liceità del trattamento dei dati particolari | **norma** il risultato (d.lgs. 196/2003 artt. 2-ter, 2-septies). **Prodotto** il passaggio obbligato con conferma esplicita |
+| ALBO-09 | in corso | Integrità del documento pubblicato | **norma** il risultato (linee guida AgID doc. informatici). **Prodotto** immodificabilità e rettifica come atto nuovo, con **un'unica eccezione dichiarata**, la sostituzione per oscuramento di ALBO-12 |
+| ALBO-10 | in corso | Tracciabilità delle operazioni sugli atti | **norma** responsabilizzazione e tracciabilità (GDPR art. 5). **Prodotto** il registro solo in aggiunta del meccanismo comune è la soluzione scelta, non l'unica |
+| ALBO-11 | fatto | Liceità del trattamento dei dati particolari | **norma** il risultato (d.lgs. 196/2003 artt. 2-ter, 2-septies). **Prodotto** il passaggio obbligato con conferma esplicita |
 | ALBO-12 | da fare | I dati eccedenti non finiscono nella versione pubblica, e se ci sono finiti si sostituisce l'allegato con la versione oscurata senza far ripartire il termine | **norma** minimizzazione, l'originale non va esposto (GDPR art. 5.1.c); divieto assoluto di diffondere dati genetici, biometrici e sulla salute (d.lgs. 196/2003 art. 2-septies c. 8). **Prodotto** la coppia originale riservato più versione oscurata, la sostituzione come unica eccezione a ALBO-09, e la scelta che il termine non riparta: i testi impongono che la diffusione vietata cessi e tacciono sull'effetto dell'oscuramento sul periodo |
 | ALBO-13 | da fare | I documenti pubblicati sono accessibili | **norma** il risultato (l. 69/2009 art. 32 che rinvia a l. 4/2004 art. 11). **Prodotto** l'avviso euristico al caricamento, che segnala un indizio e non blocca |
 | ALBO-14 | da fare | Niente anti copia che rompa l'accessibilità | **norma** l'accessibilità non si comprime per ostacolare il prelievo (Garante, l. 4/2004) |
@@ -306,7 +306,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-20 | da fare | L'atto defisso non viene più servito a nessuno | **norma** il risultato (Garante). **Prodotto** esclusione dalla memoria di pagina oppure invalidazione immediata: due strade, la scelta è nostra |
 | ALBO-21 | da fare | Scadenza sull'ora civile italiana | **prodotto**: correttezza tecnica, nessuna fonte esterna |
 | ALBO-22 | in corso | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto**, decisione chiusa il 2026-09-21: la tabella delle transizioni è nella nota qui sotto. Quattro sotto-decisioni ne sono seguite, di cui **tre restano aperte** e nessuna blocca l'unità; la quarta, sulle cause che legittimano la defissione anticipata, è chiusa il 2026-09-22 |
-| ALBO-27 | da fare | **La pubblicazione non si programma.** La data di inizio la scrive il sistema al passaggio a pubblicato, non è modificabile e non può stare nel futuro; nello stesso istante scrive la data di fine come inizio più durata applicabile, così che nessun valore calcolato prima della pubblicazione possa accorciare il periodo | **prodotto**, deciso il 2026-09-22. L'albo sostituisce la bacheca di carta, dove programmare non era possibile. Se un'amministrazione lo chiederà, si costruirà allora |
+| ALBO-27 | in corso | **La pubblicazione non si programma.** La data di inizio la scrive il sistema al passaggio a pubblicato, non è modificabile e non può stare nel futuro; nello stesso istante scrive la data di fine come inizio più durata applicabile, così che nessun valore calcolato prima della pubblicazione possa accorciare il periodo | **prodotto**, deciso il 2026-09-22. L'albo sostituisce la bacheca di carta, dove programmare non era possibile. Se un'amministrazione lo chiederà, si costruirà allora |
 | ALBO-28 | da fare | Le pagine che il componente genera (elenco, scheda, ricerca) sono accessibili con i soli mezzi del componente, qualunque tema usi il sito | **norma** la pubblicazione applica i requisiti di accessibilità (l. 69/2009 art. 32 c. 1, che rinvia a l. 4/2004 art. 11), e l'obbligo è dell'amministrazione. **Prodotto** che ne risponda il componente da solo, senza chiedere niente al tema, deciso il 2026-09-23. Limiti dichiarati: stili sovrascritti dal tema, documenti dell'ente |
 | ALBO-29 | da fare | Ogni atto ospitato di un'altra amministrazione porta e mostra al pubblico l'amministrazione che l'ha adottato. La scelta è obbligatoria e senza preselezione appena l'elenco delle amministrazioni ospitate ha una voce | **norma** la pubblicazione sull'albo di un altro ente è prevista (TUEL art. 124 c. 2, l. 69/2009 art. 32 c. 3); i ruoli sui dati li stabiliscono gli enti fra loro. **Prodotto** l'indicazione mostrata e l'assenza di accessi separati, deciso il 2026-09-23 |
 | ALBO-30 | da fare | Il file scaricato ha un nome con numero di repertorio e date di pubblicazione, senza oggetto e senza il nome originale; il contenuto resta identico | **norma** il rischio di decontestualizzazione (Garante, delib. 243/2014 par. 2.d). **Prodotto** il nome del file come unica misura che non tocca il documento firmato, deciso il 2026-09-23; il formato esatto è nostro |
@@ -599,11 +599,11 @@ precisarne il titolare.
 Tre valori: **da fare** (il requisito esiste come impegno, il codice no), **in corso** (il
 codice e i test esistono ma non risultano verdi nella verifica continua), **fatto** (verde
 nella verifica continua). Un requisito passa a "fatto" solo quando tutte le sue righe di
-`collaudo.md` sono "fatto". Oggi sono a **"fatto" ALBO-23, ALBO-24, ALBO-25 e ALBO-26**,
-chiusi dall'unità che ha costruito il tipo atto, i permessi e il ruolo proprio. ALBO-08 è
-**"in corso"**: il meccanismo del repertorio c'è, e le sue righe che parlano di atti
-pubblicati aspettano il passaggio a pubblicato. Anche ALBO-22 è **"in corso"**: il passaggio
-da bozza a verifica e il fermo dell'atto in verifica ci sono, il rimando in bozza e la
-pubblicazione no. **Tutti gli altri sono a "da fare"**, ALBO-01
-compreso, che ha a "fatto" la riga della bozza e quelle dei documenti: il componente registra gli atti con
-i loro dati e li tiene chiusi, e non ne pubblica ancora nessuno.
+`collaudo.md` sono "fatto". Oggi sono a **"fatto" ALBO-01, ALBO-02, ALBO-11, ALBO-23, ALBO-24, ALBO-25 e ALBO-26**: i
+primi tre chiusi dalla pubblicazione, gli altri dall'unità che ha costruito il tipo atto, i
+permessi e il ruolo proprio. Sono **"in corso"** ALBO-08, ALBO-09, ALBO-10, ALBO-22 e
+ALBO-27: il codice c'è per una parte, e ciascuno ha righe che aspettano funzioni non ancora
+costruite, cioè la durata propria (ALBO-04), la sostituzione per oscuramento (ALBO-08,
+ALBO-09, ALBO-12), la defissione anticipata e l'annullamento (ALBO-10, ALBO-22). **Tutti gli altri sono a "da fare"**. Il componente
+pubblica gli atti ma **non li mostra ancora al pubblico**: la pagina pubblica non è
+costruita.

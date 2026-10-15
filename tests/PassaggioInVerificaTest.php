@@ -737,8 +737,6 @@ class PassaggioInVerificaTest extends \WP_UnitTestCase {
 	 * A-89: un atto in verifica non si modifica, da nessuna via.
 	 */
 	public function test_a89_atto_in_verifica_non_si_modifica(): void {
-		global $wpdb;
-
 		$this->setExpectedIncorrectUsage( 'wp_insert_post' );
 
 		$id         = $this->atto_in_verifica();
@@ -824,13 +822,10 @@ class PassaggioInVerificaTest extends \WP_UnitTestCase {
 
 		$this->assertSame( array(), array_diff( $this->stati_scritti( $id ), array( 'draft', 'pending' ) ) );
 
-		/*
-		 * Controllo positivo: le stesse modifiche riescono sull'atto riportato in
-		 * bozza. Il ritorno in bozza qui si scrive nella banca dati, perche' quello
-		 * vero, con la sua motivazione, arriva con la seconda parte del flusso.
-		 */
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: il rimando in bozza non esiste ancora.
-		$wpdb->update( $wpdb->posts, array( 'post_status' => 'draft' ), array( 'ID' => $id ) );
+		// Controllo positivo: le stesse modifiche riescono sull'atto rimandato in bozza con il passaggio vero.
+		wp_set_current_user( $this->pubblicatore );
+
+		$this->assertIsInt( albo_pretorio_rimanda_in_bozza( $id, 'Da completare.' ), 'Precondizione: il rimando in bozza riesce.' );
 		clean_post_cache( $id );
 
 		wp_set_current_user( $this->redattore );
@@ -992,7 +987,7 @@ class PassaggioInVerificaTest extends \WP_UnitTestCase {
 		);
 
 		$this->assertSame( 'draft', get_post_status( $id ), 'Dalla schermata resta in bozza.' );
-		$this->assertArrayHasKey( 'albo_pubblicazione_non_aperta', Rifiuti::preleva_per_utente( $id ) );
+		$this->assertArrayHasKey( 'albo_pubblicazione_solo_dalla_verifica', Rifiuti::preleva_per_utente( $id ) );
 
 		// Aggiornamento da codice.
 		wp_update_post(

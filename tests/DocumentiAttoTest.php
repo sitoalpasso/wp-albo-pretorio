@@ -368,8 +368,12 @@ class DocumentiAttoTest extends \WP_UnitTestCase {
 				'post_status' => 'pending',
 			)
 		);
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: lo stato si scrive dritto nella banca dati, scavalcando lo sbarramento.
-		$wpdb->update( $wpdb->posts, array( 'post_status' => 'publish' ), array( 'ID' => $pubblicato ) );
+		$this->scavalca_barriera(
+			static function () use ( $wpdb, $pubblicato ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: lo stato si scrive dritto nella banca dati, scavalcando lo sbarramento.
+				$wpdb->update( $wpdb->posts, array( 'post_status' => 'publish' ), array( 'ID' => $pubblicato ) );
+			}
+		);
 		clean_post_cache( $pubblicato );
 
 		$this->assertSame( 'pending', get_post_status( $in_verifica ), 'Precondizione: l\'atto e\' in verifica.' );

@@ -248,7 +248,12 @@ class ChiusuraPubblicazioneTest extends WP_UnitTestCase {
 			)
 		);
 
-		wp_publish_post( $id );
+		// La barriera ferma `wp_publish_post()` (A-111): qui si stacca, come per chi scrive nella banca dati da fuori.
+		$this->scavalca_barriera(
+			static function () use ( $id ) {
+				wp_publish_post( $id );
+			}
+		);
 
 		$this->assertSame(
 			'publish',
@@ -308,9 +313,9 @@ class ChiusuraPubblicazioneTest extends WP_UnitTestCase {
 
 		$this->assertNotSame( array(), $motivi, 'Il motivo deve essere disponibile per chi ha tentato.' );
 		$this->assertArrayHasKey(
-			'albo_pubblicazione_non_aperta',
+			'albo_pubblicazione_solo_dalla_verifica',
 			$motivi,
-			'Il motivo deve dire che la pubblicazione non e\' aperta.'
+			'Il motivo deve dire che si pubblica solo dalla verifica.'
 		);
 
 		$this->assertSame(
@@ -410,7 +415,7 @@ class ChiusuraPubblicazioneTest extends WP_UnitTestCase {
 		);
 
 		$this->assertStringContainsString(
-			'registro delle modifiche',
+			'riquadro Pubblicazione',
 			implode( ' ', Rifiuti::preleva_per_utente( $id ) ),
 			'Precondizione: il dato temporaneo esisteva davvero, con il dettaglio.'
 		);
@@ -445,7 +450,7 @@ class ChiusuraPubblicazioneTest extends WP_UnitTestCase {
 			'Senza il dettaglio la schermata deve mostrare comunque l\'avviso generico.'
 		);
 		$this->assertStringNotContainsString(
-			'registro delle modifiche',
+			'riquadro Pubblicazione',
 			$avviso,
 			'Il dettaglio non c\'e\' piu\': quello che resta e\' l\'avviso generico.'
 		);

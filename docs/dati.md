@@ -19,13 +19,15 @@ lì e resta una scelta separata.
 > elenchi di voci per il tipo di atto (`albo_tipo_atto`) e per l'organo (`albo_organo`), i
 > permessi e il ruolo proprio. Dei dati che fornisce chi redige esistono l'oggetto, il tipo
 > di atto, l'organo, la data di adozione e il numero proprio, con il riquadro **Dati
-> dell'atto** in cui si compilano e la lettura che li valida. Il numero di repertorio ha il
-> suo meccanismo e non è ancora chiamato da nessuno. Non esistono ancora la durata propria,
-> le date di pubblicazione, lo stato governato e la conferma del controllo sui dati
-> personali. **Documento principale e allegati esistono**, depositati dalla consegna
-> protetta del meccanismo comune, con il riquadro **Documenti dell'atto**; il blocco dopo il
-> passaggio in verifica arriva con i passaggi di stato, e fino ad allora si cambiano solo in
-> bozza. La tabella descrive il perimetro deciso, non la disponibilità.
+> dell'atto** in cui si compilano e la lettura che li valida. **Documento principale e
+> allegati esistono**, depositati dalla consegna protetta del meccanismo comune, con il
+> riquadro **Documenti dell'atto**, e si cambiano solo in bozza. Esistono lo stato governato
+> fino a pubblicato, le date di inizio e di fine scritte dal sistema alla pubblicazione, il
+> numero di repertorio preso in quel momento, la conferma del controllo sui dati personali e
+> il motivo del rimando in bozza, questi ultimi due come voci del registro delle modifiche.
+> Non esistono ancora la durata propria, l'amministrazione ospitata, i motivi di annullamento
+> e di defissione anticipata e l'effetto della rimozione. La tabella descrive il perimetro
+> deciso, non la disponibilità.
 
 | Dato | Obbligatorio | Dove sta | Chi lo scrive |
 |---|---|---|---|
@@ -35,14 +37,15 @@ lì e resta una scelta separata.
 | Amministrazione che ha adottato l'atto, se è un atto ospitato | sì per andare in verifica, **solo se** l'elenco delle amministrazioni ospitate ha almeno una voce | metadato con **il nome copiato alla pubblicazione**, oltre al riferimento alla voce dell'elenco | redattore, scegliendo fra "questa amministrazione" e le voci dell'elenco, senza preselezione. Dopo la pubblicazione non cambia, nemmeno se la voce viene rinominata o tolta (ALBO-29) |
 | Numero proprio dell'atto (es. determina 45/2026) | no | metadato protetto `_albo_pretorio_numero_proprio`, testo su una riga | redattore. È il numero dell'atto, non quello di pubblicazione |
 | Data di adozione | sì | metadato protetto `_albo_pretorio_data_adozione`, testo `AAAA-MM-GG`; letto come assente se non è una data vera del calendario o se le righe sono più di una | redattore |
-| Data di inizio pubblicazione | sì | metadato | **solo il sistema**, al passaggio a pubblicato, e mai nel futuro: la pubblicazione non si programma (ALBO-27). Non è modificabile dopo, perché da essa decorrono termini di legge |
-| Data di fine pubblicazione | sì per pubblicare | metadato | **solo il sistema**, al passaggio a pubblicato e nello stesso istante dell'inizio, come inizio più durata applicabile (ALBO-27), dove la durata applicabile è quella **vigente nell'istante della pubblicazione**, del tipo o propria dell'atto: non la fornisce nessuno, e una data fornita a mano non supplisce a una durata assente. Il sistema rifiuta la **pubblicazione** di un atto per cui non è calcolabile, non il salvataggio della bozza, dove non esiste ancora. **Una defissione anticipata la riporta indietro**, ed è così, e non cambiando stato, che l'atto esce dalla vista |
+| Data di inizio pubblicazione | sì | la data del contenuto WordPress, in ora locale (`post_date`) e in tempo universale (`post_date_gmt`), scritte insieme | **solo il sistema**, al passaggio a pubblicato, e mai nel futuro: la pubblicazione non si programma (ALBO-27). Non è modificabile dopo, perché da essa decorrono termini di legge |
+| Data di fine pubblicazione | sì per pubblicare | metadato del meccanismo comune, `AAAA-MM-GG`, scritto e riletto con la sua funzione; la chiave la sceglie lui | **solo il sistema**, al passaggio a pubblicato e nello stesso istante dell'inizio, come inizio più durata applicabile (ALBO-27), dove la durata applicabile è quella **vigente nell'istante della pubblicazione**, del tipo o propria dell'atto: non la fornisce nessuno, e una data fornita a mano non supplisce a una durata assente. Il sistema rifiuta la **pubblicazione** di un atto per cui non è calcolabile, non il salvataggio della bozza, dove non esiste ancora. **Una defissione anticipata la riporta indietro**, ed è così, e non cambiando stato, che l'atto esce dalla vista |
 | Durata propria dell'atto | no | metadato più voce di registro | Il contratto è uno solo e vale per ogni ingresso. **Chi**: soltanto chi possiede il permesso di pubblicare; chi ha il solo permesso di redazione non la scrive, non la cambia e non la toglie, anche su una bozza che può modificare. **Quando**: soltanto in bozza, perché in verifica l'atto è bloccato e da pubblicato non si torna indietro. **Dove**: soltanto se il tipo ha durata di origine dell'amministrazione; dove l'origine è una norma non esiste. **Quanto**: un numero intero di giorni, almeno 1 e **strettamente minore** della durata configurata; zero, valori negativi, frazioni e valori uguali o maggiori sono rifiutati. Uguale non è un errore grave ma non è una scelta, e più lunga non si può per scelta di prodotto. **Perché**: motivazione obbligatoria, che finisce nel registro con chi l'ha disposta (ALBO-04, ALBO-10), e così ogni cambio e ogni rimozione. **Alla pubblicazione** la durata propria si riverifica contro la configurazione vigente in quell'istante: se nel frattempo il tipo è diventato di origine normativa, o la durata configurata non è più maggiore di quella propria, la pubblicazione è rifiutata con quella ragione e l'atto resta in verifica, da rimandare in bozza per una nuova valutazione |
 | Numero di repertorio (es. 123/2026) | dalla pubblicazione | riga nella tabella delle assegnazioni, più il contatore dell'anno | **solo il sistema**, alla prima pubblicazione, in modo atomico. Nel primo anno d'uso solo dopo la dichiarazione della partenza (ALBO-08) |
-| Stato | sì | stato del contenuto | il flusso di pubblicazione, mai a mano nel database |
-| Conferma del controllo dati personali | sì per pubblicare | metadato con utente e data | **chi pubblica**, nel passaggio da in verifica a pubblicato, tramite la schermata obbligata. Non chi redige: il controllo sta nel secondo dei due passaggi, ed è la ragione per cui i passaggi sono due (ALBO-11) |
+| Stato | sì | stato del contenuto: `draft` per la bozza, `pending` per la verifica, `publish` per il pubblicato | il flusso di pubblicazione, mai a mano nel database |
+| Conferma del controllo dati personali | sì per pubblicare | voce del registro delle modifiche, azione `conferma_dati_personali`, con chi l'ha data, l'istante e, nei dettagli, numero, anno, inizio e fine; scritta nella stessa transazione della pubblicazione | **chi pubblica**, nel passaggio da in verifica a pubblicato, tramite la schermata obbligata. Non chi redige: il controllo sta nel secondo dei due passaggi, ed è la ragione per cui i passaggi sono due (ALBO-11) |
 | Documento principale | sì per pubblicare | file in cartella protetta più impronta (hash) in metadato | redattore prima della pubblicazione, poi bloccato. È uno e uno solo |
 | Allegati ulteriori | no | come sopra | redattore. Possono non esserci: un atto con il solo documento principale si pubblica |
+| Motivo del rimando in bozza | quando ricorre | voce del registro delle modifiche, azione `rimando_in_bozza`, con il motivo com'è stato scritto e chi l'ha scritto | chi pubblica. Obbligatorio: senza, l'atto resta in verifica |
 | Motivo di annullamento | quando ricorre | metadato più voce di registro | chi possiede `defissione atti`, che oggi fa parte dell'insieme di chi pubblica. Obbligatorio: senza, il passaggio è rifiutato |
 | Motivo di defissione anticipata | quando ricorre | metadato più voce di registro | **non è testo libero**: è una causa scelta da un elenco chiuso, perché accorciare il termine di un atto regolare non è consentito (art. 124 del TUEL; l'art. 134 offre un argomento interpretativo e non disciplina gli effetti di un'interruzione). L'elenco è chiuso per scelta di prodotto, ampliabile per configurazione: le fonti dicono quali cause sono pacifiche, non che altre non possano esistere. Resta **in via provvisoria** su un solo fronte, cioè se la defissione anticipata vada riservata a un responsabile distinto, e la capability separata è ciò che permetterà di riservarla senza toccare il codice |
 | Effetto della rimozione sul periodo | quando ricorre, cioè solo dopo una defissione anticipata | voce di registro | chi possiede `defissione atti`. **Lo decide l'amministrazione, non il componente**: le fonti impongono che la diffusione vietata cessi e tacciono su che cosa ne sia dell'adempimento, quindi il componente non lo calcola e non lo presume. È una scelta fra due valori, **la pubblicazione vale per il periodo trascorso** oppure **la pubblicazione va rifatta**, senza valore preselezionato. **La rimozione non la aspetta**: si rende insieme alla defissione anticipata oppure dopo, una volta sola, e non si cambia. Finché manca, il referto dice che non è stata dichiarata (ALBO-07). Nessuno dei due valori tocca date, stato, numero di repertorio o visibilità, e "va rifatta" non crea da sé un atto nuovo: la nuova pubblicazione è un atto nuovo con il suo numero. Non si rende dove non c'è stata una rimozione anticipata: non dopo la scadenza naturale, non dopo una sola sostituzione per oscuramento, dove il conteggio non riparte per scelta di prodotto (ALBO-12). Si lega all'evento della defissione anticipata registrato e non allo stato del momento, quindi resta possibile dopo un annullamento; il compito pianificato non la tocca. Non chiede un perché: basta il valore |
@@ -170,10 +173,10 @@ Questa è la mappa delle azioni:
 | Azione | Capability dedicata | Note |
 |---|---|---|
 | Creare e modificare bozze | gestione atti | |
-| Pubblicare (con controllo dati personali) | pubblicazione atti | la conferma resta registrata con nome e data |
+| Pubblicare (con controllo dati personali), rimandare in bozza | pubblicazione atti | la conferma e il motivo del rimando restano registrati con nome e istante |
 | Defissione anticipata, annullamento, dichiarazione dell'effetto della rimozione sul periodo | defissione atti | motivo obbligatorio per i primi due; per la dichiarazione, uno dei due valori ammessi. **Oggi questa capability fa parte dell'insieme di chi pubblica**, ed è per questo che la tabella delle transizioni attribuisce i due passaggi a chi pubblica. Tenerla separata di nome è ciò che permetterà di riservare la defissione anticipata a un responsabile distinto, se la sotto-decisione aperta si chiuderà in quel senso, senza cambiare il codice |
 | Consultare gli atti defissi dall'amministrazione | archivio atti | **funzione successiva, oggi non costruita.** Non fa tornare a rispondere l'indirizzo pubblico dell'atto: quello resta irraggiungibile per chiunque, permessi compresi |
-| Consultare il registro delle operazioni | lettura registro (di core) | |
+| Consultare il registro delle operazioni | lettura registro (di core) | il meccanismo comune non la dà a nessuno; l'albo la aggiunge all'insieme di chi pubblica, all'installazione e a ogni aggiornamento |
 | Configurare tipi di atto e durate | amministrazione albo | |
 | Cancellare un atto pubblicato | **nessuna**: vietato per tutti | la voce non esiste proprio |
 | Vedere un atto pubblicato e non scaduto | nessuna: pubblico | |
@@ -199,7 +202,9 @@ Questa è la mappa delle azioni:
   rigenera e non si modifica; si ristampa.
 - **Registro delle modifiche** (tabella di core): una voce per ogni operazione
   rilevante, solo in aggiunta. Contiene l'identificativo dell'utente, mai altri dati
-  personali.
+  personali. **Costruito dall'interfaccia `1.4.0`**: i passaggi di stato li registra il
+  meccanismo comune da sé; l'albo aggiunge la conferma della pubblicazione e il motivo del
+  rimando in bozza.
 - **Battito** (di core): il timestamp dell'ultima esecuzione riuscita del cron.
 - **Configurazione**: tipi di atto con durata in giorni (obbligatoria per tipo),
   elenco delle amministrazioni ospitate (vuoto finché non se ne aggiunge una, ALBO-29),

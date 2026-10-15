@@ -97,6 +97,7 @@ function albo_pretorio_prepara_suite( bool $con_core, bool $avvio_automatico = t
 
 			require_once __DIR__ . '/ambiente-albo.php';
 			require_once __DIR__ . '/deposito-di-prova.php';
+			require_once __DIR__ . '/flusso-di-prova.php';
 
 			if ( ! $avvio_automatico ) {
 				remove_action( 'plugins_loaded', array( 'AlboPretorioPa\\Avvio', 'da_plugins_loaded' ) );

@@ -202,7 +202,7 @@ final class Rifiuti {
 
 		printf(
 			'<div class="notice notice-error"><p>%s</p></div>',
-			esc_html__( 'La pubblicazione e\' stata rifiutata e l\'atto e\' rimasto in bozza. Il dettaglio non e\' piu\' disponibile: riprovare per rivederlo.', 'albo-pretorio-pa' )
+			esc_html__( 'La richiesta e\' stata rifiutata, e il dettaglio non e\' piu\' disponibile: riprovare per rivederlo. Un atto in bozza resta in bozza, uno in verifica o pubblicato resta com\'era.', 'albo-pretorio-pa' )
 		);
 	}
 

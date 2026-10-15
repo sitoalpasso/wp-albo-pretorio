@@ -134,21 +134,33 @@ final class DocumentiAtto {
 		}
 
 		$allegato = (int) $allegato;
+		$vecchio  = null;
 
 		if ( self::PRINCIPALE === $ruolo ) {
 			$vecchio = self::principale( $atto_id );
-
-			update_post_meta( $atto_id, META_DOCUMENTO_PRINCIPALE, $allegato );
-
-			// Si cancella solo un documento di questo atto: il dato memorizzato non si crede.
-			if ( null !== $vecchio ) {
-				wp_delete_attachment( $vecchio, true );
-			}
+			$scritto = update_post_meta( $atto_id, META_DOCUMENTO_PRINCIPALE, $allegato );
 		} else {
 			$ulteriori   = self::ulteriori( $atto_id );
 			$ulteriori[] = $allegato;
+			$scritto     = update_post_meta( $atto_id, META_ALLEGATI_ULTERIORI, $ulteriori );
+		}
 
-			update_post_meta( $atto_id, META_ALLEGATI_ULTERIORI, $ulteriori );
+		/*
+		 * **Il dato dell'atto decide, non il controllo di prima.** Fra il
+		 * controllo e la scrittura un'altra richiesta puo' aver mandato l'atto
+		 * in verifica o averlo pubblicato, e allora il dato non si scrive: il
+		 * documento appena depositato non e' di nessuno e si toglie, e il
+		 * vecchio resta al suo posto.
+		 */
+		if ( false === $scritto ) {
+			wp_delete_attachment( $allegato, true );
+
+			return self::non_in_bozza();
+		}
+
+		// Si cancella solo un documento di questo atto: il dato memorizzato non si crede.
+		if ( null !== $vecchio ) {
+			wp_delete_attachment( $vecchio, true );
 		}
 
 		return $allegato;
@@ -171,14 +183,19 @@ final class DocumentiAtto {
 		$ulteriori = self::ulteriori( $atto_id );
 
 		if ( self::principale( $atto_id ) === $allegato_id ) {
-			delete_post_meta( $atto_id, META_DOCUMENTO_PRINCIPALE );
+			$scritto = delete_post_meta( $atto_id, META_DOCUMENTO_PRINCIPALE );
 		} elseif ( in_array( $allegato_id, $ulteriori, true ) ) {
-			update_post_meta( $atto_id, META_ALLEGATI_ULTERIORI, array_values( array_diff( $ulteriori, array( $allegato_id ) ) ) );
+			$scritto = update_post_meta( $atto_id, META_ALLEGATI_ULTERIORI, array_values( array_diff( $ulteriori, array( $allegato_id ) ) ) );
 		} else {
 			return new \WP_Error(
 				'albo_documento_non_dell_atto',
 				__( 'Documento non tolto: non e\' un documento di questo atto.', 'albo-pretorio-pa' )
 			);
+		}
+
+		// Il documento si cancella solo se il dato dell'atto e' cambiato davvero: altrimenti l'atto non e' piu' in bozza.
+		if ( false === $scritto ) {
+			return self::non_in_bozza();
 		}
 
 		wp_delete_attachment( $allegato_id, true );
@@ -203,13 +220,22 @@ final class DocumentiAtto {
 		}
 
 		if ( ! in_array( $atto->post_status, self::STATI_MODIFICABILI, true ) ) {
-			return new \WP_Error(
-				'albo_documenti_non_in_bozza',
-				__( 'Documenti non modificati: si caricano e si tolgono solo mentre l\'atto e\' in bozza.', 'albo-pretorio-pa' )
-			);
+			return self::non_in_bozza();
 		}
 
 		return true;
+	}
+
+	/**
+	 * Il rifiuto di un deposito o di una rimozione su un atto che non e' in bozza.
+	 *
+	 * @return \WP_Error
+	 */
+	private static function non_in_bozza(): \WP_Error {
+		return new \WP_Error(
+			'albo_documenti_non_in_bozza',
+			__( 'Documenti non modificati: si caricano e si tolgono solo mentre l\'atto e\' in bozza.', 'albo-pretorio-pa' )
+		);
 	}
 
 	/**

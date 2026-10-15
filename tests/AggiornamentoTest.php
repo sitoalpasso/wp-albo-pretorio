@@ -31,7 +31,7 @@ class AggiornamentoTest extends WP_UnitTestCase {
 	 *
 	 * @var string
 	 */
-	const VERSIONE_PRECEDENTE = '0.1.0-alpha';
+	const VERSIONE_PRECEDENTE = '0.3.0-alpha';
 
 	/**
 	 * Registri e ruoli riportati allo stato iniziale.
