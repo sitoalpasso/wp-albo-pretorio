@@ -3,8 +3,8 @@
 Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro finito con
 com'è andata davvero.
 
-**Stato: in costruzione.** Requisito ALBO-32, righe di collaudo A-139..A-143 e
-A-156..A-164.
+**Stato: costruita, in attesa di revisione.** Requisito ALBO-32, righe di collaudo
+A-139..A-143 e A-156..A-164, tutte a fatto. Com'è andata davvero è in fondo.
 
 ## In tre paragrafi
 
@@ -173,3 +173,38 @@ domenica, e che quella del primo non sia cambiata.
    scritto nel codice, che invecchia; ma senza proposta ogni amministrazione dovrebbe
    ricopiarlo a mano, con più errori. **Proposta**: tenerla, con la data della versione
    scritta accanto. Alternativa: campo vuoto e l'elenco come esempio in un riquadro sotto.
+
+## Com'è andata davvero
+
+**Differenze dal piano.**
+
+- La proposta delle feste nazionali non sta nel codice ma nel file di dati
+  `dati/feste-nazionali.txt`, nella stessa forma del campo: è un elenco che cambia per
+  legge, e così si aggiorna senza toccare il codice.
+- Il registro delle modifiche accetta nei dettagli solo testi, numeri o elenchi di questi:
+  i festivi saltati si scrivono come elenco di testi `AAAA-MM-GG (descrizione)`, per
+  esempio `2041-11-03 (Domenica)`.
+- Pasqua si calcola dall'epatta gregoriana nella forma di Knuth. La forma più diffusa
+  (Meeus) contiene il numero 15 come costante del calcolo, e la prova statica A-57, che
+  cerca nei sorgenti il 15 come durata cablata, la segnalava: le due forme danno la stessa
+  data in ogni anno dal 1583 al 9999, verificato confrontandole una per una.
+- La scelta mancante si controlla due volte nella proroga: all'ingresso, prima di prendere
+  il turno, e nel calcolo degli atti. Tolta una delle due, l'altra regge: per questo il
+  guasto che toglie la prima non fa diventare rossa nessuna prova.
+- La descrizione di una riga si ripulisce dai segni di formattazione invece di rifiutarla;
+  una descrizione che resta vuota si rifiuta.
+- Le prove esistenti partono con la scelta "lasciare la fine dove cade" già fatta, così
+  le loro date non cambiano; l'avviso dei festivi è escluso dalle osservazioni della
+  bacheca che non lo chiedono, come quello della numerazione.
+
+**Prova dei guasti.** Quattordici guasti introdotti uno per volta nel codice; tredici visti
+da almeno una prova: scelta mancante trattata come spento (A-139, A-162); domenica non
+riconosciuta (A-140, A-161); inizio in tempo universale (A-140 e sette righe della
+pubblicazione); Pasqua sbagliata di un giorno (A-157); proroga senza slittamento (A-142,
+A-161, A-163); riga non nella forma normale accettata (A-162); riga sbagliata saltata
+invece di rifiutare tutto (A-160); scelta preselezionata nella schermata (A-139, A-158);
+gettone non controllato e permesso non controllato (A-159); avviso mostrato anche a chi
+redige (A-164); fine calcolata non scritta nel registro (A-161); giorno singolo trattato
+come annuale (A-140, A-161). Il quattordicesimo è la doppia difesa della proroga detta
+sopra. Al primo giro la riga non normale era sfuggita: A-162 costruiva i casi cambiando
+l'ordine delle chiavi, e il rifiuto arrivava da quello; ora ogni caso cambia una cosa sola.
