@@ -613,6 +613,14 @@ final class Passaggi {
 			try {
 				$esito = self::proroga_dentro( $controllo, self::ora() );
 			} finally {
+				/*
+				 * Le concessioni sugli atti finiscono con la transazione, prima
+				 * del rilascio: un aggancio che scrive durante il rilascio non ha
+				 * piu' niente da usare. Il fermo dell'operazione resta fino alla
+				 * fine, contro i passaggi annidati.
+				 */
+				self::$in_corso = array();
+
 				// Anche dopo un'eccezione: il turno non resta preso da una proroga finita.
 				$rilascio = self::lascia_turno();
 
