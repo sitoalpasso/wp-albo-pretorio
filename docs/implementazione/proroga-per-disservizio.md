@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro
 com'è andata davvero.
 
 **Stato: costruita, sulla proposta del punto aperto 1, che aspetta conferma.** Requisito
-ALBO-31, righe di collaudo A-127..A-138 e A-147..A-150, tutte a fatto tranne A-134 (il
+ALBO-31, righe di collaudo A-127..A-138 e A-147..A-152, tutte a fatto tranne A-134 (il
 referto). Com'è andata davvero è in fondo.
 
 ## In tre paragrafi
@@ -126,7 +126,7 @@ sicurezza. Nessun permesso nuovo.
 
 ### 7. Prove che si aggiungeranno
 
-Righe A-127..A-138 e A-147..A-150 di `collaudo.md`. A-134, il referto, resta da fare finché non esiste il
+Righe A-127..A-138 e A-147..A-152 di `collaudo.md`. A-134, il referto, resta da fare finché non esiste il
 referto (ALBO-07). A-142, slittamento ai festivi dopo una proroga, appartiene a ALBO-32 e si
 chiude con quella unità.
 
@@ -202,6 +202,34 @@ Guasti del secondo giro, tutti visti: calcolo prima del turno (A-149), turno non
 (A-149), fermo legato ai soli atti (A-150), codice dell'anteprima non controllato o
 comune a tutti gli utenti (A-147), anteprima non consumata (A-147), risultato mostrato non
 passato o non confrontato (A-148).
+
+**Terzo giro: altri tre rilievi, corretti.**
+
+- *La transazione di chi chiama.* Se un programma chiama la proroga dentro una sua
+  transazione, la proroga non ne apre una nuova ma mette un punto di ripristino, e legge i
+  dati come la transazione di quel programma li ha visti la prima volta: se nel frattempo
+  un'altra richiesta ha confermato una proroga, il calcolo partirebbe dalla fine vecchia.
+  Ora, prima di calcolare, la proroga legge gli atti, le date di fine e le voci di registro
+  dell'albo due volte: una bloccandoli, che aspetta le scritture in corso e vede l'ultima
+  versione confermata, e una come le legge il calcolo. Se differiscono si rifiuta senza
+  scrivere niente. I blocchi restano fino alla chiusura della transazione di chi chiama,
+  anche dopo che il turno è stato lasciato, e la proroga successiva li aspetta con le
+  stesse letture. Nella transazione aperta dalla proroga stessa le due letture coincidono
+  sempre. A-151.
+- *Il turno non lasciato.* Il rilascio del turno non si controllava. Ora si legge la
+  risposta della banca dati: se non conferma, la proroga, già confermata, lo dice con un
+  rifiuto che porta l'esito e spiega che il turno si libera alla chiusura della
+  connessione. Un'eccezione di un altro componente durante il rilascio non salta più lo
+  svuotamento della memoria: esce dopo, con un messaggio che dice che la proroga è
+  confermata. A-152.
+- *La prova del turno.* A-149 ora controlla con una seconda connessione vera che il turno
+  resti preso mentre la proroga scrive, e che si liberi dopo.
+
+Guasti del terzo giro: confronto delle due letture tolto, letture che non bloccano (A-151);
+turno lasciato subito dopo averlo preso (A-149, A-152); rilascio non verificato, eccezione
+del rilascio non trattenuta (A-152), tutti visti. Uno resta verde, e si sa perché: tolto lo
+svuotamento della memoria dopo un'eccezione del rilascio, la memoria della data di fine è
+già pulita lo stesso, da `blocca()` e dalla scrittura del meccanismo comune.
 
 **Limiti dichiarati.** Come nei passaggi già costruiti, quello che altri componenti fanno
 negli agganci durante la scrittura non si ritira con un annullamento se esce dalla banca

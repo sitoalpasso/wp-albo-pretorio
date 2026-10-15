@@ -570,8 +570,9 @@ Stesso prefisso `A-`. Le righe di ALBO-31 sono quelle della scheda
 [`proroga-per-disservizio.md`](implementazione/proroga-per-disservizio.md), provate in
 `tests/ProrogaTest.php`; quelle di ALBO-32 e ALBO-33 aspettano le loro unità. La riga sul
 referto (A-134) aspetta ALBO-07. A-135 prova la proposta del punto aperto 1 della scheda,
-ancora da confermare. A-147..A-150 sono di ALBO-31, aggiunte dopo le altre: la conferma
-legata all'anteprima, una proroga alla volta e il fermo degli altri passaggi.
+ancora da confermare. A-147..A-152 sono di ALBO-31, aggiunte dopo le altre: la conferma
+legata all'anteprima, una proroga alla volta, il fermo degli altri passaggi, la transazione
+di chi chiama e il turno non lasciato.
 
 | ID | Stato | Caso | Atteso |
 |---|---|---|---|
@@ -597,8 +598,10 @@ legata all'anteprima, una proroga alla volta e il fermo degli altri passaggi.
 | A-146 | da fare | Ogni schermata di impostazione del componente (regola delle scelte dell'amministrazione) | ciascuna contiene la norma per estremi, le scelte e gli effetti per il cittadino e per chi redige, e nessuna opzione preselezionata |
 | A-147 | fatto | [attacco] **Conferma della schermata**: senza codice dell'anteprima, con un codice inventato, con il codice di un altro utente, con il codice di un'anteprima sostituita da una più recente, con i campi del modulo cambiati dopo l'anteprima, due volte con lo stesso codice | rifiutata in tutti i casi tranne i campi cambiati, dove si dispone l'anteprima mostrata (giorni e attestazione di quella) e non i campi; il secondo invio dello stesso codice è rifiutato perché l'anteprima è già stata usata |
 | A-148 | fatto | **Anteprima superata**: fra anteprima e conferma un'altra proroga cambia la fine dell'atto; oppure passa la mezzanotte e la fine nuova di un atto già uscito dalla vista cambia; oppure, da codice, il risultato atteso non coincide | niente scritto, il motivo chiede di rifare l'anteprima; un'anteprima nuova mostra lo stato di adesso e si conferma |
-| A-149 | fatto | [attacco] **Due proroghe insieme**: mentre una aspetta il suo turno, un'altra richiesta conferma la sua sullo stesso atto (fine dal 16 al 17) | la proroga calcola dalla fine confermata: due giorni portano al 19, non al 18, e il registro dice fine precedente 17. Il turno è lasciato alla fine |
+| A-149 | fatto | [attacco] **Due proroghe insieme**: mentre una aspetta il suo turno, un'altra richiesta conferma la sua sullo stesso atto (fine dal 16 al 17); mentre la proroga scrive, una seconda connessione prova a prendere il turno | la proroga calcola dalla fine confermata: due giorni portano al 19, non al 18, e il registro dice fine precedente 17. La seconda connessione non prende il turno finché la proroga scrive, e lo prende subito dopo |
 | A-150 | fatto | [attacco] Proroga di due giorni che non tocca nessun atto; prima di scrivere il secondo giorno un aggancio prova a rimandare in bozza un atto in verifica, poi quella scrittura fallisce | il rimando è rifiutato come passaggio annidato, l'atto resta com'era, nessuna voce della proroga resta scritta |
+| A-151 | fatto | [attacco] Proroga chiamata dentro la transazione di un altro programma, che ha già letto la fine (16) prima che una seconda connessione confermasse un'altra proroga (17) | rifiutata senza scrivere niente: non calcola sulla fine vecchia. Fuori da quella transazione la stessa proroga porta la fine al 19, con fine precedente 17 |
+| A-152 | fatto | [attacco] Il turno delle proroghe che la banca dati non conferma di lasciare; poi un'eccezione di un altro componente durante il rilascio | la proroga è confermata e il rifiuto lo dice, con l'esito; la memoria degli atti prorogati è svuotata; il turno è davvero ancora preso, come dice il messaggio. Con l'eccezione, la stessa cosa detta da un'eccezione che dice che la proroga è confermata. La proroga successiva si fa |
 
 ## Collaudo congiunto con la trasparenza
 
