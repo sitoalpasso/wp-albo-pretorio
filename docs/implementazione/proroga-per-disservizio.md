@@ -314,6 +314,16 @@ voce di atto (A-137).
 Guasti dell'ottavo giro, tutti visti: svuotamento tolto dall'uscita del recupero (A-152);
 svuotamento tolto dall'annullamento (A-137).
 
+**Nono giro: un difetto, corretto.**
+
+- *La memoria dopo la pulizia finale.* Dopo la conferma la memoria si svuota atto per atto,
+  facendo girare gli agganci degli altri componenti; un aggancio alla pulizia del secondo
+  atto poteva rimettere in memoria la fine vecchia del primo, già pulito. Ora la pulizia di
+  ogni atto finisce con lo svuotamento intero, che non fa girare agganci, su ogni uscita:
+  vale per la proroga e per gli altri passaggi. A-152.
+
+Guasto del nono giro, visto: svuotamento intero tolto dalla fine della pulizia (A-152).
+
 **Limiti dichiarati.** Come nei passaggi già costruiti, quello che altri componenti fanno
 negli agganci durante la scrittura non si ritira con un annullamento se esce dalla banca
 dati. La proroga non si annulla.
