@@ -570,9 +570,10 @@ Stesso prefisso `A-`. Le righe di ALBO-31 sono quelle della scheda
 [`proroga-per-disservizio.md`](implementazione/proroga-per-disservizio.md), provate in
 `tests/ProrogaTest.php`; quelle di ALBO-32 e ALBO-33 aspettano le loro unità. La riga sul
 referto (A-134) aspetta ALBO-07. A-135 prova la proposta del punto aperto 1 della scheda,
-ancora da confermare. A-147..A-153 sono di ALBO-31, aggiunte dopo le altre: la conferma
+ancora da confermare. A-147..A-154 sono di ALBO-31, aggiunte dopo le altre: la conferma
 legata all'anteprima, una proroga alla volta, il fermo degli altri passaggi, la transazione
-di chi chiama, il turno non lasciato e il nome nell'indirizzo.
+di chi chiama, il turno non lasciato, il nome nell'indirizzo e le scritture durante il
+rilascio del turno.
 
 | ID | Stato | Caso | Atteso |
 |---|---|---|---|
@@ -586,7 +587,7 @@ di chi chiama, il turno non lasciato e il nome nell'indirizzo.
 | A-134 | da fare | Referto (ALBO-07) di un atto prorogato | riporta la proroga, l'attestazione e la fine effettiva |
 | A-135 | fatto | **Atto già uscito dalla vista** (punto aperto 1 della scheda): fine il giorno 10, giorno 10 sotto soglia, proroga disposta il giorno 13 | la fine nuova è il 14: i giorni mancanti si contano dal giorno della proroga, che non conta, e non dalla fine vecchia, che li farebbe cadere nel passato. L'atto torna consultabile fino al 14. Una proroga successiva non conta come sotto soglia gli 11, 12 e 13, in cui l'atto non era in pubblicazione |
 | A-136 | fatto | Proroga che ripete un giorno già attestato in una proroga precedente, da sola e insieme a un giorno nuovo | rifiutata per intero, con il giorno ripetuto nel motivo: nessun atto riceve due volte lo stesso giorno |
-| A-137 | fatto | [attacco] **Tutto o niente su più atti**: tre atti da prorogare, la fine del secondo non si scrive; poi la voce di registro del terzo; poi la voce della proroga | nessun atto cambia, nessuna voce scritta, la proroga non risulta disposta e i suoi giorni restano attestabili |
+| A-137 | fatto | [attacco] **Tutto o niente su più atti**: tre atti da prorogare, la fine del secondo non si scrive; poi la voce di registro del terzo; poi la voce della proroga | nessun atto cambia, nessuna voce scritta, la proroga non risulta disposta e i suoi giorni restano attestabili. Se un aggancio comune ha letto la fine tentata del primo atto, dopo l'annullamento la memoria dice la fine vera, prima di qualunque pulizia della prova |
 | A-138 | fatto | **Anteprima** nella schermata: giorni e attestazione inseriti, prima della conferma; poi una proroga che non tocca nessun atto | l'anteprima elenca gli atti che saranno prorogati, con numero, fine attuale e fine nuova, e non scrive niente. Senza atti lo dice, e confermata la proroga si registra lo stesso, con i suoi giorni |
 | A-139 | da fare | Festivi (ALBO-32), scelta non ancora fatta | la pubblicazione è rifiutata con una frase che rimanda alla schermata; la schermata non ha nessuna opzione preselezionata |
 | A-140 | da fare | Slittamento acceso, fine calcolata di domenica, poi in un festivo dell'elenco, poi in un festivo seguito da domenica | la fine va al primo giorno non festivo in tutti e tre i casi, nel fuso del sito |
@@ -603,6 +604,7 @@ di chi chiama, il turno non lasciato e il nome nell'indirizzo.
 | A-151 | fatto | [attacco] Proroga chiamata dentro la transazione di un altro programma, che ha già letto la fine (16) prima che una seconda connessione confermasse un'altra proroga (17) | rifiutata senza scrivere niente: non calcola sulla fine vecchia. Fuori da quella transazione la stessa proroga porta la fine al 19, con fine precedente 17 |
 | A-152 | fatto | [attacco] Il turno delle proroghe che la banca dati non conferma di lasciare; poi un'eccezione di un altro componente durante il rilascio | la proroga è confermata e il rifiuto lo dice, con l'esito; la memoria degli atti prorogati è svuotata; il turno è davvero ancora preso, come dice il messaggio. La proroga successiva sulla stessa connessione, senza nessun intervento, recupera la presa rimasta e lascia il turno libero alle altre connessioni. Con l'eccezione, la stessa cosa detta da un'eccezione che dice che la proroga è confermata, e la memoria svuotata anche della fine che un componente vi ha rimesso. Con una seconda presa dello stesso turno sulla stessa connessione, il rilascio della proroga riesce ma il turno non è libero, e l'esito lo dice. Dopo una proroga annullata, per una scrittura fallita o per un'eccezione durante le scritture, un componente che durante il rilascio rimette in memoria la fine tentata e solleva un'eccezione non lascia quella fine in memoria; resta l'errore della proroga, o la sua eccezione |
 | A-153 | fatto | [attacco] Atto pubblicato senza nome nell'indirizzo, come uno importato; durante la proroga un componente gli assegna il nome ; poi lo scrive scavalcando il guardiano | rifiutata, niente cambia: il nome nell'indirizzo lo genera solo la pubblicazione. Il guardiano ferma la scrittura subito, prima del controllo finale; scritto scavalcando il guardiano, lo vede il controllo finale e annulla. Senza il componente la proroga si fa e il nome resta vuoto |
+| A-154 | fatto | [attacco] Durante il rilascio del turno, dopo un annullamento e poi dopo una conferma, un componente prova a cancellare la data di fine, a scriverne un'altra e a rimandare in bozza un atto in verifica | tutto rifiutato: le concessioni sugli atti finiscono con la transazione, prima del rilascio, e il fermo dell'operazione resta fino alla fine. Dopo l'annullamento la fine è quella di prima; dopo la conferma è quella della proroga, con una sola modifica nel registro |
 
 ## Collaudo congiunto con la trasparenza
 

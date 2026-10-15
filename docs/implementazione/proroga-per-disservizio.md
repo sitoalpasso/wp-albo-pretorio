@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro
 com'è andata davvero.
 
 **Stato: costruita, sulla proposta del punto aperto 1, che aspetta conferma.** Requisito
-ALBO-31, righe di collaudo A-127..A-138 e A-147..A-153, tutte a fatto tranne A-134 (il
+ALBO-31, righe di collaudo A-127..A-138 e A-147..A-154, tutte a fatto tranne A-134 (il
 referto). Com'è andata davvero è in fondo.
 
 ## In tre paragrafi
@@ -126,7 +126,7 @@ sicurezza. Nessun permesso nuovo.
 
 ### 7. Prove che si aggiungeranno
 
-Righe A-127..A-138 e A-147..A-153 di `collaudo.md`. A-134, il referto, resta da fare finché non esiste il
+Righe A-127..A-138 e A-147..A-154 di `collaudo.md`. A-134, il referto, resta da fare finché non esiste il
 referto (ALBO-07). A-142, slittamento ai festivi dopo una proroga, appartiene a ALBO-32 e si
 chiude con quella unità.
 
@@ -263,6 +263,21 @@ Guasti del quinto giro, tutti visti: svuotamento dopo il rilascio mancato tolto 
 concessione del nome riportata a ogni passaggio nel solo guardiano, poi nel solo controllo
 finale (A-153). Lo svuotamento atto per atto dopo un'eccezione del rilascio, tolto, ora resta
 verde: lo copre lo svuotamento intero, che viene prima.
+
+**Sesto giro: un difetto e una prova, corretti.**
+
+- *Le concessioni durante il rilascio.* Le concessioni sugli atti prorogati, che lasciano
+  scrivere la sola data di fine attesa, restavano attive durante il rilascio del turno,
+  quando la transazione era già confermata o annullata: un aggancio poteva cancellare la
+  fine, o scrivere quella tentata dopo un annullamento, senza controllo finale e senza
+  registro. Ora le concessioni finiscono con la transazione, prima del rilascio; il fermo
+  dell'operazione resta fino alla fine, contro i passaggi annidati. A-154.
+- *La memoria dopo l'annullamento.* A-137 guardava gli atti con la fotografia, che pulisce
+  la memoria prima di leggere: ora un aggancio legge la fine tentata durante la scrittura, e
+  la prova guarda la memoria prima di qualunque pulizia.
+
+Guasti del sesto giro, tutti visti: concessioni tolte dopo il rilascio, fermo tolto insieme
+alle concessioni (A-154); svuotamento della memoria tolto dall'annullamento (A-137).
 
 **Limiti dichiarati.** Come nei passaggi già costruiti, quello che altri componenti fanno
 negli agganci durante la scrittura non si ritira con un annullamento se esce dalla banca
