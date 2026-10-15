@@ -1,6 +1,6 @@
 <?php
 /**
- * Proroga per disservizio: righe A-127..A-138 e A-147..A-154 (ALBO-31).
+ * Proroga per disservizio: righe A-127..A-138 e A-147..A-155 (ALBO-31).
  *
  * Gli atti si pubblicano con il passaggio vero, a orologio fissato; poi
  * l'orologio va avanti e la proroga si dispone da codice o dalla schermata.
@@ -601,8 +601,9 @@ class ProrogaTest extends \WP_UnitTestCase {
 
 		$chiave    = conformita_core_chiave_fine_pubblicazione();
 		$secondo   = $atti[1];
-		$terzo     = $atti[2];
 		$tabella   = $wpdb->prefix . 'conformita_core_registro';
+		$passate   = 0;
+		$bloccate  = 0;
 		$richiesta = array(
 			'giorni'       => array( '2041-10-05' ),
 			'attestazione' => 'Attestazione',
@@ -617,8 +618,21 @@ class ProrogaTest extends \WP_UnitTestCase {
 			),
 			'voce del terzo'     => array(
 				'query',
-				static function ( $istruzione ) use ( $tabella, $terzo ) {
-					return ( is_string( $istruzione ) && 0 === strpos( $istruzione, 'INSERT INTO `' . $tabella . '`' ) && false !== strpos( $istruzione, "'" . Proroga::AZIONE_ATTO . "'" ) && false !== strpos( $istruzione, (string) $terzo ) ) ? '' : $istruzione;
+				static function ( $istruzione ) use ( $tabella, &$passate, &$bloccate ) {
+					if ( ! is_string( $istruzione ) || 0 !== strpos( $istruzione, 'INSERT INTO `' . $tabella . '`' ) || false === strpos( $istruzione, "'" . Proroga::AZIONE_ATTO . "'" ) ) {
+						return $istruzione;
+					}
+
+					// La voce del terzo atto e' l'unica con la fine nuova del 19: i primi due vanno al 17 e al 18.
+					if ( false !== strpos( $istruzione, '2041-10-19' ) ) {
+						++$bloccate;
+
+						return '';
+					}
+
+					++$passate;
+
+					return $istruzione;
 				},
 				1,
 			),
@@ -656,6 +670,8 @@ class ProrogaTest extends \WP_UnitTestCase {
 
 			$this->nessuna_proroga( $caso );
 		}
+
+		$this->assertSame( array( 2, 1 ), array( $passate, $bloccate ), 'Il guasto e\' arrivato proprio alla voce del terzo, dopo quelle dei primi due.' );
 
 		// Tolti i guasti, il giorno e' ancora attestabile.
 		$esito = $this->proroga( $this->pubblicatore, $richiesta );
@@ -1430,6 +1446,34 @@ class ProrogaTest extends \WP_UnitTestCase {
 			$this->nessuna_proroga( $caso );
 		}
 
+		// Rilascio riuscito, con il componente che rimette in memoria la fine tentata senza sollevare niente.
+		while ( '1' === (string) $wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', $turno ) ) ) {
+			continue;
+		}
+
+		$rimette = static function ( $istruzione ) use ( $id, $chiave ) {
+			if ( is_string( $istruzione ) && false !== strpos( $istruzione, 'RELEASE_LOCK' ) ) {
+				wp_cache_set( $id, array( $chiave => array( '2041-10-17' ) ), 'post_meta' );
+			}
+
+			return $istruzione;
+		};
+
+		add_filter( 'query', $guasti['scrittura fallita'] );
+		add_filter( 'query', $rimette );
+
+		try {
+			$esito = $this->proroga( $this->pubblicatore, $richiesta );
+		} finally {
+			remove_filter( 'query', $guasti['scrittura fallita'] );
+			remove_filter( 'query', $rimette );
+		}
+
+		$this->assertSame( array( 'albo_proroga_non_riuscita' ), array_slice( $esito->get_error_codes(), 0, 1 ) );
+		$this->assertNotContains( 'albo_proroga_turno_non_lasciato', $esito->get_error_codes(), 'Il rilascio e\' riuscito.' );
+		$this->assertSame( '2041-10-16', get_post_meta( $id, $chiave, true ), 'Rilascio riuscito: nessuna fine tentata in memoria.' );
+		$this->assertSame( '1', (string) $connessione->get_var( $connessione->prepare( 'SELECT IS_FREE_LOCK( %s )', $turno ) ) );
+
 		// La proroga successiva recupera il turno, si fa e lo lascia.
 		$this->assertIsArray( $this->proroga( $this->pubblicatore, $richiesta ) );
 		$this->assertSame( '2041-10-17', get_post_meta( $id, $chiave, true ) );
@@ -1569,5 +1613,88 @@ class ProrogaTest extends \WP_UnitTestCase {
 		$this->assertCount( $prima + 1, $this->voci_di( $id, array( 'azione' => 'modifica_fine_pubblicazione' ) ), 'Una sola modifica della fine, quella della proroga.' );
 		$this->assertCount( 1, $this->voci_di( $id, array( 'azione' => Proroga::AZIONE_ATTO ) ) );
 		$this->assertSame( 'pending', get_post_status( $in_verifica ) );
+	}
+
+	/**
+	 * A-155: finite le scritture, durante i controlli finali e la conferma, nessuna concessione resta sugli atti gia' controllati.
+	 */
+	public function test_a155_nessuna_concessione_durante_i_controlli(): void {
+		global $wpdb;
+
+		$primo   = $this->pubblicato_il( '2041-10-01 09:30:00' );
+		$secondo = $this->pubblicato_il( '2041-10-02 09:30:00' );
+
+		$this->fissa_orologi( '2041-10-08 11:00:00' );
+
+		$chiave  = conformita_core_chiave_fine_pubblicazione();
+		$tabella = $wpdb->prefix . 'conformita_core_registro';
+		$momenti = array(
+			// Il controllo finale del secondo atto, quando il primo e' gia' controllato.
+			'controlli' => static function ( string $istruzione ) use ( $wpdb, $secondo ): bool {
+				return 1 === preg_match( '/^\s*SELECT \* FROM `?' . preg_quote( $wpdb->posts, '/' ) . '`? WHERE ID = ' . $secondo . '\s*$/', $istruzione );
+			},
+			// La conferma.
+			'conferma'  => static function ( string $istruzione ): bool {
+				return 1 === preg_match( '/^\s*(COMMIT|RELEASE SAVEPOINT)/i', $istruzione );
+			},
+		);
+		$giorni  = array(
+			'controlli' => '2041-10-05',
+			'conferma'  => '2041-10-06',
+		);
+
+		foreach ( $momenti as $caso => $e_il_momento ) {
+			$scritte    = false;
+			$tentativi  = array();
+			$intromette = static function ( $istruzione ) use ( $wpdb, $tabella, $primo, $secondo, $chiave, $e_il_momento, &$scritte, &$tentativi ) {
+				if ( ! is_string( $istruzione ) || array() !== $tentativi ) {
+					return $istruzione;
+				}
+
+				// L'ultima scrittura della proroga e' la voce del secondo atto.
+				if ( 0 === strpos( $istruzione, 'INSERT INTO `' . $tabella . '`' ) && false !== strpos( $istruzione, "'" . Proroga::AZIONE_ATTO . "'" ) && false !== strpos( $istruzione, (string) $secondo ) ) {
+					$scritte = true;
+
+					return $istruzione;
+				}
+
+				if ( $scritte && $e_il_momento( $istruzione ) ) {
+					$tentativi = array( 'in corso' );
+					$tentativi = array(
+						'cancella' => delete_post_meta( $primo, $chiave ),
+						'diretta'  => $wpdb->delete(
+							$wpdb->postmeta,
+							array(
+								'post_id'  => $primo,
+								'meta_key' => $chiave, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- la scrittura dell'aggancio.
+							)
+						),
+					);
+				}
+
+				return $istruzione;
+			};
+
+			add_filter( 'query', $intromette );
+
+			try {
+				$esito = $this->proroga(
+					$this->pubblicatore,
+					array(
+						'giorni'       => array( $giorni[ $caso ] ),
+						'attestazione' => 'Attestazione',
+					)
+				);
+			} finally {
+				remove_filter( 'query', $intromette );
+			}
+
+			$this->assertArrayHasKey( 'cancella', $tentativi, $caso . ': precondizione, l\'aggancio ha provato.' );
+			$this->assertFalse( $tentativi['cancella'], $caso . ': la cancellazione con le funzioni di WordPress e\' rifiutata.' );
+			$this->assertSame( 0, $tentativi['diretta'], $caso . ': la cancellazione diretta non tocca niente.' );
+			$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+		}
+
+		$this->assertSame( array( '2041-10-18', '2041-10-19' ), array( conformita_core_fine_pubblicazione( $primo ), conformita_core_fine_pubblicazione( $secondo ) ), 'Tutti e due prorogati due volte, con la fine.' );
 	}
 }

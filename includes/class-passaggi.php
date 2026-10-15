@@ -177,7 +177,32 @@ final class Passaggi {
 	 * @return array<int, int>
 	 */
 	public static function atti_in_corso(): array {
-		return array_keys( self::$in_corso );
+		return array_keys(
+			array_filter(
+				self::$in_corso,
+				static function ( array $passaggio ): bool {
+					return empty( $passaggio['revocata'] );
+				}
+			)
+		);
+	}
+
+	/**
+	 * Toglie le concessioni sugli atti del passaggio, finite le scritture previste.
+	 *
+	 * Gli atti restano nel passaggio, cosi' che un rifiuto si annoti e il
+	 * passaggio annulli; ma nessuna scrittura e' piu' concessa, nemmeno quella
+	 * della data di fine, e la protezione delle istruzioni li considera di
+	 * nuovo fermi. Serve fra le scritture e i controlli finali: una scrittura
+	 * su un atto gia' controllato non passerebbe piu' da nessun controllo.
+	 */
+	private static function revoca_concessioni(): void {
+		foreach ( array_keys( self::$in_corso ) as $atto_id ) {
+			self::$in_corso[ $atto_id ]['fine']     = null;
+			self::$in_corso[ $atto_id ]['campi']    = array();
+			self::$in_corso[ $atto_id ]['usato']    = true;
+			self::$in_corso[ $atto_id ]['revocata'] = true;
+		}
 	}
 
 	/**
@@ -625,15 +650,13 @@ final class Passaggi {
 				$rilascio = self::lascia_turno();
 
 				/*
-				 * Un rilascio non riuscito, o con un'eccezione di un altro
-				 * componente, puo' aver lasciato in memoria dati che la banca
-				 * dati non ha, su ogni strada: confermata, annullata o interrotta
-				 * da un'eccezione. La memoria si svuota per intero, che non fa
-				 * girare agganci, prima di rispondere o di rilanciare.
+				 * Un componente agganciato al rilascio, riuscito o no, puo' aver
+				 * lasciato in memoria dati che la banca dati non ha, su ogni
+				 * strada: confermata, annullata o interrotta da un'eccezione. La
+				 * memoria si svuota per intero, che non fa girare agganci, prima
+				 * di rispondere o di rilanciare.
 				 */
-				if ( true !== $rilascio ) {
-					wp_cache_flush();
-				}
+				wp_cache_flush();
 			}
 		} finally {
 			self::$in_corso   = array();
@@ -1065,6 +1088,9 @@ final class Passaggi {
 					);
 				}
 			}
+
+			// Finite le scritture, prima dei controlli e della conferma: niente piu' e' concesso.
+			self::revoca_concessioni();
 
 			foreach ( $atti as $atto_id => $atto ) {
 				if ( is_wp_error( $esito ) ) {
