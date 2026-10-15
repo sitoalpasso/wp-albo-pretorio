@@ -4,8 +4,8 @@ Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro
 com'è andata davvero.
 
 **Stato: costruita, sulla proposta del punto aperto 1, che aspetta conferma.** Requisito
-ALBO-31, righe di collaudo A-127..A-138, tutte a fatto tranne A-134 (il referto). Com'è
-andata davvero è in fondo.
+ALBO-31, righe di collaudo A-127..A-138 e A-147..A-150, tutte a fatto tranne A-134 (il
+referto). Com'è andata davvero è in fondo.
 
 ## In tre paragrafi
 
@@ -63,8 +63,10 @@ spiega in poche righe la regola delle dodici ore e chiede due cose: i giorni sot
 attesta il disservizio (per esempio il numero di protocollo). Il pulsante **Anteprima**
 mostra, senza scrivere niente, l'elenco degli atti che saranno prorogati: numero, oggetto,
 fine attuale, fine nuova. Se nessun atto è toccato lo dice. Il pulsante **Disponi la
-proroga** la esegue. Sotto, l'elenco delle proroghe già disposte, con giorni, attestazione,
-chi e quando.
+proroga**, sotto l'anteprima, dispone quella e solo quella: i giorni e l'attestazione
+mostrati, non i campi del modulo. Se nel frattempo il risultato è cambiato, niente si
+scrive e si rifà l'anteprima. Sotto, l'elenco delle proroghe già disposte, con giorni,
+attestazione, chi e quando.
 
 Una proroga non si annulla. Un errore si corregge con una defissione anticipata (ALBO-22),
 quando ci sarà.
@@ -118,10 +120,13 @@ sicurezza. Nessun permesso nuovo.
 - Un atto pubblicato dopo i giorni indicati, o pubblicato proprio in uno di quei giorni, che
   riceve giorni che non gli spettano.
 - Il giorno calcolato sul tempo universale invece che sul fuso del sito.
+- Due proroghe insieme, la seconda calcolata su una fine che la prima sta cambiando.
+- Una conferma che non corrisponde all'anteprima mostrata: campi cambiati dopo, un'altra
+  proroga o la mezzanotte nel mezzo.
 
 ### 7. Prove che si aggiungeranno
 
-Righe A-127..A-138 di `collaudo.md`. A-134, il referto, resta da fare finché non esiste il
+Righe A-127..A-138 e A-147..A-150 di `collaudo.md`. A-134, il referto, resta da fare finché non esiste il
 referto (ALBO-07). A-142, slittamento ai festivi dopo una proroga, appartiene a ALBO-32 e si
 chiude con quella unità.
 
@@ -174,6 +179,29 @@ atti in verifica al posto dei pubblicati (sette righe); qualunque data di fine a
 durante la proroga (A-133); controllo finale tolto (A-133, con il dato scritto a mano);
 anteprima che scrive (A-127, A-138). Due erano sfuggiti al primo giro, i giorni ripetuti e
 il controllo finale: le prove sono state completate.
+
+**Secondo giro: tre difetti trovati dalla revisione e corretti.**
+
+- *Due proroghe insieme.* Il calcolo si faceva prima di bloccare gli atti: se un'altra
+  proroga confermava nel frattempo, si scriveva una fine calcolata su quella vecchia. Ora
+  le proroghe prendono un turno nella banca dati, una alla volta fra tutte le richieste
+  (si aspetta al massimo cinque secondi, poi si rifiuta e si riprova dall'anteprima), e il
+  calcolo si fa dopo, a transazione aperta. A-149.
+- *Il fermo senza atti.* Il fermo degli altri passaggi era legato agli atti toccati: una
+  proroga che non ne toccava nessuno lasciava cominciare un rimando in bozza dentro la sua
+  transazione. Ora il fermo vale per l'operazione, dall'inizio alla fine, comunque. A-150.
+- *Conferma e anteprima.* Il pulsante di conferma rimandava i campi del modulo: bastava
+  cambiarli dopo l'anteprima per disporre altro. Ora l'anteprima si conserva per utente con
+  un codice casuale, per mezz'ora; la conferma manda solo il codice, e si dispone quello che
+  l'anteprima ha mostrato. Dentro la transazione il risultato si ricalcola e si confronta
+  con quello mostrato: se un atto, una fine attuale o una fine nuova sono diversi, niente
+  si scrive. Lo stesso confronto è disponibile da codice, con la chiave `attese`. A-147,
+  A-148.
+
+Guasti del secondo giro, tutti visti: calcolo prima del turno (A-149), turno non lasciato
+(A-149), fermo legato ai soli atti (A-150), codice dell'anteprima non controllato o
+comune a tutti gli utenti (A-147), anteprima non consumata (A-147), risultato mostrato non
+passato o non confrontato (A-148).
 
 **Limiti dichiarati.** Come nei passaggi già costruiti, quello che altri componenti fanno
 negli agganci durante la scrittura non si ritira con un annullamento se esce dalla banca

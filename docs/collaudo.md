@@ -570,7 +570,8 @@ Stesso prefisso `A-`. Le righe di ALBO-31 sono quelle della scheda
 [`proroga-per-disservizio.md`](implementazione/proroga-per-disservizio.md), provate in
 `tests/ProrogaTest.php`; quelle di ALBO-32 e ALBO-33 aspettano le loro unità. La riga sul
 referto (A-134) aspetta ALBO-07. A-135 prova la proposta del punto aperto 1 della scheda,
-ancora da confermare.
+ancora da confermare. A-147..A-150 sono di ALBO-31, aggiunte dopo le altre: la conferma
+legata all'anteprima, una proroga alla volta e il fermo degli altri passaggi.
 
 | ID | Stato | Caso | Atteso |
 |---|---|---|---|
@@ -594,6 +595,10 @@ ancora da confermare.
 | A-144 | da fare | Dati del procedimento (ALBO-33), scelta "non mostrare e non chiedere" | la scheda di redazione non ha i campi; la scheda pubblica non li mostra; gli atti migrati li conservano nella banca dati |
 | A-145 | da fare | Scelta "mostrare e chiedere" | i campi compaiono, sono facoltativi, la scheda pubblica li mostra solo se compilati, con l'escaping in uscita |
 | A-146 | da fare | Ogni schermata di impostazione del componente (regola delle scelte dell'amministrazione) | ciascuna contiene la norma per estremi, le scelte e gli effetti per il cittadino e per chi redige, e nessuna opzione preselezionata |
+| A-147 | fatto | [attacco] **Conferma della schermata**: senza codice dell'anteprima, con un codice inventato, con il codice di un altro utente, con il codice di un'anteprima sostituita da una più recente, con i campi del modulo cambiati dopo l'anteprima, due volte con lo stesso codice | rifiutata in tutti i casi tranne i campi cambiati, dove si dispone l'anteprima mostrata (giorni e attestazione di quella) e non i campi; il secondo invio dello stesso codice è rifiutato perché l'anteprima è già stata usata |
+| A-148 | fatto | **Anteprima superata**: fra anteprima e conferma un'altra proroga cambia la fine dell'atto; oppure passa la mezzanotte e la fine nuova di un atto già uscito dalla vista cambia; oppure, da codice, il risultato atteso non coincide | niente scritto, il motivo chiede di rifare l'anteprima; un'anteprima nuova mostra lo stato di adesso e si conferma |
+| A-149 | fatto | [attacco] **Due proroghe insieme**: mentre una aspetta il suo turno, un'altra richiesta conferma la sua sullo stesso atto (fine dal 16 al 17) | la proroga calcola dalla fine confermata: due giorni portano al 19, non al 18, e il registro dice fine precedente 17. Il turno è lasciato alla fine |
+| A-150 | fatto | [attacco] Proroga di due giorni che non tocca nessun atto; prima di scrivere il secondo giorno un aggancio prova a rimandare in bozza un atto in verifica, poi quella scrittura fallisce | il rimando è rifiutato come passaggio annidato, l'atto resta com'era, nessuna voce della proroga resta scritta |
 
 ## Collaudo congiunto con la trasparenza
 

@@ -36,4 +36,4 @@ Schede presenti:
   tutto o niente. Righe di collaudo A-93..A-110.
 - [`proroga-per-disservizio.md`](proroga-per-disservizio.md): la proroga degli atti in
   pubblicazione dopo un disservizio, con attestazione obbligatoria e tutto o niente su più
-  atti. Righe di collaudo A-127..A-138.
+  atti. Righe di collaudo A-127..A-138 e A-147..A-150.
