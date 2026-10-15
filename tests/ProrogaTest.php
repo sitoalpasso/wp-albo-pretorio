@@ -1,6 +1,6 @@
 <?php
 /**
- * Proroga per disservizio: righe A-127..A-138 (ALBO-31).
+ * Proroga per disservizio: righe A-127..A-138 e A-147..A-150 (ALBO-31).
  *
  * Gli atti si pubblicano con il passaggio vero, a orologio fissato; poi
  * l'orologio va avanti e la proroga si dispone da codice o dalla schermata.
@@ -80,26 +80,56 @@ class ProrogaTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Un invio vero della schermata, come l'utente indicato.
+	 * Un invio vero dell'anteprima della schermata, come l'utente indicato.
 	 *
 	 * @param int    $utente       Utente.
-	 * @param string $modo         `anteprima` o `disponi`.
 	 * @param string $dal          Primo giorno.
 	 * @param string $al           Ultimo giorno.
 	 * @param string $attestazione Attestazione.
 	 * @return array<string, mixed>
 	 */
-	private function invia_schermata( int $utente, string $modo, string $dal, string $al, string $attestazione ): array {
+	private function anteprima_schermata( int $utente, string $dal, string $al, string $attestazione ): array {
+		return $this->invia_schermata(
+			$utente,
+			array(
+				SchermataProroga::CAMPO_MODO         => 'anteprima',
+				SchermataProroga::CAMPO_DAL          => $dal,
+				SchermataProroga::CAMPO_AL           => $al,
+				SchermataProroga::CAMPO_ATTESTAZIONE => $attestazione,
+			)
+		);
+	}
+
+	/**
+	 * Un invio vero del pulsante che dispone la proroga, come l'utente indicato.
+	 *
+	 * @param int                   $utente Utente.
+	 * @param string                $codice Codice dell'anteprima.
+	 * @param array<string, string> $campi  Altri campi inviati insieme, che la conferma deve ignorare.
+	 * @return array<string, mixed>
+	 */
+	private function conferma_schermata( int $utente, string $codice, array $campi = array() ): array {
+		return $this->invia_schermata(
+			$utente,
+			array(
+				SchermataProroga::CAMPO_MODO      => 'disponi',
+				SchermataProroga::CAMPO_ANTEPRIMA => $codice,
+			) + $campi
+		);
+	}
+
+	/**
+	 * Un invio vero della schermata, con il gettone, come l'utente indicato.
+	 *
+	 * @param int                   $utente Utente.
+	 * @param array<string, string> $campi  Campi inviati.
+	 * @return array<string, mixed>
+	 */
+	private function invia_schermata( int $utente, array $campi ): array {
 		return $this->come(
 			$utente,
-			static function () use ( $modo, $dal, $al, $attestazione ) {
-				$_POST = array(
-					SchermataProroga::CAMPO_GETTONE      => wp_create_nonce( SchermataProroga::AZIONE ),
-					SchermataProroga::CAMPO_MODO         => $modo,
-					SchermataProroga::CAMPO_DAL          => $dal,
-					SchermataProroga::CAMPO_AL           => $al,
-					SchermataProroga::CAMPO_ATTESTAZIONE => $attestazione,
-				);
+			static function () use ( $campi ) {
+				$_POST = array( SchermataProroga::CAMPO_GETTONE => wp_create_nonce( SchermataProroga::AZIONE ) ) + $campi;
 
 				try {
 					return SchermataProroga::elabora();
@@ -181,13 +211,13 @@ class ProrogaTest extends \WP_UnitTestCase {
 		$this->assertCount( 1, $this->voci_di_sezione( Proroga::AZIONE_GIORNO ) );
 
 		// Dalla schermata: anteprima, poi la proroga.
-		$anteprima = $this->invia_schermata( $this->pubblicatore, 'anteprima', '2041-10-06', '', 'Attestazione prot. 124' );
+		$anteprima = $this->anteprima_schermata( $this->pubblicatore, '2041-10-06', '', 'Attestazione prot. 124' );
 
 		$this->assertArrayHasKey( 'anteprima', $anteprima, (string) ( $anteprima['errore'] ?? '' ) );
 		$this->assertSame( '2041-10-18', $anteprima['anteprima'][ $id ]['nuova'] );
 		$this->assertSame( '2041-10-17', conformita_core_fine_pubblicazione( $id ), 'L\'anteprima non scrive.' );
 
-		$disposta = $this->invia_schermata( $this->pubblicatore, 'disponi', '2041-10-06', '', 'Attestazione prot. 124' );
+		$disposta = $this->conferma_schermata( $this->pubblicatore, (string) $anteprima['codice'] );
 
 		$this->assertSame( 1, $disposta['disposta'] ?? null, (string) ( $disposta['errore'] ?? '' ) );
 		$this->assertSame( '2041-10-18', conformita_core_fine_pubblicazione( $id ) );
@@ -234,9 +264,10 @@ class ProrogaTest extends \WP_UnitTestCase {
 			$this->assertSame( array( 'albo_proroga_senza_attestazione' ), $esito->get_error_codes(), 'Caso ' . $caso );
 		}
 
-		$schermata = $this->invia_schermata( $this->pubblicatore, 'disponi', '2041-10-05', '', '   ' );
+		$schermata = $this->anteprima_schermata( $this->pubblicatore, '2041-10-05', '', '   ' );
 
 		$this->assertArrayHasKey( 'errore', $schermata );
+		$this->assertArrayNotHasKey( 'codice', $schermata, 'Nessuna anteprima da confermare.' );
 		$this->assertSame( $prima, $this->fotografia( $id ), 'Nessuna data cambia.' );
 		$this->nessuna_proroga( 'Senza attestazione' );
 	}
@@ -268,9 +299,10 @@ class ProrogaTest extends \WP_UnitTestCase {
 
 			$this->assertSame( array( 'albo_proroga_non_permessa' ), $anteprima->get_error_codes(), 'Neanche l\'anteprima.' );
 
-			$schermata = $this->invia_schermata( $utente, 'disponi', '2041-10-05', '', 'Attestazione' );
+			$schermata = $this->anteprima_schermata( $utente, '2041-10-05', '', 'Attestazione' );
 
 			$this->assertArrayHasKey( 'errore', $schermata );
+			$this->assertArrayNotHasKey( 'codice', $schermata, 'Nessuna anteprima da confermare.' );
 		}
 
 		$this->assertSame( $prima, $this->fotografia( $id ), 'Nessuna data cambia.' );
@@ -639,7 +671,7 @@ class ProrogaTest extends \WP_UnitTestCase {
 		$this->fissa_orologi( '2041-10-08 11:00:00' );
 
 		$prima     = $this->fotografia( $id );
-		$anteprima = $this->invia_schermata( $this->pubblicatore, 'anteprima', '2041-10-04', '2041-10-05', 'Attestazione' );
+		$anteprima = $this->anteprima_schermata( $this->pubblicatore, '2041-10-04', '2041-10-05', 'Attestazione' );
 
 		$this->assertArrayHasKey( 'anteprima', $anteprima, (string) ( $anteprima['errore'] ?? '' ) );
 		$this->assertSame(
@@ -655,12 +687,266 @@ class ProrogaTest extends \WP_UnitTestCase {
 		$this->assertSame( $prima, $this->fotografia( $id ), 'L\'anteprima non scrive niente.' );
 		$this->nessuna_proroga( 'Anteprima' );
 
-		// Prima della pubblicazione nessun atto era in pubblicazione.
-		$esito = $this->invia_schermata( $this->pubblicatore, 'disponi', '2041-09-20', '', 'Attestazione' );
+		// Prima della pubblicazione nessun atto era in pubblicazione: anteprima vuota, poi la sua conferma.
+		$vuota = $this->anteprima_schermata( $this->pubblicatore, '2041-09-20', '', 'Attestazione' );
+
+		$this->assertSame( array(), $vuota['anteprima'] ?? null, (string) ( $vuota['errore'] ?? '' ) );
+
+		$esito = $this->conferma_schermata( $this->pubblicatore, (string) $vuota['codice'] );
 
 		$this->assertSame( 0, $esito['disposta'] ?? null, (string) ( $esito['errore'] ?? '' ) );
 		$this->assertSame( $prima, $this->fotografia( $id ) );
 		$this->assertCount( 1, $this->voci_di_sezione( Proroga::AZIONE_PROROGA ) );
 		$this->assertSame( array( '2041-09-20' ), Proroga::giorni_attestati() );
+	}
+
+	/**
+	 * A-147: dalla schermata si conferma l'anteprima mostrata, e solo quella.
+	 */
+	public function test_a147_la_conferma_e_l_anteprima_mostrata(): void {
+		$id = $this->pubblicato_il( '2041-10-01 09:30:00' );
+
+		$this->fissa_orologi( '2041-10-08 11:00:00' );
+
+		$prima = $this->fotografia( $id );
+		$altro = self::factory()->user->create( array( 'role' => \AlboPretorioPa\RUOLO ) );
+		$primo = $this->anteprima_schermata( $this->pubblicatore, '2041-10-04', '2041-10-05', 'Attestazione A' );
+
+		$this->assertSame( '2041-10-18', $primo['anteprima'][ $id ]['nuova'] ?? null, (string) ( $primo['errore'] ?? '' ) );
+
+		// Senza codice, con un codice inventato, con il codice di un altro utente.
+		foreach ( array( array( $this->pubblicatore, '' ), array( $this->pubblicatore, str_repeat( 'x', 32 ) ), array( $altro, (string) $primo['codice'] ) ) as $caso => $invio ) {
+			$esito = $this->conferma_schermata( $invio[0], $invio[1] );
+
+			$this->assertArrayHasKey( 'errore', $esito, 'Caso ' . $caso );
+			$this->assertSame( $prima, $this->fotografia( $id ), 'Caso ' . $caso . ': nessuna data cambia.' );
+			$this->nessuna_proroga( 'Caso ' . $caso );
+		}
+
+		// Una nuova anteprima sostituisce la prima: il pulsante rimasto aperto non conferma piu' niente.
+		$secondo = $this->anteprima_schermata( $this->pubblicatore, '2041-10-06', '', 'Attestazione B' );
+
+		$this->assertSame( '2041-10-17', $secondo['anteprima'][ $id ]['nuova'] ?? null, (string) ( $secondo['errore'] ?? '' ) );
+		$this->assertArrayHasKey( 'errore', $this->conferma_schermata( $this->pubblicatore, (string) $primo['codice'] ) );
+		$this->nessuna_proroga( 'Anteprima sostituita' );
+
+		// I campi del modulo cambiati dopo l'anteprima non contano: si dispone quella mostrata.
+		$esito = $this->conferma_schermata(
+			$this->pubblicatore,
+			(string) $secondo['codice'],
+			array(
+				SchermataProroga::CAMPO_DAL          => '2041-09-20',
+				SchermataProroga::CAMPO_AL           => '2041-10-07',
+				SchermataProroga::CAMPO_ATTESTAZIONE => 'Altro testo',
+			)
+		);
+
+		$this->assertSame( 1, $esito['disposta'] ?? null, (string) ( $esito['errore'] ?? '' ) );
+		$this->assertSame( '2041-10-17', conformita_core_fine_pubblicazione( $id ) );
+		$this->assertSame( array( '2041-10-06' ), Proroga::giorni_attestati() );
+		$this->assertSame( 'Attestazione B', $this->voci_di_sezione( Proroga::AZIONE_PROROGA )[0]['motivazione'] );
+
+		// L'anteprima si consuma: lo stesso codice non dispone una seconda volta, e lo dice.
+		$ancora = $this->conferma_schermata( $this->pubblicatore, (string) $secondo['codice'] );
+
+		$this->assertStringContainsString( 'non e\' piu\' quella valida', (string) ( $ancora['errore'] ?? '' ) );
+		$this->assertCount( 1, $this->voci_di_sezione( Proroga::AZIONE_PROROGA ) );
+	}
+
+	/**
+	 * A-148: un'anteprima superata da un'altra proroga non si conferma.
+	 */
+	public function test_a148_anteprima_superata_da_un_altra_proroga(): void {
+		$id = $this->pubblicato_il( '2041-10-01 09:30:00' );
+
+		$this->fissa_orologi( '2041-10-08 11:00:00' );
+
+		$anteprima = $this->anteprima_schermata( $this->pubblicatore, '2041-10-05', '', 'Attestazione A' );
+
+		$this->assertSame( '2041-10-17', $anteprima['anteprima'][ $id ]['nuova'] ?? null, (string) ( $anteprima['errore'] ?? '' ) );
+
+		// Nel frattempo un'altra persona attesta il 6.
+		$this->assertIsArray(
+			$this->proroga(
+				$this->pubblicatore,
+				array(
+					'giorni'       => array( '2041-10-06' ),
+					'attestazione' => 'Attestazione B',
+				)
+			)
+		);
+
+		$prima = $this->fotografia( $id );
+		$esito = $this->conferma_schermata( $this->pubblicatore, (string) $anteprima['codice'] );
+
+		$this->assertArrayHasKey( 'errore', $esito );
+		$this->assertStringContainsString( 'anteprima', (string) $esito['errore'] );
+		$this->assertSame( $prima, $this->fotografia( $id ), 'Niente scritto: la fine resta quella dell\'altra proroga.' );
+		$this->assertSame( array( '2041-10-06' ), Proroga::giorni_attestati(), 'Il 5 resta attestabile.' );
+
+		// Da codice, con il risultato atteso che non coincide: stesso rifiuto.
+		$codice = $this->proroga(
+			$this->pubblicatore,
+			array(
+				'giorni'       => array( '2041-10-05' ),
+				'attestazione' => 'Attestazione A',
+				'attese'       => array( $id => '2041-10-16>2041-10-17' ),
+			)
+		);
+
+		$this->assertSame( array( 'albo_proroga_anteprima_superata' ), $codice->get_error_codes() );
+		$this->assertSame( $prima, $this->fotografia( $id ) );
+
+		// Un'anteprima nuova mostra lo stato di adesso, e si conferma.
+		$nuova = $this->anteprima_schermata( $this->pubblicatore, '2041-10-05', '', 'Attestazione A' );
+
+		$this->assertSame( '2041-10-18', $nuova['anteprima'][ $id ]['nuova'] ?? null );
+		$this->assertSame( 1, $this->conferma_schermata( $this->pubblicatore, (string) $nuova['codice'] )['disposta'] ?? null );
+		$this->assertSame( '2041-10-18', conformita_core_fine_pubblicazione( $id ) );
+	}
+
+	/**
+	 * A-148: un'anteprima superata dalla mezzanotte non si conferma.
+	 */
+	public function test_a148_anteprima_superata_dalla_mezzanotte(): void {
+		$id = $this->pubblicato_il( '2041-10-01 09:30:00' );
+
+		// L'atto e' uscito dalla vista il 16; il 10 e' sotto soglia.
+		$this->fissa_orologi( '2041-10-17 23:50:00' );
+
+		$anteprima = $this->anteprima_schermata( $this->pubblicatore, '2041-10-10', '', 'Attestazione' );
+
+		$this->assertSame( '2041-10-18', $anteprima['anteprima'][ $id ]['nuova'] ?? null, (string) ( $anteprima['errore'] ?? '' ) );
+
+		$prima = $this->fotografia( $id );
+
+		$this->fissa_orologi( '2041-10-18 00:10:00' );
+
+		$esito = $this->conferma_schermata( $this->pubblicatore, (string) $anteprima['codice'] );
+
+		$this->assertArrayHasKey( 'errore', $esito );
+		$this->assertSame( $prima, $this->fotografia( $id ), 'La fine mostrata non e\' piu\' quella che si scriverebbe.' );
+		$this->nessuna_proroga( 'Dopo la mezzanotte' );
+
+		$nuova = $this->anteprima_schermata( $this->pubblicatore, '2041-10-10', '', 'Attestazione' );
+
+		$this->assertSame( '2041-10-19', $nuova['anteprima'][ $id ]['nuova'] ?? null );
+	}
+
+	/**
+	 * A-149: le proroghe vanno una alla volta, e il calcolo legge cio' che la precedente ha confermato.
+	 */
+	public function test_a149_una_proroga_alla_volta(): void {
+		global $wpdb;
+
+		$id = $this->pubblicato_il( '2041-10-01 09:30:00' );
+
+		$this->fissa_orologi( '2041-10-08 11:00:00' );
+
+		$chiave = conformita_core_chiave_fine_pubblicazione();
+		$fatto  = false;
+
+		// La fine e' gia' stata letta in questa richiesta: il calcolo deve rileggerla dalla banca dati.
+		$this->assertSame( '2041-10-16', conformita_core_fine_pubblicazione( $id ) );
+
+		/*
+		 * Mentre questa proroga aspetta il turno, un'altra richiesta conferma la
+		 * sua: il 6 attestato, la fine portata al 17. Si scrive con la
+		 * connessione grezza, come la vedrebbe arrivare la banca dati.
+		 */
+		$altra = static function ( $istruzione ) use ( $wpdb, $id, $chiave, &$fatto ) {
+			if ( ! $fatto && is_string( $istruzione ) && false !== strpos( $istruzione, 'GET_LOCK' ) ) {
+				$fatto = true;
+
+				mysqli_query( $wpdb->dbh, $wpdb->prepare( "UPDATE {$wpdb->postmeta} SET meta_value = %s WHERE post_id = %d AND meta_key = %s", '2041-10-17', $id, $chiave ) ); // phpcs:ignore WordPress.DB.RestrictedFunctions.mysql_mysqli_query -- la scrittura dell'altra richiesta, fuori dai filtri.
+
+				conformita_core_registra_voce(
+					array(
+						'sezione'  => SEZIONE,
+						'azione'   => Proroga::AZIONE_GIORNO,
+						'dettagli' => array( 'giorno' => '2041-10-06' ),
+						'chiave'   => Proroga::chiave_giorno( '2041-10-06' ),
+					)
+				);
+			}
+
+			return $istruzione;
+		};
+
+		add_filter( 'query', $altra );
+
+		try {
+			$esito = $this->proroga(
+				$this->pubblicatore,
+				array(
+					'giorni'       => array( '2041-10-04', '2041-10-05' ),
+					'attestazione' => 'Attestazione',
+				)
+			);
+		} finally {
+			remove_filter( 'query', $altra );
+		}
+
+		$this->assertTrue( $fatto, 'Precondizione: la proroga prende il turno.' );
+		$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+		$this->assertSame( '2041-10-19', conformita_core_fine_pubblicazione( $id ), 'I due giorni si sommano al giorno dell\'altra proroga.' );
+
+		$voci = $this->voci_di( $id, array( 'azione' => Proroga::AZIONE_ATTO ) );
+
+		$this->assertCount( 1, $voci );
+		$this->assertSame( '2041-10-17', $voci[0]['dettagli']['fine_precedente'], 'La fine precedente e\' quella confermata dall\'altra proroga.' );
+		$this->assertSame( '2041-10-19', $voci[0]['dettagli']['fine_nuova'] );
+
+		// Il turno e' stato lasciato: un'altra connessione lo prende subito.
+		$this->assertSame( '1', (string) $wpdb->get_var( $wpdb->prepare( 'SELECT IS_FREE_LOCK( %s )', \AlboPretorioPa\Passaggi::nome_turno() ) ) );
+	}
+
+	/**
+	 * A-150: durante una proroga, anche senza atti da prorogare, nessun altro passaggio comincia.
+	 */
+	public function test_a150_fermo_anche_senza_atti(): void {
+		global $wpdb;
+
+		$this->fissa_orologi( '2041-10-08 11:00:00' );
+
+		$in_verifica = $this->atto_in_verifica();
+		$prima       = $this->fotografia( $in_verifica );
+		$tabella     = $wpdb->prefix . 'conformita_core_registro';
+		$annidato    = null;
+
+		// Prima di scrivere il secondo giorno, un aggancio prova a rimandare in bozza; poi quella scrittura fallisce.
+		$guasto = static function ( $istruzione ) use ( $tabella, $in_verifica, &$annidato ) {
+			if ( null === $annidato && is_string( $istruzione ) && 0 === strpos( $istruzione, 'INSERT INTO `' . $tabella . '`' ) && false !== strpos( $istruzione, "'" . Proroga::AZIONE_GIORNO . "'" ) && false !== strpos( $istruzione, '2041-09-21' ) ) {
+				$annidato = albo_pretorio_rimanda_in_bozza( $in_verifica, 'Da completare.' );
+
+				return '';
+			}
+
+			return $istruzione;
+		};
+
+		add_filter( 'query', $guasto );
+
+		try {
+			$esito = $this->proroga(
+				$this->pubblicatore,
+				array(
+					'giorni'       => array( '2041-09-20', '2041-09-21' ),
+					'attestazione' => 'Attestazione',
+				)
+			);
+		} finally {
+			remove_filter( 'query', $guasto );
+		}
+
+		$this->assertWPError( $annidato, 'Il rimando annidato e\' rifiutato.' );
+		$this->assertSame( 'albo_passaggio_annidato', $annidato->get_error_code() );
+		$this->assertWPError( $esito );
+		$this->assertSame( 'albo_proroga_non_riuscita', $esito->get_error_code() );
+		$this->assertSame( $prima, $this->fotografia( $in_verifica ), 'L\'atto in verifica resta com\'era.' );
+		$this->nessuna_proroga( 'Rimando annidato' );
+
+		// Finita la proroga, il rimando si fa.
+		$this->assertTrue( ! is_wp_error( $this->come( $this->pubblicatore, static fn() => albo_pretorio_rimanda_in_bozza( $in_verifica, 'Da completare.' ) ) ) );
 	}
 }
