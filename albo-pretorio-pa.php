@@ -200,6 +200,8 @@ require_once __DIR__ . '/includes/class-lettura.php';
 require_once __DIR__ . '/includes/class-chiusura-pubblicazione.php';
 require_once __DIR__ . '/includes/class-passaggi.php';
 require_once __DIR__ . '/includes/class-riquadro-passaggi.php';
+require_once __DIR__ . '/includes/class-proroga.php';
+require_once __DIR__ . '/includes/class-schermata-proroga.php';
 require_once __DIR__ . '/includes/funzioni-api.php';
 
 /*
@@ -246,6 +248,8 @@ add_action( 'admin_notices', array( Durate::class, 'mostra_rifiuto' ) );
 add_action( 'admin_menu', array( SchermataRepertorio::class, 'menu' ) );
 add_action( 'admin_post_' . SchermataRepertorio::AZIONE, array( SchermataRepertorio::class, 'da_invio' ) );
 add_action( 'admin_notices', array( SchermataRepertorio::class, 'avviso' ) );
+add_action( 'admin_menu', array( SchermataProroga::class, 'menu' ) );
+add_action( 'admin_post_' . SchermataProroga::AZIONE, array( SchermataProroga::class, 'da_invio' ) );
 
 /*
  * I dati dell'atto si compilano nel riquadro della schermata dell'atto. Una

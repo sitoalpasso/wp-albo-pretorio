@@ -507,6 +507,364 @@ final class Passaggi {
 	}
 
 	/**
+	 * Le chiavi che una richiesta di proroga puo' portare.
+	 *
+	 * @var array<int, string>
+	 */
+	const CHIAVI_PROROGA = array( 'giorni', 'attestazione' );
+
+	/**
+	 * Gli atti che una proroga toccherebbe adesso, senza scrivere niente.
+	 *
+	 * Fa gli stessi controlli della proroga, tranne la scrittura: e' quello
+	 * che la schermata mostra prima della conferma.
+	 *
+	 * @param array<string, mixed> $richiesta `giorni` e `attestazione`.
+	 * @return array{giorni: array<int, string>, atti: array<int, array<string, mixed>>}|\WP_Error
+	 */
+	public static function anteprima_proroga( array $richiesta ) {
+		$controllo = self::controlla_proroga( $richiesta );
+
+		if ( is_wp_error( $controllo ) ) {
+			return $controllo;
+		}
+
+		$atti = Proroga::atti_toccati( $controllo['giorni'], self::ora() );
+
+		if ( is_wp_error( $atti ) ) {
+			return $atti;
+		}
+
+		return array(
+			'giorni' => $controllo['giorni'],
+			'atti'   => $atti,
+		);
+	}
+
+	/**
+	 * Dispone la proroga per disservizio (ALBO-31): tutti gli atti toccati o nessuno.
+	 *
+	 * @param array<string, mixed> $richiesta `giorni`, elenco di date AAAA-MM-GG gia' trascorse; `attestazione`, testo non vuoto.
+	 * @return array{voce: int, giorni: array<int, string>, atti: array<int, array<string, mixed>>}|\WP_Error
+	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
+	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, o se un altro componente solleva un'eccezione dopo la conferma; con l'eccezione come causa.
+	 */
+	public static function proroga( array $richiesta ) {
+		if ( array() !== self::$in_corso ) {
+			return self::errore_annidato();
+		}
+
+		$controllo = self::controlla_proroga( $richiesta );
+
+		if ( is_wp_error( $controllo ) ) {
+			return $controllo;
+		}
+
+		$tabelle = self::tabelle_senza_transazioni();
+
+		if ( array() !== $tabelle ) {
+			return self::errore_tabelle( $tabelle );
+		}
+
+		$adesso = self::ora();
+		$atti   = Proroga::atti_toccati( $controllo['giorni'], $adesso );
+
+		if ( is_wp_error( $atti ) ) {
+			return $atti;
+		}
+
+		$partenze = array();
+		$prime    = array();
+
+		foreach ( array_keys( $atti ) as $atto_id ) {
+			$partenza = self::fotografia( $atto_id );
+			$prima    = self::voci_automatiche( $atto_id, 'modifica_fine_pubblicazione' );
+
+			if ( null === $partenza ) {
+				return self::errore_lettura();
+			}
+
+			if ( is_wp_error( $prima ) ) {
+				return $prima;
+			}
+
+			$partenze[ $atto_id ] = $partenza;
+			$prime[ $atto_id ]    = $prima;
+		}
+
+		foreach ( $atti as $atto_id => $atto ) {
+			self::inizia( $atto_id, array(), $atto['nuova'] );
+		}
+
+		try {
+			$esito = self::proroga_dentro( $controllo, $atti, $partenze, $prime, $adesso );
+		} finally {
+			self::$in_corso = array();
+		}
+
+		if ( is_wp_error( $esito ) ) {
+			return $esito;
+		}
+
+		foreach ( array_keys( $atti ) as $atto_id ) {
+			self::dopo_la_chiusura( $atto_id, $esito );
+		}
+
+		return $esito;
+	}
+
+	/**
+	 * I controlli della proroga che non scrivono niente: permesso, attestazione, giorni.
+	 *
+	 * @param array<string, mixed> $richiesta Richiesta.
+	 * @return array{giorni: array<int, string>, attestazione: string}|\WP_Error
+	 */
+	private static function controlla_proroga( array $richiesta ) {
+		$sconosciute = array_diff( array_map( 'strval', array_keys( $richiesta ) ), self::CHIAVI_PROROGA );
+
+		if ( array() !== $sconosciute ) {
+			return new \WP_Error(
+				'albo_richiesta_non_valida',
+				sprintf(
+					/* translators: %s: elenco delle chiavi non ammesse. */
+					__( 'Nessuna proroga disposta: la richiesta porta dati che la proroga non accetta (%s). Le date di fine le calcola il sistema.', 'albo-pretorio-pa' ),
+					implode( ', ', $sconosciute )
+				)
+			);
+		}
+
+		$mappa = Permessi::mappa();
+
+		if ( is_wp_error( $mappa ) || empty( $mappa['publish_posts'] ) || ! current_user_can( $mappa['publish_posts'] ) ) {
+			return new \WP_Error(
+				'albo_proroga_non_permessa',
+				__( 'Nessuna proroga disposta: la dispone chi puo\' pubblicare gli atti, e non si possiede quel permesso.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$attestazione = isset( $richiesta['attestazione'] ) && is_string( $richiesta['attestazione'] ) ? trim( sanitize_textarea_field( $richiesta['attestazione'] ) ) : '';
+
+		if ( '' === $attestazione ) {
+			return new \WP_Error(
+				'albo_proroga_senza_attestazione',
+				__( 'Nessuna proroga disposta: serve l\'attestazione del disservizio, per esempio gli estremi del documento protocollato che lo attesta. Finisce nel registro delle modifiche.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$giorni = Proroga::giorni( $richiesta['giorni'] ?? null, self::ora() );
+
+		if ( is_wp_error( $giorni ) ) {
+			return $giorni;
+		}
+
+		$attestati = Proroga::giorni_attestati();
+
+		if ( null === $attestati ) {
+			return new \WP_Error(
+				'albo_registro_non_leggibile',
+				__( 'Nessuna proroga disposta: il registro delle modifiche non si legge, e senza non si sa quali giorni sono gia\' stati attestati.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$ripetuti = array_values( array_intersect( $giorni, $attestati ) );
+
+		if ( array() !== $ripetuti ) {
+			return self::errore_giorni_ripetuti( $ripetuti );
+		}
+
+		return array(
+			'giorni'       => $giorni,
+			'attestazione' => $attestazione,
+		);
+	}
+
+	/**
+	 * Il rifiuto di una proroga che ripete giorni gia' attestati.
+	 *
+	 * @param array<int, string> $ripetuti Giorni.
+	 * @return \WP_Error
+	 */
+	private static function errore_giorni_ripetuti( array $ripetuti ): \WP_Error {
+		return new \WP_Error(
+			'albo_proroga_giorno_gia_attestato',
+			sprintf(
+				/* translators: %s: elenco dei giorni. */
+				__( 'Nessuna proroga disposta: questi giorni sono gia\' stati attestati in una proroga precedente, e un giorno non si conta due volte (%s).', 'albo-pretorio-pa' ),
+				implode( ', ', array_map( array( Proroga::class, 'leggibile' ), $ripetuti ) )
+			)
+		);
+	}
+
+	/**
+	 * Le scritture della proroga, dentro la transazione.
+	 *
+	 * @param array{giorni: array<int, string>, attestazione: string} $controllo Giorni e attestazione.
+	 * @param array<int, array<string, mixed>>                        $atti      Atti toccati.
+	 * @param array<int, array<string, mixed>>                        $partenze  Fotografie di partenza.
+	 * @param array<int, int>                                         $prime     Voci della fine prima, per atto.
+	 * @param \DateTimeImmutable                                      $adesso    Istante della proroga.
+	 * @return array{voce: int, giorni: array<int, string>, atti: array<int, array<string, mixed>>}|\WP_Error
+	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
+	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, con l'eccezione come causa.
+	 */
+	private static function proroga_dentro( array $controllo, array $atti, array $partenze, array $prime, \DateTimeImmutable $adesso ) {
+		$apertura = self::apri();
+
+		if ( is_wp_error( $apertura ) ) {
+			return self::errore_proroga( $apertura );
+		}
+
+		$primo  = array() === $atti ? 0 : (int) array_key_first( $atti );
+		$giorno = $adesso->setTimezone( wp_timezone() )->format( 'Y-m-d' );
+
+		try {
+			$esito = true;
+
+			foreach ( $atti as $atto_id => $atto ) {
+				$esito = self::blocca( $atto_id, $partenze[ $atto_id ] );
+
+				if ( is_wp_error( $esito ) ) {
+					break;
+				}
+			}
+
+			foreach ( $controllo['giorni'] as $attestato ) {
+				if ( is_wp_error( $esito ) ) {
+					break;
+				}
+
+				// La chiave unica: se un'altra richiesta ha attestato lo stesso giorno nel frattempo, lo dice la banca dati.
+				$esito = conformita_core_registra_voce(
+					array(
+						'sezione'     => SEZIONE,
+						'azione'      => Proroga::AZIONE_GIORNO,
+						'motivazione' => $controllo['attestazione'],
+						'dettagli'    => array( 'giorno' => $attestato ),
+						'chiave'      => Proroga::chiave_giorno( $attestato ),
+					)
+				);
+
+				if ( is_wp_error( $esito ) && 'conformita_core_registro_chiave_esistente' === $esito->get_error_code() ) {
+					$esito = self::errore_giorni_ripetuti( array( $attestato ) );
+				} elseif ( is_wp_error( $esito ) ) {
+					$esito = new \WP_Error( 'albo_voce_non_scritta', $esito->get_error_message() );
+				}
+			}
+
+			$voce = 0;
+
+			if ( ! is_wp_error( $esito ) ) {
+				$esito = self::scrivi_voce(
+					array(
+						'sezione'     => SEZIONE,
+						'azione'      => Proroga::AZIONE_PROROGA,
+						'motivazione' => $controllo['attestazione'],
+						'dettagli'    => array(
+							'giorni'         => implode( ',', $controllo['giorni'] ),
+							'atti'           => implode( ',', array_keys( $atti ) ),
+							'giorno_proroga' => $giorno,
+						),
+					)
+				);
+				$voce  = is_wp_error( $esito ) ? 0 : (int) $esito;
+			}
+
+			foreach ( $atti as $atto_id => $atto ) {
+				if ( is_wp_error( $esito ) ) {
+					break;
+				}
+
+				$esito = conformita_core_imposta_fine_pubblicazione( $atto_id, $atto['nuova'] );
+
+				if ( ! is_wp_error( $esito ) ) {
+					$esito = self::controlla_voce_della_fine( $atto_id, $prime[ $atto_id ], true );
+				}
+
+				if ( ! is_wp_error( $esito ) ) {
+					$esito = self::scrivi_voce(
+						array(
+							'sezione'     => SEZIONE,
+							'azione'      => Proroga::AZIONE_ATTO,
+							'contenuto'   => $atto_id,
+							'motivazione' => $controllo['attestazione'],
+							'dettagli'    => array(
+								'fine_precedente' => $atto['fine'],
+								'fine_nuova'      => $atto['nuova'],
+								'giorni_contati'  => $atto['giorni'],
+								'giorno_proroga'  => $giorno,
+								'proroga'         => $voce,
+							),
+						)
+					);
+				}
+			}
+
+			foreach ( $atti as $atto_id => $atto ) {
+				if ( is_wp_error( $esito ) ) {
+					break;
+				}
+
+				$esito = self::controlla_invariato( $atto_id, $partenze[ $atto_id ], array(), $atto['nuova'] );
+			}
+
+			if ( is_wp_error( $esito ) ) {
+				$annullato = self::annulla( $apertura, $primo );
+
+				return is_wp_error( $annullato ) ? $annullato : self::errore_proroga( $esito );
+			}
+
+			$chiusura = self::chiudi( $apertura, $primo );
+
+			if ( is_wp_error( $chiusura ) ) {
+				return 'albo_annullamento_non_riuscito' === $chiusura->get_error_code() ? $chiusura : self::errore_proroga( $chiusura );
+			}
+		} catch ( \Throwable $errore ) {
+			$annullato = self::annulla( $apertura, $primo );
+
+			if ( is_wp_error( $annullato ) ) {
+				throw new \RuntimeException( esc_html( $annullato->get_error_message() ), 0, $errore ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- gia' sfuggito.
+			}
+
+			throw $errore;
+		}
+
+		return array(
+			'voce'   => $voce,
+			'giorni' => $controllo['giorni'],
+			'atti'   => $atti,
+		);
+	}
+
+	/**
+	 * Il rifiuto di una proroga fallita a meta' e annullata, con il motivo di partenza in coda.
+	 *
+	 * I messaggi dei pezzi comuni ai passaggi parlano dell'atto in verifica:
+	 * qui il primo messaggio dice che cosa e' successo alla proroga, e il
+	 * motivo vero resta leggibile, con il suo codice, fra gli altri.
+	 *
+	 * @param \WP_Error $motivo Motivo.
+	 * @return \WP_Error
+	 */
+	private static function errore_proroga( \WP_Error $motivo ): \WP_Error {
+		if ( 'albo_proroga_giorno_gia_attestato' === $motivo->get_error_code() ) {
+			return $motivo;
+		}
+
+		$errore = new \WP_Error(
+			'albo_proroga_non_riuscita',
+			__( 'Nessuna proroga disposta e nessun atto cambiato: una delle scritture non e\' riuscita e tutto e\' stato annullato.', 'albo-pretorio-pa' )
+		);
+
+		foreach ( $motivo->get_error_codes() as $codice ) {
+			foreach ( $motivo->get_error_messages( $codice ) as $messaggio ) {
+				$errore->add( $codice, $messaggio );
+			}
+		}
+
+		return $errore;
+	}
+
+	/**
 	 * Dopo un passaggio riuscito e chiuso: svuota la memoria dell'atto.
 	 *
 	 * **Fuori dal passaggio, non dentro.** Lo svuotamento della memoria fa

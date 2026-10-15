@@ -46,3 +46,21 @@ if ( ! function_exists( 'albo_pretorio_rimanda_in_bozza' ) ) {
 		return \AlboPretorioPa\Passaggi::rimanda_in_bozza( (int) $atto_id, $motivo );
 	}
 }
+
+if ( ! function_exists( 'albo_pretorio_proroga' ) ) {
+	/**
+	 * Dispone la proroga per disservizio (ALBO-31), come l'utente corrente.
+	 *
+	 * Chiavi della richiesta: `giorni`, elenco di date AAAA-MM-GG gia'
+	 * trascorse in cui l'albo e' rimasto consultabile per meno di dodici ore;
+	 * `attestazione`, testo non vuoto con gli estremi dell'attestazione. Ogni
+	 * altra chiave rifiuta la richiesta. Gli atti in pubblicazione in quei
+	 * giorni si prorogano tutti, o nessuno.
+	 *
+	 * @param array<string, mixed> $richiesta Richiesta.
+	 * @return array{voce: int, giorni: array<int, string>, atti: array<int, array<string, mixed>>}|WP_Error
+	 */
+	function albo_pretorio_proroga( $richiesta ) {
+		return \AlboPretorioPa\Passaggi::proroga( is_array( $richiesta ) ? $richiesta : array( 'richiesta' => $richiesta ) );
+	}
+}
