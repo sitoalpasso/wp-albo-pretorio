@@ -694,11 +694,14 @@ class ProrogaTest extends \WP_UnitTestCase {
 		$this->assertArrayHasKey( 'anteprima', $anteprima, (string) ( $anteprima['errore'] ?? '' ) );
 		$this->assertSame(
 			array(
-				'fine'    => '2041-10-16',
-				'nuova'   => '2041-10-18',
-				'giorni'  => 2,
-				'numero'  => '1/2041',
-				'oggetto' => 'Atto di prova',
+				'fine'        => '2041-10-16',
+				'nuova'       => '2041-10-18',
+				'giorni'      => 2,
+				'numero'      => '1/2041',
+				'oggetto'     => 'Atto di prova',
+				'calcolata'   => '2041-10-18',
+				'slittamento' => 'spento',
+				'saltati'     => array(),
 			),
 			$anteprima['anteprima'][ $id ]
 		);
