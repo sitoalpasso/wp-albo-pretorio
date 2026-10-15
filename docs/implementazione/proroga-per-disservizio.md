@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro
 com'è andata davvero.
 
 **Stato: costruita, sulla proposta del punto aperto 1, che aspetta conferma.** Requisito
-ALBO-31, righe di collaudo A-127..A-138 e A-147..A-152, tutte a fatto tranne A-134 (il
+ALBO-31, righe di collaudo A-127..A-138 e A-147..A-153, tutte a fatto tranne A-134 (il
 referto). Com'è andata davvero è in fondo.
 
 ## In tre paragrafi
@@ -126,7 +126,7 @@ sicurezza. Nessun permesso nuovo.
 
 ### 7. Prove che si aggiungeranno
 
-Righe A-127..A-138 e A-147..A-152 di `collaudo.md`. A-134, il referto, resta da fare finché non esiste il
+Righe A-127..A-138 e A-147..A-153 di `collaudo.md`. A-134, il referto, resta da fare finché non esiste il
 referto (ALBO-07). A-142, slittamento ai festivi dopo una proroga, appartiene a ALBO-32 e si
 chiude con quella unità.
 
@@ -227,9 +227,27 @@ passato o non confrontato (A-148).
 
 Guasti del terzo giro: confronto delle due letture tolto, letture che non bloccano (A-151);
 turno lasciato subito dopo averlo preso (A-149, A-152); rilascio non verificato, eccezione
-del rilascio non trattenuta (A-152), tutti visti. Uno resta verde, e si sa perché: tolto lo
-svuotamento della memoria dopo un'eccezione del rilascio, la memoria della data di fine è
-già pulita lo stesso, da `blocca()` e dalla scrittura del meccanismo comune.
+del rilascio non trattenuta (A-152), tutti visti. Uno era rimasto verde, lo svuotamento
+della memoria tolto dopo un'eccezione del rilascio: la prova è stata rafforzata nel quarto
+giro.
+
+**Quarto giro: due difetti e una prova, corretti.**
+
+- *Il nome nell'indirizzo.* La concessione che lascia a WordPress scrivere il nome
+  nell'indirizzo di un atto appena pubblicato valeva per ogni passaggio in corso. Ora il
+  passaggio dichiara il suo tipo (pubblicazione, rimando, proroga), e la concessione vale
+  solo per la pubblicazione, nel guardiano e nel controllo finale. A-153.
+- *La presa rimasta.* Il turno nella banca dati è rientrante: dopo un rilascio fallito, la
+  proroga successiva sulla stessa connessione lo prendeva una seconda volta e, lasciandone
+  una sola presa, si diceva libera mentre il turno restava occupato. Ora, prima di prendere
+  il turno, la proroga lascia la presa rimasta da una proroga finita (o si rifiuta se non ci
+  riesce), e dopo il rilascio controlla che la connessione non tenga più il turno. A-152.
+- *La prova della memoria.* In A-152 il componente che solleva l'eccezione rimette in
+  memoria la fine di prima: la prova vede se lo svuotamento finale la toglie.
+
+Guasti del quarto giro, tutti visti: concessione del nome a ogni passaggio (A-153), presa
+rimasta non recuperata (A-152, A-153), turno creduto libero sulla sola risposta del
+rilascio (A-152), svuotamento della memoria tolto dopo l'eccezione (A-152).
 
 **Limiti dichiarati.** Come nei passaggi già costruiti, quello che altri componenti fanno
 negli agganci durante la scrittura non si ritira con un annullamento se esce dalla banca

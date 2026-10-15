@@ -570,9 +570,9 @@ Stesso prefisso `A-`. Le righe di ALBO-31 sono quelle della scheda
 [`proroga-per-disservizio.md`](implementazione/proroga-per-disservizio.md), provate in
 `tests/ProrogaTest.php`; quelle di ALBO-32 e ALBO-33 aspettano le loro unità. La riga sul
 referto (A-134) aspetta ALBO-07. A-135 prova la proposta del punto aperto 1 della scheda,
-ancora da confermare. A-147..A-152 sono di ALBO-31, aggiunte dopo le altre: la conferma
+ancora da confermare. A-147..A-153 sono di ALBO-31, aggiunte dopo le altre: la conferma
 legata all'anteprima, una proroga alla volta, il fermo degli altri passaggi, la transazione
-di chi chiama e il turno non lasciato.
+di chi chiama, il turno non lasciato e il nome nell'indirizzo.
 
 | ID | Stato | Caso | Atteso |
 |---|---|---|---|
@@ -601,7 +601,8 @@ di chi chiama e il turno non lasciato.
 | A-149 | fatto | [attacco] **Due proroghe insieme**: mentre una aspetta il suo turno, un'altra richiesta conferma la sua sullo stesso atto (fine dal 16 al 17); mentre la proroga scrive, una seconda connessione prova a prendere il turno | la proroga calcola dalla fine confermata: due giorni portano al 19, non al 18, e il registro dice fine precedente 17. La seconda connessione non prende il turno finché la proroga scrive, e lo prende subito dopo |
 | A-150 | fatto | [attacco] Proroga di due giorni che non tocca nessun atto; prima di scrivere il secondo giorno un aggancio prova a rimandare in bozza un atto in verifica, poi quella scrittura fallisce | il rimando è rifiutato come passaggio annidato, l'atto resta com'era, nessuna voce della proroga resta scritta |
 | A-151 | fatto | [attacco] Proroga chiamata dentro la transazione di un altro programma, che ha già letto la fine (16) prima che una seconda connessione confermasse un'altra proroga (17) | rifiutata senza scrivere niente: non calcola sulla fine vecchia. Fuori da quella transazione la stessa proroga porta la fine al 19, con fine precedente 17 |
-| A-152 | fatto | [attacco] Il turno delle proroghe che la banca dati non conferma di lasciare; poi un'eccezione di un altro componente durante il rilascio | la proroga è confermata e il rifiuto lo dice, con l'esito; la memoria degli atti prorogati è svuotata; il turno è davvero ancora preso, come dice il messaggio. Con l'eccezione, la stessa cosa detta da un'eccezione che dice che la proroga è confermata. La proroga successiva si fa |
+| A-152 | fatto | [attacco] Il turno delle proroghe che la banca dati non conferma di lasciare; poi un'eccezione di un altro componente durante il rilascio | la proroga è confermata e il rifiuto lo dice, con l'esito; la memoria degli atti prorogati è svuotata; il turno è davvero ancora preso, come dice il messaggio. La proroga successiva sulla stessa connessione, senza nessun intervento, recupera la presa rimasta e lascia il turno libero alle altre connessioni. Con l'eccezione, la stessa cosa detta da un'eccezione che dice che la proroga è confermata, e la memoria svuotata anche della fine che un componente vi ha rimesso. Con una seconda presa dello stesso turno sulla stessa connessione, il rilascio della proroga riesce ma il turno non è libero, e l'esito lo dice |
+| A-153 | fatto | [attacco] Atto pubblicato senza nome nell'indirizzo, come uno importato; durante la proroga un componente gli assegna il nome | rifiutata, niente cambia: il nome nell'indirizzo lo genera solo la pubblicazione. Senza il componente la proroga si fa e il nome resta vuoto |
 
 ## Collaudo congiunto con la trasparenza
 
