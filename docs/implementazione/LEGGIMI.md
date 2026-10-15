@@ -34,3 +34,6 @@ Schede presenti:
 - [`pubblicazione.md`](pubblicazione.md): la seconda parte del flusso, cioè rimando in bozza
   con motivazione e pubblicazione con la conferma sui dati personali, le date e il numero,
   tutto o niente. Righe di collaudo A-93..A-110.
+- [`proroga-per-disservizio.md`](proroga-per-disservizio.md): la proroga degli atti in
+  pubblicazione dopo un disservizio, con attestazione obbligatoria e tutto o niente su più
+  atti. Righe di collaudo A-127..A-138 e A-147..A-155.
