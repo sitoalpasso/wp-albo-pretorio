@@ -1273,15 +1273,18 @@ class ProrogaTest extends \WP_UnitTestCase {
 		$prima   = $this->fotografia( $id );
 		$chiave  = conformita_core_chiave_fine_pubblicazione();
 		$tentato = false;
+		$visto   = null;
 
 		$this->assertSame( '', $prima['riga']['post_name'] ?? null, 'Precondizione: nessun nome.' );
 
-		// Un componente assegna il nome quando la fine cambia.
-		$nomina = static function ( $meta_id, $atto_id, $meta_key ) use ( $wpdb, $id, $chiave, &$tentato ) {
+		// Un componente assegna il nome quando la fine cambia; subito dopo si guarda se il guardiano lo ha fermato.
+		$nomina = static function ( $meta_id, $atto_id, $meta_key ) use ( $wpdb, $id, $chiave, &$tentato, &$visto ) {
 			if ( $id === (int) $atto_id && $chiave === $meta_key && ! $tentato ) {
 				$tentato = true;
 
 				$wpdb->update( $wpdb->posts, array( 'post_name' => 'nome-assegnato' ), array( 'ID' => $id ) );
+
+				$visto = (string) $wpdb->get_var( $wpdb->prepare( "SELECT post_name FROM {$wpdb->posts} WHERE ID = %d", $id ) );
 			}
 		};
 
@@ -1300,9 +1303,40 @@ class ProrogaTest extends \WP_UnitTestCase {
 		}
 
 		$this->assertTrue( $tentato, 'Precondizione: il componente ha provato a scrivere il nome.' );
+		$this->assertSame( '', $visto, 'Il guardiano ferma la scrittura del nome, prima del controllo finale.' );
 		$this->assertWPError( $esito );
 		$this->assertSame( $prima, $this->fotografia( $id ), 'Ne\' il nome ne\' la fine cambiano.' );
 		$this->nessuna_proroga( 'Nome assegnato durante la proroga' );
+
+		// Il nome scritto scavalcando il guardiano: lo vede il controllo finale, e annulla.
+		$tentato  = false;
+		$scavalca = static function ( $meta_id, $atto_id, $meta_key ) use ( $wpdb, $id, $chiave, &$tentato ) {
+			if ( $id === (int) $atto_id && $chiave === $meta_key && ! $tentato ) {
+				$tentato = true;
+
+				mysqli_query( $wpdb->dbh, $wpdb->prepare( "UPDATE {$wpdb->posts} SET post_name = %s WHERE ID = %d", 'nome-assegnato', $id ) ); // phpcs:ignore WordPress.DB.RestrictedFunctions.mysql_mysqli_query -- la scrittura che scavalca il guardiano.
+			}
+		};
+
+		add_action( 'updated_post_meta', $scavalca, 10, 3 );
+
+		try {
+			$esito = $this->proroga(
+				$this->pubblicatore,
+				array(
+					'giorni'       => array( '2041-10-05' ),
+					'attestazione' => 'Attestazione',
+				)
+			);
+		} finally {
+			remove_action( 'updated_post_meta', $scavalca, 10 );
+		}
+
+		$this->assertTrue( $tentato, 'Precondizione: il nome e\' stato scritto.' );
+		$this->assertWPError( $esito );
+		$this->assertContains( 'albo_atto_cambiato_nel_passaggio', $esito->get_error_codes(), $esito->get_error_message() );
+		$this->assertSame( $prima, $this->fotografia( $id ), 'Annullato: ne\' il nome ne\' la fine cambiano.' );
+		$this->nessuna_proroga( 'Nome scritto scavalcando il guardiano' );
 
 		// Senza il componente la proroga si fa, e il nome resta vuoto.
 		$this->assertIsArray(
@@ -1316,5 +1350,91 @@ class ProrogaTest extends \WP_UnitTestCase {
 		);
 		$this->assertSame( '2041-10-17', conformita_core_fine_pubblicazione( $id ) );
 		$this->assertSame( '', $this->fotografia( $id )['riga']['post_name'] );
+	}
+
+	/**
+	 * A-152: un rilascio con eccezione dopo una proroga annullata, o interrotta da un'eccezione, non lascia in memoria la fine tentata.
+	 */
+	public function test_a152_memoria_dopo_un_annullamento(): void {
+		global $wpdb;
+
+		$id = $this->pubblicato_il( '2041-10-01 09:30:00' );
+
+		$this->fissa_orologi( '2041-10-08 11:00:00' );
+
+		$chiave      = conformita_core_chiave_fine_pubblicazione();
+		$tabella     = $wpdb->prefix . 'conformita_core_registro';
+		$turno       = \AlboPretorioPa\Passaggi::nome_turno();
+		$connessione = new \wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
+		$richiesta   = array(
+			'giorni'       => array( '2041-10-05' ),
+			'attestazione' => 'Attestazione',
+		);
+
+		// Durante il rilascio un componente rimette in memoria la fine tentata, e solleva un'eccezione.
+		$rilascio = static function ( $istruzione ) use ( $id, $chiave ) {
+			if ( is_string( $istruzione ) && false !== strpos( $istruzione, 'RELEASE_LOCK' ) ) {
+				wp_cache_set( $id, array( $chiave => array( '2041-10-17' ) ), 'post_meta' );
+
+				throw new \LogicException( 'Componente di prova.' );
+			}
+
+			return $istruzione;
+		};
+		$guasti   = array(
+			'scrittura fallita'      => static function ( $istruzione ) use ( $tabella ) {
+				return ( is_string( $istruzione ) && 0 === strpos( $istruzione, 'INSERT INTO `' . $tabella . '`' ) && false !== strpos( $istruzione, "'" . Proroga::AZIONE_PROROGA . "'" ) ) ? '' : $istruzione;
+			},
+			'eccezione in scrittura' => static function ( $istruzione ) use ( $tabella ) {
+				if ( is_string( $istruzione ) && 0 === strpos( $istruzione, 'INSERT INTO `' . $tabella . '`' ) && false !== strpos( $istruzione, "'" . Proroga::AZIONE_PROROGA . "'" ) ) {
+					throw new \DomainException( 'Scrittura interrotta.' );
+				}
+
+				return $istruzione;
+			},
+		);
+
+		foreach ( $guasti as $caso => $guasto ) {
+			// Il turno rimasto preso dal caso precedente si lascia qui, fuori dalla prova.
+			while ( '1' === (string) $wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', $turno ) ) ) {
+				continue;
+			}
+
+			$this->assertSame( '2041-10-16', get_post_meta( $id, $chiave, true ), $caso . ': precondizione.' );
+
+			$esito = null;
+			$preso = null;
+
+			add_filter( 'query', $guasto );
+			add_filter( 'query', $rilascio );
+
+			try {
+				$esito = $this->proroga( $this->pubblicatore, $richiesta );
+			} catch ( \Throwable $errore ) {
+				$preso = $errore;
+			} finally {
+				remove_filter( 'query', $guasto );
+				remove_filter( 'query', $rilascio );
+			}
+
+			if ( 'scrittura fallita' === $caso ) {
+				$this->assertWPError( $esito, $caso );
+				$this->assertSame( 'albo_proroga_non_riuscita', $esito->get_error_code(), $caso . ': resta l\'errore della proroga.' );
+				$this->assertContains( 'albo_proroga_turno_non_lasciato', $esito->get_error_codes(), $caso . ': e quello del turno.' );
+			} else {
+				$this->assertInstanceOf( \DomainException::class, $preso, $caso . ': esce l\'eccezione della scrittura.' );
+			}
+
+			$this->assertSame( '2041-10-16', get_post_meta( $id, $chiave, true ), $caso . ': nessuna fine tentata in memoria.' );
+			$this->assertSame( '2041-10-16', conformita_core_fine_pubblicazione( $id ), $caso );
+			$this->nessuna_proroga( $caso );
+		}
+
+		// La proroga successiva recupera il turno, si fa e lo lascia.
+		$this->assertIsArray( $this->proroga( $this->pubblicatore, $richiesta ) );
+		$this->assertSame( '2041-10-17', get_post_meta( $id, $chiave, true ) );
+		$this->assertSame( '1', (string) $connessione->get_var( $connessione->prepare( 'SELECT IS_FREE_LOCK( %s )', $turno ) ) );
+
+		$connessione->close();
 	}
 }
