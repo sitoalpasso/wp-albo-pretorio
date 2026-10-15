@@ -8,6 +8,13 @@
  * schermata non decide niente: i controlli e le scritture sono di `Passaggi`,
  * gli stessi della funzione per chi scrive codice.
  *
+ * **La conferma e' legata all'anteprima.** L'anteprima si conserva per
+ * utente, con un codice casuale: giorni, attestazione e risultato mostrato.
+ * Il pulsante che dispone la proroga manda solo quel codice, e la proroga si
+ * dispone con i dati conservati, non con i campi del modulo. Se nel frattempo
+ * il risultato e' cambiato (un'altra proroga, il passaggio della mezzanotte),
+ * `Passaggi` lo vede dentro la transazione e non scrive niente.
+ *
  * @package AlboPretorioPa
  */
 
@@ -70,6 +77,20 @@ final class SchermataProroga {
 	 * @var string
 	 */
 	const CAMPO_MODO = 'albo_pretorio_proroga_modo';
+
+	/**
+	 * Nome del campo con il codice dell'anteprima confermata.
+	 *
+	 * @var string
+	 */
+	const CAMPO_ANTEPRIMA = 'albo_pretorio_proroga_anteprima';
+
+	/**
+	 * Per quanto un'anteprima resta confermabile.
+	 *
+	 * @var int
+	 */
+	const DURATA_ANTEPRIMA = 30 * MINUTE_IN_SECONDS;
 
 	/**
 	 * Aggancio a `admin_menu`: la voce sotto il menu degli atti.
@@ -153,12 +174,13 @@ final class SchermataProroga {
 				$valori = array_fill_keys( array_keys( $valori ), '' );
 			}
 
-			if ( isset( $esito['anteprima'] ) && is_array( $esito['anteprima'] ) ) {
+			if ( isset( $esito['anteprima'], $esito['codice'] ) && is_array( $esito['anteprima'] ) ) {
 				self::anteprima( $esito['anteprima'] );
+				self::conferma( (string) $esito['codice'], $valori );
 			}
 		}
 
-		self::modulo( $valori, null !== $esito && isset( $esito['anteprima'] ) );
+		self::modulo( $valori );
 		self::elenco();
 
 		echo '</div>';
@@ -198,12 +220,42 @@ final class SchermataProroga {
 	}
 
 	/**
-	 * Il modulo, con i valori dell'ultimo invio dello stesso utente.
+	 * Il pulsante che dispone la proroga dell'anteprima mostrata, e solo di quella.
 	 *
-	 * @param array<string, string> $valori   Valori da riproporre.
-	 * @param bool                  $disponi  Se mostrare il pulsante che dispone la proroga.
+	 * @param string                $codice Codice dell'anteprima.
+	 * @param array<string, string> $valori Giorni e attestazione dell'anteprima.
 	 */
-	private static function modulo( array $valori, bool $disponi ): void {
+	private static function conferma( string $codice, array $valori ): void {
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::AZIONE ) );
+		wp_nonce_field( self::AZIONE, self::CAMPO_GETTONE );
+		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::CAMPO_ANTEPRIMA ), esc_attr( $codice ) );
+		printf(
+			'<p>%s</p>',
+			esc_html(
+				sprintf(
+					/* translators: 1: primo giorno, 2: ultimo giorno, 3: attestazione. */
+					__( 'Si conferma la proroga dei giorni dal %1$s al %2$s, con l\'attestazione: %3$s. Per cambiare qualcosa, correggere il modulo qui sotto e rifare l\'anteprima.', 'albo-pretorio-pa' ),
+					Proroga::leggibile( $valori['dal'] ),
+					Proroga::leggibile( '' === $valori['al'] ? $valori['dal'] : $valori['al'] ),
+					$valori['attestazione']
+				)
+			)
+		);
+		printf(
+			'<p><button type="submit" class="button button-primary" name="%1$s" value="disponi">%2$s</button></p>',
+			esc_attr( self::CAMPO_MODO ),
+			esc_html__( 'Disponi la proroga', 'albo-pretorio-pa' )
+		);
+		echo '</form>';
+	}
+
+	/**
+	 * Il modulo, con i valori dell'ultimo invio dello stesso utente: produce solo anteprime.
+	 *
+	 * @param array<string, string> $valori Valori da riproporre.
+	 */
+	private static function modulo( array $valori ): void {
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::AZIONE ) );
 		wp_nonce_field( self::AZIONE, self::CAMPO_GETTONE );
@@ -226,20 +278,12 @@ final class SchermataProroga {
 			esc_textarea( $valori['attestazione'] )
 		);
 		printf(
-			'<p><button type="submit" class="button" name="%1$s" value="anteprima">%2$s</button> ',
+			'<p><button type="submit" class="button" name="%1$s" value="anteprima">%2$s</button></p>',
 			esc_attr( self::CAMPO_MODO ),
 			esc_html__( 'Anteprima', 'albo-pretorio-pa' )
 		);
 
-		if ( $disponi ) {
-			printf(
-				'<button type="submit" class="button button-primary" name="%1$s" value="disponi">%2$s</button>',
-				esc_attr( self::CAMPO_MODO ),
-				esc_html__( 'Disponi la proroga', 'albo-pretorio-pa' )
-			);
-		}
-
-		echo '</p></form>';
+		echo '</form>';
 	}
 
 	/**
@@ -297,7 +341,7 @@ final class SchermataProroga {
 	}
 
 	/**
-	 * Controlla il gettone, legge i campi e chiama la proroga o la sua anteprima.
+	 * Controlla il gettone, poi fa l'anteprima dei campi o dispone quella conservata.
 	 *
 	 * Il permesso lo controlla `Passaggi`, che e' l'unico controllo che conta.
 	 *
@@ -310,32 +354,89 @@ final class SchermataProroga {
 			return self::lascia( array( 'errore' => __( 'Nessuna proroga disposta: il modulo e\' scaduto o non e\' stato riconosciuto. Ricaricare la pagina e riprovare.', 'albo-pretorio-pa' ) ) );
 		}
 
+		$modo = isset( $_POST[ self::CAMPO_MODO ] ) ? sanitize_key( wp_unslash( $_POST[ self::CAMPO_MODO ] ) ) : '';
+
+		if ( 'disponi' === $modo ) {
+			$codice = isset( $_POST[ self::CAMPO_ANTEPRIMA ] ) ? sanitize_text_field( wp_unslash( $_POST[ self::CAMPO_ANTEPRIMA ] ) ) : '';
+
+			return self::disponi( $codice );
+		}
+
 		$valori = array(
 			'dal'          => isset( $_POST[ self::CAMPO_DAL ] ) ? sanitize_text_field( wp_unslash( $_POST[ self::CAMPO_DAL ] ) ) : '',
 			'al'           => isset( $_POST[ self::CAMPO_AL ] ) ? sanitize_text_field( wp_unslash( $_POST[ self::CAMPO_AL ] ) ) : '',
 			'attestazione' => isset( $_POST[ self::CAMPO_ATTESTAZIONE ] ) ? sanitize_textarea_field( wp_unslash( $_POST[ self::CAMPO_ATTESTAZIONE ] ) ) : '',
 		);
-		$modo   = isset( $_POST[ self::CAMPO_MODO ] ) ? sanitize_key( wp_unslash( $_POST[ self::CAMPO_MODO ] ) ) : '';
 		$giorni = self::giorni( $valori['dal'], $valori['al'] );
 
 		if ( is_wp_error( $giorni ) ) {
 			return self::lascia( $valori + array( 'errore' => $giorni->get_error_message() ) );
 		}
 
-		$richiesta = array(
-			'giorni'       => $giorni,
-			'attestazione' => $valori['attestazione'],
+		$esito = Passaggi::anteprima_proroga(
+			array(
+				'giorni'       => $giorni,
+				'attestazione' => $valori['attestazione'],
+			)
 		);
 
-		if ( 'disponi' === $modo ) {
-			$esito = Passaggi::proroga( $richiesta );
+		if ( is_wp_error( $esito ) ) {
+			delete_transient( self::chiave_anteprima() );
 
-			return self::lascia( is_wp_error( $esito ) ? $valori + array( 'errore' => $esito->get_error_message() ) : array( 'disposta' => count( $esito['atti'] ) ) );
+			return self::lascia( $valori + array( 'errore' => $esito->get_error_message() ) );
 		}
 
-		$esito = Passaggi::anteprima_proroga( $richiesta );
+		// Una nuova anteprima sostituisce la precedente: un pulsante rimasto aperto altrove non conferma piu' niente.
+		$codice = wp_generate_password( 32, false );
 
-		return self::lascia( $valori + ( is_wp_error( $esito ) ? array( 'errore' => $esito->get_error_message() ) : array( 'anteprima' => $esito['atti'] ) ) );
+		set_transient(
+			self::chiave_anteprima(),
+			array(
+				'codice'       => $codice,
+				'valori'       => $valori,
+				'giorni'       => $esito['giorni'],
+				'attestazione' => $valori['attestazione'],
+				'attese'       => $esito['attese'],
+			),
+			self::DURATA_ANTEPRIMA
+		);
+
+		return self::lascia(
+			$valori + array(
+				'anteprima' => $esito['atti'],
+				'codice'    => $codice,
+			)
+		);
+	}
+
+	/**
+	 * Dispone la proroga dell'anteprima conservata, se il codice e' il suo.
+	 *
+	 * L'anteprima si consuma al primo tentativo, riuscito o no: dopo un
+	 * rifiuto si riparte da un'anteprima nuova, che mostra lo stato di adesso.
+	 *
+	 * @param string $codice Codice inviato.
+	 * @return array<string, mixed>
+	 */
+	private static function disponi( string $codice ): array {
+		$conservata = get_transient( self::chiave_anteprima() );
+
+		if ( ! is_array( $conservata ) || ! isset( $conservata['codice'] ) || '' === $codice || ! hash_equals( (string) $conservata['codice'], $codice ) ) {
+			return self::lascia( array( 'errore' => __( 'Nessuna proroga disposta: l\'anteprima confermata non e\' piu\' quella valida, perche\' e\' scaduta o ne e\' stata fatta un\'altra. Rifare l\'anteprima e controllarla prima di confermare.', 'albo-pretorio-pa' ) ) );
+		}
+
+		delete_transient( self::chiave_anteprima() );
+
+		$valori = (array) $conservata['valori'];
+		$esito  = Passaggi::proroga(
+			array(
+				'giorni'       => $conservata['giorni'],
+				'attestazione' => $conservata['attestazione'],
+				'attese'       => $conservata['attese'],
+			)
+		);
+
+		return self::lascia( is_wp_error( $esito ) ? $valori + array( 'errore' => $esito->get_error_message() ) : array( 'disposta' => count( $esito['atti'] ) ) );
 	}
 
 	/**
@@ -392,6 +493,15 @@ final class SchermataProroga {
 	 */
 	private static function chiave_esito(): string {
 		return 'albo_pretorio_proroga_esito_' . get_current_user_id();
+	}
+
+	/**
+	 * Chiave dell'anteprima confermabile, per utente.
+	 *
+	 * @return string
+	 */
+	private static function chiave_anteprima(): string {
+		return 'albo_pretorio_proroga_anteprima_' . get_current_user_id();
 	}
 
 	/**
