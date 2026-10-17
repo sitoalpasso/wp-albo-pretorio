@@ -71,6 +71,7 @@ trait AmbienteAlbo {
 
 		delete_option( \AlboPretorioPa\OPZIONE_VERSIONE );
 		delete_option( \AlboPretorioPa\Festivi::OPZIONE );
+		delete_option( \AlboPretorioPa\DatiProcedimento::OPZIONE );
 	}
 
 	/**
@@ -124,20 +125,21 @@ trait AmbienteAlbo {
 	 * Quello che la bacheca stampa fra gli avvisi.
 	 *
 	 * **Senza gli avvisi delle impostazioni da fare, salvo richiesta.** Su un
-	 * sito di prova l'anno della numerazione e' sempre da aprire e la scelta sui
-	 * giorni festivi da fare, quindi quegli avvisi compaiono a ogni
-	 * amministratore e renderebbero rossa ogni prova che osserva un altro
-	 * avviso, per una ragione che non c'entra con cio' che verifica. Hanno le
-	 * loro righe, A-67 e A-164, che li chiedono esplicitamente.
+	 * sito di prova l'anno della numerazione e' sempre da aprire e le scelte sui
+	 * giorni festivi e sui dati del procedimento da fare, quindi quegli avvisi
+	 * compaiono a ogni amministratore e renderebbero rossa ogni prova che
+	 * osserva un altro avviso, per una ragione che non c'entra con cio' che
+	 * verifica. Hanno le loro righe, A-67, A-164 e A-165, che li chiedono
+	 * esplicitamente.
 	 *
-	 * @param bool $con_impostazioni Includi gli avvisi della numerazione e dei giorni festivi.
+	 * @param bool $con_impostazioni Includi gli avvisi della numerazione, dei giorni festivi e dei dati del procedimento.
 	 * @return string
 	 */
 	protected function avvisi_in_bacheca( bool $con_impostazioni = false ): string {
 		$tolti = array();
 
 		if ( ! $con_impostazioni ) {
-			foreach ( array( \AlboPretorioPa\SchermataRepertorio::class, \AlboPretorioPa\SchermataFestivi::class ) as $classe ) {
+			foreach ( array( \AlboPretorioPa\SchermataRepertorio::class, \AlboPretorioPa\SchermataFestivi::class, \AlboPretorioPa\SchermataDatiProcedimento::class ) as $classe ) {
 				$avviso   = array( $classe, 'avviso' );
 				$priorita = has_action( 'admin_notices', $avviso );
 
