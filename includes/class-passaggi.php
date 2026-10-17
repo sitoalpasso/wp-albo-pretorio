@@ -460,7 +460,7 @@ final class Passaggi {
 							'fine_calcolata'  => $slittata['calcolata'],
 							'slittamento'     => $slittata['slittamento'],
 							'festivi_saltati' => self::saltati_per_registro( $slittata['saltati'] ),
-						),
+						) + DatiProcedimento::per_registro( $atto_id ),
 						'chiave'    => SEZIONE . ':' . self::AZIONE_CONFERMA . ':' . $atto_id,
 					)
 				);

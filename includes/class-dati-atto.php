@@ -64,6 +64,13 @@ final class DatiAtto {
 			}
 		}
 
+		if ( ! DatiProcedimento::registra() ) {
+			return new \WP_Error(
+				'albo_dati_non_dichiarati',
+				__( 'Dati dell\'atto non dichiarati: WordPress ha rifiutato la dichiarazione di un dato del procedimento.', 'albo-pretorio-pa' )
+			);
+		}
+
 		return true;
 	}
 
@@ -275,5 +282,6 @@ final class DatiAtto {
 	public static function azzera(): void {
 		unregister_post_meta( TIPO, META_DATA_ADOZIONE );
 		unregister_post_meta( TIPO, META_NUMERO_PROPRIO );
+		DatiProcedimento::azzera();
 	}
 }
