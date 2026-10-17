@@ -322,11 +322,13 @@ final class SchermataDatiProcedimento {
 		}
 
 		// Ogni scelta che manca o non e' un testo arriva come nulla, e `DatiProcedimento::salva()` la rifiuta.
+		// Le altre arrivano come sono state inviate, senza ripulirle: ripulite, `USA` o `u!sa` diventerebbero
+		// una scelta ammessa invece di essere rifiutate dal confronto stretto.
 		$scelte = array();
 		$invio  = isset( $_POST[ self::CAMPO_SCELTE ] ) && is_array( $_POST[ self::CAMPO_SCELTE ] ) ? wp_unslash( $_POST[ self::CAMPO_SCELTE ] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- ogni scelta si controlla qui sotto, contro i due valori ammessi.
 
 		foreach ( DatiProcedimento::DATI as $dato ) {
-			$scelte[ $dato ] = isset( $invio[ $dato ] ) && is_string( $invio[ $dato ] ) ? sanitize_key( $invio[ $dato ] ) : null;
+			$scelte[ $dato ] = isset( $invio[ $dato ] ) && is_string( $invio[ $dato ] ) ? $invio[ $dato ] : null;
 		}
 
 		// Gli elenchi arrivano interi a `DatiProcedimento::leggi_elenco()`, che controlla ogni riga e rifiuta

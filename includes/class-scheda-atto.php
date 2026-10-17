@@ -473,7 +473,9 @@ final class SchedaAtto {
 				continue;
 			}
 
-			update_post_meta( $atto_id, DatiProcedimento::meta( $dato ), $nome );
+			// `update_post_meta` toglie le barre rovesciate al valore, che qui e' gia' senza: si rimettono, o un
+			// nome come "Settore A\B" si salverebbe come "Settore AB".
+			update_post_meta( $atto_id, DatiProcedimento::meta( $dato ), wp_slash( $nome ) );
 		}
 
 		return $motivi;

@@ -362,8 +362,10 @@ final class DatiProcedimento {
 		$visti  = array();
 
 		foreach ( false === $righe ? array() : $righe as $indice => $riga ) {
-			// Gli spazi ripetuti dentro un nome diventano uno: e' l'unica pulizia, e si vede.
-			$nome = trim( (string) preg_replace( '/ {2,}/', ' ', $riga ) );
+			// Gli spazi ripetuti dentro un nome diventano uno e quelli ai lati si tolgono: e' l'unica pulizia,
+			// e tocca i soli spazi. Tabulazioni e altri caratteri di controllo, anche ai lati, restano per il
+			// controllo del nome, che li rifiuta, e una riga fatta solo di quelli non vale come vuota.
+			$nome = trim( (string) preg_replace( '/ {2,}/', ' ', $riga ), ' ' );
 
 			if ( '' === $nome ) {
 				continue;
@@ -464,7 +466,7 @@ final class DatiProcedimento {
 			return '';
 		}
 
-		return null === self::errore_nome( $righe[0] ) && trim( $righe[0] ) === $righe[0] ? $righe[0] : '';
+		return null === self::errore_nome( $righe[0] ) && trim( $righe[0], ' ' ) === $righe[0] ? $righe[0] : '';
 	}
 
 	/**

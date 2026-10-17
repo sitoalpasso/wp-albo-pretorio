@@ -1,6 +1,6 @@
 <?php
 /**
- * Responsabile del procedimento, ufficio e richiedente: righe A-144..A-146 e A-165..A-171 (ALBO-33).
+ * Responsabile del procedimento, ufficio e richiedente: righe A-144..A-146 e A-165..A-172 (ALBO-33).
  *
  * La scelta si salva da codice o con un invio vero della schermata, la scheda
  * dell'atto con un invio vero della schermata dell'atto, la pubblicazione con
@@ -87,7 +87,8 @@ class DatiProcedimentoTest extends \WP_UnitTestCase {
 		return $this->come(
 			$utente,
 			static function () use ( $campi, $gettone ) {
-				$_POST = array( SchermataDatiProcedimento::CAMPO_GETTONE => $gettone ?? wp_create_nonce( SchermataDatiProcedimento::AZIONE ) ) + $campi;
+				// Con le barre aggiunte, come WordPress consegna ogni richiesta vera.
+				$_POST = wp_slash( array( SchermataDatiProcedimento::CAMPO_GETTONE => $gettone ?? wp_create_nonce( SchermataDatiProcedimento::AZIONE ) ) + $campi );
 
 				try {
 					return SchermataDatiProcedimento::elabora();
@@ -175,7 +176,8 @@ class DatiProcedimentoTest extends \WP_UnitTestCase {
 				);
 
 				foreach ( $campi as $dato => $valore ) {
-					$_POST[ SchedaAtto::campo_procedimento( $dato ) ] = $valore;
+					// Con le barre aggiunte, come WordPress consegna ogni richiesta vera.
+					$_POST[ SchedaAtto::campo_procedimento( $dato ) ] = wp_slash( $valore );
 				}
 
 				try {
@@ -216,7 +218,7 @@ class DatiProcedimentoTest extends \WP_UnitTestCase {
 	 */
 	private function scrivi_di_lato( int $atto_id, array $valori ): void {
 		foreach ( $valori as $dato => $valore ) {
-			update_post_meta( $atto_id, DatiProcedimento::meta( $dato ), $valore );
+			update_post_meta( $atto_id, DatiProcedimento::meta( $dato ), wp_slash( $valore ) );
 		}
 	}
 
@@ -471,6 +473,36 @@ class DatiProcedimentoTest extends \WP_UnitTestCase {
 		$mancante = $this->campi_validi();
 		unset( $mancante[ SchermataDatiProcedimento::CAMPO_UFFICI ] );
 		$casi['elenco mancante'] = array( $mancante, 'non e\' arrivato come testo' );
+
+		// Scelte che una ripulitura trasformerebbe in una delle due ammesse.
+		foreach ( array( 'USA', 'u!sa', ' usa', 'Non_Usa', 'non-usa' ) as $variante ) {
+			$campi = $this->campi_validi();
+			$campi[ SchermataDatiProcedimento::CAMPO_SCELTE ][ DatiProcedimento::UFFICIO ] = $variante;
+
+			$casi[ 'scelta ' . $variante ] = array( $campi, 'per l\'ufficio va scelto' );
+		}
+
+		// Tabulazioni e altri caratteri di controllo ai lati, e righe fatte solo di quelli.
+		$controlli = array(
+			'tabulazione in testa'  => "\tMario Rossi",
+			'tabulazione in coda'   => "Anna Bianchi\nMario Rossi\t",
+			'riga di tabulazioni'   => "Mario Rossi\n\t\t",
+			'tabulazione verticale' => "\x0BMario Rossi",
+			'byte nullo in coda'    => "Mario Rossi\x00",
+		);
+
+		foreach ( $controlli as $nome => $elenco ) {
+			$casi[ $nome ] = array( array( SchermataDatiProcedimento::CAMPO_RESPONSABILI => $elenco ) + $this->campi_validi(), 'caratteri di controllo' );
+		}
+
+		// Tutto o niente: le parti valide sono diverse da quelle gia' salvate, l'ultima parte e' sbagliata.
+		$parziale = array(
+			SchermataDatiProcedimento::CAMPO_RESPONSABILI => "Giulia Verdi\nPaolo Neri",
+			SchermataDatiProcedimento::CAMPO_UFFICI       => '<b>Ufficio</b>',
+		) + $this->campi_validi();
+		$parziale[ SchermataDatiProcedimento::CAMPO_SCELTE ][ DatiProcedimento::RESPONSABILE ] = DatiProcedimento::NON_USA;
+
+		$casi['parti valide nuove, uffici sbagliati'] = array( $parziale, 'nell\'elenco degli uffici, riga 1' );
 
 		foreach ( $casi as $nome => list( $campi, $motivo ) ) {
 			$esito = $this->invia_schermata( $this->pubblicatore, $campi );
@@ -736,5 +768,52 @@ class DatiProcedimentoTest extends \WP_UnitTestCase {
 			$this->assertFalse( $dichiarati[ DatiProcedimento::meta( $dato ) ]['show_in_rest'] );
 			$this->assertTrue( is_protected_meta( DatiProcedimento::meta( $dato ), 'post' ) );
 		}
+	}
+
+	/**
+	 * A-172: le barre rovesciate restano dove sono scritte, nella schermata, nella scheda e nei dati conservati.
+	 */
+	public function test_a172_barre_rovesciate(): void {
+		$campi = array(
+			SchermataDatiProcedimento::CAMPO_RESPONSABILI => "Mario Rossi\nSettore A\\B",
+			SchermataDatiProcedimento::CAMPO_UFFICI       => "Ufficio C\\D\nSegreteria",
+		) + $this->campi_validi();
+
+		$this->assertTrue( $this->invia_schermata( $this->pubblicatore, $campi ) );
+		$this->assertSame( array( 'Mario Rossi', 'Settore A\\B' ), DatiProcedimento::elenco( DatiProcedimento::RESPONSABILE ) );
+
+		$atto = $this->atto_completo();
+
+		$this->assertSame(
+			array(),
+			$this->invia_scheda(
+				$atto,
+				array(
+					DatiProcedimento::RESPONSABILE => 'Settore A\\B',
+					DatiProcedimento::UFFICIO      => 'Ufficio C\\D',
+					DatiProcedimento::RICHIEDENTE  => 'Ente E\\F',
+				)
+			)
+		);
+		$this->assertSame(
+			array(
+				DatiProcedimento::RESPONSABILE => array( 'Settore A\\B' ),
+				DatiProcedimento::UFFICIO      => array( 'Ufficio C\\D' ),
+				DatiProcedimento::RICHIEDENTE  => array( 'Ente E\\F' ),
+			),
+			$this->grezzi( $atto )
+		);
+
+		// Un valore conservato con la barra, importato o tolto dall'elenco, resta identico risalvando la bozza.
+		$altro = $this->atto_completo();
+		$this->scrivi_di_lato( $altro, array( DatiProcedimento::UFFICIO => 'Archivio G\\H' ) );
+		$this->assertSame( array( 'Archivio G\\H' ), $this->grezzi( $altro )[ DatiProcedimento::UFFICIO ] );
+
+		$this->assertSame( array(), $this->invia_scheda( $altro, array( DatiProcedimento::UFFICIO => 'Archivio G\\H' ) ) );
+		$this->assertSame( array( 'Archivio G\\H' ), $this->grezzi( $altro )[ DatiProcedimento::UFFICIO ] );
+
+		$this->scegli( DatiProcedimento::USA, 'Mario Rossi', 'Segreteria' );
+		$this->assertSame( array(), $this->invia_scheda( $atto, array( DatiProcedimento::RESPONSABILE => 'Settore A\\B' ) ) );
+		$this->assertSame( array( 'Settore A\\B' ), $this->grezzi( $atto )[ DatiProcedimento::RESPONSABILE ], 'Tolto dall\'elenco, resta identico.' );
 	}
 }

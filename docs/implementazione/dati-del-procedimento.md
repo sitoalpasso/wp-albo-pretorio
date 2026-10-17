@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro
 com'è andata davvero.
 
 **Stato: costruita, in attesa di revisione.** Requisito ALBO-33, righe di collaudo
-A-144..A-146 e A-165..A-171, tutte a fatto per la parte che non aspetta la pagina pubblica.
+A-144..A-146 e A-165..A-172, tutte a fatto per la parte che non aspetta la pagina pubblica.
 Com'è andata davvero è in fondo.
 
 ## In tre paragrafi
@@ -102,7 +102,7 @@ chi può modificare l'atto, solo in bozza.
 
 ### 7. Prove che si aggiungeranno
 
-A-144..A-146 e A-165..A-171, in `tests/DatiProcedimentoTest.php`.
+A-144..A-146 e A-165..A-172, in `tests/DatiProcedimentoTest.php`.
 
 ### 8. Cosa NON si implementa
 
@@ -144,6 +144,19 @@ Pubblicare e controllare nel registro la voce di conferma.
   ripetuto anche con maiuscole diverse, più di 200 caratteri) rifiuta l'intero salvataggio
   con il numero della riga, invece di salvare un nome diverso da quello scritto.
 
+**Primo giro di revisione** (quattro rilievi, tutti accolti):
+
+1. Il valore salvato dalla scheda perdeva le barre rovesciate, perché `update_post_meta` le
+   toglie una seconda volta: "Settore A\B" diventava "Settore AB", fuori elenco. Ora il valore
+   si passa con le barre rimesse; le prove inviano le richieste con le barre aggiunte, come
+   WordPress, e A-172 lo prova su tutti e tre i dati e sui valori conservati.
+2. Negli elenchi la pulizia dei lati toglieva anche tabulazioni e altri caratteri di
+   controllo, che passavano invece di essere rifiutati. Ora si tolgono ai lati i soli spazi.
+3. La scelta inviata passava da una ripulitura prima del confronto, e `USA` o `u!sa`
+   diventavano una scelta ammessa. Ora si confronta il testo così come arriva.
+4. A-166 non vedeva un salvataggio a metà, perché le parti valide coincidevano con quelle
+   già salvate. Ora un caso ha parti valide nuove e una scelta cambiata prima dell'errore.
+
 Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 
 | Guasto | Prova caduta |
@@ -160,3 +173,7 @@ Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 | avviso mostrato anche dopo la scelta | A-165 |
 | valore sull'atto letto senza controllo | A-171 |
 | invio vuoto che cancella un valore conservato malformato | A-171 |
+| valore salvato senza rimettere le barre rovesciate | A-172 |
+| pulizia dei lati che toglie anche i caratteri di controllo | A-166 |
+| scelta ripulita prima del confronto | A-166 |
+| elenco dei responsabili scritto prima del controllo degli uffici | A-166 |
