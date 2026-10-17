@@ -1,6 +1,6 @@
 <?php
 /**
- * Dati dell'atto: righe A-69..A-76, e la prima riga di ALBO-01.
+ * Dati dell'atto: righe A-69..A-76 e A-174, e la prima riga di ALBO-01.
  *
  * Ogni esito si verifica rileggendo dalla banca dati, non la risposta della
  * funzione. Gli invii della scheda passano da `edit_post()`, che e' la funzione
@@ -806,5 +806,30 @@ class DatiAttoTest extends \WP_UnitTestCase {
 		wp_set_current_user( $this->redattore );
 
 		$this->assertStringContainsString( SchedaAtto::CAMPO_TIPO, $this->riquadro( $atto ), 'Controllo positivo: chi puo\' modificare vede il riquadro.' );
+	}
+
+	/**
+	 * A-174: il numero proprio resta come e' scritto, barre rovesciate ed entita' comprese.
+	 */
+	public function test_a174_numero_proprio_identico_al_risalvataggio(): void {
+		wp_set_current_user( $this->redattore );
+
+		foreach ( array( '12\\3/2026', 'N. &amp; 3 &quot;bis&quot;', '7\\&lt;A' ) as $numero ) {
+			$atto = $this->atto();
+
+			// Come arriva dal browser: WordPress aggiunge le barre a ogni campo inviato.
+			$this->invia( $atto, wp_slash( $this->campi_scheda( $atto, array( 'numero' => $numero ) ) ) );
+
+			$this->assertSame( array( $numero ), $this->fotografia( $atto )['numero'], 'Salvato come scritto: ' . $numero );
+
+			// Il riquadro letto come lo legge il browser, e rimandato cosi'.
+			$letto = $this->valore_campo( $this->riquadro( $atto ), SchedaAtto::CAMPO_NUMERO );
+
+			$this->assertSame( $numero, $letto, 'Il campo mostra il valore conservato: ' . $numero );
+
+			$this->invia( $atto, wp_slash( $this->campi_scheda( $atto, array( 'numero' => $letto ) ) ) );
+
+			$this->assertSame( array( $numero ), $this->fotografia( $atto )['numero'], 'Risalvato senza cambiare: ' . $numero );
+		}
 	}
 }

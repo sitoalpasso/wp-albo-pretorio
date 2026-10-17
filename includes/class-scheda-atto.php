@@ -166,7 +166,7 @@ final class SchedaAtto {
 			'<p><label for="%1$s">%2$s</label><br /><input type="text" id="%1$s" name="%1$s" value="%3$s" /></p><p class="description">%4$s</p>',
 			esc_attr( self::CAMPO_NUMERO ),
 			esc_html__( 'Numero proprio dell\'atto', 'albo-pretorio-pa' ),
-			esc_attr( DatiAtto::numero_proprio( $atto_id ) ),
+			self::attributo( DatiAtto::numero_proprio( $atto_id ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- codificato per intero da self::attributo().
 			esc_html__( 'Facoltativo. E\' il numero dell\'atto, per esempio della determinazione, non quello di pubblicazione, che assegna il sistema.', 'albo-pretorio-pa' )
 		);
 
@@ -426,7 +426,7 @@ final class SchedaAtto {
 			if ( '' === $numero ) {
 				delete_post_meta( $atto_id, META_NUMERO_PROPRIO );
 			} else {
-				update_post_meta( $atto_id, META_NUMERO_PROPRIO, $numero );
+				update_post_meta( $atto_id, META_NUMERO_PROPRIO, wp_slash( $numero ) );
 			}
 		}
 
