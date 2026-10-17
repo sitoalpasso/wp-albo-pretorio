@@ -626,6 +626,7 @@ class FestiviTest extends \WP_UnitTestCase {
 			'istante non data'    => array_merge( $valida, array( 'istante' => 'non-data' ) ),
 			'istante inesistente' => array_merge( $valida, array( 'istante' => '2041-02-30 07:30:00' ) ),
 			'istante altra forma' => array_merge( $valida, array( 'istante' => '2041-10-01T07:30:00' ) ),
+			'istante con nul'     => array_merge( $valida, array( 'istante' => "2041-10-01 07:30:00\0" ) ),
 			'riga non valida'     => array_merge(
 				$valida,
 				array(
@@ -663,6 +664,12 @@ class FestiviTest extends \WP_UnitTestCase {
 
 			$this->assertSame( array( 'albo_festivi_non_scelti' ), $esito->get_error_codes(), $caso );
 			$this->assertSame( $prima, $this->fotografia( $id ), $caso );
+
+			// La schermata si apre, senza scelta segnata, per correggere l'impostazione.
+			$stampato = $this->schermata( $this->pubblicatore );
+
+			$this->assertStringContainsString( SchermataFestivi::CAMPO_ELENCO, $stampato, $caso );
+			$this->assertStringNotContainsString( 'checked', $stampato, $caso );
 		}
 
 		// Controllo positivo: la forma del salvataggio vale.
