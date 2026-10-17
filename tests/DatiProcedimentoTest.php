@@ -348,8 +348,15 @@ class DatiProcedimentoTest extends \WP_UnitTestCase {
 		$this->assertCount( 3, $this->opzioni( $riquadro, SchedaAtto::campo_procedimento( DatiProcedimento::UFFICIO ) ) );
 		$this->assertSame( 'input', $this->elemento( $riquadro, SchedaAtto::campo_procedimento( DatiProcedimento::RICHIEDENTE ) )->nodeName );
 
-		// Facoltativi: un atto senza va in verifica e si pubblica.
+		// Facoltativi: un atto senza va in verifica e si pubblica, e il browser non pretende i campi.
 		$this->assertSame( array(), DatiAtto::mancanti( $atto ) );
+
+		foreach ( DatiProcedimento::DATI as $dato ) {
+			$campo = $this->elemento( $riquadro, SchedaAtto::campo_procedimento( $dato ) );
+
+			$this->assertFalse( $campo->hasAttribute( 'required' ), 'Nessun obbligo nel modulo: ' . $dato );
+			$this->assertFalse( $campo->hasAttribute( 'aria-required' ), 'Nessun obbligo annunciato: ' . $dato );
+		}
 
 		$motivi = $this->invia_scheda(
 			$atto,

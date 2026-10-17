@@ -163,6 +163,11 @@ presenti, e un valore conservato come `Ente &quot;Nord&quot;` arrivava al browse
 codificano per intero, entità comprese. A-173 legge il riquadro come lo legge il browser e
 rimanda quello che legge.
 
+**Terzo giro di revisione** (codice pulito, un rilievo su una prova, accolto): A-145 diceva
+che i campi sono facoltativi ma non guardava il modulo, dove un obbligo di compilazione
+fermerebbe il salvataggio già nel browser. Ora A-145 controlla che nessuno dei tre campi lo
+porti.
+
 Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 
 | Guasto | Prova caduta |
@@ -184,3 +189,5 @@ Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 | scelta ripulita prima del confronto | A-166 |
 | elenco dei responsabili scritto prima del controllo degli uffici | A-166 |
 | valori del riquadro codificati con `esc_attr()` | A-173 |
+| obbligo di compilazione sul campo del richiedente | A-145 |
+| obbligo di compilazione sui menu di responsabile e ufficio | A-145 |
