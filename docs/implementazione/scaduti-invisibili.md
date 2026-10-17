@@ -39,16 +39,25 @@ ricompare sulle strade del filtro: la prova misura il filtro, non la chiusura de
 
 ## Le strade, una per una
 
+Su ogni strada la prova guarda due cose diverse. Per l'atto in corso, che la strada lo
+consegni davvero, riconosciuto per numero e oggetto. Per lo scaduto, che non ne esca
+**niente**: né il contenuto fra i risultati, né un'anteprima senza titolo ma non vuota, né
+una risposta dell'interfaccia diversa dal rifiuto o che porti l'oggetto, né uno
+scaricamento diverso dal rifiuto di un indirizzo inesistente. Guardare per lo scaduto la
+stessa cosa che si guarda per l'atto in corso lascerebbe passare un'esposizione parziale.
+
 | Strada | Come si prova | Chi la copre |
 |---|---|---|
-| Scheda dell'atto | richiesta vera dell'indirizzo, e dell'indirizzo con numero e tipo | filtro in lettura (C-10) |
+| Scheda dell'atto | richiesta vera dell'indirizzo, dell'indirizzo con numero e tipo e della versione da incorporare (`embed=true`) | filtro in lettura (C-10) |
 | Elenco del tipo | richiesta vera dell'elenco, anche per anno e per autore | filtro in lettura (C-11) |
 | Ricerca interna | richiesta vera con le parole dell'oggetto | filtro in lettura (C-12) |
 | Feed dell'elenco e della ricerca | richiesta vera del feed | filtro in lettura (C-13) |
 | Interfaccia per programmi, elenco, singolo e ricerca | richiesta all'interfaccia | filtro in lettura (C-15, C-16) |
 | Documenti dell'atto nell'interfaccia per programmi | elenco filtrato per atto | filtro in lettura |
 | Scheda del singolo documento nell'interfaccia per programmi | **non provata**: resta aperta, vedi in fondo | meccanismo comune, da correggere |
-| Anteprima incorporata | dati dell'anteprima | filtro in lettura (C-17) |
+| Anteprima incorporata dell'atto | dati dell'anteprima e richiesta all'interfaccia `/oembed/1.0/embed` | filtro in lettura (C-17) |
+| Anteprima incorporata del documento | **non provata**: resta aperta, vedi in fondo | meccanismo comune, da correggere |
+| Feed generale dei commenti, feed della ricerca con i commenti, commenti nell'interfaccia | **non provati**: restano aperti, vedi in fondo | meccanismo comune, da correggere |
 | Pagina del documento | richiesta vera della pagina dell'allegato | filtro in lettura (C-19) |
 | Precedente e successivo | vicini di ciascun atto | filtro in lettura (C-20) |
 | Interrogazioni di altri componenti | interrogazione sul tipo | filtro in lettura (C-21) |
@@ -114,6 +123,21 @@ scelto chi ha caricato il documento e può contenere un nome di persona. La corr
 nel filtro di scadenza del meccanismo comune, che per i documenti deve guardare la scadenza
 dell'atto a cui appartengono anche su questa strada; qui non si tocca, e A-175 aggiungerà la
 strada quando il meccanismo comune la chiuderà.
+
+**Altri due buchi della stessa famiglia, trovati dalla revisione del primo giro.** Tutti e
+due nel meccanismo comune, tutti e due rifatti a mano prima di scriverli qui:
+
+- l'**anteprima incorporata del documento** (`/oembed/1.0/embed` con l'indirizzo della pagina
+  del documento) risponde dopo la scadenza con il nome del file e il codice da incorporare.
+  La causa è la stessa del punto sopra: per un documento il filtro guarda il documento e non
+  risale all'atto;
+- i **commenti di un atto scaduto** escono ancora dal feed generale dei commenti, dal feed
+  della ricerca con i commenti e dall'elenco dei commenti dell'interfaccia per programmi.
+  Il filtro toglie l'atto dai risultati, ma i commenti si leggono con un'interrogazione a
+  parte. Sull'albo il caso è remoto: gli atti non hanno i commenti, e un commento non si
+  scrive su un atto pubblicato perché la barriera lo rifiuta. Un commento ci arriva solo
+  scritto direttamente nella banca dati, per esempio da un importatore che li porti con sé.
+  Nella prova l'ho dovuto scrivere scavalcando la barriera.
 
 **Una cosa vista di passaggio, che non riguarda la scadenza.** Con il tipo chiuso, sui siti
 dove le pagine degli allegati sono accese, la pagina del documento di un atto **in corso**

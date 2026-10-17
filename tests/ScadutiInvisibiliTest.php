@@ -174,68 +174,104 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Gli atti che il pubblico raggiunge da ogni strada, come l'utente indicato.
+	 * Che cosa ogni strada consegna degli atti indicati, come l'utente indicato.
 	 *
-	 * Per ogni strada l'elenco degli atti fra quelli indicati che la strada
-	 * consegna. Le strade sono quelle dell'elenco chiuso del meccanismo comune
-	 * che un sito con il tipo aperto offre: la mappa per i motori di ricerca e'
-	 * a parte, perche' li' un atto non c'e' nemmeno in corso (ALBO-06).
+	 * Per ogni strada due elenchi di atti. In `visti` gli atti che la strada
+	 * consegna davvero, riconosciuti per identita' e oggetto: e' l'osservazione
+	 * dei controlli positivi. In `tracce` gli atti di cui la strada lascia
+	 * uscire **qualunque cosa**: il contenuto nei risultati anche senza la
+	 * pagina giusta, un'anteprima senza titolo ma non vuota, una risposta
+	 * dell'interfaccia che non e' il rifiuto o che porta l'oggetto, uno
+	 * scaricamento diverso dal rifiuto di un indirizzo inesistente. Sullo
+	 * scaduto si guarda `tracce`: un'osservazione che misura solo il successo
+	 * resterebbe verde con un'esposizione parziale.
+	 *
+	 * Le strade sono quelle dell'elenco chiuso del meccanismo comune che un sito
+	 * con il tipo aperto offre, piu' quelle che WordPress apre con lo stesso
+	 * tipo: la mappa per i motori di ricerca e' a parte, perche' li' un atto non
+	 * c'e' nemmeno in corso (ALBO-06).
 	 *
 	 * @param int             $utente Utente, zero per il visitatore.
 	 * @param array<int, int> $atti   Atti da cercare.
-	 * @return array<string, array<int, int>>
+	 * @return array{visti: array<string, array<int, int>>, tracce: array<string, array<int, int>>}
 	 */
 	private function strade( int $utente, array $atti ): array {
 		wp_set_current_user( $utente );
 
-		$visti = array();
+		$visti  = array();
+		$tracce = array();
+		$segna  = static function ( array &$elenco, string $strada, int $atto, bool $si ): void {
+			$elenco[ $strada ] = $elenco[ $strada ] ?? array();
+			if ( $si ) {
+				$elenco[ $strada ][] = $atto;
+			}
+		};
+
+		$rifiuto = $this->consegna( PHP_INT_MAX, PHP_INT_MAX - 1 );
+		$this->assertCount( 1, $rifiuto, 'Precondizione: il rifiuto di un indirizzo inesistente esce una volta.' );
+		$this->assertSame( 404, $rifiuto[0]['stato'], 'Precondizione: il rifiuto di un indirizzo inesistente.' );
 
 		foreach ( $atti as $atto ) {
-			$this->richiesta( get_permalink( $atto ) );
-			if ( is_singular( TIPO ) && get_queried_object_id() === $atto ) {
-				$visti['scheda'][] = $atto;
-			}
-
-			$this->richiesta( get_permalink( $this->documento( $atto ) ) );
-			if ( is_attachment() && get_queried_object_id() === $this->documento( $atto ) ) {
-				$visti['pagina del documento'][] = $atto;
-			}
-
-			$this->consegne = array();
-			$this->go_to( conformita_core_indirizzo_consegna( $this->documento( $atto ) ) );
-			if ( isset( $this->consegne[0]['stato'] ) && 200 === $this->consegne[0]['stato'] ) {
-				$visti['documento'][] = $atto;
-			}
-
-			$this->richiesta(
-				add_query_arg(
+			$oggetto   = get_post( $atto )->post_title;
+			$documento = $this->documento( $atto );
+			$indirizzi = array(
+				'scheda'                   => get_permalink( $atto ),
+				'scheda per numero e tipo' => add_query_arg(
 					array(
 						'p'         => $atto,
 						'post_type' => TIPO,
 					),
 					home_url( '/' )
-				)
+				),
+				'scheda da incorporare'    => add_query_arg( 'embed', 'true', get_permalink( $atto ) ),
 			);
-			if ( is_singular( TIPO ) && get_queried_object_id() === $atto ) {
-				$visti['scheda per numero e tipo'][] = $atto;
+
+			foreach ( $indirizzi as $strada => $indirizzo ) {
+				$this->richiesta( (string) $indirizzo );
+				$nei_risultati = in_array( $atto, $this->risultati(), true );
+				$segna( $visti, $strada, $atto, is_singular( TIPO ) && get_queried_object_id() === $atto && $nei_risultati && ( 'scheda da incorporare' !== $strada || is_embed() ) );
+				$segna( $tracce, $strada, $atto, get_queried_object_id() === $atto || $nei_risultati );
 			}
 
-			$documenti = new \WP_REST_Request( 'GET', '/wp/v2/media' );
-			$documenti->set_param( 'parent', $atto );
-			$risposta = rest_do_request( $documenti );
-			if ( 200 === $risposta->get_status() && in_array( $this->documento( $atto ), array_map( 'intval', wp_list_pluck( (array) $risposta->get_data(), 'id' ) ), true ) ) {
-				$visti['dati per programmi, documenti dell\'atto'][] = $atto;
-			}
+			$this->richiesta( get_permalink( $documento ) );
+			$nei_risultati = in_array( $documento, $this->risultati(), true );
+			$segna( $visti, 'pagina del documento', $atto, is_attachment() && get_queried_object_id() === $documento && $nei_risultati );
+			$segna( $tracce, 'pagina del documento', $atto, get_queried_object_id() === $documento || $nei_risultati );
 
-			$singolo = rest_do_request( new \WP_REST_Request( 'GET', '/wp/v2/' . TIPO . '/' . $atto ) );
-			if ( 200 === $singolo->get_status() ) {
-				$visti['dati per programmi, singolo'][] = $atto;
+			$consegne   = $this->consegna( $atto, $documento );
+			$prima      = $consegne[0] ?? array();
+			$consegnato = 1 === count( $consegne ) && 200 === ( $prima['stato'] ?? 0 ) && ! empty( $prima['percorso'] );
+			$segna( $visti, 'documento', $atto, $consegnato );
+			$segna( $tracce, 'documento', $atto, $rifiuto !== $consegne );
+
+			$risposte = array(
+				'dati per programmi, singolo'              => rest_do_request( new \WP_REST_Request( 'GET', '/wp/v2/' . TIPO . '/' . $atto ) ),
+				'dati per programmi, documenti dell\'atto' => $this->interfaccia( '/wp/v2/media', array( 'parent' => $atto ) ),
+				'anteprima incorporata, interfaccia'       => $this->interfaccia( '/oembed/1.0/embed', array( 'url' => add_query_arg( 'p', $atto, home_url( '/' ) ) ) ),
+			);
+
+			foreach ( $risposte as $strada => $risposta ) {
+				$dati   = wp_json_encode( $risposta->get_data() );
+				$campi  = is_array( $risposta->get_data() ) ? $risposta->get_data() : array();
+				$numero = (int) ( $campi['id'] ?? 0 );
+				$titolo = $campi['title']['rendered'] ?? ( $campi['title'] ?? '' );
+				switch ( $strada ) {
+					case 'dati per programmi, singolo':
+						$visto = 200 === $risposta->get_status() && $atto === $numero && $oggetto === $titolo;
+						break;
+					case 'dati per programmi, documenti dell\'atto':
+						$visto = 200 === $risposta->get_status() && in_array( $documento, array_map( 'intval', wp_list_pluck( (array) $risposta->get_data(), 'id' ) ), true );
+						break;
+					default:
+						$visto = 200 === $risposta->get_status() && $oggetto === $titolo;
+				}
+				$segna( $visti, $strada, $atto, $visto );
+				$segna( $tracce, $strada, $atto, ( 404 !== $risposta->get_status() && 'dati per programmi, documenti dell\'atto' !== $strada ) || false !== strpos( (string) $dati, $oggetto ) || false !== strpos( (string) $dati, '"id":' . $documento . ',' ) );
 			}
 
 			$anteprima = get_oembed_response_data( get_post( $atto ), 600 );
-			if ( is_array( $anteprima ) && isset( $anteprima['title'] ) ) {
-				$visti['anteprima incorporata'][] = $atto;
-			}
+			$segna( $visti, 'anteprima incorporata', $atto, is_array( $anteprima ) && isset( $anteprima['title'] ) && $oggetto === $anteprima['title'] );
+			$segna( $tracce, 'anteprima incorporata', $atto, ! empty( $anteprima ) );
 		}
 
 		$elenchi = array(
@@ -267,27 +303,45 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 
 		foreach ( $elenchi as $strada => $indirizzo ) {
 			$this->richiesta( (string) $indirizzo );
-			$visti[ $strada ] = array_values( array_intersect( $atti, array_map( 'intval', wp_list_pluck( (array) $GLOBALS['wp_query']->posts, 'ID' ) ) ) );
+			$visti[ $strada ]  = array_values( array_intersect( $atti, $this->risultati() ) );
+			$tracce[ $strada ] = $visti[ $strada ];
 		}
 
-		$ricerca = new \WP_REST_Request( 'GET', '/wp/v2/search' );
-		$ricerca->set_param( 'search', 'di prova' );
-		$ricerca->set_param( 'subtype', TIPO );
-		$trovati                              = rest_do_request( $ricerca );
+		$trovati                              = $this->interfaccia(
+			'/wp/v2/search',
+			array(
+				'search'  => 'di prova',
+				'subtype' => TIPO,
+			)
+		);
 		$visti['dati per programmi, ricerca'] = array_values( array_intersect( $atti, array_map( 'intval', 200 === $trovati->get_status() ? wp_list_pluck( (array) $trovati->get_data(), 'id' ) : array() ) ) );
 
 		$collezione                          = rest_do_request( new \WP_REST_Request( 'GET', '/wp/v2/' . TIPO ) );
-		$restituiti                          = 200 === $collezione->get_status() ? wp_list_pluck( (array) $collezione->get_data(), 'id' ) : array();
-		$visti['dati per programmi, elenco'] = array_values( array_intersect( $atti, array_map( 'intval', $restituiti ) ) );
+		$visti['dati per programmi, elenco'] = array_values( array_intersect( $atti, array_map( 'intval', 200 === $collezione->get_status() ? wp_list_pluck( (array) $collezione->get_data(), 'id' ) : array() ) ) );
 
-		$terzi                            = new \WP_Query(
+		foreach ( array(
+			'dati per programmi, ricerca' => $trovati,
+			'dati per programmi, elenco'  => $collezione,
+		) as $strada => $risposta ) {
+			$dati              = (string) wp_json_encode( $risposta->get_data() );
+			$tracce[ $strada ] = array();
+			foreach ( $atti as $atto ) {
+				if ( in_array( $atto, $visti[ $strada ], true ) || false !== strpos( $dati, get_post( $atto )->post_title ) ) {
+					$tracce[ $strada ][] = $atto;
+				}
+			}
+		}
+
+		$terzi                             = new \WP_Query(
 			array(
 				'post_type'      => TIPO,
 				'posts_per_page' => -1,
 			)
 		);
-		$visti['interrogazione di terzi'] = array_values( array_intersect( $atti, array_map( 'intval', wp_list_pluck( $terzi->posts, 'ID' ) ) ) );
+		$visti['interrogazione di terzi']  = array_values( array_intersect( $atti, array_map( 'intval', wp_list_pluck( $terzi->posts, 'ID' ) ) ) );
+		$tracce['interrogazione di terzi'] = $visti['interrogazione di terzi'];
 
+		$visti['precedente e successivo'] = array();
 		foreach ( $atti as $atto ) {
 			foreach ( $atti as $vicino ) {
 				if ( $vicino === $atto ) {
@@ -304,14 +358,77 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 			}
 		}
 		unset( $GLOBALS['post'] );
+		$tracce['precedente e successivo'] = $visti['precedente e successivo'];
 
-		foreach ( $visti as $strada => $elenco ) {
-			$visti[ $strada ] = array_values( array_unique( $elenco ) );
-			sort( $visti[ $strada ] );
+		return array(
+			'visti'  => $this->in_ordine( $visti ),
+			'tracce' => $this->in_ordine( $tracce ),
+		);
+	}
+
+	/**
+	 * Elenchi senza doppioni e in ordine, strade in ordine.
+	 *
+	 * @param array<string, array<int, int>> $strade Strade.
+	 * @return array<string, array<int, int>>
+	 */
+	private function in_ordine( array $strade ): array {
+		foreach ( $strade as $strada => $elenco ) {
+			$strade[ $strada ] = array_values( array_unique( $elenco ) );
+			sort( $strade[ $strada ] );
 		}
-		ksort( $visti );
+		ksort( $strade );
 
-		return $visti;
+		return $strade;
+	}
+
+	/**
+	 * Gli identificativi dei contenuti della richiesta appena fatta.
+	 *
+	 * @return array<int, int>
+	 */
+	private function risultati(): array {
+		return array_map( 'intval', wp_list_pluck( (array) $GLOBALS['wp_query']->posts, 'ID' ) );
+	}
+
+	/**
+	 * Una richiesta all'interfaccia per programmi, con parametri.
+	 *
+	 * @param string               $rotta     Rotta.
+	 * @param array<string, mixed> $parametri Parametri.
+	 * @return \WP_REST_Response
+	 */
+	private function interfaccia( string $rotta, array $parametri ): \WP_REST_Response {
+		$richiesta = new \WP_REST_Request( 'GET', $rotta );
+
+		foreach ( $parametri as $nome => $valore ) {
+			$richiesta->set_param( $nome, $valore );
+		}
+
+		return rest_do_request( $richiesta );
+	}
+
+	/**
+	 * Tutto cio' che il punto pubblico di consegna emette per una richiesta.
+	 *
+	 * @param int $atto      Atto dichiarato.
+	 * @param int $documento Documento chiesto.
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function consegna( int $atto, int $documento ): array {
+		$this->consegne = array();
+
+		$this->go_to(
+			add_query_arg(
+				array(
+					\Conformita_Core_Consegna::VAR_ATTO => $atto,
+					\Conformita_Core_Consegna::VAR_ALLEGATO => $documento,
+				),
+				home_url( '/' )
+			)
+		);
+
+		return $this->consegne;
 	}
 
 	/**
@@ -325,6 +442,7 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 
 		$strade = array(
 			'anteprima incorporata',
+			'anteprima incorporata, interfaccia',
 			'dati per programmi, documenti dell\'atto',
 			'dati per programmi, elenco',
 			'dati per programmi, ricerca',
@@ -340,6 +458,7 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 			'precedente e successivo',
 			'ricerca',
 			'scheda',
+			'scheda da incorporare',
 			'scheda per numero e tipo',
 		);
 
@@ -369,16 +488,14 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 			$this->fissa_orologi( self::ULTIMO_ISTANTE );
 			$this->assertSame(
 				$this->ovunque( array( $primo, $secondo ) ),
-				$this->strade( $utente, array( $primo, $secondo ) ),
+				$this->strade( $utente, array( $primo, $secondo ) )['visti'],
 				$chi . ', ultimo secondo: tutti e due gli atti si vedono su ogni strada.'
 			);
 
 			$this->fissa_orologi( self::PRIMO_ISTANTE_SCADUTO );
-			$this->assertSame(
-				$this->ovunque( array( $secondo ) ),
-				$this->strade( $utente, array( $primo, $secondo ) ),
-				$chi . ', mezzanotte: il primo atto non si vede su nessuna strada, il secondo su tutte.'
-			);
+			$strade = $this->strade( $utente, array( $primo, $secondo ) );
+			$this->assertSame( $this->ovunque( array( $secondo ) ), $strade['visti'], $chi . ', mezzanotte: il secondo atto si vede su ogni strada.' );
+			$this->assertSame( $this->ovunque( array( $secondo ) ), $strade['tracce'], $chi . ', mezzanotte: del primo atto non esce niente da nessuna strada.' );
 		}
 
 		$this->assertSame( 'publish', get_post_status( $primo ), 'Lo stato memorizzato resta pubblicato: a nascondere l\'atto e\' la data letta.' );
@@ -429,7 +546,15 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 	 */
 	public function test_a177_atto_importato_gia_scaduto_mai_visibile(): void {
 		$in_corso  = $this->pubblicato_il( '2041-10-01 09:30:00', 'Avviso di prova' );
-		$importato = $this->atto_completo( 'normativo', array( 'post_title' => 'Graduatoria di prova' ) );
+		$importato = $this->atto_completo(
+			'normativo',
+			array(
+				'post_title'    => 'Graduatoria di prova',
+				'post_name'     => 'graduatoria-di-prova',
+				'post_date'     => '2041-09-15 10:00:00',
+				'post_date_gmt' => '2041-09-15 08:00:00',
+			)
+		);
 
 		$scritta = $this->scavalca_barriera(
 			static function () use ( $importato ) {
@@ -443,30 +568,43 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 
 		clean_post_cache( $importato );
 		$this->assertSame( 'publish', get_post_status( $importato ), 'Precondizione: l\'atto importato risulta pubblicato.' );
-
-		$this->fissa_orologi( '2041-10-02 12:00:00' );
+		$this->assertSame( '2041-09-15 10:00:00', get_post( $importato )->post_date, 'Precondizione: l\'atto importato porta la sua data originale.' );
 
 		foreach ( array(
 			'visitatore'     => 0,
 			'amministratore' => $this->amministratore,
 		) as $chi => $utente ) {
+			// Lo stesso atto, prima della sua fine, si vede su ogni strada: l'assenza dopo non dipende dall'assetto.
+			$this->fissa_orologi( '2041-09-30 23:59:59' );
 			$this->assertSame(
-				$this->ovunque( array( $in_corso ) ),
-				$this->strade( $utente, array( $in_corso, $importato ) ),
-				$chi . ': l\'atto importato gia\' scaduto non si vede su nessuna strada.'
+				$this->ovunque( array( $in_corso, $importato ) ),
+				$this->strade( $utente, array( $in_corso, $importato ) )['visti'],
+				$chi . ': prima della sua fine l\'atto importato si vede su ogni strada.'
 			);
+
+			$this->fissa_orologi( '2041-10-02 12:00:00' );
+			$strade = $this->strade( $utente, array( $in_corso, $importato ) );
+			$this->assertSame( $this->ovunque( array( $in_corso ) ), $strade['visti'], $chi . ': l\'atto in corso si vede su ogni strada.' );
+			$this->assertSame( $this->ovunque( array( $in_corso ) ), $strade['tracce'], $chi . ': dell\'atto importato gia\' scaduto non esce niente da nessuna strada.' );
 		}
 	}
 
 	/**
 	 * A-178: nessuna impostazione rende visibili gli scaduti.
 	 *
-	 * La politica letta dal meccanismo comune e' quella scritta nel codice, e
-	 * nei sorgenti non c'e' nessuna strada per cambiarla: le due costanti si
-	 * usano solo nella registrazione della sezione, e nessuna opzione, nessun
-	 * filtro e nessun dato dell'albo porta un nome di archivio, storico o
-	 * consultazione degli scaduti. L'archivio riservato, quando arrivera', sara'
-	 * una schermata dell'amministrazione, non una scelta sul sito pubblico.
+	 * Tre controlli, dal piu' forte al piu' debole. La politica letta dal
+	 * meccanismo comune e' `irraggiungibile`. La registrazione della sezione e'
+	 * **una sola, e la sua chiamata e' esattamente quella**: le due costanti
+	 * passate dritte, senza condizioni, operatori o filtri in mezzo; e le due
+	 * costanti sono definite una volta, con quel valore. Infine una sentinella
+	 * lessicale: nei sorgenti, compresi quelli nelle sottocartelle, nessuna
+	 * stringa che abbia la forma di un nome di opzione, filtro o dato parla di
+	 * scadenza, storico, oblio, archivio, politica o visibilita', tranne le due
+	 * che servono alla registrazione. La sentinella non prova che nessuna
+	 * impostazione possa esistere: prova che non ce n'e' una con un nome
+	 * riconoscibile, e obbliga chi ne aggiunge una a cambiare questa riga.
+	 * L'archivio riservato, quando arrivera', sara' una schermata
+	 * dell'amministrazione, non una scelta sul sito pubblico.
 	 */
 	public function test_a178_nessuna_impostazione_per_gli_scaduti(): void {
 		$politica = conformita_core_politica_sezione( SEZIONE );
@@ -476,27 +614,93 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 		$this->assertSame( 'irraggiungibile', SCADENZA );
 		$this->assertSame( 'vietata', INDICIZZAZIONE );
 
-		$radice  = dirname( __DIR__ );
-		$trovati = glob( $radice . '/includes/*.php' );
-		$file    = array_merge( array( $radice . '/albo-pretorio-pa.php' ), is_array( $trovati ) ? $trovati : array() );
-		$usi     = array();
+		$radice = dirname( __DIR__ );
+		$file   = array( $radice . '/albo-pretorio-pa.php' );
+		foreach ( new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator( $radice . '/includes', \FilesystemIterator::SKIP_DOTS ) ) as $voce ) {
+			if ( '.php' === substr( (string) $voce, -4 ) ) {
+				$file[] = (string) $voce;
+			}
+		}
+		sort( $file );
+
+		$chiamate    = array();
+		$definizioni = array();
+		$nomi        = array();
 
 		foreach ( $file as $percorso ) {
-			$testo = (string) file_get_contents( $percorso );
-			$testo = (string) preg_replace( '#/\*.*?\*/#s', '', $testo );
-			$testo = (string) preg_replace( '#^\s*//.*$#m', '', $testo );
-
-			if ( preg_match_all( '/\b(?:SCADENZA|INDICIZZAZIONE)\b(?!\s*=(?!=))/', $testo, $presenze ) ) {
-				$usi[ basename( $percorso ) ] = count( $presenze[0] );
-			}
-
-			$this->assertDoesNotMatchRegularExpression(
-				'/(?:get_option|update_option|add_option|apply_filters|get_post_meta|register_setting)\s*\([^;]*(?:scadut|storico|oblio|archivi|politica)/i',
-				$testo,
-				basename( $percorso ) . ': nessuna impostazione sugli scaduti.'
+			$nome    = substr( $percorso, strlen( $radice ) + 1 );
+			$gettoni = array_values(
+				array_filter(
+					token_get_all( (string) file_get_contents( $percorso ) ),
+					static function ( $gettone ) {
+						return ! is_array( $gettone ) || ! in_array( $gettone[0], array( T_WHITESPACE, T_COMMENT, T_DOC_COMMENT ), true );
+					}
+				)
 			);
+			$testi   = array_map(
+				static function ( $gettone ) {
+					return is_array( $gettone ) ? $gettone[1] : $gettone;
+				},
+				$gettoni
+			);
+
+			foreach ( $gettoni as $posto => $gettone ) {
+				if ( ! is_array( $gettone ) ) {
+					continue;
+				}
+
+				if ( T_STRING === $gettone[0] && 'conformita_core_registra_sezione' === $gettone[1] && '(' === ( $testi[ $posto + 1 ] ?? '' ) ) {
+					$profondita = 0;
+					$chiamata   = '';
+					$quanti     = count( $testi );
+					for ( $i = $posto; $i < $quanti; $i++ ) {
+						$chiamata .= $testi[ $i ];
+						if ( '(' === $testi[ $i ] ) {
+							++$profondita;
+						} elseif ( ')' === $testi[ $i ] && 0 === --$profondita ) {
+							break;
+						}
+					}
+					$chiamate[] = $nome . ': ' . $chiamata;
+				}
+
+				if ( T_CONST === $gettone[0] && in_array( $testi[ $posto + 1 ] ?? '', array( 'SCADENZA', 'INDICIZZAZIONE' ), true ) ) {
+					$definizioni[] = $nome . ': ' . implode( '', array_slice( $testi, $posto, 5 ) );
+				}
+
+				if ( T_STRING === $gettone[0] && 'define' === $gettone[1] && false !== strpos( (string) ( $testi[ $posto + 2 ] ?? '' ), 'SCADENZA' ) ) {
+					$definizioni[] = $nome . ': define';
+				}
+
+				if ( T_CONSTANT_ENCAPSED_STRING === $gettone[0] ) {
+					$valore = substr( $gettone[1], 1, -1 );
+					if ( 1 === preg_match( '/^[a-z0-9_\-]+$/i', $valore ) && 1 === preg_match( '/scad|storic|oblio|archiv|politic|visibil/i', $valore ) ) {
+						$nomi[] = $nome . ': ' . $valore;
+					}
+				}
+			}
 		}
 
-		$this->assertSame( array( 'class-avvio.php' => 2 ), $usi, 'Le due politiche si usano solo nella registrazione della sezione.' );
+		$this->assertSame(
+			array( "includes/class-avvio.php: conformita_core_registra_sezione(SEZIONE,array('indicizzazione'=>INDICIZZAZIONE,'scadenza'=>SCADENZA,))" ),
+			$chiamate,
+			'Una sola registrazione della sezione, con le due costanti passate dritte.'
+		);
+		$this->assertSame(
+			array(
+				"albo-pretorio-pa.php: constINDICIZZAZIONE='vietata';",
+				"albo-pretorio-pa.php: constSCADENZA='irraggiungibile';",
+			),
+			$definizioni,
+			'Le due politiche sono definite una volta, con il loro valore.'
+		);
+		$this->assertSame(
+			array(
+				'includes/class-avvio.php: scadenza',
+				'includes/class-tipo-atto.php: has_archive',
+			),
+			$nomi,
+			'Sentinella: nessun nome di opzione, filtro o dato parla di scaduti, storico, oblio, archivio o visibilita\'.'
+		);
 	}
 }
