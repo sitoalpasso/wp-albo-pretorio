@@ -204,7 +204,28 @@ pubblicazione); Pasqua sbagliata di un giorno (A-157); proroga senza slittamento
 A-161, A-163); riga non nella forma normale accettata (A-162); riga sbagliata saltata
 invece di rifiutare tutto (A-160); scelta preselezionata nella schermata (A-139, A-158);
 gettone non controllato e permesso non controllato (A-159); avviso mostrato anche a chi
-redige (A-164); fine calcolata non scritta nel registro (A-161); giorno singolo trattato
-come annuale (A-140, A-161). Il quattordicesimo è la doppia difesa della proroga detta
+redige (A-164); fine calcolata non scritta nel registro (A-161); giorno singolo ignorato
+(A-140, A-161). Il quattordicesimo è la doppia difesa della proroga detta
 sopra. Al primo giro la riga non normale era sfuggita: A-162 costruiva i casi cambiando
 l'ordine delle chiavi, e il rifiuto arrivava da quello; ora ogni caso cambia una cosa sola.
+
+**Primo giro di revisione.** Tre rilievi, tutti accolti.
+
+- L'istante del salvataggio era controllato solo come testo: un istante vuoto o
+  qualunque valesse come scelta fatta. Ora deve essere una data e ora vera, in tempo
+  universale, scritta esattamente come la scrive il salvataggio (A-162, quattro casi
+  nuovi).
+- Un elenco inviato come insieme invece che come testo, o un elenco mancante, diventava
+  un elenco vuoto e si salvava, cancellando quello di prima. Ora si rifiuta l'intero
+  invio, sia dalla schermata sia da codice; l'elenco vuoto scritto apposta resta ammesso
+  (A-160).
+- Il guasto che la tabella chiamava "giorno singolo trattato come annuale" in realtà
+  faceva ignorare il giorno singolo; quello vero, il 2/11/2041 che vale anche negli altri
+  anni, lasciava verdi tutte le prove, perché il giorno singolo si provava solo nel suo
+  anno. A-140 ora prova che il 2 novembre 2040, venerdì, non è festivo, e che il 2/11
+  scritto come festa annuale lo è anche nel 2040.
+
+Prova dei guasti ripetuta con quattro guasti in più (diciotto in tutto): giorno singolo
+come annuale (A-140); istante non controllato (A-162); elenco non testo trasformato in
+vuoto, nella schermata e nel salvataggio (A-160). Diciassette visti; il diciottesimo resta
+la doppia difesa della proroga.

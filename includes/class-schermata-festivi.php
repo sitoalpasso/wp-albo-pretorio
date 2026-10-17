@@ -277,9 +277,10 @@ final class SchermataFestivi {
 			return new \WP_Error( 'albo_festivi_non_permesso', __( 'Impostazione non salvata: non si possiede il permesso di pubblicare atti.', 'albo-pretorio-pa' ) );
 		}
 
-		$scelta = isset( $_POST[ self::CAMPO_SCELTA ] ) ? sanitize_key( wp_unslash( $_POST[ self::CAMPO_SCELTA ] ) ) : null;
+		// Un campo mancante o che non e' un testo arriva come nullo, e `Festivi::salva()` lo rifiuta.
+		$scelta = isset( $_POST[ self::CAMPO_SCELTA ] ) && is_string( $_POST[ self::CAMPO_SCELTA ] ) ? sanitize_key( wp_unslash( $_POST[ self::CAMPO_SCELTA ] ) ) : null;
 		// L'elenco si controlla riga per riga in `Festivi::leggi_elenco()`, che rifiuta ogni riga con segni di formattazione.
-		$elenco = isset( $_POST[ self::CAMPO_ELENCO ] ) ? sanitize_textarea_field( wp_unslash( $_POST[ self::CAMPO_ELENCO ] ) ) : '';
+		$elenco = isset( $_POST[ self::CAMPO_ELENCO ] ) && is_string( $_POST[ self::CAMPO_ELENCO ] ) ? sanitize_textarea_field( wp_unslash( $_POST[ self::CAMPO_ELENCO ] ) ) : null;
 
 		return Festivi::salva( $scelta, $elenco, get_current_user_id(), current_datetime() );
 	}

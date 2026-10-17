@@ -107,6 +107,13 @@ final class Festivi {
 			return null;
 		}
 
+		// L'istante ha la forma esatta che scrive il salvataggio: una data e ora vera, in tempo universale.
+		$istante = \DateTimeImmutable::createFromFormat( '!Y-m-d H:i:s', $valore['istante'], new \DateTimeZone( 'UTC' ) );
+
+		if ( false === $istante || $istante->format( 'Y-m-d H:i:s' ) !== $valore['istante'] ) {
+			return null;
+		}
+
 		if ( count( $valore['elenco'] ) > self::RIGHE_MASSIME || ! array_is_list( $valore['elenco'] ) ) {
 			return null;
 		}
@@ -172,7 +179,15 @@ final class Festivi {
 			);
 		}
 
-		$elenco = self::leggi_elenco( is_string( $testo ) ? $testo : '' );
+		// Un elenco che non e' un testo si rifiuta: non diventa un elenco vuoto.
+		if ( ! is_string( $testo ) ) {
+			return new \WP_Error(
+				'albo_festivi_elenco_mancante',
+				__( 'Impostazione non salvata: l\'elenco dei giorni festivi non e\' arrivato come testo. Ricaricare la pagina e riprovare.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$elenco = self::leggi_elenco( $testo );
 
 		if ( is_wp_error( $elenco ) ) {
 			return $elenco;
