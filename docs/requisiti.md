@@ -80,7 +80,13 @@ l'albo dichiara al meccanismo comune la politica `irraggiungibile`. Non e' la po
 `archivio`, che l'albo non usa. Se l'atto va conservato, lo si consulta dall'amministrazione
 e in futuro da un archivio riservato: e' una schermata di amministrazione e **non fa tornare
 a rispondere quell'indirizzo**. Il testo che segue descrive quell'archivio ad
-accesso controllato, non in una pagina pubblica meno visibile (ALBO-05). E finché è
+accesso controllato, non in una pagina pubblica meno visibile (ALBO-05). **Nessuna impostazione
+lo cambia** (decisione dell'8 ottobre 2026): non c'è un periodo in cui lo scaduto resti
+consultabile fra gli "storici", e la regola vale anche per gli atti portati da un albo
+precedente, che entrano con le loro date e, se la fine è passata, non sono mai visibili. Chi
+apre l'indirizzo di un atto scaduto trova la pagina "non trovata" del sito, la stessa di un
+indirizzo mai esistito, e non un avviso "non più in pubblicazione", che confermerebbe che
+l'atto c'è stato (decisione del 17 ottobre 2026). E finché è
 pubblicato, le sue pagine dicono ai motori di ricerca di non indicizzarlo: meta
 `noindex`, esclusione dalla sitemap (ALBO-06). Attenzione: è la regola **opposta** a
 quella dell'amministrazione trasparente, dove l'indicizzazione è obbligatoria. Per
@@ -345,7 +351,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-02 | fatto | Data di fine **obbligatoria per pubblicare**, cioè calcolabile da inizio più durata applicabile. In bozza non esiste ancora | **norma** nessuna pubblicazione a tempo indeterminato (Garante, provv. marzo 2026). **Prodotto** la data come valore che il sistema scrive al passaggio a pubblicato e che nessuno fornisce a mano |
 | ALBO-03 | da fare | L'atto scaduto smette di essere pubblico tempestivamente | **norma** il risultato, senza dipendere dal traffico del sito (Garante). **Prodotto** i tre strati, cron esterno, filtro e battito: architettura nostra, non un obbligo |
 | ALBO-04 | da fare | Durate per tipo di atto, configurabili, senza default, **ciascuna con l'origine dichiarata**: norma, con i suoi estremi, oppure scelta dell'amministrazione | **norma** l'esistenza di una durata (TUEL art. 124, valido per comuni e province, non universale), e la distinzione fra termine prescritto e periodo scelto dall'amministrazione, che il Garante vuole valutato caso per caso. **Prodotto** la configurabilità per tipo e la forma in cui l'origine è dichiarata, decisa il 2026-09-22. **Da confermare** le durate dei singoli tipi, che dipendono dal regolamento |
-| ALBO-05 | da fare | L'atto defisso esce dalla vista pubblica | **norma** il risultato (Garante, provvedimenti). **Prodotto** la politica `irraggiungibile` dichiarata al meccanismo comune |
+| ALBO-05 | in corso | L'atto defisso esce dalla vista pubblica, per chiunque, senza impostazioni che lo tengano visibile e anche se arriva da un albo precedente | **norma** il risultato (Garante, provvedimenti). **Prodotto** la politica `irraggiungibile` dichiarata al meccanismo comune |
 | ALBO-06 | da fare | Le pagine dell'atto non vengono indicizzate | **norma** il risultato (Garante, che raccomanda i metatag). **Prodotto** `noindex`, esclusione dalla mappa e politica dichiarata |
 | ALBO-07 | da fare | Referto di pubblicazione congelato | **da confermare**: la prassi non è una fonte. Contenuto e obbligatorietà vanno verificati contro il regolamento, e l'unità è bloccata da quella conferma |
 | ALBO-08 | in corso | Repertorio progressivo annuale, assegnato dal sistema. Unico, progressivo, assegnato una sola volta, mai riutilizzato. Nel primo anno d'uso il numero di partenza lo dichiara l'amministrazione, senza valore predefinito | **prodotto** scelta decisa il 2026-09-23: la prassi della pubblicità legale usa il repertorio, le fonti non lo impongono. Decisi lo stesso giorno la partenza dichiarata e il divieto di correggerla dopo il primo numero. L'assenza assoluta di buchi non è promessa |
@@ -358,7 +364,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-15 | da fare | Separazione dall'amministrazione trasparente | **norma** finalità e durate diverse (d.lgs. 33/2013, Garante). **Prodotto** due esposizioni indipendenti con un file solo |
 | ALBO-16 | da fare | Ricerca e filtri accessibili | **prodotto**, con l'accessibilità come vincolo di norma |
 | ALBO-17 | da fare | Gli atti sono versabili in conservazione | **norma** il risultato (linee guida AgID doc. informatici). **Prodotto** l'export in formato aperto |
-| ALBO-18 | da fare | L'atto scaduto non è pubblico su nessun percorso | **norma** il risultato (Garante, provv. marzo 2026). **Prodotto** il filtro in interrogazione sui percorsi di WordPress, il cui elenco dipende da WordPress e non dalla norma |
+| ALBO-18 | in corso | L'atto scaduto non è pubblico su nessun percorso | **norma** il risultato (Garante, provv. marzo 2026). **Prodotto** il filtro in interrogazione sui percorsi di WordPress, il cui elenco dipende da WordPress e non dalla norma |
 | ALBO-19 | da fare | Battito di controllo con avviso | **prodotto**, motivato dal guasto silenzioso sanzionato nel provv. Garante marzo 2026 |
 | ALBO-20 | da fare | L'atto defisso non viene più servito a nessuno | **norma** il risultato (Garante). **Prodotto** esclusione dalla memoria di pagina oppure invalidazione immediata: due strade, la scelta è nostra |
 | ALBO-21 | da fare | Scadenza sull'ora civile italiana | **prodotto**: correttezza tecnica, nessuna fonte esterna |
