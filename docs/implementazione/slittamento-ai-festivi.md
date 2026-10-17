@@ -248,3 +248,11 @@ Prova dei guasti ripetuta con quattro guasti in più (ventidue in tutto): elenco
 prima del controllo (A-160); nella proroga con la scelta spento, scelta, fine calcolata o
 festivi saltati scritti male nel registro (A-161). Ventuno visti; il ventiduesimo resta la
 doppia difesa della proroga.
+
+**Terzo giro di revisione.** Le correzioni del secondo giro risultano complete; un
+rilievo nuovo, accolto. Un istante salvato con un byte nullo faceva sollevare
+un'eccezione alla lettura della data, invece di valere come scelta non fatta: si fermavano
+pubblicazione, proroga e la schermata stessa che serve a correggerlo. Ora la forma
+dell'istante si controlla con un'espressione regolare prima di leggerlo. A-162 ha il caso
+del byte nullo e, per ogni caso, controlla che la schermata si apra senza scelta segnata.
+Guasto ripetuto (controllo della forma tolto): A-162 rossa.

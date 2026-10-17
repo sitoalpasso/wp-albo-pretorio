@@ -108,6 +108,11 @@ final class Festivi {
 		}
 
 		// L'istante ha la forma esatta che scrive il salvataggio: una data e ora vera, in tempo universale.
+		// La forma si controlla prima della lettura, che su caratteri come il byte nullo solleva un'eccezione.
+		if ( 1 !== preg_match( '/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/D', $valore['istante'] ) ) {
+			return null;
+		}
+
 		$istante = \DateTimeImmutable::createFromFormat( '!Y-m-d H:i:s', $valore['istante'], new \DateTimeZone( 'UTC' ) );
 
 		if ( false === $istante || $istante->format( 'Y-m-d H:i:s' ) !== $valore['istante'] ) {
