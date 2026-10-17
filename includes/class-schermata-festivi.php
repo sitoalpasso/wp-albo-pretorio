@@ -279,8 +279,10 @@ final class SchermataFestivi {
 
 		// Un campo mancante o che non e' un testo arriva come nullo, e `Festivi::salva()` lo rifiuta.
 		$scelta = isset( $_POST[ self::CAMPO_SCELTA ] ) && is_string( $_POST[ self::CAMPO_SCELTA ] ) ? sanitize_key( wp_unslash( $_POST[ self::CAMPO_SCELTA ] ) ) : null;
-		// L'elenco si controlla riga per riga in `Festivi::leggi_elenco()`, che rifiuta ogni riga con segni di formattazione.
-		$elenco = isset( $_POST[ self::CAMPO_ELENCO ] ) && is_string( $_POST[ self::CAMPO_ELENCO ] ) ? sanitize_textarea_field( wp_unslash( $_POST[ self::CAMPO_ELENCO ] ) ) : null;
+		// L'elenco arriva intero a `Festivi::leggi_elenco()`, che controlla ogni riga e ripulisce le descrizioni in
+		// `Festivi::riga()`: ripulirlo prima toglierebbe di nascosto le righe fatte solo di segni di formattazione.
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- controllato riga per riga in Festivi::leggi_elenco().
+		$elenco = isset( $_POST[ self::CAMPO_ELENCO ] ) && is_string( $_POST[ self::CAMPO_ELENCO ] ) ? wp_unslash( $_POST[ self::CAMPO_ELENCO ] ) : null;
 
 		return Festivi::salva( $scelta, $elenco, get_current_user_id(), current_datetime() );
 	}

@@ -173,6 +173,9 @@ domenica, e che quella del primo non sia cambiata.
    scritto nel codice, che invecchia; ma senza proposta ogni amministrazione dovrebbe
    ricopiarlo a mano, con più errori. **Proposta**: tenerla, con la data della versione
    scritta accanto. Alternativa: campo vuoto e l'elenco come esempio in un riquadro sotto.
+   **Deciso dal titolare (17/10/2026)**: si tiene la proposta, che resta tutta modificabile:
+   chi pubblica aggiunge a mano il santo patrono e gli altri giorni che servono, e toglie
+   quelli che non valgono.
 
 ## Com'è andata davvero
 
@@ -229,3 +232,19 @@ Prova dei guasti ripetuta con quattro guasti in più (diciotto in tutto): giorno
 come annuale (A-140); istante non controllato (A-162); elenco non testo trasformato in
 vuoto, nella schermata e nel salvataggio (A-160). Diciassette visti; il diciottesimo resta
 la doppia difesa della proroga.
+
+**Secondo giro di revisione.** Le tre correzioni del primo giro risultano complete; due
+rilievi nuovi, accolti.
+
+- La schermata ripuliva l'intero elenco dai segni di formattazione prima di controllarlo:
+  una riga fatta solo di segni diventava vuota e spariva senza dirlo, e il resto si
+  salvava. Ora l'elenco arriva intero al controllo riga per riga, che rifiuta quella riga
+  con il suo numero; le descrizioni si ripuliscono come prima, una per una (A-160).
+- A-161 provava il registro con la scelta "lasciare la fine dove cade" solo nella
+  pubblicazione. Ora prova anche una proroga che porta la fine di domenica: la fine resta
+  lì, la fine calcolata coincide, nessun festivo saltato.
+
+Prova dei guasti ripetuta con quattro guasti in più (ventidue in tutto): elenco ripulito
+prima del controllo (A-160); nella proroga con la scelta spento, scelta, fine calcolata o
+festivi saltati scritti male nel registro (A-161). Ventuno visti; il ventiduesimo resta la
+doppia difesa della proroga.
