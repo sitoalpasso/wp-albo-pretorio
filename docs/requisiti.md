@@ -83,7 +83,10 @@ a rispondere quell'indirizzo**. Il testo che segue descrive quell'archivio ad
 accesso controllato, non in una pagina pubblica meno visibile (ALBO-05). **Nessuna impostazione
 lo cambia** (decisione dell'8 ottobre 2026): non c'è un periodo in cui lo scaduto resti
 consultabile fra gli "storici", e la regola vale anche per gli atti portati da un albo
-precedente, che entrano con le loro date e, se la fine è passata, non sono mai visibili. E finché è
+precedente, che entrano con le loro date e, se la fine è passata, non sono mai visibili. Chi
+apre l'indirizzo di un atto scaduto trova la pagina "non trovata" del sito, la stessa di un
+indirizzo mai esistito, e non un avviso "non più in pubblicazione", che confermerebbe che
+l'atto c'è stato (decisione del 17 ottobre 2026). E finché è
 pubblicato, le sue pagine dicono ai motori di ricerca di non indicizzarlo: meta
 `noindex`, esclusione dalla sitemap (ALBO-06). Attenzione: è la regola **opposta** a
 quella dell'amministrazione trasparente, dove l'indicizzazione è obbligatoria. Per

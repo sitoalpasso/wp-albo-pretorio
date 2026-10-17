@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro
 com'è andata davvero.
 
 **Stato: prove scritte, in attesa di revisione.** Requisiti ALBO-05 e ALBO-18, righe di
-collaudo A-175..A-178. Nessuna riga di codice dell'albo cambia: la regola c'era già, e qui
+collaudo A-175..A-179. Nessuna riga di codice dell'albo cambia: la regola c'era già, e qui
 si prova dal lato dell'albo che regge davvero.
 
 ## In tre paragrafi
@@ -81,20 +81,18 @@ nemmeno in corso, perché WordPress lo risolve solo per gli articoli.
 - **Non costruisce la consultazione riservata** degli scaduti per gli addetti.
 - **Non costruisce l'importatore**: A-177 prova l'atto scritto come lo scriverà lui.
 
-## Punti da decidere
+## Decisioni prese
 
-1. **Cosa vede chi apre l'indirizzo di un atto scaduto.** I requisiti dicono che
-   l'indirizzo smette di rispondere, cioè la pagina "non trovata" del sito, identica a quella
-   di un indirizzo mai esistito; lo scaricamento del documento fa già così. La mappa di
-   compatibilità proponeva, per i vecchi indirizzi dell'albo precedente, una pagina "non più
-   in pubblicazione". Proposta: "non trovata" per tutti. Decide l'utente.
-2. **Quando costruire la consultazione riservata** degli scaduti per gli addetti: oggi chi ha
-   i permessi dell'albo li trova già nell'elenco degli atti dell'amministrazione. Proposta:
-   un passo a sé dopo la pagina pubblica. Decide l'utente.
+1. **Cosa vede chi apre l'indirizzo di un atto scaduto** (17 ottobre 2026): la pagina "non
+   trovata" del sito, identica a quella di un indirizzo mai esistito, per tutti. Nessun avviso
+   "non più in pubblicazione", nemmeno per i vecchi indirizzi dell'albo precedente: confermerebbe
+   che l'atto c'è stato. Riga A-179.
+2. **Consultazione riservata** degli scaduti per gli addetti (17 ottobre 2026): si costruisce
+   subito, come passo a sé con la sua scheda, dopo questa unità.
 
 ## File toccati
 
-- `tests/ScadutiInvisibiliTest.php`: le quattro righe.
+- `tests/ScadutiInvisibiliTest.php`: le cinque righe.
 - `docs/requisiti.md`, `docs/collaudo.md`, questa scheda e l'indice delle schede.
 
 ## Come si prova su un sito vero

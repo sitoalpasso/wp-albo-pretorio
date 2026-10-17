@@ -1,6 +1,6 @@
 <?php
 /**
- * Gli atti scaduti sono invisibili al pubblico: righe A-175..A-178 (ALBO-05, ALBO-18).
+ * Gli atti scaduti sono invisibili al pubblico: righe A-175..A-179 (ALBO-05, ALBO-18).
  *
  * **Perche' il tipo si apre nella prova.** Oggi il tipo atto non e' consultabile
  * dal pubblico (A-25), quindi un atto scaduto e' invisibile anche perche' lo e'
@@ -39,6 +39,13 @@ use const AlboPretorioPa\TIPO;
 class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 
 	use FlussoDiProva;
+
+	/**
+	 * Codici di stato emessi durante una richiesta (A-179).
+	 *
+	 * @var int[]
+	 */
+	private array $stati = array();
 
 	/**
 	 * L'ultimo istante in cui l'atto di prova e' in pubblicazione.
@@ -598,6 +605,62 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 
 		$this->assertSame( array( $primo ), $tracce['dati per programmi, singolo'], 'Un rifiuto con il numero dell\'atto nel corpo e\' una traccia.' );
 		$this->assertSame( array( $primo ), $tracce['dati per programmi, elenco'], 'Un elenco rifiutato che porta il numero dell\'atto e\' una traccia.' );
+	}
+
+	/**
+	 * A-179: l'indirizzo di un atto scaduto risponde come un indirizzo mai esistito.
+	 *
+	 * Decisione del 17 ottobre 2026: nessun avviso "non piu' in pubblicazione",
+	 * che confermerebbe che l'atto c'e' stato. All'ultimo secondo la scheda si
+	 * apre, dalla mezzanotte risponde "non trovata" con lo stesso codice e la
+	 * stessa interrogazione vuota di un indirizzo inventato, per il visitatore e
+	 * per l'amministratore.
+	 */
+	public function test_a179_indirizzo_scaduto_come_mai_esistito(): void {
+		$atto        = $this->pubblicato_il( '2041-10-01 09:30:00', 'Graduatoria di prova' );
+		$indirizzo   = (string) get_permalink( $atto );
+		$inventato   = add_query_arg( TIPO, 'atto-mai-esistito', home_url( '/' ) );
+		$this->stati = array();
+		$cattura     = function ( $intestazione, $codice ) {
+			$this->stati[] = (int) $codice;
+
+			return $intestazione;
+		};
+		add_filter( 'status_header', $cattura, 10, 2 );
+
+		foreach ( array(
+			'visitatore'     => 0,
+			'amministratore' => $this->amministratore,
+		) as $chi => $utente ) {
+			wp_set_current_user( $utente );
+
+			$this->fissa_orologi( self::ULTIMO_ISTANTE );
+			$this->stati = array();
+			$this->richiesta( $indirizzo );
+			$this->assertTrue( is_singular( TIPO ) && get_queried_object_id() === $atto, $chi . ', ultimo secondo: precondizione, la scheda si apre.' );
+			$this->assertNotContains( 404, $this->stati, $chi . ', ultimo secondo: la scheda non risponde "non trovata".' );
+
+			$this->fissa_orologi( self::PRIMO_ISTANTE_SCADUTO );
+			$risposte = array();
+			foreach ( array(
+				'scaduto'   => $indirizzo,
+				'inventato' => $inventato,
+			) as $quale => $dove ) {
+				$this->stati = array();
+				$this->richiesta( $dove );
+				$risposte[ $quale ] = array(
+					'non trovata' => is_404(),
+					'stati'       => array_values( array_unique( $this->stati ) ),
+					'risultati'   => $this->risultati(),
+					'oggetto'     => get_queried_object_id(),
+				);
+			}
+
+			$this->assertSame( array( 404 ), $risposte['inventato']['stati'], $chi . ': precondizione, un indirizzo inventato risponde "non trovata".' );
+			$this->assertSame( $risposte['inventato'], $risposte['scaduto'], $chi . ', mezzanotte: l\'atto scaduto risponde come un indirizzo mai esistito.' );
+		}
+
+		remove_filter( 'status_header', $cattura, 10 );
 	}
 
 	/**
