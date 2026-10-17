@@ -70,6 +70,7 @@ trait AmbienteAlbo {
 		\AlboPretorioPa\Permessi::azzera();
 
 		delete_option( \AlboPretorioPa\OPZIONE_VERSIONE );
+		delete_option( \AlboPretorioPa\Festivi::OPZIONE );
 	}
 
 	/**
@@ -122,31 +123,37 @@ trait AmbienteAlbo {
 	/**
 	 * Quello che la bacheca stampa fra gli avvisi.
 	 *
-	 * **Senza l'avviso della numerazione, salvo richiesta.** Su un sito di prova
-	 * l'anno della numerazione e' sempre da aprire, quindi quell'avviso compare a
-	 * ogni amministratore e renderebbe rossa ogni prova che osserva un altro
-	 * avviso, per una ragione che non c'entra con cio' che verifica. L'avviso
-	 * della numerazione ha la sua riga, A-67, che lo chiede esplicitamente.
+	 * **Senza gli avvisi delle impostazioni da fare, salvo richiesta.** Su un
+	 * sito di prova l'anno della numerazione e' sempre da aprire e la scelta sui
+	 * giorni festivi da fare, quindi quegli avvisi compaiono a ogni
+	 * amministratore e renderebbero rossa ogni prova che osserva un altro
+	 * avviso, per una ragione che non c'entra con cio' che verifica. Hanno le
+	 * loro righe, A-67 e A-164, che li chiedono esplicitamente.
 	 *
-	 * @param bool $con_numerazione Includi l'avviso della numerazione.
+	 * @param bool $con_impostazioni Includi gli avvisi della numerazione e dei giorni festivi.
 	 * @return string
 	 */
-	protected function avvisi_in_bacheca( bool $con_numerazione = false ): string {
-		$avviso   = array( \AlboPretorioPa\SchermataRepertorio::class, 'avviso' );
-		$tolto    = false;
-		$priorita = has_action( 'admin_notices', $avviso );
+	protected function avvisi_in_bacheca( bool $con_impostazioni = false ): string {
+		$tolti = array();
 
-		if ( ! $con_numerazione && false !== $priorita ) {
-			remove_action( 'admin_notices', $avviso, (int) $priorita );
-			$tolto = true;
+		if ( ! $con_impostazioni ) {
+			foreach ( array( \AlboPretorioPa\SchermataRepertorio::class, \AlboPretorioPa\SchermataFestivi::class ) as $classe ) {
+				$avviso   = array( $classe, 'avviso' );
+				$priorita = has_action( 'admin_notices', $avviso );
+
+				if ( false !== $priorita ) {
+					remove_action( 'admin_notices', $avviso, (int) $priorita );
+					$tolti[] = array( $avviso, (int) $priorita );
+				}
+			}
 		}
 
 		ob_start();
 		do_action( 'admin_notices' );
 		$stampato = (string) ob_get_clean();
 
-		if ( $tolto ) {
-			add_action( 'admin_notices', $avviso, (int) $priorita );
+		foreach ( $tolti as $tolto ) {
+			add_action( 'admin_notices', $tolto[0], $tolto[1] );
 		}
 
 		return $stampato;

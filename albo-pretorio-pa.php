@@ -202,6 +202,8 @@ require_once __DIR__ . '/includes/class-passaggi.php';
 require_once __DIR__ . '/includes/class-riquadro-passaggi.php';
 require_once __DIR__ . '/includes/class-proroga.php';
 require_once __DIR__ . '/includes/class-schermata-proroga.php';
+require_once __DIR__ . '/includes/class-festivi.php';
+require_once __DIR__ . '/includes/class-schermata-festivi.php';
 require_once __DIR__ . '/includes/funzioni-api.php';
 
 /*
@@ -250,6 +252,9 @@ add_action( 'admin_post_' . SchermataRepertorio::AZIONE, array( SchermataReperto
 add_action( 'admin_notices', array( SchermataRepertorio::class, 'avviso' ) );
 add_action( 'admin_menu', array( SchermataProroga::class, 'menu' ) );
 add_action( 'admin_post_' . SchermataProroga::AZIONE, array( SchermataProroga::class, 'da_invio' ) );
+add_action( 'admin_menu', array( SchermataFestivi::class, 'menu' ) );
+add_action( 'admin_post_' . SchermataFestivi::AZIONE, array( SchermataFestivi::class, 'da_invio' ) );
+add_action( 'admin_notices', array( SchermataFestivi::class, 'avviso' ) );
 
 /*
  * I dati dell'atto si compilano nel riquadro della schermata dell'atto. Una

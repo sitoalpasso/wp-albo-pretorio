@@ -215,15 +215,27 @@ final class RiquadroPassaggi {
 			return __( 'Il tipo di atto non ha una durata valida: la data di fine non si puo\' calcolare e l\'atto non si pubblica.', 'albo-pretorio-pa' );
 		}
 
-		return sprintf(
+		$festivi = Festivi::scelta();
+
+		if ( null === $festivi ) {
+			$coda = __( 'Prima va scelto che cosa succede quando la data di fine cade in un giorno festivo, nella schermata Giorni festivi.', 'albo-pretorio-pa' );
+		} elseif ( Festivi::ACCESO === $festivi ) {
+			$coda = __( 'Se quel giorno e\' domenica o un giorno dell\'elenco dei festivi, la fine passa al primo giorno seguente non festivo.', 'albo-pretorio-pa' );
+		} else {
+			$coda = '';
+		}
+
+		return trim(
+			sprintf(
 			/* translators: %d: giorni di pubblicazione. */
-			_n(
-				'Alla pubblicazione il sistema assegna il numero di repertorio e scrive la data di inizio, cioe\' adesso, e la data di fine, %d giorno dopo il giorno di inizio.',
-				'Alla pubblicazione il sistema assegna il numero di repertorio e scrive la data di inizio, cioe\' adesso, e la data di fine, %d giorni dopo il giorno di inizio.',
-				(int) $durata['giorni'],
-				'albo-pretorio-pa'
-			),
-			(int) $durata['giorni']
+				_n(
+					'Alla pubblicazione il sistema assegna il numero di repertorio e scrive la data di inizio, cioe\' adesso, e la data di fine, %d giorno dopo il giorno di inizio.',
+					'Alla pubblicazione il sistema assegna il numero di repertorio e scrive la data di inizio, cioe\' adesso, e la data di fine, %d giorni dopo il giorno di inizio.',
+					(int) $durata['giorni'],
+					'albo-pretorio-pa'
+				),
+				(int) $durata['giorni']
+			) . ' ' . $coda
 		);
 	}
 

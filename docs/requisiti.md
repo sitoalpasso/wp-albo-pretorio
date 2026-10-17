@@ -292,7 +292,11 @@ ALBO-33 e per ogni impostazione futura.
   dei giorni festivi sta in configurazione, con il patrono e con le feste nazionali vigenti,
   ciascuna con l'estremo della norma che la istituisce: le feste nazionali cambiano per
   legge, e un elenco scritto nel codice invecchia in silenzio. Lo slittamento si applica nel
-  calcolo della fine al passaggio a pubblicato (ALBO-27) e a ogni proroga (ALBO-31).
+  calcolo della fine al passaggio a pubblicato (ALBO-27) e a ogni proroga (ALBO-31). Finché
+  la scelta non è fatta, pubblicazione e proroga si rifiutano: nessuna delle due sa quale
+  fine scrivere. La fine calcolata prima dello slittamento e i festivi saltati restano nel
+  registro, e le fini già scritte non cambiano quando l'elenco cambia. Com'è costruito: scheda
+  [`slittamento-ai-festivi.md`](implementazione/slittamento-ai-festivi.md).
 - **Responsabile del procedimento, ufficio, richiedente** (ALBO-33, decisione del
   2026-10-08). Chi consulta un atto trova utile sapere a chi rivolgersi; la legge chiede di
   indicare ufficio e responsabile in altri momenti del procedimento (l. 241/1990, art. 8) e
@@ -359,7 +363,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-29 | da fare | Ogni atto ospitato di un'altra amministrazione porta e mostra al pubblico l'amministrazione che l'ha adottato. La scelta è obbligatoria e senza preselezione appena l'elenco delle amministrazioni ospitate ha una voce | **norma** la pubblicazione sull'albo di un altro ente è prevista (TUEL art. 124 c. 2, l. 69/2009 art. 32 c. 3); i ruoli sui dati li stabiliscono gli enti fra loro. **Prodotto** l'indicazione mostrata e l'assenza di accessi separati, deciso il 2026-09-23 |
 | ALBO-30 | da fare | Il file scaricato ha un nome con numero di repertorio e date di pubblicazione, senza oggetto e senza il nome originale; il contenuto resta identico | **norma** il rischio di decontestualizzazione (Garante, delib. 243/2014 par. 2.d). **Prodotto** il nome del file come unica misura che non tocca il documento firmato, deciso il 2026-09-23; il formato esatto è nostro |
 | ALBO-31 | in corso | Proroga per disservizio: chi pubblica, con attestazione obbligatoria, allunga la fine degli atti in pubblicazione di un giorno per ogni giorno trascorso sotto le dodici ore di disponibilità; repertorio e inizio invariati, tutto nel registro | **norma** linee guida AgID sulla pubblicità legale, regola delle dodici ore (estremi del punto da verificare sul testo ufficiale). **Prodotto** chi la dispone, l'attestazione obbligatoria, l'irrevocabilità, deciso il 2026-10-08 |
-| ALBO-32 | da fare | Slittamento della fine al primo giorno non festivo, acceso o spento dall'amministrazione senza preselezione, con l'elenco dei festivi in configurazione | **norma** c.c. art. 2963 c. 3, c.p.c. art. 155 c. 4, la cui applicazione al periodo di affissione è interpretativa. **Prodotto** la scelta lasciata all'amministrazione, decisa il 2026-10-08 |
+| ALBO-32 | fatto | Slittamento della fine al primo giorno non festivo, acceso o spento dall'amministrazione senza preselezione, con l'elenco dei festivi in configurazione | **norma** c.c. art. 2963 c. 3, c.p.c. art. 155 c. 4, la cui applicazione al periodo di affissione è interpretativa. **Prodotto** la scelta lasciata all'amministrazione, decisa il 2026-10-08 |
 | ALBO-33 | da fare | Responsabile del procedimento, ufficio e richiedente: mostrarli e chiederli sugli atti nuovi lo sceglie l'amministrazione; sugli atti migrati si conservano sempre | **prodotto**, deciso il 2026-10-08; l. 241/1990 art. 8 come contesto, non come obbligo di pubblicazione |
 | ALBO-23 | fatto | All'attivazione l'insieme minimo di permessi sul tipo atto arriva all'amministratore | **prodotto** |
 | ALBO-24 | fatto | A ogni aggiornamento i permessi nuovi arrivano ai ruoli che avevano già gli altri | **prodotto** |

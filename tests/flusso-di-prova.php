@@ -5,8 +5,9 @@
  * Costruiscono l'assetto delle righe di ALBO-22, ALBO-11, ALBO-27, ALBO-02,
  * ALBO-01 e ALBO-08 alla pubblicazione: utenti nominati per i permessi che
  * hanno, un tipo con durata di origine normativa e uno di origine
- * dell'amministrazione, un anno del repertorio aperto, gli orologi fissati e
- * l'atto portato in verifica dal suo autore. Osservano quello che va davvero
+ * dell'amministrazione, un anno del repertorio aperto, la scelta sui festivi
+ * fatta (fine dove cade, ALBO-32), gli orologi fissati e l'atto portato in
+ * verifica dal suo autore. Osservano quello che va davvero
  * nella tabella dei contenuti, e fotografano l'atto per intero.
  *
  * @package AlboPretorioPa
@@ -20,6 +21,7 @@ use AlboPretorioPa\Avvio;
 use AlboPretorioPa\DatiAtto;
 use AlboPretorioPa\DocumentiAtto;
 use AlboPretorioPa\Durate;
+use AlboPretorioPa\Festivi;
 use AlboPretorioPa\Passaggi;
 use AlboPretorioPa\Permessi;
 use AlboPretorioPa\Repertorio;
@@ -120,6 +122,9 @@ trait FlussoDiProva {
 		$this->fissa_orologi( self::$istante_di_prova );
 
 		$this->assertTrue( Repertorio::dichiara( 0, $this->amministratore, Passaggi::ora() ), 'Precondizione: l\'anno delle prove numera.' );
+
+		// La scelta sui festivi la fanno le prove che la riguardano: qui la fine resta dove cade.
+		$this->assertTrue( Festivi::salva( Festivi::SPENTO, '', $this->amministratore, Passaggi::ora() ), 'Precondizione: la scelta sui festivi e\' fatta.' );
 
 		$this->aggancia_server_finto();
 
