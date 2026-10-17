@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro
 com'è andata davvero.
 
 **Stato: costruita, in attesa di revisione.** Requisito ALBO-33, righe di collaudo
-A-144..A-146 e A-165..A-172, tutte a fatto per la parte che non aspetta la pagina pubblica.
+A-144..A-146 e A-165..A-173, tutte a fatto per la parte che non aspetta la pagina pubblica.
 Com'è andata davvero è in fondo.
 
 ## In tre paragrafi
@@ -102,7 +102,7 @@ chi può modificare l'atto, solo in bozza.
 
 ### 7. Prove che si aggiungeranno
 
-A-144..A-146 e A-165..A-172, in `tests/DatiProcedimentoTest.php`.
+A-144..A-146 e A-165..A-173, in `tests/DatiProcedimentoTest.php`.
 
 ### 8. Cosa NON si implementa
 
@@ -157,6 +157,12 @@ Pubblicare e controllare nel registro la voce di conferma.
 4. A-166 non vedeva un salvataggio a metà, perché le parti valide coincidevano con quelle
    già salvate. Ora un caso ha parti valide nuove e una scelta cambiata prima dell'errore.
 
+**Secondo giro di revisione** (un rilievo, accolto): `esc_attr()` non ricodifica le entità già
+presenti, e un valore conservato come `Ente &quot;Nord&quot;` arrivava al browser come
+`Ente "Nord"`: risalvando la bozza il dato cambiava. Nel riquadro i tre valori ora si
+codificano per intero, entità comprese. A-173 legge il riquadro come lo legge il browser e
+rimanda quello che legge.
+
 Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 
 | Guasto | Prova caduta |
@@ -177,3 +183,4 @@ Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 | pulizia dei lati che toglie anche i caratteri di controllo | A-166 |
 | scelta ripulita prima del confronto | A-166 |
 | elenco dei responsabili scritto prima del controllo degli uffici | A-166 |
+| valori del riquadro codificati con `esc_attr()` | A-173 |

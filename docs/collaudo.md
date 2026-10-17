@@ -572,7 +572,7 @@ Stesso prefisso `A-`. Le righe di ALBO-31 sono quelle della scheda
 [`slittamento-ai-festivi.md`](implementazione/slittamento-ai-festivi.md), provate in
 `tests/FestiviTest.php`, con A-156..A-164 aggiunte dopo le altre; quelle di ALBO-33 sono quelle
 della scheda [`dati-del-procedimento.md`](implementazione/dati-del-procedimento.md), provate in
-`tests/DatiProcedimentoTest.php`, con A-165..A-172 aggiunte dopo le altre. Per ALBO-33 la
+`tests/DatiProcedimentoTest.php`, con A-165..A-173 aggiunte dopo le altre. Per ALBO-33 la
 scheda pubblica non esiste ancora: le righe provano quello che le mostrerà,
 `DatiProcedimento::da_mostrare()`, e la scheda dell'atto in sola lettura. La riga sul
 referto (A-134) aspetta ALBO-07. A-135 prova la scelta del punto 1 della scheda, decisa. A-147..A-155 sono di ALBO-31, aggiunte dopo le altre: la conferma
@@ -628,6 +628,7 @@ rilascio del turno e durante i controlli finali.
 | A-170 | fatto | Atto pubblicato con un responsabile mai entrato nell'elenco e un richiedente; scelta passata a "non usarlo", poi solo il richiedente in uso, poi tutti di nuovo | i dati si mostrano secondo la scelta di adesso, uno per uno; nella banca dati non cambiano |
 | A-171 | fatto | [attacco] Un dato sull'atto scritto di lato: due righe, non testo, con segni di formattazione, con spazi ai lati, troppo lungo, con un carattere di controllo; poi un invio vuoto della scheda; dichiarazione dei tre dati | letto come assente e non mostrato; l'invio vuoto, che è ciò che la scheda manda per un valore che mostra vuoto, non lo cancella; i tre dati sono dichiarati, protetti e senza esposizione per programmi |
 | A-172 | fatto | Barre rovesciate: nomi degli elenchi, responsabile, ufficio e richiedente scelti o scritti con una barra rovesciata; un valore conservato con la barra, risalvato; un nome con la barra tolto dall'elenco e risalvato | ogni valore resta identico a come è stato scritto, nell'impostazione e sull'atto |
+| A-173 | fatto | Entità HTML scritte alla lettera (`&quot;`, `&amp;`, `&lt;`) in un nome dell'elenco, in un ufficio conservato fuori elenco e nel richiedente; il riquadro letto come lo legge il browser e rimandato così | ogni valore torna identico a com'era conservato; il nome dell'elenco si salva come è scritto nell'elenco |
 
 ## Collaudo congiunto con la trasparenza
 

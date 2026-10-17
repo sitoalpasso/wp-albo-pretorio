@@ -196,7 +196,7 @@ final class SchedaAtto {
 					'<p><label for="%1$s">%2$s</label><br /><input type="text" id="%1$s" name="%1$s" value="%3$s" maxlength="%4$d" /></p><p class="description">%5$s</p>',
 					esc_attr( $campo ),
 					esc_html( DatiProcedimento::etichetta( $dato ) ),
-					esc_attr( $valore ),
+					self::attributo( $valore ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- codificato per intero da self::attributo().
 					(int) DatiProcedimento::LUNGHEZZA_MASSIMA,
 					esc_html__( 'Facoltativo. L\'ente o l\'ufficio che chiede la pubblicazione, per esempio per un atto di un altro ente; mai il nome di una persona privata. Si mostra sulla scheda dell\'atto.', 'albo-pretorio-pa' )
 				);
@@ -211,24 +211,41 @@ final class SchedaAtto {
 			if ( '' !== $valore && ! in_array( $valore, $elenco, true ) ) {
 				printf(
 					'<option value="%1$s" selected="selected">%2$s</option>',
-					esc_attr( $valore ),
-					esc_html(
+					// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- codificato per intero da self::attributo().
+					self::attributo( $valore ),
+					self::attributo(
 						sprintf(
 							/* translators: %s: nome non piu' presente nell'elenco. */
 							__( '%s (non piu\' nell\'elenco)', 'albo-pretorio-pa' ),
 							$valore
 						)
 					)
+					// phpcs:enable
 				);
 			}
 
 			foreach ( $elenco as $nome ) {
-				printf( '<option value="%1$s"%2$s>%3$s</option>', esc_attr( $nome ), selected( $nome, $valore, false ), esc_html( $nome ) );
+				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- codificato per intero da self::attributo().
+				printf( '<option value="%1$s"%2$s>%3$s</option>', self::attributo( $nome ), selected( $nome, $valore, false ), self::attributo( $nome ) );
 			}
 
 			echo '</select></p>';
 			printf( '<p class="description">%s</p>', esc_html__( 'Facoltativo. Si mostra sulla scheda dell\'atto. L\'elenco lo tiene chi pubblica, nella schermata Dati del procedimento.', 'albo-pretorio-pa' ) );
 		}
+	}
+
+	/**
+	 * Un valore dei dati del procedimento pronto per un attributo o un testo, codificato per intero.
+	 *
+	 * **Anche le entita' gia' presenti**, a differenza di `esc_attr()`: un nome conservato come
+	 * `Ente &quot;Nord&quot;` arriverebbe al browser come `Ente "Nord"`, e il campo lo rimanderebbe
+	 * cosi', cambiando il dato al primo salvataggio della bozza.
+	 *
+	 * @param string $testo Valore.
+	 * @return string
+	 */
+	private static function attributo( string $testo ): string {
+		return htmlspecialchars( $testo, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', true );
 	}
 
 	/**

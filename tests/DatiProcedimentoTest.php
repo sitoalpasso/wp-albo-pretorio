@@ -1,6 +1,6 @@
 <?php
 /**
- * Responsabile del procedimento, ufficio e richiedente: righe A-144..A-146 e A-165..A-172 (ALBO-33).
+ * Responsabile del procedimento, ufficio e richiedente: righe A-144..A-146 e A-165..A-173 (ALBO-33).
  *
  * La scelta si salva da codice o con un invio vero della schermata, la scheda
  * dell'atto con un invio vero della schermata dell'atto, la pubblicazione con
@@ -815,5 +815,51 @@ class DatiProcedimentoTest extends \WP_UnitTestCase {
 		$this->scegli( DatiProcedimento::USA, 'Mario Rossi', 'Segreteria' );
 		$this->assertSame( array(), $this->invia_scheda( $atto, array( DatiProcedimento::RESPONSABILE => 'Settore A\\B' ) ) );
 		$this->assertSame( array( 'Settore A\\B' ), $this->grezzi( $atto )[ DatiProcedimento::RESPONSABILE ], 'Tolto dall\'elenco, resta identico.' );
+	}
+
+	/**
+	 * A-173: entita' HTML scritte alla lettera: il valore che il browser rimanda dal riquadro e' quello conservato.
+	 */
+	public function test_a173_entita_alla_lettera(): void {
+		$this->scegli( DatiProcedimento::USA, "Mario Rossi\nR&amp;S Nord", 'Segreteria' );
+
+		$atto = $this->atto_completo();
+		$this->scrivi_di_lato(
+			$atto,
+			array(
+				DatiProcedimento::UFFICIO     => 'Ente &quot;Nord&quot;',
+				DatiProcedimento::RICHIEDENTE => 'Ente &amp; C. &lt;sede&gt;',
+			)
+		);
+		$grezzi = $this->grezzi( $atto );
+
+		// Quello che il browser legge dal riquadro e rimanda: il DOM decodifica gli attributi una volta, come il browser.
+		$riquadro = $this->riquadro( $atto );
+		$ufficio  = array_values( array_filter( $this->opzioni( $riquadro, SchedaAtto::campo_procedimento( DatiProcedimento::UFFICIO ) ), static fn( $o ) => $o[2] ) );
+		$scelto   = array_values( array_filter( $this->opzioni( $riquadro, SchedaAtto::campo_procedimento( DatiProcedimento::RESPONSABILE ) ), static fn( $o ) => 'R&amp;S Nord' === $o[0] ) );
+		$scritto  = $this->elemento( $riquadro, SchedaAtto::campo_procedimento( DatiProcedimento::RICHIEDENTE ) )->getAttribute( 'value' );
+
+		$this->assertCount( 1, $ufficio );
+		$this->assertSame( 'Ente &quot;Nord&quot;', $ufficio[0][0] );
+		$this->assertSame( 'Ente &quot;Nord&quot; (non piu\' nell\'elenco)', $ufficio[0][1] );
+		$this->assertCount( 1, $scelto, 'La voce dell\'elenco arriva al browser come e\' scritta.' );
+		$this->assertSame( 'R&amp;S Nord', $scelto[0][1] );
+		$this->assertSame( 'Ente &amp; C. &lt;sede&gt;', $scritto );
+
+		$this->assertSame(
+			array(),
+			$this->invia_scheda(
+				$atto,
+				array(
+					DatiProcedimento::RESPONSABILE => $scelto[0][0],
+					DatiProcedimento::UFFICIO      => $ufficio[0][0],
+					DatiProcedimento::RICHIEDENTE  => $scritto,
+				)
+			)
+		);
+
+		$this->assertSame( array( 'R&amp;S Nord' ), $this->grezzi( $atto )[ DatiProcedimento::RESPONSABILE ] );
+		$this->assertSame( $grezzi[ DatiProcedimento::UFFICIO ], $this->grezzi( $atto )[ DatiProcedimento::UFFICIO ], 'Il dato conservato resta identico.' );
+		$this->assertSame( $grezzi[ DatiProcedimento::RICHIEDENTE ], $this->grezzi( $atto )[ DatiProcedimento::RICHIEDENTE ] );
 	}
 }
