@@ -722,6 +722,11 @@ class DatiProcedimentoTest extends \WP_UnitTestCase {
 
 			$this->assertSame( '', DatiProcedimento::valore( $atto, DatiProcedimento::UFFICIO ), $nome );
 			$this->assertSame( array(), DatiProcedimento::da_mostrare( $atto ), $nome );
+
+			// La scheda lo mostra vuoto; l'invio vuoto che ne segue non cancella il dato conservato.
+			$grezzi = $this->grezzi( $atto );
+			$this->assertSame( array(), $this->invia_scheda( $atto, array( DatiProcedimento::UFFICIO => '' ) ), $nome );
+			$this->assertSame( $grezzi, $this->grezzi( $atto ), $nome . ': conservato.' );
 		}
 
 		$dichiarati = get_registered_meta_keys( 'post', TIPO );

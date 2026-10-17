@@ -451,7 +451,11 @@ final class SchedaAtto {
 			if ( false === $valore ) {
 				$errore = true;
 			} elseif ( '' === $nome ) {
-				delete_post_meta( $atto_id, DatiProcedimento::meta( $dato ) );
+				// Un valore conservato che la lettura non riconosce, per esempio importato, la scheda lo mostra
+				// vuoto: l'invio vuoto che ne segue non e' una scelta di toglierlo, e non lo cancella.
+				if ( '' !== DatiProcedimento::valore( $atto_id, $dato ) || array() === get_post_meta( $atto_id, DatiProcedimento::meta( $dato ), false ) ) {
+					delete_post_meta( $atto_id, DatiProcedimento::meta( $dato ) );
+				}
 				continue;
 			} elseif ( isset( DatiProcedimento::ELENCHI[ $dato ] ) ) {
 				$errore = ! in_array( $nome, DatiProcedimento::elenco( $dato ), true ) && DatiProcedimento::valore( $atto_id, $dato ) !== $nome;

@@ -97,7 +97,8 @@ chi può modificare l'atto, solo in bozza.
 - Nome fuori elenco nell'invio della scheda, per esempio da un modulo rimaneggiato: non si
   salva, l'avviso lo dice, gli altri dati si salvano.
 - Dato non in uso ma presente nell'invio: ignorato, il valore conservato resta.
-- Valore malformato scritto di lato sull'atto: letto come assente.
+- Valore malformato scritto di lato sull'atto, per esempio importato: letto come assente e
+  mostrato vuoto, e l'invio vuoto della scheda che ne segue non lo cancella.
 
 ### 7. Prove che si aggiungeranno
 
@@ -158,3 +159,4 @@ Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 | scelta sconosciuta letta come valida | A-167 |
 | avviso mostrato anche dopo la scelta | A-165 |
 | valore sull'atto letto senza controllo | A-171 |
+| invio vuoto che cancella un valore conservato malformato | A-171 |
