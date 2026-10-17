@@ -169,6 +169,93 @@ final class SchedaAtto {
 			esc_attr( DatiAtto::numero_proprio( $atto_id ) ),
 			esc_html__( 'Facoltativo. E\' il numero dell\'atto, per esempio della determinazione, non quello di pubblicazione, che assegna il sistema.', 'albo-pretorio-pa' )
 		);
+
+		self::campi_procedimento( $atto_id );
+	}
+
+	/**
+	 * I campi dei dati del procedimento che l'amministrazione ha scelto di usare (ALBO-33).
+	 *
+	 * Responsabile e ufficio si scelgono dall'elenco in vigore, senza nessuna
+	 * voce proposta. Un valore che l'atto porta e che non e' piu' nell'elenco
+	 * resta fra le voci, segnato, cosi' che salvare la bozza non lo tolga.
+	 *
+	 * @param int $atto_id Atto.
+	 */
+	private static function campi_procedimento( int $atto_id ): void {
+		foreach ( DatiProcedimento::DATI as $dato ) {
+			if ( ! DatiProcedimento::in_uso( $dato ) ) {
+				continue;
+			}
+
+			$campo  = self::campo_procedimento( $dato );
+			$valore = DatiProcedimento::valore( $atto_id, $dato );
+
+			if ( ! isset( DatiProcedimento::ELENCHI[ $dato ] ) ) {
+				printf(
+					'<p><label for="%1$s">%2$s</label><br /><input type="text" id="%1$s" name="%1$s" value="%3$s" maxlength="%4$d" /></p><p class="description">%5$s</p>',
+					esc_attr( $campo ),
+					esc_html( DatiProcedimento::etichetta( $dato ) ),
+					self::attributo( $valore ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- codificato per intero da self::attributo().
+					(int) DatiProcedimento::LUNGHEZZA_MASSIMA,
+					esc_html__( 'Facoltativo. L\'ente o l\'ufficio che chiede la pubblicazione, per esempio per un atto di un altro ente; mai il nome di una persona privata. Si mostra sulla scheda dell\'atto.', 'albo-pretorio-pa' )
+				);
+				continue;
+			}
+
+			$elenco = DatiProcedimento::elenco( $dato );
+
+			printf( '<p><label for="%1$s">%2$s</label><br /><select id="%1$s" name="%1$s">', esc_attr( $campo ), esc_html( DatiProcedimento::etichetta( $dato ) ) );
+			printf( '<option value=""%1$s>%2$s</option>', selected( '', $valore, false ), esc_html__( 'Nessuno', 'albo-pretorio-pa' ) );
+
+			if ( '' !== $valore && ! in_array( $valore, $elenco, true ) ) {
+				printf(
+					'<option value="%1$s" selected="selected">%2$s</option>',
+					// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- codificato per intero da self::attributo().
+					self::attributo( $valore ),
+					self::attributo(
+						sprintf(
+							/* translators: %s: nome non piu' presente nell'elenco. */
+							__( '%s (non piu\' nell\'elenco)', 'albo-pretorio-pa' ),
+							$valore
+						)
+					)
+					// phpcs:enable
+				);
+			}
+
+			foreach ( $elenco as $nome ) {
+				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- codificato per intero da self::attributo().
+				printf( '<option value="%1$s"%2$s>%3$s</option>', self::attributo( $nome ), selected( $nome, $valore, false ), self::attributo( $nome ) );
+			}
+
+			echo '</select></p>';
+			printf( '<p class="description">%s</p>', esc_html__( 'Facoltativo. Si mostra sulla scheda dell\'atto. L\'elenco lo tiene chi pubblica, nella schermata Dati del procedimento.', 'albo-pretorio-pa' ) );
+		}
+	}
+
+	/**
+	 * Un valore dei dati del procedimento pronto per un attributo o un testo, codificato per intero.
+	 *
+	 * **Anche le entita' gia' presenti**, a differenza di `esc_attr()`: un nome conservato come
+	 * `Ente &quot;Nord&quot;` arriverebbe al browser come `Ente "Nord"`, e il campo lo rimanderebbe
+	 * cosi', cambiando il dato al primo salvataggio della bozza.
+	 *
+	 * @param string $testo Valore.
+	 * @return string
+	 */
+	private static function attributo( string $testo ): string {
+		return htmlspecialchars( $testo, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', true );
+	}
+
+	/**
+	 * Il nome del campo di un dato del procedimento.
+	 *
+	 * @param string $dato Uno dei tre dati.
+	 * @return string
+	 */
+	public static function campo_procedimento( string $dato ): string {
+		return 'albo_pretorio_procedimento_' . $dato;
 	}
 
 	/**
@@ -188,6 +275,14 @@ final class SchedaAtto {
 			__( 'Data di adozione', 'albo-pretorio-pa' ) => (string) ( DatiAtto::data_adozione( $atto_id ) ?? $assente ),
 			__( 'Numero proprio dell\'atto', 'albo-pretorio-pa' ) => '' === DatiAtto::numero_proprio( $atto_id ) ? $assente : DatiAtto::numero_proprio( $atto_id ),
 		);
+
+		foreach ( DatiProcedimento::DATI as $dato ) {
+			if ( DatiProcedimento::in_uso( $dato ) ) {
+				$valore = DatiProcedimento::valore( $atto_id, $dato );
+
+				$righe[ DatiProcedimento::etichetta( $dato ) ] = '' === $valore ? $assente : $valore;
+			}
+		}
 
 		echo '<dl class="albo-pretorio-dati">';
 
@@ -335,9 +430,72 @@ final class SchedaAtto {
 			}
 		}
 
+		$motivi = array_merge( $motivi, self::salva_procedimento( $atto_id ) );
+
 		if ( array() !== $motivi ) {
 			self::rifiuta( $atto_id, $motivi );
 		}
+	}
+
+	/**
+	 * Salva i dati del procedimento in uso; quelli non in uso non si toccano.
+	 *
+	 * **Un dato non in uso resta com'e', anche se l'invio lo porta**: la scelta
+	 * dell'amministrazione decide che cosa si chiede, e un atto portato da un
+	 * albo precedente conserva i suoi dati qualunque sia. Per responsabile e
+	 * ufficio vale una voce dell'elenco in vigore, oppure il valore che l'atto
+	 * porta gia', che resta anche se nel frattempo e' stato tolto dall'elenco.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return array<int, string> Motivi dei rifiuti.
+	 */
+	private static function salva_procedimento( int $atto_id ): array {
+		$motivi = array();
+
+		foreach ( DatiProcedimento::DATI as $dato ) {
+			if ( ! DatiProcedimento::in_uso( $dato ) ) {
+				continue;
+			}
+
+			$valore = self::campo( self::campo_procedimento( $dato ) );
+
+			if ( null === $valore ) {
+				continue;
+			}
+
+			$nome = is_string( $valore ) ? trim( $valore ) : '';
+
+			if ( false === $valore ) {
+				$errore = true;
+			} elseif ( '' === $nome ) {
+				// Un valore conservato che la lettura non riconosce, per esempio importato, la scheda lo mostra
+				// vuoto: l'invio vuoto che ne segue non e' una scelta di toglierlo, e non lo cancella.
+				if ( '' !== DatiProcedimento::valore( $atto_id, $dato ) || array() === get_post_meta( $atto_id, DatiProcedimento::meta( $dato ), false ) ) {
+					delete_post_meta( $atto_id, DatiProcedimento::meta( $dato ) );
+				}
+				continue;
+			} elseif ( isset( DatiProcedimento::ELENCHI[ $dato ] ) ) {
+				$errore = ! in_array( $nome, DatiProcedimento::elenco( $dato ), true ) && DatiProcedimento::valore( $atto_id, $dato ) !== $nome;
+			} else {
+				$nome   = DatiAtto::numero_da_ingresso( $nome );
+				$errore = '' === $nome || mb_strlen( $nome, 'UTF-8' ) > DatiProcedimento::LUNGHEZZA_MASSIMA;
+			}
+
+			if ( $errore ) {
+				$motivi[] = sprintf(
+					/* translators: %s: etichetta del dato. */
+					__( '%s non salvato: il valore non e\' una voce dell\'elenco in vigore oppure non e\' un testo valido.', 'albo-pretorio-pa' ),
+					DatiProcedimento::etichetta( $dato )
+				);
+				continue;
+			}
+
+			// `update_post_meta` toglie le barre rovesciate al valore, che qui e' gia' senza: si rimettono, o un
+			// nome come "Settore A\B" si salverebbe come "Settore AB".
+			update_post_meta( $atto_id, DatiProcedimento::meta( $dato ), wp_slash( $nome ) );
+		}
+
+		return $motivi;
 	}
 
 	/**
