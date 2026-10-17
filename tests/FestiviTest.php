@@ -101,9 +101,9 @@ class FestiviTest extends \WP_UnitTestCase {
 	/**
 	 * Un invio vero della schermata dei festivi, con o senza gettone, come l'utente indicato.
 	 *
-	 * @param int                   $utente  Utente.
-	 * @param array<string, string> $campi   Campi inviati.
-	 * @param string|null           $gettone Gettone; nullo per quello giusto.
+	 * @param int                  $utente  Utente.
+	 * @param array<string, mixed> $campi   Campi inviati.
+	 * @param string|null          $gettone Gettone; nullo per quello giusto.
 	 * @return true|\WP_Error
 	 */
 	private function invia_festivi( int $utente, array $campi, ?string $gettone = null ) {
@@ -219,6 +219,21 @@ class FestiviTest extends \WP_UnitTestCase {
 		$ognissanti = $this->pubblicato_il( '2041-10-17 10:00:00' );
 
 		$this->assertSame( '2041-11-04', conformita_core_fine_pubblicazione( $ognissanti ), 'Dal 1 novembre al 4.' );
+
+		// Il giorno singolo vale solo nel suo anno: nel 2040 venerdi' 2 novembre non e' festivo.
+		$this->fissa_orologi( '2040-10-18 09:00:00' );
+		$this->assertTrue( Repertorio::dichiara( 0, $this->amministratore, Passaggi::ora() ), 'Precondizione: il 2040 numera.' );
+
+		$altro_anno = $this->pubblicato_il( '2040-10-18 10:00:00' );
+
+		$this->assertSame( '2040-11-02', conformita_core_fine_pubblicazione( $altro_anno ), 'Il 2/11/2041 non vale nel 2040.' );
+
+		// Lo stesso giorno scritto come festa annuale vale anche nel 2040: fine sabato 3.
+		$this->scegli( Festivi::ACCESO, "02/11 | Commemorazione annuale\n17/10 | Santo patrono" );
+
+		$annuale = $this->pubblicato_il( '2040-10-18 11:00:00' );
+
+		$this->assertSame( '2040-11-03', conformita_core_fine_pubblicazione( $annuale ), 'Il 2/11 annuale vale nel 2040.' );
 
 		// Il 1 novembre senza il giorno singolo: va al 2, un sabato.
 		$this->scegli( Festivi::ACCESO, "01/11 | Ognissanti (l. 260/1949 art. 2)\n17/10 | Santo patrono" );
@@ -479,6 +494,41 @@ class FestiviTest extends \WP_UnitTestCase {
 
 		$this->assertWPError( $this->invia_festivi( $this->pubblicatore, array( SchermataFestivi::CAMPO_ELENCO => '01/11 | Ognissanti' ) ) );
 		$this->assertSame( $prima, get_option( Festivi::OPZIONE ), 'Senza scelta: niente salvato.' );
+
+		// Un elenco che non e' un testo, o che manca, non diventa un elenco vuoto: l'invio si rifiuta.
+		$forme = array(
+			'elenco come insieme' => array(
+				SchermataFestivi::CAMPO_SCELTA => Festivi::ACCESO,
+				SchermataFestivi::CAMPO_ELENCO => array( '01/11 | Ognissanti' ),
+			),
+			'elenco mancante'     => array( SchermataFestivi::CAMPO_SCELTA => Festivi::ACCESO ),
+			'scelta come insieme' => array(
+				SchermataFestivi::CAMPO_SCELTA => array( Festivi::ACCESO ),
+				SchermataFestivi::CAMPO_ELENCO => '01/11 | Ognissanti',
+			),
+		);
+
+		foreach ( $forme as $caso => $campi ) {
+			$this->assertWPError( $this->invia_festivi( $this->pubblicatore, $campi ), $caso );
+			$this->assertSame( $prima, get_option( Festivi::OPZIONE ), $caso . ': niente salvato.' );
+		}
+
+		foreach ( array( null, array(), 0 ) as $testo ) {
+			$this->assertWPError( Festivi::salva( Festivi::ACCESO, $testo, $this->pubblicatore, Passaggi::ora() ) );
+			$this->assertSame( $prima, get_option( Festivi::OPZIONE ), 'Testo non stringa da codice: niente salvato.' );
+		}
+
+		// L'elenco vuoto scritto apposta resta ammesso.
+		$this->assertTrue(
+			$this->invia_festivi(
+				$this->pubblicatore,
+				array(
+					SchermataFestivi::CAMPO_SCELTA => Festivi::ACCESO,
+					SchermataFestivi::CAMPO_ELENCO => '',
+				)
+			)
+		);
+		$this->assertSame( array(), Festivi::impostazione()['elenco'] );
 	}
 
 	/**
@@ -545,11 +595,15 @@ class FestiviTest extends \WP_UnitTestCase {
 		);
 		// Ogni caso cambia una cosa sola della forma valida, nello stesso ordine di chiavi.
 		$casi = array(
-			'scelta sconosciuta' => array_merge( $valida, array( 'scelta' => 'si' ) ),
-			'chiavi mancanti'    => array( 'scelta' => Festivi::ACCESO ),
-			'chiave in piu'      => array_merge( $valida, array( 'altro' => 1 ) ),
-			'utente non numero'  => array_merge( $valida, array( 'utente' => (string) $this->pubblicatore ) ),
-			'riga non valida'    => array_merge(
+			'scelta sconosciuta'  => array_merge( $valida, array( 'scelta' => 'si' ) ),
+			'chiavi mancanti'     => array( 'scelta' => Festivi::ACCESO ),
+			'chiave in piu'       => array_merge( $valida, array( 'altro' => 1 ) ),
+			'utente non numero'   => array_merge( $valida, array( 'utente' => (string) $this->pubblicatore ) ),
+			'istante vuoto'       => array_merge( $valida, array( 'istante' => '' ) ),
+			'istante non data'    => array_merge( $valida, array( 'istante' => 'non-data' ) ),
+			'istante inesistente' => array_merge( $valida, array( 'istante' => '2041-02-30 07:30:00' ) ),
+			'istante altra forma' => array_merge( $valida, array( 'istante' => '2041-10-01T07:30:00' ) ),
+			'riga non valida'     => array_merge(
 				$valida,
 				array(
 					'elenco' => array(
@@ -560,7 +614,7 @@ class FestiviTest extends \WP_UnitTestCase {
 					),
 				)
 			),
-			'riga non normale'   => array_merge(
+			'riga non normale'    => array_merge(
 				$valida,
 				array(
 					'elenco' => array(
@@ -571,7 +625,7 @@ class FestiviTest extends \WP_UnitTestCase {
 					),
 				)
 			),
-			'non un insieme'     => Festivi::ACCESO,
+			'non un insieme'      => Festivi::ACCESO,
 		);
 
 		$id    = $this->atto_in_verifica();
