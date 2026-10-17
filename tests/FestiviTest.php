@@ -463,6 +463,8 @@ class FestiviTest extends \WP_UnitTestCase {
 			'25/04 | '                 => 'descrizione',
 			'domani | Festa'           => 'forma',
 			'Pasqua+500 | Troppo dopo' => 'al massimo',
+			'<b></b>'                  => 'descrizione',
+			'<b>25/04</b> | Festa'     => 'forma',
 		);
 
 		foreach ( $casi as $riga => $motivo ) {
@@ -576,6 +578,27 @@ class FestiviTest extends \WP_UnitTestCase {
 		$this->assertSame( '2041-10-20', $voce['fine_calcolata'] );
 		$this->assertSame( 'spento', $voce['slittamento'] );
 		$this->assertSame( array(), $voce['festivi_saltati'] );
+
+		// La proroga con la scelta spento: fine nuova di domenica, resta li'.
+		$prorogato_spento = $this->pubblicato_il( '2041-10-04 09:30:00' );
+
+		$this->fissa_orologi( '2041-10-12 11:00:00' );
+		$this->assertIsArray(
+			$this->proroga(
+				array(
+					'giorni'       => array( '2041-10-10' ),
+					'attestazione' => 'Attestazione',
+				)
+			)
+		);
+
+		$voci = $this->voci_di( $prorogato_spento, array( 'azione' => Proroga::AZIONE_ATTO ) );
+
+		$this->assertCount( 1, $voci );
+		$this->assertSame( '2041-10-20', $voci[0]['dettagli']['fine_nuova'] );
+		$this->assertSame( '2041-10-20', $voci[0]['dettagli']['fine_calcolata'] );
+		$this->assertSame( 'spento', $voci[0]['dettagli']['slittamento'] );
+		$this->assertSame( array(), $voci[0]['dettagli']['festivi_saltati'] );
 	}
 
 	/**
