@@ -304,7 +304,12 @@ ALBO-33 e per ogni impostazione futura.
   mostrarli sulla scheda pubblica, e se chiederli a chi redige gli atti nuovi, lo **sceglie
   l'amministrazione**. Chiederli è un campo in più da compilare per ogni atto: la schermata
   lo dice. Sugli atti portati da un albo precedente questi dati si conservano sempre,
-  qualunque sia la scelta, perché una migrazione non perde informazioni.
+  qualunque sia la scelta, perché una migrazione non perde informazioni. La scelta è una per
+  dato; senza scelta i dati non si chiedono e non si mostrano, e l'albo pubblica comunque,
+  perché la scelta non tocca niente di ciò che la norma chiede alla pubblicazione.
+  Responsabile e ufficio si scelgono da due elenchi tenuti da chi pubblica; il richiedente si
+  scrive. I campi sono facoltativi; alla pubblicazione i valori si fissano e vanno nel
+  registro (decisioni del 2026-10-17).
 
 ## Cosa resta all'ente
 
@@ -364,7 +369,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-30 | da fare | Il file scaricato ha un nome con numero di repertorio e date di pubblicazione, senza oggetto e senza il nome originale; il contenuto resta identico | **norma** il rischio di decontestualizzazione (Garante, delib. 243/2014 par. 2.d). **Prodotto** il nome del file come unica misura che non tocca il documento firmato, deciso il 2026-09-23; il formato esatto è nostro |
 | ALBO-31 | in corso | Proroga per disservizio: chi pubblica, con attestazione obbligatoria, allunga la fine degli atti in pubblicazione di un giorno per ogni giorno trascorso sotto le dodici ore di disponibilità; repertorio e inizio invariati, tutto nel registro | **norma** linee guida AgID sulla pubblicità legale, regola delle dodici ore (estremi del punto da verificare sul testo ufficiale). **Prodotto** chi la dispone, l'attestazione obbligatoria, l'irrevocabilità, deciso il 2026-10-08 |
 | ALBO-32 | fatto | Slittamento della fine al primo giorno non festivo, acceso o spento dall'amministrazione senza preselezione, con l'elenco dei festivi in configurazione | **norma** c.c. art. 2963 c. 3, c.p.c. art. 155 c. 4, la cui applicazione al periodo di affissione è interpretativa. **Prodotto** la scelta lasciata all'amministrazione, decisa il 2026-10-08 |
-| ALBO-33 | da fare | Responsabile del procedimento, ufficio e richiedente: mostrarli e chiederli sugli atti nuovi lo sceglie l'amministrazione; sugli atti migrati si conservano sempre | **prodotto**, deciso il 2026-10-08; l. 241/1990 art. 8 come contesto, non come obbligo di pubblicazione |
+| ALBO-33 | fatto | Responsabile del procedimento, ufficio e richiedente: mostrarli e chiederli sugli atti nuovi lo sceglie l'amministrazione, dato per dato; sugli atti migrati si conservano sempre | **prodotto**, deciso il 2026-10-08; l. 241/1990 art. 8 come contesto, non come obbligo di pubblicazione |
 | ALBO-23 | fatto | All'attivazione l'insieme minimo di permessi sul tipo atto arriva all'amministratore | **prodotto** |
 | ALBO-24 | fatto | A ogni aggiornamento i permessi nuovi arrivano ai ruoli che avevano già gli altri | **prodotto** |
 | ALBO-25 | fatto | Se nessun ruolo possiede i permessi del tipo atto, l'amministrazione lo segnala | **prodotto** |
