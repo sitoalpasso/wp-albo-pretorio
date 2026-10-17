@@ -207,6 +207,26 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 				$visti['documento'][] = $atto;
 			}
 
+			$this->richiesta(
+				add_query_arg(
+					array(
+						'p'         => $atto,
+						'post_type' => TIPO,
+					),
+					home_url( '/' )
+				)
+			);
+			if ( is_singular( TIPO ) && get_queried_object_id() === $atto ) {
+				$visti['scheda per numero e tipo'][] = $atto;
+			}
+
+			$documenti = new \WP_REST_Request( 'GET', '/wp/v2/media' );
+			$documenti->set_param( 'parent', $atto );
+			$risposta = rest_do_request( $documenti );
+			if ( 200 === $risposta->get_status() && in_array( $this->documento( $atto ), array_map( 'intval', wp_list_pluck( (array) $risposta->get_data(), 'id' ) ), true ) ) {
+				$visti['dati per programmi, documenti dell\'atto'][] = $atto;
+			}
+
 			$singolo = rest_do_request( new \WP_REST_Request( 'GET', '/wp/v2/' . TIPO . '/' . $atto ) );
 			if ( 200 === $singolo->get_status() ) {
 				$visti['dati per programmi, singolo'][] = $atto;
@@ -222,6 +242,20 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 			'elenco'             => get_post_type_archive_link( TIPO ),
 			'ricerca'            => add_query_arg( 's', 'di prova', home_url( '/' ) ),
 			'feed'               => add_query_arg( 'feed', 'rss2', (string) get_post_type_archive_link( TIPO ) ),
+			'elenco per anno'    => add_query_arg(
+				array(
+					'm'         => '2041',
+					'post_type' => TIPO,
+				),
+				home_url( '/' )
+			),
+			'elenco per autore'  => add_query_arg(
+				array(
+					'author'    => $this->redattore,
+					'post_type' => TIPO,
+				),
+				home_url( '/' )
+			),
 			'feed della ricerca' => add_query_arg(
 				array(
 					's'    => 'di prova',
@@ -235,6 +269,12 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 			$this->richiesta( (string) $indirizzo );
 			$visti[ $strada ] = array_values( array_intersect( $atti, array_map( 'intval', wp_list_pluck( (array) $GLOBALS['wp_query']->posts, 'ID' ) ) ) );
 		}
+
+		$ricerca = new \WP_REST_Request( 'GET', '/wp/v2/search' );
+		$ricerca->set_param( 'search', 'di prova' );
+		$ricerca->set_param( 'subtype', TIPO );
+		$trovati                              = rest_do_request( $ricerca );
+		$visti['dati per programmi, ricerca'] = array_values( array_intersect( $atti, array_map( 'intval', 200 === $trovati->get_status() ? wp_list_pluck( (array) $trovati->get_data(), 'id' ) : array() ) ) );
 
 		$collezione                          = rest_do_request( new \WP_REST_Request( 'GET', '/wp/v2/' . TIPO ) );
 		$restituiti                          = 200 === $collezione->get_status() ? wp_list_pluck( (array) $collezione->get_data(), 'id' ) : array();
@@ -285,10 +325,14 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 
 		$strade = array(
 			'anteprima incorporata',
+			'dati per programmi, documenti dell\'atto',
 			'dati per programmi, elenco',
+			'dati per programmi, ricerca',
 			'dati per programmi, singolo',
 			'documento',
 			'elenco',
+			'elenco per anno',
+			'elenco per autore',
 			'feed',
 			'feed della ricerca',
 			'interrogazione di terzi',
@@ -296,6 +340,7 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 			'precedente e successivo',
 			'ricerca',
 			'scheda',
+			'scheda per numero e tipo',
 		);
 
 		return array_fill_keys( $strade, $atti );

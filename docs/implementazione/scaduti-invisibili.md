@@ -41,11 +41,13 @@ ricompare sulle strade del filtro: la prova misura il filtro, non la chiusura de
 
 | Strada | Come si prova | Chi la copre |
 |---|---|---|
-| Scheda dell'atto | richiesta vera dell'indirizzo | filtro in lettura (C-10) |
-| Elenco del tipo | richiesta vera dell'elenco | filtro in lettura (C-11) |
+| Scheda dell'atto | richiesta vera dell'indirizzo, e dell'indirizzo con numero e tipo | filtro in lettura (C-10) |
+| Elenco del tipo | richiesta vera dell'elenco, anche per anno e per autore | filtro in lettura (C-11) |
 | Ricerca interna | richiesta vera con le parole dell'oggetto | filtro in lettura (C-12) |
 | Feed dell'elenco e della ricerca | richiesta vera del feed | filtro in lettura (C-13) |
-| Interfaccia per programmi, elenco e singolo | richiesta all'interfaccia | filtro in lettura (C-15, C-16) |
+| Interfaccia per programmi, elenco, singolo e ricerca | richiesta all'interfaccia | filtro in lettura (C-15, C-16) |
+| Documenti dell'atto nell'interfaccia per programmi | elenco filtrato per atto | filtro in lettura |
+| Scheda del singolo documento nell'interfaccia per programmi | **non provata**: resta aperta, vedi in fondo | meccanismo comune, da correggere |
 | Anteprima incorporata | dati dell'anteprima | filtro in lettura (C-17) |
 | Pagina del documento | richiesta vera della pagina dell'allegato | filtro in lettura (C-19) |
 | Precedente e successivo | vicini di ciascun atto | filtro in lettura (C-20) |
@@ -95,9 +97,31 @@ Cercare l'oggetto nella ricerca del sito: nessun risultato. Nell'amministrazione
 
 ## Com'è andata davvero
 
-Nessun buco trovato: con il tipo aperto, l'atto scaduto sparisce da ogni strada dalla
-mezzanotte, per il visitatore e per l'amministratore, e l'atto importato già scaduto non
-compare mai. Tre cose imparate scrivendo le prove, nessuna nel codice dell'albo:
+Sulle strade dell'elenco chiuso nessun buco: con il tipo aperto, l'atto scaduto sparisce
+dalla mezzanotte, per il visitatore e per l'amministratore, e l'atto importato già scaduto
+non compare mai. Alle strade dell'elenco chiuso la prova aggiunge l'indirizzo con numero e
+tipo, l'elenco per anno, quello per autore, la ricerca dell'interfaccia per programmi e
+l'elenco dei documenti di un atto nella stessa interfaccia: chiuse anche loro.
+
+**Un buco vero, nel meccanismo comune e non nell'albo.** La scheda del singolo documento
+nell'interfaccia per programmi (`/wp/v2/media/<numero>`) risponde ancora dopo la scadenza,
+con il nome del file caricato, l'atto a cui appartiene e i suoi indirizzi. Il file non
+esce: il suo indirizzo è quello della consegna, che lo rifiuta. Con il tipo chiuso, come
+oggi, la risposta arriva solo a chi può modificare gli atti, e al visitatore arriva un
+rifiuto che dice "non autorizzato" invece di "non trovato"; con il tipo aperto da un altro
+componente arriva a chiunque. Il nome del file è il punto delicato, perché è quello che ha
+scelto chi ha caricato il documento e può contenere un nome di persona. La correzione sta
+nel filtro di scadenza del meccanismo comune, che per i documenti deve guardare la scadenza
+dell'atto a cui appartengono anche su questa strada; qui non si tocca, e A-175 aggiungerà la
+strada quando il meccanismo comune la chiuderà.
+
+**Una cosa vista di passaggio, che non riguarda la scadenza.** Con il tipo chiuso, sui siti
+dove le pagine degli allegati sono accese, la pagina del documento di un atto **in corso**
+si apre al visitatore (`?attachment_id=<numero>`): mostra il nome del file, mentre il file
+resta rifiutato dalla consegna. Dalla mezzanotte della fine si chiude anche lei. Riguarda la
+chiusura del tipo (A-25) e va in un passo a sé.
+
+Tre cose imparate scrivendo le prove, nessuna nel codice dell'albo:
 
 - per un atto scaduto l'anteprima incorporata restituisce un insieme **vuoto** e non
   "niente": nessun dato esce, e la prova guarda la presenza dell'oggetto, non il tipo della
