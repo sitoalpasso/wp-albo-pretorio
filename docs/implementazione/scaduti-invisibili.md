@@ -139,13 +139,19 @@ due nel meccanismo comune, tutti e due rifatti a mano prima di scriverli qui:
   scritto direttamente nella banca dati, per esempio da un importatore che li porti con sé.
   Nella prova l'ho dovuto scrivere scavalcando la barriera.
 
+**Una piccola differenza, trovata con la revisione del secondo giro.** Quando l'interfaccia per
+programmi rifiuta un atto scaduto, il rifiuto non porta niente dell'atto, ma ha un codice
+diverso da quello di un numero mai esistito. Chi prova i numeri uno per uno può quindi capire
+che dietro un numero c'era un atto, senza vederne niente. Anche questo sta nel meccanismo
+comune, e la prova dell'albo si limita a pretendere il rifiuto esatto del meccanismo comune.
+
 **Una cosa vista di passaggio, che non riguarda la scadenza.** Con il tipo chiuso, sui siti
 dove le pagine degli allegati sono accese, la pagina del documento di un atto **in corso**
 si apre al visitatore (`?attachment_id=<numero>`): mostra il nome del file, mentre il file
 resta rifiutato dalla consegna. Dalla mezzanotte della fine si chiude anche lei. Riguarda la
 chiusura del tipo (A-25) e va in un passo a sé.
 
-Tre cose imparate scrivendo le prove, nessuna nel codice dell'albo:
+Quattro cose imparate scrivendo le prove, nessuna nel codice dell'albo:
 
 - per un atto scaduto l'anteprima incorporata restituisce un insieme **vuoto** e non
   "niente": nessun dato esce, e la prova guarda la presenza dell'oggetto, non il tipo della
@@ -153,5 +159,8 @@ Tre cose imparate scrivendo le prove, nessuna nel codice dell'albo:
 - l'aiuto `richiesta_pubblica()` riparte da un oggetto di WordPress che non conosce la
   variabile dell'indirizzo di un tipo aperto, e la scheda risulterebbe chiusa anche in corso:
   la prova riporta quella variabile, come accade su un sito vero;
+- un'osservazione negativa non deve dipendere dallo stato della risposta: un "non trovato"
+  che porta nel corpo il numero dell'atto esporrebbe comunque qualcosa, e la prova lo cerca
+  in ogni risposta, con una prova a parte che guasta l'interfaccia apposta per vederlo;
 - il server dell'interfaccia per programmi va rifatto dopo aver aperto il tipo, altrimenti
   la rotta degli atti non esiste e la strada sembrerebbe chiusa per il motivo sbagliato.

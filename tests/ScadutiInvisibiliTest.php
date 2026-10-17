@@ -211,6 +211,20 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 		$this->assertCount( 1, $rifiuto, 'Precondizione: il rifiuto di un indirizzo inesistente esce una volta.' );
 		$this->assertSame( 404, $rifiuto[0]['stato'], 'Precondizione: il rifiuto di un indirizzo inesistente.' );
 
+		// Il rifiuto atteso, per intero: stato e corpo, senza niente dell'atto.
+		$rifiuti = array(
+			'dati per programmi, singolo'        => array(
+				404,
+				array(
+					'code'    => 'conformita_core_contenuto_non_trovato',
+					'message' => __( 'Contenuto non trovato.', 'conformita-core' ), // phpcs:ignore WordPress.WP.I18n.TextDomainMismatch -- il messaggio e' quello del meccanismo comune.
+					'data'    => array( 'status' => 404 ),
+				),
+			),
+			'anteprima incorporata, interfaccia' => $this->esito( $this->interfaccia( '/oembed/1.0/embed', array( 'url' => add_query_arg( 'p', PHP_INT_MAX, home_url( '/' ) ) ) ) ),
+		);
+		$this->assertSame( 404, $rifiuti['anteprima incorporata, interfaccia'][0], 'Precondizione: l\'anteprima di un indirizzo inesistente e\' rifiutata.' );
+
 		foreach ( $atti as $atto ) {
 			$oggetto   = get_post( $atto )->post_title;
 			$documento = $this->documento( $atto );
@@ -266,7 +280,13 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 						$visto = 200 === $risposta->get_status() && $oggetto === $titolo;
 				}
 				$segna( $visti, $strada, $atto, $visto );
-				$segna( $tracce, $strada, $atto, ( 404 !== $risposta->get_status() && 'dati per programmi, documenti dell\'atto' !== $strada ) || false !== strpos( (string) $dati, $oggetto ) || false !== strpos( (string) $dati, '"id":' . $documento . ',' ) );
+				if ( 'dati per programmi, documenti dell\'atto' === $strada ) {
+					// Per lo scaduto si pretende una collezione valida e vuota, non un errore.
+					$traccia = array( 200, array() ) !== $this->esito( $risposta );
+				} else {
+					$traccia = $rifiuti[ $strada ] !== $this->esito( $risposta );
+				}
+				$segna( $tracce, $strada, $atto, $traccia || false !== strpos( (string) $dati, $oggetto ) || array() !== array_intersect( array( $atto, $documento ), $this->identificativi( $risposta->get_data() ) ) );
 			}
 
 			$anteprima = get_oembed_response_data( get_post( $atto ), 600 );
@@ -326,7 +346,7 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 			$dati              = (string) wp_json_encode( $risposta->get_data() );
 			$tracce[ $strada ] = array();
 			foreach ( $atti as $atto ) {
-				if ( in_array( $atto, $visti[ $strada ], true ) || false !== strpos( $dati, get_post( $atto )->post_title ) ) {
+				if ( in_array( $atto, $visti[ $strada ], true ) || in_array( $atto, $this->identificativi( $risposta->get_data() ), true ) || false !== strpos( $dati, get_post( $atto )->post_title ) ) {
 					$tracce[ $strada ][] = $atto;
 				}
 			}
@@ -389,6 +409,47 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 	 */
 	private function risultati(): array {
 		return array_map( 'intval', wp_list_pluck( (array) $GLOBALS['wp_query']->posts, 'ID' ) );
+	}
+
+	/**
+	 * Stato e corpo di una risposta dell'interfaccia, da confrontare per intero.
+	 *
+	 * @param \WP_REST_Response $risposta Risposta.
+	 * @return array{0:int,1:mixed}
+	 */
+	private function esito( \WP_REST_Response $risposta ): array {
+		return array( $risposta->get_status(), $risposta->get_data() );
+	}
+
+	/**
+	 * Ogni identificativo di contenuto che compare nel corpo, a qualunque profondita' e con qualunque stato.
+	 *
+	 * Si raccolgono i campi che nell'interfaccia portano il numero di un
+	 * contenuto: il suo, quello del contenuto a cui appartiene, quello del
+	 * contenuto commentato.
+	 *
+	 * @param mixed $dati Corpo della risposta.
+	 * @return int[]
+	 */
+	private function identificativi( $dati ): array {
+		$trovati = array();
+
+		if ( is_object( $dati ) ) {
+			$dati = get_object_vars( $dati );
+		}
+
+		if ( ! is_array( $dati ) ) {
+			return $trovati;
+		}
+
+		foreach ( $dati as $chiave => $valore ) {
+			if ( in_array( $chiave, array( 'id', 'post', 'parent' ), true ) && is_numeric( $valore ) ) {
+				$trovati[] = (int) $valore;
+			}
+			$trovati = array_merge( $trovati, $this->identificativi( $valore ) );
+		}
+
+		return $trovati;
 	}
 
 	/**
@@ -502,6 +563,44 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-175, prova dell'osservatore: un rifiuto che porta dati dell'atto si vede.
+	 *
+	 * Le osservazioni negative di A-175 non devono dipendere dallo stato della
+	 * risposta: qui l'interfaccia viene guastata apposta perche', per lo
+	 * scaduto, risponda "non trovato" lasciando nel corpo il suo numero e il suo
+	 * testo, senza titolo. La prova pretende che `strade()` lo segnali, sul
+	 * singolo e sull'elenco.
+	 */
+	public function test_a175_osservatore_vede_un_rifiuto_che_porta_dati(): void {
+		$primo = $this->pubblicato_il( '2041-10-01 09:30:00', 'Graduatoria di prova' );
+		$this->fissa_orologi( self::PRIMO_ISTANTE_SCADUTO );
+
+		$guasto = static function ( $risposta, $gestore, $richiesta ) use ( $primo ) {
+			unset( $gestore );
+			if ( '/wp/v2/' . TIPO . '/' . $primo === $richiesta->get_route() ) {
+				return new \WP_REST_Response(
+					array(
+						'id'      => $primo,
+						'content' => array( 'rendered' => 'testo dell\'atto' ),
+					),
+					404
+				);
+			}
+			if ( '/wp/v2/' . TIPO === $richiesta->get_route() ) {
+				return new \WP_REST_Response( array( array( 'id' => $primo ) ), 404 );
+			}
+
+			return $risposta;
+		};
+		add_filter( 'rest_request_after_callbacks', $guasto, 10, 3 );
+		$tracce = $this->strade( 0, array( $primo ) )['tracce'];
+		remove_filter( 'rest_request_after_callbacks', $guasto, 10 );
+
+		$this->assertSame( array( $primo ), $tracce['dati per programmi, singolo'], 'Un rifiuto con il numero dell\'atto nel corpo e\' una traccia.' );
+		$this->assertSame( array( $primo ), $tracce['dati per programmi, elenco'], 'Un elenco rifiutato che porta il numero dell\'atto e\' una traccia.' );
+	}
+
+	/**
 	 * A-176: la mappa per i motori di ricerca non elenca gli atti, in corso o scaduti.
 	 *
 	 * La riga dichiara il proprio limite: qui l'assenza dello scaduto non prova
@@ -603,6 +702,11 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 	 * che servono alla registrazione. La sentinella non prova che nessuna
 	 * impostazione possa esistere: prova che non ce n'e' una con un nome
 	 * riconoscibile, e obbliga chi ne aggiunge una a cambiare questa riga.
+	 * Una seconda sentinella guarda l'altra porta: un'impostazione potrebbe
+	 * lasciare la politica com'e' e staccare i filtri che la applicano. Nei
+	 * sorgenti non c'e' nessuna rimozione di agganci (`remove_filter` e
+	 * simili, anche per nome o toccando l'elenco degli agganci): quando ne
+	 * servira' una, si aggiunge qui, una per una, con la sua ragione.
 	 * L'archivio riservato, quando arrivera', sara' una schermata
 	 * dell'amministrazione, non una scelta sul sito pubblico.
 	 */
@@ -626,6 +730,8 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 		$chiamate    = array();
 		$definizioni = array();
 		$nomi        = array();
+		$tolti       = array();
+		$rimozioni   = array( 'remove_filter', 'remove_action', 'remove_all_filters', 'remove_all_actions' );
 
 		foreach ( $file as $percorso ) {
 			$nome    = substr( $percorso, strlen( $radice ) + 1 );
@@ -672,6 +778,12 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 					$definizioni[] = $nome . ': define';
 				}
 
+				if ( ( T_STRING === $gettone[0] && in_array( strtolower( $gettone[1] ), $rimozioni, true ) )
+					|| ( T_CONSTANT_ENCAPSED_STRING === $gettone[0] && in_array( strtolower( substr( $gettone[1], 1, -1 ) ), array_merge( $rimozioni, array( 'wp_filter' ) ), true ) )
+					|| ( T_VARIABLE === $gettone[0] && '$wp_filter' === $gettone[1] ) ) {
+					$tolti[] = $nome . ': ' . $gettone[1];
+				}
+
 				if ( T_CONSTANT_ENCAPSED_STRING === $gettone[0] ) {
 					$valore = substr( $gettone[1], 1, -1 );
 					if ( 1 === preg_match( '/^[a-z0-9_\-]+$/i', $valore ) && 1 === preg_match( '/scad|storic|oblio|archiv|politic|visibil/i', $valore ) ) {
@@ -701,6 +813,11 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 			),
 			$nomi,
 			'Sentinella: nessun nome di opzione, filtro o dato parla di scaduti, storico, oblio, archivio o visibilita\'.'
+		);
+		$this->assertSame(
+			array(),
+			$tolti,
+			'Sentinella: l\'albo non stacca agganci, ne\' quelli del meccanismo comune ne\' altri; ogni rimozione futura va autorizzata qui, una per una.'
 		);
 	}
 }
