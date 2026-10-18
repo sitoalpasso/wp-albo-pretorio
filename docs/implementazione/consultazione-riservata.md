@@ -103,3 +103,7 @@ costruito a mano invece che dall'aggancio; le pagine e i tipi non erano provati 
 abbastanza diversi; bozze e privati non erano provati. Tutto sistemato, con le mutazioni
 qui sopra.
 
+**Il secondo giro** ha trovato un caso rimasto fuori: un oggetto mandato come elenco invece che
+come testo veniva preso per vuoto, e la ricerca mostrava tutti gli scaduti. Ora anche l'oggetto
+scritto male ferma la ricerca con il messaggio, e A-184 lo prova.
+

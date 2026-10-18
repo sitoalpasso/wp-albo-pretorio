@@ -575,6 +575,7 @@ class ConsultazioneScadutiTest extends \WP_UnitTestCase {
 			),
 			'anno con il punto'       => array( SchermataScaduti::CAMPO_ANNO => '2.041' ),
 			'tipo come elenco'        => array( SchermataScaduti::CAMPO_TIPO => array( '1' ) ),
+			'oggetto come elenco'     => array( SchermataScaduti::CAMPO_OGGETTO => array( 'Bando' ) ),
 		) as $caso => $campi ) {
 			$contenuto = (string) $this->schermata( $this->consultatore, $this->cerca( $campi ) );
 			$this->assertSame( array(), $this->elencati( $contenuto ), $caso . ': la ricerca non si fa.' );

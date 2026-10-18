@@ -168,9 +168,14 @@ final class SchermataScaduti {
 			return null;
 		};
 
-		$oggetto = isset( $chiesta[ self::CAMPO_OGGETTO ] ) && is_scalar( $chiesta[ self::CAMPO_OGGETTO ] )
-			? trim( sanitize_text_field( wp_unslash( (string) $chiesta[ self::CAMPO_OGGETTO ] ) ) )
-			: '';
+		$oggetto = '';
+		if ( isset( $chiesta[ self::CAMPO_OGGETTO ] ) ) {
+			if ( is_scalar( $chiesta[ self::CAMPO_OGGETTO ] ) ) {
+				$oggetto = trim( sanitize_text_field( wp_unslash( (string) $chiesta[ self::CAMPO_OGGETTO ] ) ) );
+			} else {
+				$errori[] = __( 'l\'oggetto', 'albo-pretorio-pa' );
+			}
+		}
 
 		$ricerca = array(
 			'anno'    => $intero( self::CAMPO_ANNO, 9999, __( 'l\'anno', 'albo-pretorio-pa' ) ),
@@ -185,7 +190,7 @@ final class SchermataScaduti {
 		if ( array() !== $errori ) {
 			$ricerca['errore'] = sprintf(
 				/* translators: %s: elenco dei campi scritti male. */
-				__( 'La ricerca non e\' stata fatta: non e\' valido %s. Si scrivono solo cifre, senza spazi ne\' punti.', 'albo-pretorio-pa' ),
+				__( 'La ricerca non e\' stata fatta: non e\' valido %s. Anno, numero, tipo e pagina si scrivono solo con cifre, senza spazi ne\' punti; l\'oggetto e\' un testo solo.', 'albo-pretorio-pa' ),
 				implode( ', ', $errori )
 			);
 		}
