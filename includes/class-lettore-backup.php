@@ -91,6 +91,20 @@ final class LettoreBackup {
 	const VALORE_COSTO = 80;
 
 	/**
+	 * Il numero massimo di valori in una riga: quello delle colonne di una tabella MySQL.
+	 *
+	 * @var int
+	 */
+	const COLONNE_MASSIME = 4096;
+
+	/**
+	 * Il numero massimo di file in un archivio.
+	 *
+	 * @var int
+	 */
+	const FILE_MASSIMI = 200000;
+
+	/**
 	 * La lunghezza massima di un pezzo letto dal flusso, in byte.
 	 *
 	 * @var int
@@ -166,6 +180,12 @@ final class LettoreBackup {
 		$visti = array();
 
 		$quanti = $archivio->count();
+
+		if ( $quanti > self::FILE_MASSIMI ) {
+			$archivio->close();
+
+			return self::errore( __( 'l\'archivio contiene troppi file per essere letto qui.', 'albo-pretorio-pa' ) );
+		}
 
 		for ( $indice = 0; $indice < $quanti; $indice++ ) {
 			$voce = $archivio->statIndex( $indice );
@@ -638,6 +658,12 @@ final class LettoreBackup {
 			$opzione = self::testo( $parti[3] );
 
 			if ( str_starts_with( $opzione, self::PREFISSO_OPZIONI ) ) {
+				$esito = self::conta( $stato, array( $parti[1], $opzione, $parti[2] ) );
+
+				if ( is_wp_error( $esito ) ) {
+					return $esito;
+				}
+
 				$stato['opzioni'][ self::nome( $parti[1] ) ][ $opzione ] = self::testo( $parti[2] );
 			}
 
@@ -645,6 +671,41 @@ final class LettoreBackup {
 		}
 
 		return $ultima ? self::troncato() : true;
+	}
+
+	/**
+	 * Mette in conto i valori che si stanno per tenere, e rifiuta oltre il limite.
+	 *
+	 * @param array<string, mixed> $stato  Stato della lettura, aggiornato.
+	 * @param array<int, mixed>    $valori Valori.
+	 * @return true|\WP_Error
+	 */
+	private static function conta( array &$stato, array $valori ) {
+		foreach ( $valori as $valore ) {
+			$stato['dati'] += strlen( (string) $valore ) + self::VALORE_COSTO;
+		}
+
+		if ( $stato['dati'] > $stato['limiti']['dati'] ) {
+			return self::errore( __( 'i dati dell\'albo nel file SQL sono troppi per essere letti qui.', 'albo-pretorio-pa' ) );
+		}
+
+		return true;
+	}
+
+	/**
+	 * Vero se le opzioni dopo le colonne di una creazione sono intere.
+	 *
+	 * Si accetta la forma che scrive MySQL nell'istruzione di creazione: coppie
+	 * nome=valore, come `ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='...'`.
+	 * Un nome senza valore vuol dire un testo tagliato.
+	 *
+	 * @param string $resto Testo dopo la parentesi che chiude le colonne.
+	 * @return bool
+	 */
+	private static function opzioni_intere( string $resto ): bool {
+		$resto = trim( $resto );
+
+		return '' === $resto || 1 === preg_match( "/\\A(?:(?:DEFAULT\\s+)?[A-Za-z_]+(?:\\s+[A-Za-z_]+)?\\s*=\\s*(?:'(?:[^'\\\\]|\\\\.|'')*'|[A-Za-z0-9_]+)\\s*,?\\s*)+\\z/s", $resto );
 	}
 
 	/**
@@ -716,12 +777,6 @@ final class LettoreBackup {
 			return self::errore_tabella( $nome );
 		}
 
-		$tuple = self::tuple( substr( $resto, strlen( $parti[0] ) ) );
-
-		if ( null === $tuple ) {
-			return self::errore_tabella( $nome );
-		}
-
 		if ( null === $colonne ) {
 			$colonne = $stato['colonne'][ $nome ] ?? ( 'opzioni' === $tipo ? array( 'option_id', 'option_name', 'option_value', 'autoload' ) : null );
 		}
@@ -736,7 +791,11 @@ final class LettoreBackup {
 			);
 		}
 
-		foreach ( $tuple as $valori ) {
+		foreach ( self::tuple( substr( $resto, strlen( $parti[0] ) ) ) as $valori ) {
+			if ( null === $valori ) {
+				return self::errore_tabella( $nome );
+			}
+
 			if ( count( $valori ) !== count( $colonne ) ) {
 				return self::errore(
 					sprintf(
@@ -756,17 +815,21 @@ final class LettoreBackup {
 
 				// Delle impostazioni si tengono solo quelle del plugin di provenienza, per tabella: il resto del sito non serve e non si porta.
 				if ( str_starts_with( $opzione, self::PREFISSO_OPZIONI ) ) {
+					$esito = self::conta( $stato, array( $nome, $opzione, $riga['option_value'] ?? null ) );
+
+					if ( is_wp_error( $esito ) ) {
+						return $esito;
+					}
+
 					$stato['opzioni'][ $nome ][ $opzione ] = $riga['option_value'] ?? null;
 				}
 				continue;
 			}
 
-			foreach ( $valori as $valore ) {
-				$stato['dati'] += strlen( (string) $valore ) + self::VALORE_COSTO;
-			}
+			$esito = self::conta( $stato, $valori );
 
-			if ( $stato['dati'] > $stato['limiti']['dati'] ) {
-				return self::errore( __( 'i dati dell\'albo nel file SQL sono troppi per essere letti qui.', 'albo-pretorio-pa' ) );
+			if ( is_wp_error( $esito ) ) {
+				return $esito;
 			}
 
 			$stato['righe'][ $nome ][] = $riga;
@@ -776,13 +839,14 @@ final class LettoreBackup {
 	}
 
 	/**
-	 * Le tuple di valori di un inserimento, o nullo se il testo non si legge.
+	 * Le tuple di valori di un inserimento, una alla volta; nullo al posto di una tupla che non si legge.
+	 *
+	 * Una alla volta, cosi' i limiti si controllano prima di tenerle tutte.
 	 *
 	 * @param string $testo Testo dopo VALUES.
-	 * @return array<int, array<int, string|null>>|null
+	 * @return \Generator<int, array<int, string|null>|null>
 	 */
-	private static function tuple( string $testo ): ?array {
-		$tuple     = array();
+	private static function tuple( string $testo ): \Generator {
 		$lunghezza = strlen( $testo );
 		$i         = 0;
 
@@ -792,7 +856,8 @@ final class LettoreBackup {
 			}
 
 			if ( $i >= $lunghezza || '(' !== $testo[ $i ] ) {
-				return null;
+				yield null;
+				return;
 			}
 
 			++$i;
@@ -804,7 +869,8 @@ final class LettoreBackup {
 				}
 
 				if ( $i >= $lunghezza ) {
-					return null;
+					yield null;
+					return;
 				}
 
 				if ( "'" === $testo[ $i ] || '"' === $testo[ $i ] ) {
@@ -834,7 +900,8 @@ final class LettoreBackup {
 					}
 
 					if ( $fine >= $lunghezza ) {
-						return null;
+						yield null;
+						return;
 					}
 
 					$valori[] = $letto;
@@ -855,11 +922,18 @@ final class LettoreBackup {
 				}
 
 				if ( $i >= $lunghezza ) {
-					return null;
+					yield null;
+					return;
 				}
 
 				if ( ',' === $testo[ $i ] ) {
 					++$i;
+
+					// Piu' valori di quante colonne possa avere una tabella MySQL: non e' una riga vera.
+					if ( count( $valori ) >= self::COLONNE_MASSIME ) {
+						yield null;
+						return;
+					}
 					continue;
 				}
 
@@ -868,21 +942,23 @@ final class LettoreBackup {
 					break;
 				}
 
-				return null;
+				yield null;
+				return;
 			}
 
-			$tuple[] = $valori;
+			yield $valori;
 
 			while ( $i < $lunghezza && ctype_space( $testo[ $i ] ) ) {
 				++$i;
 			}
 
 			if ( $i >= $lunghezza ) {
-				return $tuple;
+				return;
 			}
 
 			if ( ',' !== $testo[ $i ] ) {
-				return null;
+				yield null;
+				return;
 			}
 
 			++$i;
@@ -938,9 +1014,9 @@ final class LettoreBackup {
 	 * @return string
 	 */
 	private static function testo( string $interno ): string {
-		$tuple = self::tuple( "('" . $interno . "')" );
+		$tupla = self::tuple( "('" . $interno . "')" )->current();
 
-		return null === $tuple ? $interno : (string) $tuple[0][0];
+		return null === $tupla ? $interno : (string) $tupla[0];
 	}
 
 	/**
@@ -966,7 +1042,10 @@ final class LettoreBackup {
 			if ( '' !== $apice ) {
 				$corrente .= $carattere;
 
-				if ( $carattere === $apice ) {
+				// Nei testi fra apici la barra rovesciata protegge il carattere dopo; nei nomi fra accenti gravi no.
+				if ( '\\' === $carattere && '`' !== $apice && $i + 1 < $lunghezza ) {
+					$corrente .= $corpo[ ++$i ];
+				} elseif ( $carattere === $apice ) {
 					$apice = '';
 				}
 				continue;
@@ -982,7 +1061,8 @@ final class LettoreBackup {
 				++$livello;
 			} elseif ( ')' === $carattere ) {
 				if ( 0 === $livello ) {
-					$chiusa = true;
+					// Dopo la parentesi vengono le opzioni della tabella: anche quelle devono essere intere.
+					$chiusa = self::opzioni_intere( substr( $corpo, $i + 1 ) );
 					break;
 				}
 				--$livello;

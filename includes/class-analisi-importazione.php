@@ -371,7 +371,8 @@ final class AnalisiImportazione {
 
 		$atto = array(
 			'id'           => $id,
-			'numero'       => ( null !== $numero && $numero > 0 ) ? $numero : 0,
+			'numero'       => ( null !== $numero && $numero > 0 && $numero <= Repertorio::MASSIMO ) ? $numero : 0,
+			'scritto'      => null === $grezzo ? 'NULL' : (string) $grezzo,
 			'anno'         => $anno,
 			'oggetto'      => $oggetto,
 			'inizio'       => $inizio,
@@ -398,7 +399,8 @@ final class AnalisiImportazione {
 		}
 
 		// Numero e anno.
-		if ( null === $numero || $numero <= 0 ) {
+		// Il registro del nuovo albo arriva fino a Repertorio::MASSIMO: oltre, il numero non ci sta.
+		if ( null === $numero || $numero <= 0 || $numero > Repertorio::MASSIMO ) {
 			$segnala[] = self::segnalazione(
 				'conflitto',
 				'numero_non_valido',
@@ -1188,7 +1190,18 @@ final class AnalisiImportazione {
 		$anno_cont = self::intero( $opzioni['opt_AP_AnnoProgressivo'] ?? null );
 		$proposta  = null;
 
-		if ( null !== $contatore && null !== $anno_cont ) {
+		if ( null !== $contatore && null !== $anno_cont && ( $contatore < 0 || $contatore - 1 >= Repertorio::MASSIMO ) ) {
+			// Un contatore fuori dai limiti della partenza non da' una proposta: la partenza si dichiara a mano.
+			$generali[] = self::segnalazione(
+				'dubbio',
+				'contatore_non_valido',
+				sprintf(
+					/* translators: %s: valore del contatore. */
+					__( 'Il contatore del vecchio albo (%s) non e\' un numero che il nuovo albo possa usare come partenza: l\'ultimo numero usato si dichiara a mano.', 'albo-pretorio-pa' ),
+					(string) $opzioni['opt_AP_NumeroProgressivo']
+				)
+			);
+		} elseif ( null !== $contatore && null !== $anno_cont ) {
 			$massimo  = isset( $anni[ $anno_cont ] ) ? max( $anni[ $anno_cont ] ) : 0;
 			$proposta = array(
 				'anno'      => $anno_cont,
@@ -1196,6 +1209,12 @@ final class AnalisiImportazione {
 				'massimo'   => $massimo,
 				'ultimo'    => max( $massimo, $contatore - 1 ),
 			);
+
+			// La partenza del nuovo albo sta sotto Repertorio::MASSIMO: una proposta oltre non si fa.
+			if ( $proposta['ultimo'] >= Repertorio::MASSIMO ) {
+				$proposta   = null;
+				$generali[] = self::segnalazione( 'dubbio', 'proposta_non_valida', __( 'L\'ultimo numero usato nel vecchio albo e\' il piu\' alto che il nuovo registro possa contenere: la partenza non si puo\' proporre.', 'albo-pretorio-pa' ) );
+			}
 
 			if ( $contatore - 1 !== $massimo ) {
 				$generali[] = self::segnalazione(

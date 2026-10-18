@@ -258,6 +258,17 @@ class ImportazioneTest extends \WP_UnitTestCase {
 			$this->assertSame( array( 'uno', "due -- non e' un commento # neppure /* questo */", 'tre', 'quattro', 'cinque', 'sei' ), wp_list_pluck( $letto['tabelle']['albopretorio_atti'], 'Oggetto' ), 'Pezzi di ' . $passo );
 		}
 
+		// Una creazione con commenti e valori predefiniti che contengono apici protetti, barre, virgole e parentesi.
+		$creazione  = "CREATE TABLE `d_albopretorio_atti` (\n  `IdAtto` int(11) NOT NULL COMMENT 'l\\'atto, (interno)',\n";
+		$creazione .= "  `Oggetto` varchar(20) NOT NULL DEFAULT 'a''b\\\\' COMMENT \"c\\\"d)\",\n  `Numero` int(4) DEFAULT NULL,\n  PRIMARY KEY (`IdAtto`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='atti, (prova)';\n";
+		$creazione .= "INSERT INTO `d_albopretorio_atti` VALUES (1,'uno',7);\n";
+
+		$letto = LettoreBackup::leggi_sql( array( $creazione ) );
+
+		$this->assertIsArray( $letto, is_wp_error( $letto ) ? $letto->get_error_message() : '' );
+		$this->assertSame( array( 'IdAtto', 'Oggetto', 'Numero' ), $letto['colonne']['albopretorio_atti'], 'Apici protetti nelle definizioni non spostano le colonne.' );
+		$this->assertSame( '7', $letto['tabelle']['albopretorio_atti'][0]['Numero'] );
+
 		// Le impostazioni sono quelle della tabella delle opzioni con il prefisso dell'albo, non di un altro sito della stessa banca dati.
 		$due  = "CREATE TABLE `wp_albopretorio_atti` (`IdAtto` int(11), `Numero` int(4));\nINSERT INTO `wp_albopretorio_atti` VALUES (1,1);\n";
 		$due .= "INSERT INTO `wp_options` (`option_id`,`option_name`,`option_value`,`autoload`) VALUES (1,'opt_AP_NumeroProgressivo','7','yes');\n";
@@ -392,7 +403,30 @@ class ImportazioneTest extends \WP_UnitTestCase {
 			$this->assertStringContainsString( 'troncato', $letto->get_error_message(), $caso );
 		}
 
-		$this->assertIsArray( LettoreBackup::leggi_sql( array( $contatore ) ), 'Intero, con l\'ultimo aggiornamento senza punto e virgola, si legge.' );
+		// Il backup intero con l'ultimo aggiornamento senza punto e virgola si legge, e l'aggiornamento conta.
+		$senza_punto = rtrim( $contatore );
+		$senza_punto = str_ends_with( $senza_punto, ';' ) ? substr( $senza_punto, 0, -1 ) : $senza_punto;
+		$senza_punto = str_replace( "SET `option_value` = '2' WHERE `option_name` ='opt_AP_NumeroProgressivo'", "SET `option_value` = '8' WHERE `option_name` ='opt_AP_NumeroProgressivo'", $senza_punto );
+
+		$this->assertStringEndsWith( "'opt_AP_NumeroProgressivo'", $senza_punto, 'Precondizione: l\'ultimo aggiornamento non ha il punto e virgola.' );
+		$letto = LettoreBackup::leggi_sql( array( $senza_punto ) );
+		$this->assertIsArray( $letto, is_wp_error( $letto ) ? $letto->get_error_message() : '' );
+		$this->assertSame( '8', $letto['opzioni']['opt_AP_NumeroProgressivo'], 'L\'ultimo aggiornamento senza punto e virgola si applica.' );
+
+		// Le opzioni della tabella dopo la parentesi: tagliate a meta' si rifiutano, intere si leggono.
+		$tabella = 'CREATE TABLE `o_albopretorio_atti` (`IdAtto` int(11)) ';
+
+		foreach ( array( 'ENGINE=', 'ENGINE=InnoDB DEFAULT CHARSET=', 'ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=', 'ENGINE=InnoDB DEFAULT', "ENGINE=InnoDB COMMENT='a" ) as $taglio ) {
+			$letto = LettoreBackup::leggi_sql( array( $tabella . $taglio ) );
+
+			$this->assertWPError( $letto, $taglio );
+			$this->assertStringContainsString( 'troncato', $letto->get_error_message(), $taglio );
+		}
+
+		foreach ( array( 'ENGINE=InnoDB', 'ENGINE=InnoDB DEFAULT CHARSET=utf8mb4', 'ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci', '' ) as $intero ) {
+			$this->assertIsArray( LettoreBackup::leggi_sql( array( $tabella . $intero ) ), $intero );
+			$this->assertIsArray( LettoreBackup::leggi_sql( array( $tabella . $intero . ';' ) ), $intero . ';' );
+		}
 
 		// I limiti: appena sotto si legge, appena sopra si rifiuta, con e senza a capo e punto e virgola finale.
 		$creazione = 'CREATE TABLE `l_albopretorio_atti` (`IdAtto` int(11), `Oggetto` text);';
@@ -411,6 +445,32 @@ class ImportazioneTest extends \WP_UnitTestCase {
 
 		$this->assertIsArray( LettoreBackup::leggi_sql( $testo, array( 'dati' => $dati ) ) );
 		$this->assertStringContainsString( 'troppi', LettoreBackup::leggi_sql( $testo, array( 'dati' => $dati - 1 ) )->get_error_message() );
+		// Molte righe corte in una sola istruzione, e molte impostazioni: il limite dei dati interviene riga per riga.
+		$corte = $creazione . 'INSERT INTO `l_albopretorio_atti` VALUES ' . implode( ',', array_fill( 0, 5000, "(1,'')" ) ) . ';';
+		$letto = LettoreBackup::leggi_sql( array( $corte ), array( 'dati' => 100 * 2 * LettoreBackup::VALORE_COSTO ) );
+		$this->assertStringContainsString( 'troppi', $letto->get_error_message(), 'Molte righe corte.' );
+
+		$tante = $creazione . "INSERT INTO `l_albopretorio_atti` VALUES (1,'');\nINSERT INTO `l_options` (`option_id`,`option_name`,`option_value`,`autoload`) VALUES ";
+		$righe = array();
+
+		for ( $n = 0; $n < 1000; $n++ ) {
+			$righe[] = '(' . $n . ",'opt_AP_" . $n . "','x','yes')";
+		}
+
+		$letto = LettoreBackup::leggi_sql( array( $tante . implode( ',', $righe ) . ';' ), array( 'dati' => 100 * 3 * LettoreBackup::VALORE_COSTO ) );
+		$this->assertStringContainsString( 'troppi', $letto->get_error_message(), 'Molte impostazioni contano anche loro.' );
+
+		// Una riga con piu' valori di quante colonne possa avere una tabella non si legge.
+		$larga = $creazione . 'INSERT INTO `l_albopretorio_atti` VALUES (' . implode( ',', array_fill( 0, LettoreBackup::COLONNE_MASSIME + 1, '1' ) ) . ');';
+		$this->assertWPError( LettoreBackup::leggi_sql( array( $larga ) ) );
+
+		// Il controllo scatta mentre la riga si legge, non dopo: al valore in piu' la lettura si ferma.
+		$tuple = new \ReflectionMethod( LettoreBackup::class, 'tuple' );
+		$tuple->setAccessible( true );
+		$piena = '(' . implode( ',', array_fill( 0, LettoreBackup::COLONNE_MASSIME, '1' ) ) . ')';
+		$this->assertCount( LettoreBackup::COLONNE_MASSIME, $tuple->invoke( null, $piena )->current() );
+		$this->assertNull( $tuple->invoke( null, '(' . implode( ',', array_fill( 0, LettoreBackup::COLONNE_MASSIME + 1, '1' ) ) . ')' )->current() );
+
 		$this->assertIsArray( LettoreBackup::leggi_sql( $testo, array( 'sql' => strlen( $testo[0] ) ) ) );
 		$this->assertStringContainsString( 'troppo grande', LettoreBackup::leggi_sql( $testo, array( 'sql' => strlen( $testo[0] ) - 1 ) )->get_error_message() );
 	}
@@ -842,6 +902,25 @@ class ImportazioneTest extends \WP_UnitTestCase {
 					'Numero' => "'12a'",
 				)
 			),
+			// Il confine del registro del nuovo albo, in un anno senza numerazione dichiarata.
+			$this->atto_vecchio(
+				array(
+					'IdAtto'     => 11,
+					'Numero'     => Repertorio::MASSIMO + 1,
+					'Anno'       => 2030,
+					'DataInizio' => '2030-03-01',
+					'DataFine'   => '2030-03-16',
+				)
+			),
+			$this->atto_vecchio(
+				array(
+					'IdAtto'     => 12,
+					'Numero'     => Repertorio::MASSIMO,
+					'Anno'       => 2030,
+					'DataInizio' => '2030-03-01',
+					'DataFine'   => '2030-03-16',
+				)
+			),
 		);
 
 		$scrivi = function ( array $opzioni ) use ( $atti ): string {
@@ -882,6 +961,27 @@ class ImportazioneTest extends \WP_UnitTestCase {
 			$this->assertStringContainsString( '(' . $scritto . ')', $this->testo_di( $atto['segnalazioni'], 'numero_non_valido' ), 'Il valore scritto si mostra com\'e\'.' );
 		}
 
+		$this->assertSame( 'conflitto', $this->codici( $this->atto( $rapporto, '11' )['segnalazioni'] )['numero_non_valido'] ?? null, 'Oltre il massimo del registro il numero non ci sta.' );
+		$this->assertStringContainsString( '(' . ( Repertorio::MASSIMO + 1 ) . ')', $this->testo_di( $this->atto( $rapporto, '11' )['segnalazioni'], 'numero_non_valido' ) );
+		$this->assertSame( Repertorio::MASSIMO, $this->atto( $rapporto, '12' )['numero'], 'Il massimo ci sta.' );
+		$this->assertArrayNotHasKey( 'numero_non_valido', $this->codici( $this->atto( $rapporto, '12' )['segnalazioni'] ) );
+
+		// La schermata non chiama bozza un numero non valido, e mostra quello scritto.
+		ob_start();
+		SchermataImportazione::stampa( $rapporto );
+		$pagina = (string) ob_get_clean();
+
+		foreach ( array(
+			'8'  => 'NULL',
+			'9'  => '-4',
+			'10' => '12a',
+			'11' => (string) ( Repertorio::MASSIMO + 1 ),
+		) as $id => $scritto ) {
+			$this->assertStringContainsString( '<tr data-atto="' . $id . '"><td>numero non valido: ' . $scritto . '<br', $pagina, $scritto );
+		}
+
+		$this->assertStringNotContainsString( '<td>bozza<br', $pagina, 'Qui non ci sono bozze.' );
+
 		$anni = array_column( $rapporto['numerazione']['anni'], null, 'anno' );
 
 		$this->assertSame( 1, $anni[2040]['mancanti'], 'Fra 1 e 3 manca il 2.' );
@@ -911,6 +1011,45 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertSame( 'dubbio', $generali['contatore_diverso'] ?? null );
 		$this->assertArrayHasKey( 'contatore_anno_vecchio', $generali );
 		$this->assertSame( 59, $rapporto['numerazione']['proposta']['ultimo'], 'La proposta e\' il piu\' alto fra contatore e atti, e resta una proposta.' );
+
+		// Un contatore piu' basso degli atti: la proposta segue gli atti.
+		$rapporto = $this->rapporto_di(
+			$scrivi(
+				array(
+					'opt_AP_NumeroProgressivo' => '20',
+					'opt_AP_AnnoProgressivo'   => '2041',
+				)
+			)
+		);
+
+		$this->assertSame( 45, $rapporto['numerazione']['proposta']['ultimo'], 'Il contatore indietro non abbassa la proposta sotto il numero piu\' alto.' );
+		$this->assertSame( 'dubbio', $this->codici( $rapporto['segnalazioni'] )['contatore_diverso'] ?? null );
+
+		// Un contatore che non puo' essere una partenza non da' proposta.
+		$rapporto = $this->rapporto_di(
+			$scrivi(
+				array(
+					'opt_AP_NumeroProgressivo' => '-3',
+					'opt_AP_AnnoProgressivo'   => '2041',
+				)
+			)
+		);
+
+		$this->assertNull( $rapporto['numerazione']['proposta'] );
+		$this->assertSame( 'dubbio', $this->codici( $rapporto['segnalazioni'] )['contatore_non_valido'] ?? null );
+
+		// Atti arrivati al massimo del registro: la partenza non si puo' proporre.
+		$rapporto = $this->rapporto_di(
+			$scrivi(
+				array(
+					'opt_AP_NumeroProgressivo' => '1',
+					'opt_AP_AnnoProgressivo'   => '2030',
+				)
+			)
+		);
+
+		$this->assertNull( $rapporto['numerazione']['proposta'] );
+		$this->assertSame( 'dubbio', $this->codici( $rapporto['segnalazioni'] )['proposta_non_valida'] ?? null );
 
 		$rapporto = $this->rapporto_di( $scrivi( array() ) );
 

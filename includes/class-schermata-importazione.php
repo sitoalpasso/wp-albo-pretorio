@@ -405,6 +405,28 @@ final class SchermataImportazione {
 	}
 
 	/**
+	 * Il numero di un atto come si mostra: bozza solo se e' davvero una bozza.
+	 *
+	 * @param array<string, mixed> $atto Atto del rapporto.
+	 * @return string
+	 */
+	private static function numero( array $atto ): string {
+		if ( 'bozza' === $atto['stato'] ) {
+			return __( 'bozza', 'albo-pretorio-pa' );
+		}
+
+		if ( $atto['numero'] > 0 ) {
+			return $atto['numero'] . '/' . $atto['anno'];
+		}
+
+		return sprintf(
+			/* translators: %s: numero scritto nel backup. */
+			__( 'numero non valido: %s', 'albo-pretorio-pa' ),
+			$atto['scritto']
+		);
+	}
+
+	/**
 	 * I file dell'archivio che nessun allegato di un atto cita, per nome.
 	 *
 	 * @param array<int, string> $orfani Percorsi nell'archivio.
@@ -597,7 +619,7 @@ final class SchermataImportazione {
 			printf(
 				'<tr data-atto="%1$s"><td>%2$s<br /><small>%3$s</small></td><td>%4$s<br /><small>%5$s</small></td><td>%6$s<br /><small>%7$s</small></td><td>',
 				esc_attr( $atto['id'] ),
-				esc_html( $atto['numero'] > 0 ? $atto['numero'] . '/' . $atto['anno'] : __( 'bozza', 'albo-pretorio-pa' ) ),
+				esc_html( self::numero( $atto ) ),
 				esc_html(
 					sprintf(
 						/* translators: %s: numero interno dell'atto nel vecchio albo. */
