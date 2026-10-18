@@ -178,20 +178,21 @@ class ConsultazioneScadutiTest extends \WP_UnitTestCase {
 	/**
 	 * Un atto con lo stato e la fine indicati, scritti direttamente.
 	 *
-	 * @param string      $stato   Stato.
-	 * @param string|null $fine    Fine, o nulla.
-	 * @param string      $oggetto Oggetto.
+	 * @param string                $stato   Stato.
+	 * @param string|null           $fine    Fine, o nulla.
+	 * @param string                $oggetto Oggetto.
+	 * @param array<string, string> $colonne Altre colonne dell'atto scritte insieme allo stato.
 	 * @return int
 	 */
-	private function scritto_direttamente( string $stato, ?string $fine, string $oggetto ): int {
+	private function scritto_direttamente( string $stato, ?string $fine, string $oggetto, array $colonne = array() ): int {
 		$atto = $this->atto_completo( 'normativo', array( 'post_title' => $oggetto ) );
 
 		$this->scavalca_barriera(
-			static function () use ( $atto, $stato, $fine ) {
+			static function () use ( $atto, $stato, $fine, $colonne ) {
 				global $wpdb;
 
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: lo stato scritto come lo lascerebbe un altro programma.
-				$wpdb->update( $wpdb->posts, array( 'post_status' => $stato ), array( 'ID' => $atto ) );
+				$wpdb->update( $wpdb->posts, array_merge( $colonne, array( 'post_status' => $stato ) ), array( 'ID' => $atto ) );
 				clean_post_cache( $atto );
 
 				return null === $fine ? true : conformita_core_imposta_fine_pubblicazione( $atto, $fine );
@@ -490,8 +491,16 @@ class ConsultazioneScadutiTest extends \WP_UnitTestCase {
 			$this->assertSame( 404, $consegnate[0]['stato'], 'Chi consulta non apre il documento di un atto ' . $quale . '.' );
 		}
 
-		$consegnate = $this->consegna_come( $this->amministratore, (int) DocumentiAtto::principale( $bozza ) );
-		$this->assertSame( 200, $consegnate[0]['stato'] ?? 0, 'Precondizione: il documento della bozza si apre a chi gestisce gli atti.' );
+		foreach ( array(
+			'bozza'   => $bozza,
+			'privato' => $privato,
+		) as $quale => $non_pubblicato ) {
+			$suo        = (int) DocumentiAtto::principale( $non_pubblicato );
+			$consegnate = $this->consegna_come( $this->amministratore, $suo );
+			$this->assertCount( 1, $consegnate );
+			$this->assertSame( 200, $consegnate[0]['stato'], 'Precondizione: il documento dell\'atto ' . $quale . ' si apre a chi gestisce gli atti.' );
+			$this->assertSame( realpath( get_attached_file( $suo ) ), $consegnate[0]['percorso'], 'Precondizione: ed e\' proprio il suo file.' );
+		}
 	}
 
 	/**
@@ -595,6 +604,13 @@ class ConsultazioneScadutiTest extends \WP_UnitTestCase {
 		);
 		$this->assertSame( $tutti, $this->elencati( $senza_gettone ), 'Senza gettone valido la ricerca non si applica.' );
 		$this->assertStringContainsString( 'non e&#039; stata applicata', $senza_gettone );
+
+		$nel_contenuto = $this->scritto_direttamente( 'publish', '2041-10-10', 'Atto di altro argomento', array( 'post_content' => 'Si richiama la graduatoria precedente.' ) );
+		$nell_estratto = $this->scritto_direttamente( 'publish', '2041-10-11', 'Atto di altro argomento ancora', array( 'post_excerpt' => 'Sintesi: graduatoria precedente.' ) );
+		$completo      = $this->elencati( (string) $this->schermata( $this->consultatore ) );
+		$this->assertContains( $nel_contenuto, $completo, 'Precondizione: l\'atto con la parola nel solo contenuto e\' scaduto ed elencato.' );
+		$this->assertContains( $nell_estratto, $completo, 'Precondizione: l\'atto con la parola nel solo estratto e\' scaduto ed elencato.' );
+		$this->assertSame( array( $primo ), $cerca( array( SchermataScaduti::CAMPO_OGGETTO => 'graduatoria' ) ), 'Per oggetto: il contenuto e l\'estratto non contano.' );
 	}
 
 	/**

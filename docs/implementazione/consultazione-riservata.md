@@ -107,3 +107,8 @@ qui sopra.
 come testo veniva preso per vuoto, e la ricerca mostrava tutti gli scaduti. Ora anche l'oggetto
 scritto male ferma la ricerca con il messaggio, e A-184 lo prova.
 
+**Il terzo giro** ha trovato due prove che non distinguevano abbastanza: la ricerca per
+oggetto non era messa alla prova con atti che hanno la parola solo nel testo o nella sintesi,
+e il documento dell'atto privato non era verificato aperto da chi gestisce gli atti. Ora lo
+sono; togliendo dal codice il limite della ricerca al solo oggetto, A-184 diventa rossa.
+
