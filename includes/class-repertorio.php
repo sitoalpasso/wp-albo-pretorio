@@ -221,6 +221,41 @@ final class Repertorio {
 	}
 
 	/**
+	 * I numeri gia' dati nell'anno indicato, come chiavi.
+	 *
+	 * Serve all'importazione a secco (ALBO-35) per dire quali numeri del
+	 * vecchio registro il nuovo albo ha gia' dato. Nulla se la lettura non ha
+	 * risposto.
+	 *
+	 * @param int $anno Anno.
+	 * @return array<int, true>|null
+	 */
+	public static function numeri_usati( int $anno ): ?array {
+		global $wpdb;
+
+		if ( ! self::tabelle_presenti() ) {
+			return null;
+		}
+
+		$righe = Lettura::righe(
+			$wpdb->prepare( 'SELECT numero FROM %i WHERE anno = %d', self::tabella_assegnazioni(), $anno ),
+			array( 'numero' )
+		);
+
+		if ( null === $righe ) {
+			return null;
+		}
+
+		$usati = array();
+
+		foreach ( $righe as $riga ) {
+			$usati[ (int) $riga['numero'] ] = true;
+		}
+
+		return $usati;
+	}
+
+	/**
 	 * Il numero di un atto letto per assegnarlo, distinguendo l'atto senza numero dalla lettura mancata.
 	 *
 	 * @param int $atto_id Identificativo dell'atto.
