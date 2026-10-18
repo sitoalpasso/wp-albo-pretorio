@@ -66,9 +66,36 @@ final class LettoreBackup {
 	/**
 	 * La lunghezza massima di una singola istruzione, in byte.
 	 *
+	 * Il backup del plugin scrive un'istruzione per record; mysqldump le unisce
+	 * fino a un megabyte circa.
+	 *
 	 * @var int
 	 */
-	const ISTRUZIONE_MASSIMA = 67108864;
+	const ISTRUZIONE_MASSIMA = 16777216;
+
+	/**
+	 * Il totale massimo dei dati conservati, in byte stimati.
+	 *
+	 * Ogni valore tenuto conta per la sua lunghezza piu' VALORE_COSTO, quanto
+	 * costa in memoria un valore anche vuoto.
+	 *
+	 * @var int
+	 */
+	const DATI_MASSIMI = 134217728;
+
+	/**
+	 * Il costo stimato di un valore conservato, oltre alla sua lunghezza.
+	 *
+	 * @var int
+	 */
+	const VALORE_COSTO = 80;
+
+	/**
+	 * La lunghezza massima di un pezzo letto dal flusso, in byte.
+	 *
+	 * @var int
+	 */
+	const PEZZO = 1048576;
 
 	/**
 	 * Legge un archivio zip del backup, o un file SQL da solo.
@@ -264,14 +291,17 @@ final class LettoreBackup {
 	}
 
 	/**
-	 * Le righe di un flusso, una alla volta.
+	 * Il testo di un flusso, a pezzi di lunghezza limitata.
+	 *
+	 * Un pezzo finisce all'a capo o dopo PEZZO byte: una riga lunghissima non
+	 * si carica mai intera prima dei controlli.
 	 *
 	 * @param resource $flusso Flusso aperto in lettura.
 	 * @return \Generator<int, string>
 	 */
 	private static function righe( $flusso ): \Generator {
 		while ( ! feof( $flusso ) ) {
-			$riga = fgets( $flusso );
+			$riga = fgets( $flusso, self::PEZZO + 1 );
 
 			if ( false === $riga ) {
 				break;
@@ -285,141 +315,74 @@ final class LettoreBackup {
 	 * Interpreta il testo SQL del backup.
 	 *
 	 * Le istruzioni si separano al punto e virgola che sta fuori dai testi fra
-	 * apici. Si riconoscono tre forme: la creazione di una tabella, da cui si
-	 * prende l'ordine delle colonne; l'inserimento di righe, con o senza
-	 * l'elenco delle colonne e con una o piu' righe per istruzione; e
-	 * l'aggiornamento di una impostazione, che il backup usa per il contatore.
-	 * Tutto il resto si salta.
+	 * apici; i commenti (`-- `, `#`, fra barra e asterisco) valgono come uno
+	 * spazio in qualunque punto fuori dai testi. Si riconoscono tre forme: la
+	 * creazione di una tabella, da cui si prende l'ordine delle colonne;
+	 * l'inserimento di righe, con o senza l'elenco delle colonne e con una o
+	 * piu' righe per istruzione; e l'aggiornamento di una impostazione, che il
+	 * backup usa per il contatore. Tutto il resto si salta.
 	 *
-	 * @param iterable $righe Righe del testo, con il loro a capo, una stringa per elemento.
+	 * I limiti si controllano prima di tenere i dati: il testo intero, ogni
+	 * istruzione prima di interpretarla, e il totale dei valori conservati.
+	 *
+	 * @param iterable           $righe  Il testo, a pezzi, una stringa per elemento.
+	 * @param array<string, int> $limiti Limiti diversi da quelli predefiniti, per le prove: 'sql', 'istruzione', 'dati'.
 	 * @return array{tabelle: array<string, array<int, array<string, string|null>>>, colonne: array<string, array<int, string>>, opzioni: array<string, string|null>, prefisso: string, ignorate: array<int, string>}|\WP_Error
 	 */
-	public static function leggi_sql( iterable $righe ) {
+	public static function leggi_sql( iterable $righe, array $limiti = array() ) {
 		$stato = array(
 			'colonne'  => array(),
 			'righe'    => array(),
 			'opzioni'  => array(),
 			'prefissi' => array(),
 			'ignorate' => array(),
+			'dati'     => 0,
+			'limiti'   => array(
+				'sql'        => (int) ( $limiti['sql'] ?? self::SQL_MASSIMO ),
+				'istruzione' => (int) ( $limiti['istruzione'] ?? self::ISTRUZIONE_MASSIMA ),
+				'dati'       => (int) ( $limiti['dati'] ?? self::DATI_MASSIMI ),
+			),
 		);
 
-		$istruzione = '';
-		$apice      = '';
-		$fuga       = false;
-		$commento   = false;
-		$letti      = 0;
+		$lettura = array(
+			'istruzione' => '',
+			'apice'      => '',
+			'fuga'       => false,
+			'commento'   => false,
+			'riga'       => false,
+		);
 
-		foreach ( $righe as $riga ) {
-			$lunghezza = strlen( $riga );
-			$letti    += $lunghezza;
+		$letti = 0;
+		$coda  = '';
 
-			if ( $letti > self::SQL_MASSIMO ) {
+		foreach ( $righe as $pezzo ) {
+			$letti += strlen( $pezzo );
+
+			if ( $letti > $stato['limiti']['sql'] ) {
 				return self::errore( __( 'il file SQL e\' troppo grande per essere letto qui.', 'albo-pretorio-pa' ) );
 			}
 
-			// Le righe di commento si saltano solo se cominciano fuori da un testo e fuori da un'istruzione.
-			if ( '' === $apice && '' === trim( $istruzione ) && ! $commento ) {
-				$pulita = ltrim( $riga );
+			// Quel che resta di un pezzo (un "-" o una "/" in fondo) si decide con il pezzo dopo.
+			$coda = self::scorri( $coda . $pezzo, $lettura, $stato, false );
 
-				if ( str_starts_with( $pulita, '-- ' ) || str_starts_with( $pulita, '#' ) || "--\n" === $pulita || "--\r\n" === $pulita ) {
-					continue;
-				}
-			}
-
-			$i = 0;
-
-			while ( $i < $lunghezza ) {
-				if ( $commento ) {
-					$chiusura = strpos( $riga, '*/', $i );
-
-					if ( false === $chiusura ) {
-						break;
-					}
-
-					$commento = false;
-					$i        = $chiusura + 2;
-					continue;
-				}
-
-				if ( '' !== $apice ) {
-					if ( $fuga ) {
-						$istruzione .= $riga[ $i ];
-						$fuga        = false;
-						++$i;
-						continue;
-					}
-
-					// Si salta in un colpo fino al prossimo apice o barra rovesciata.
-					$tratto      = strcspn( $riga, $apice . '\\', $i );
-					$istruzione .= substr( $riga, $i, $tratto );
-					$i          += $tratto;
-
-					if ( $i >= $lunghezza ) {
-						break;
-					}
-
-					$carattere   = $riga[ $i ];
-					$istruzione .= $carattere;
-					++$i;
-
-					if ( '\\' === $carattere ) {
-						$fuga = true;
-					} else {
-						$apice = '';
-					}
-					continue;
-				}
-
-				// Fuori dai testi si salta fino al prossimo carattere che conta.
-				$tratto      = strcspn( $riga, "'\"`/;", $i );
-				$istruzione .= substr( $riga, $i, $tratto );
-				$i          += $tratto;
-
-				if ( $i >= $lunghezza ) {
-					break;
-				}
-
-				$carattere = $riga[ $i ];
-				++$i;
-
-				if ( "'" === $carattere || '"' === $carattere || '`' === $carattere ) {
-					$apice       = $carattere;
-					$istruzione .= $carattere;
-					continue;
-				}
-
-				// I commenti fra barra e asterisco si saltano; quelli condizionali di mysqldump sono impostazioni della sessione.
-				if ( '/' === $carattere && $i < $lunghezza && '*' === $riga[ $i ] ) {
-					$commento = true;
-					++$i;
-					continue;
-				}
-
-				if ( ';' === $carattere ) {
-					$esito = self::istruzione( $istruzione, $stato );
-
-					if ( is_wp_error( $esito ) ) {
-						return $esito;
-					}
-
-					$istruzione = '';
-					continue;
-				}
-
-				$istruzione .= $carattere;
-			}
-
-			if ( strlen( $istruzione ) > self::ISTRUZIONE_MASSIMA ) {
-				return self::errore( __( 'il file SQL contiene un\'istruzione troppo lunga, o un testo fra apici che non si chiude.', 'albo-pretorio-pa' ) );
+			if ( is_wp_error( $coda ) ) {
+				return $coda;
 			}
 		}
 
-		if ( '' !== $apice || $commento ) {
+		$coda = self::scorri( $coda, $lettura, $stato, true );
+
+		if ( is_wp_error( $coda ) ) {
+			return $coda;
+		}
+
+		if ( '' !== $lettura['apice'] || $lettura['commento'] ) {
 			return self::errore( __( 'il file SQL finisce a meta\' di un testo: e\' troncato.', 'albo-pretorio-pa' ) );
 		}
 
-		if ( '' !== trim( $istruzione ) ) {
-			$esito = self::istruzione( $istruzione, $stato );
+		// L'ultima istruzione puo' mancare del punto e virgola, come nel backup del plugin: si accetta solo se e' completa.
+		if ( '' !== trim( $lettura['istruzione'] ) ) {
+			$esito = self::istruzione( $lettura['istruzione'], $stato, true );
 
 			if ( is_wp_error( $esito ) ) {
 				return $esito;
@@ -457,26 +420,196 @@ final class LettoreBackup {
 		return array(
 			'tabelle'  => $tabelle,
 			'colonne'  => $colonne,
-			'opzioni'  => $stato['opzioni'],
+			'opzioni'  => $stato['opzioni'][ $prefisso . 'options' ] ?? array(),
 			'prefisso' => $prefisso,
 			'ignorate' => $ignorate,
 		);
 	}
 
 	/**
+	 * Scorre un pezzo di testo SQL e interpreta le istruzioni che si chiudono.
+	 *
+	 * Un "-", una "/" o un "*" in fondo al pezzo non si possono ancora decidere:
+	 * tornano indietro e si rileggono davanti al pezzo dopo.
+	 *
+	 * @param string               $riga    Pezzo di testo.
+	 * @param array<string, mixed> $lettura Stato dello scorrimento fra un pezzo e l'altro, aggiornato.
+	 * @param array<string, mixed> $stato   Stato della lettura, aggiornato.
+	 * @param bool                 $finale  Vero per l'ultimo pezzo: dopo non viene niente.
+	 * @return string|\WP_Error Il testo da rileggere con il pezzo dopo.
+	 */
+	private static function scorri( string $riga, array &$lettura, array &$stato, bool $finale ) {
+		$lunghezza = strlen( $riga );
+		$i         = 0;
+
+		while ( $i < $lunghezza ) {
+			// Commento fino all'a capo: l'a capo resta e separa.
+			if ( $lettura['riga'] ) {
+				$fine = strpos( $riga, "\n", $i );
+
+				if ( false === $fine ) {
+					break;
+				}
+
+				$lettura['riga'] = false;
+				$i               = $fine;
+				continue;
+			}
+
+			if ( $lettura['commento'] ) {
+				$chiusura = strpos( $riga, '*/', $i );
+
+				if ( false === $chiusura ) {
+					return ( ! $finale && str_ends_with( $riga, '*' ) ) ? '*' : self::fine_pezzo( $lettura, $stato );
+				}
+
+				$lettura['commento']    = false;
+				$lettura['istruzione'] .= ' ';
+				$i                      = $chiusura + 2;
+				continue;
+			}
+
+			if ( '' !== $lettura['apice'] ) {
+				if ( $lettura['fuga'] ) {
+					$lettura['istruzione'] .= $riga[ $i ];
+					$lettura['fuga']        = false;
+					++$i;
+					continue;
+				}
+
+				// Si salta in un colpo fino al prossimo apice o barra rovesciata.
+				$tratto                 = strcspn( $riga, $lettura['apice'] . '\\', $i );
+				$lettura['istruzione'] .= substr( $riga, $i, $tratto );
+				$i                     += $tratto;
+
+				if ( $i >= $lunghezza ) {
+					break;
+				}
+
+				$carattere              = $riga[ $i ];
+				$lettura['istruzione'] .= $carattere;
+				++$i;
+
+				if ( '\\' === $carattere ) {
+					$lettura['fuga'] = true;
+				} else {
+					$lettura['apice'] = '';
+				}
+				continue;
+			}
+
+			// Fuori dai testi si salta fino al prossimo carattere che conta.
+			$tratto                 = strcspn( $riga, "'\"`/;-#", $i );
+			$lettura['istruzione'] .= substr( $riga, $i, $tratto );
+			$i                     += $tratto;
+
+			if ( $i >= $lunghezza ) {
+				break;
+			}
+
+			$carattere = $riga[ $i ];
+
+			// Senza il seguito non si sa se comincia un commento: si rimanda al pezzo dopo.
+			if ( ! $finale && ( ( '/' === $carattere && $i + 1 >= $lunghezza ) || ( '-' === $carattere && ( $i + 1 >= $lunghezza || ( '-' === $riga[ $i + 1 ] && $i + 2 >= $lunghezza ) ) ) ) ) {
+				$resto = substr( $riga, $i );
+				$esito = self::fine_pezzo( $lettura, $stato );
+
+				return is_wp_error( $esito ) ? $esito : $resto;
+			}
+
+			++$i;
+
+			if ( "'" === $carattere || '"' === $carattere || '`' === $carattere ) {
+				$lettura['apice']       = $carattere;
+				$lettura['istruzione'] .= $carattere;
+				continue;
+			}
+
+			// Commento fra barra e asterisco; quelli condizionali di mysqldump sono impostazioni della sessione.
+			if ( '/' === $carattere && $i < $lunghezza && '*' === $riga[ $i ] ) {
+				$lettura['commento'] = true;
+				++$i;
+				continue;
+			}
+
+			// "#" e "--" seguito da uno spazio, da un carattere di controllo o dalla fine: commento fino all'a capo.
+			if ( '#' === $carattere || ( '-' === $carattere && $i < $lunghezza && '-' === $riga[ $i ] && ( $i + 1 >= $lunghezza || ord( $riga[ $i + 1 ] ) <= 32 ) ) ) {
+				$lettura['riga']        = true;
+				$lettura['istruzione'] .= ' ';
+				continue;
+			}
+
+			if ( ';' === $carattere ) {
+				if ( strlen( $lettura['istruzione'] ) > $stato['limiti']['istruzione'] ) {
+					return self::troppo_lunga();
+				}
+
+				$esito = self::istruzione( $lettura['istruzione'], $stato );
+
+				if ( is_wp_error( $esito ) ) {
+					return $esito;
+				}
+
+				$lettura['istruzione'] = '';
+				continue;
+			}
+
+			$lettura['istruzione'] .= $carattere;
+		}
+
+		return self::fine_pezzo( $lettura, $stato );
+	}
+
+	/**
+	 * Il controllo in fondo a ogni pezzo: un'istruzione che cresce oltre il limite si ferma qui.
+	 *
+	 * @param array<string, mixed> $lettura Stato dello scorrimento.
+	 * @param array<string, mixed> $stato   Stato della lettura.
+	 * @return string|\WP_Error Niente da rileggere, o il rifiuto.
+	 */
+	private static function fine_pezzo( array $lettura, array $stato ) {
+		if ( strlen( $lettura['istruzione'] ) > $stato['limiti']['istruzione'] ) {
+			return self::troppo_lunga();
+		}
+
+		return '';
+	}
+
+	/**
+	 * Il rifiuto per un'istruzione oltre il limite.
+	 *
+	 * @return \WP_Error
+	 */
+	private static function troppo_lunga(): \WP_Error {
+		return self::errore( __( 'il file SQL contiene un\'istruzione troppo lunga, o un testo fra apici che non si chiude.', 'albo-pretorio-pa' ) );
+	}
+
+	/**
 	 * Interpreta una istruzione completa, senza il punto e virgola.
 	 *
-	 * @param string               $testo Istruzione.
-	 * @param array<string, mixed> $stato Stato della lettura, aggiornato.
+	 * Le istruzioni che contano devono essere intere: una creazione senza la
+	 * parentesi che la chiude, o un aggiornamento delle impostazioni che non
+	 * arriva alla condizione, vogliono dire un file troncato. L'ultima
+	 * istruzione del testo, che puo' mancare del punto e virgola, si accetta
+	 * solo se e' una di quelle riconosciute e intera.
+	 *
+	 * @param string               $testo  Istruzione.
+	 * @param array<string, mixed> $stato  Stato della lettura, aggiornato.
+	 * @param bool                 $ultima Vero per l'ultima istruzione, senza punto e virgola.
 	 * @return true|\WP_Error
 	 */
-	private static function istruzione( string $testo, array &$stato ) {
+	private static function istruzione( string $testo, array &$stato, bool $ultima = false ) {
 		$testo = trim( $testo );
 
 		if ( 1 === preg_match( '/\ACREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(`[^`]+`|[A-Za-z0-9_$]+)\s*\(/i', $testo, $parti ) ) {
-			$nome = self::nome( $parti[1] );
+			$nome    = self::nome( $parti[1] );
+			$colonne = self::colonne_create( substr( $testo, strlen( $parti[0] ) ) );
 
-			$stato['colonne'][ $nome ] = self::colonne_create( substr( $testo, strlen( $parti[0] ) ) );
+			if ( null === $colonne ) {
+				return self::troncato();
+			}
+
+			$stato['colonne'][ $nome ] = $colonne;
 			self::nota_tabella( $nome, $stato );
 
 			return true;
@@ -487,22 +620,40 @@ final class LettoreBackup {
 			$tipo = self::nota_tabella( $nome, $stato );
 
 			if ( null === $tipo ) {
-				return true;
+				return $ultima ? self::troncato() : true;
 			}
 
-			return self::inserimento( $nome, $tipo, substr( $testo, strlen( $parti[0] ) ), $stato );
+			$esito = self::inserimento( $nome, $tipo, substr( $testo, strlen( $parti[0] ) ), $stato );
+
+			// Un inserimento che non si legge in fondo al file e' quasi sempre un file tagliato: lo si dice.
+			return ( $ultima && is_wp_error( $esito ) ) ? self::troncato() : $esito;
 		}
 
-		// L'aggiornamento del contatore che il backup scrive in fondo: prevale sulle righe inserite prima.
-		if ( 1 === preg_match( "/\\AUPDATE\\s+(`[^`]+`|[A-Za-z0-9_\$]+)\\s+SET\\s+`?option_value`?\\s*=\\s*'((?:[^'\\\\]|\\\\.)*)'\\s+WHERE\\s+`?option_name`?\\s*=\\s*'((?:[^'\\\\]|\\\\.)*)'\\s*\\z/is", $testo, $parti ) ) {
+		if ( 1 === preg_match( '/\AUPDATE\s+(`[^`]+`|[A-Za-z0-9_$]+)/i', $testo, $tabella ) && str_ends_with( self::nome( $tabella[1] ), 'options' ) ) {
+			// L'aggiornamento del contatore che il backup scrive in fondo: prevale sulle righe inserite prima.
+			if ( 1 !== preg_match( "/\\AUPDATE\\s+(`[^`]+`|[A-Za-z0-9_\$]+)\\s+SET\\s+`?option_value`?\\s*=\\s*'((?:[^'\\\\]|\\\\.)*)'\\s+WHERE\\s+`?option_name`?\\s*=\\s*'((?:[^'\\\\]|\\\\.)*)'\\s*\\z/is", $testo, $parti ) ) {
+				return self::troncato();
+			}
+
 			$opzione = self::testo( $parti[3] );
 
-			if ( str_starts_with( $opzione, self::PREFISSO_OPZIONI ) && str_ends_with( self::nome( $parti[1] ), 'options' ) ) {
-				$stato['opzioni'][ $opzione ] = self::testo( $parti[2] );
+			if ( str_starts_with( $opzione, self::PREFISSO_OPZIONI ) ) {
+				$stato['opzioni'][ self::nome( $parti[1] ) ][ $opzione ] = self::testo( $parti[2] );
 			}
+
+			return true;
 		}
 
-		return true;
+		return $ultima ? self::troncato() : true;
+	}
+
+	/**
+	 * Il rifiuto per un file che finisce a meta' di un'istruzione.
+	 *
+	 * @return \WP_Error
+	 */
+	private static function troncato(): \WP_Error {
+		return self::errore( __( 'il file SQL finisce a meta\' di un\'istruzione: e\' troncato.', 'albo-pretorio-pa' ) );
 	}
 
 	/**
@@ -603,11 +754,19 @@ final class LettoreBackup {
 			if ( 'opzioni' === $tipo ) {
 				$opzione = (string) ( $riga['option_name'] ?? '' );
 
-				// Delle impostazioni si tengono solo quelle del plugin di provenienza: il resto del sito non serve e non si porta.
+				// Delle impostazioni si tengono solo quelle del plugin di provenienza, per tabella: il resto del sito non serve e non si porta.
 				if ( str_starts_with( $opzione, self::PREFISSO_OPZIONI ) ) {
-					$stato['opzioni'][ $opzione ] = $riga['option_value'] ?? null;
+					$stato['opzioni'][ $nome ][ $opzione ] = $riga['option_value'] ?? null;
 				}
 				continue;
+			}
+
+			foreach ( $valori as $valore ) {
+				$stato['dati'] += strlen( (string) $valore ) + self::VALORE_COSTO;
+			}
+
+			if ( $stato['dati'] > $stato['limiti']['dati'] ) {
+				return self::errore( __( 'i dati dell\'albo nel file SQL sono troppi per essere letti qui.', 'albo-pretorio-pa' ) );
 			}
 
 			$stato['righe'][ $nome ][] = $riga;
@@ -791,13 +950,14 @@ final class LettoreBackup {
 	 * cominciano con una parola chiave di indice o vincolo non sono colonne.
 	 *
 	 * @param string $corpo Testo dopo la parentesi aperta.
-	 * @return array<int, string>
+	 * @return array<int, string>|null Nullo se la parentesi della creazione non si chiude: istruzione troncata.
 	 */
-	private static function colonne_create( string $corpo ): array {
+	private static function colonne_create( string $corpo ): ?array {
 		$definizioni = array();
 		$corrente    = '';
 		$livello     = 0;
 		$apice       = '';
+		$chiusa      = false;
 		$lunghezza   = strlen( $corpo );
 
 		for ( $i = 0; $i < $lunghezza; $i++ ) {
@@ -822,6 +982,7 @@ final class LettoreBackup {
 				++$livello;
 			} elseif ( ')' === $carattere ) {
 				if ( 0 === $livello ) {
+					$chiusa = true;
 					break;
 				}
 				--$livello;
@@ -832,6 +993,10 @@ final class LettoreBackup {
 			}
 
 			$corrente .= $carattere;
+		}
+
+		if ( ! $chiusa ) {
+			return null;
 		}
 
 		$definizioni[] = $corrente;

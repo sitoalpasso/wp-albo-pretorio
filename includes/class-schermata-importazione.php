@@ -378,6 +378,7 @@ final class SchermataImportazione {
 		self::numerazione( $rapporto['numerazione'] );
 		self::categorie( $rapporto['categorie'] );
 		self::campi( $rapporto );
+		self::orfani( $rapporto['orfani'] );
 
 		foreach ( $esiti as $esito => $titolo ) {
 			$atti = array_filter(
@@ -401,6 +402,26 @@ final class SchermataImportazione {
 			self::atti( $atti );
 			echo '</details>';
 		}
+	}
+
+	/**
+	 * I file dell'archivio che nessun allegato di un atto cita, per nome.
+	 *
+	 * @param array<int, string> $orfani Percorsi nell'archivio.
+	 */
+	private static function orfani( array $orfani ): void {
+		if ( array() === $orfani ) {
+			return;
+		}
+
+		printf( '<h3>%s</h3>', esc_html__( 'File dell\'archivio che resterebbero fuori', 'albo-pretorio-pa' ) );
+		echo '<ul class="albo-pretorio-orfani">';
+
+		foreach ( $orfani as $nome ) {
+			printf( '<li><code>%s</code></li>', esc_html( $nome ) );
+		}
+
+		echo '</ul>';
 	}
 
 	/**
@@ -602,7 +623,17 @@ final class SchermataImportazione {
 				echo '<ul>';
 
 				foreach ( $atto['documenti'] as $documento ) {
-					printf( '<li>%1$s (%2$s): %3$s</li>', esc_html( $documento['titolo'] ), esc_html( $documento['ruolo'] ), esc_html( $documento['verifica'] ) );
+					printf( '<li>%1$s (%2$s): %3$s', esc_html( $documento['titolo'] ), esc_html( $documento['ruolo'] ), esc_html( $documento['verifica'] ) );
+
+					if ( null !== $documento['file'] ) {
+						printf(
+							'<br /><span class="albo-pretorio-file">%1$s <code>%2$s</code></span>',
+							esc_html__( 'File nell\'archivio:', 'albo-pretorio-pa' ),
+							esc_html( $documento['file'] )
+						);
+					}
+
+					echo '</li>';
 				}
 
 				echo '</ul>';

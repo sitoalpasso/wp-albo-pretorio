@@ -225,7 +225,10 @@ final class AnalisiImportazione {
 		$etichette = array();
 
 		foreach ( $tabelle['albopretorio_attimeta'] ?? array() as $riga ) {
-			$etichette[ (string) ( $riga['IdAtto'] ?? '' ) ][] = (string) ( $riga['Meta'] ?? '' );
+			$meta   = trim( (string) ( $riga['Meta'] ?? '' ) );
+			$valore = trim( (string) ( $riga['Value'] ?? '' ) );
+
+			$etichette[ (string) ( $riga['IdAtto'] ?? '' ) ][] = '' === $valore ? $meta : $meta . ': ' . $valore;
 		}
 
 		$allegati = array();
@@ -241,7 +244,7 @@ final class AnalisiImportazione {
 			$numero = self::intero( $riga['Numero'] ?? null );
 
 			if ( null !== $numero && $numero > 0 ) {
-				$doppioni[ self::intero( $riga['Anno'] ?? null ) . '/' . $numero ][] = (string) ( $riga['IdAtto'] ?? '' );
+				$doppioni[ ( self::intero( $riga['Anno'] ?? null ) ?? 0 ) . '/' . $numero ][] = (string) ( $riga['IdAtto'] ?? '' );
 			}
 		}
 
@@ -352,7 +355,8 @@ final class AnalisiImportazione {
 	 */
 	private static function atto( array $riga, array $indici, array $contesto, array &$file_usati ): array {
 		$id      = (string) ( $riga['IdAtto'] ?? '' );
-		$numero  = self::intero( $riga['Numero'] ?? null ) ?? 0;
+		$grezzo  = $riga['Numero'] ?? null;
+		$numero  = self::intero( $grezzo );
 		$anno    = self::intero( $riga['Anno'] ?? null ) ?? 0;
 		$inizio  = self::data( $riga['DataInizio'] ?? null );
 		$fine    = self::data( $riga['DataFine'] ?? null );
@@ -367,7 +371,7 @@ final class AnalisiImportazione {
 
 		$atto = array(
 			'id'           => $id,
-			'numero'       => $numero,
+			'numero'       => ( null !== $numero && $numero > 0 ) ? $numero : 0,
 			'anno'         => $anno,
 			'oggetto'      => $oggetto,
 			'inizio'       => $inizio,
@@ -383,7 +387,8 @@ final class AnalisiImportazione {
 			'segnalazioni' => array(),
 		);
 
-		if ( $numero <= 0 ) {
+		// Solo lo zero vero e' una bozza: un numero assente, negativo o illeggibile e' un dato da correggere.
+		if ( null !== $grezzo && '0' === trim( $grezzo ) ) {
 			$atto['stato']        = 'bozza';
 			$atto['pubblico']     = __( 'Non si porta: e\' una bozza mai pubblicata. Si chiude prima nel vecchio albo, o si ricrea nel nuovo.', 'albo-pretorio-pa' );
 			$atto['esito']        = self::ESCLUSO;
@@ -393,6 +398,19 @@ final class AnalisiImportazione {
 		}
 
 		// Numero e anno.
+		if ( null === $numero || $numero <= 0 ) {
+			$segnala[] = self::segnalazione(
+				'conflitto',
+				'numero_non_valido',
+				sprintf(
+					/* translators: %s: valore scritto nel backup. */
+					__( 'Il numero scritto nel backup (%s) non e\' un numero di registro: l\'atto non si puo\' portare finche\' non si corregge.', 'albo-pretorio-pa' ),
+					null === $grezzo ? 'NULL' : (string) $grezzo
+				)
+			);
+			$numero = 0;
+		}
+
 		if ( $anno < 1 || $anno > 9999 ) {
 			$segnala[] = self::segnalazione(
 				'conflitto',
@@ -485,6 +503,22 @@ final class AnalisiImportazione {
 					$nome
 				)
 				: $tipo['nome'];
+
+			// Le decisioni ancora aperte sul tipo valgono anche per ogni suo atto.
+			$aperte = self::tipo_di( $categoria, $contesto )['segnalazioni'];
+
+			if ( array() !== $aperte ) {
+				$segnala[] = self::segnalazione(
+					'dubbio',
+					'tipo_da_decidere',
+					sprintf(
+						/* translators: 1: nome della categoria, 2: decisioni aperte. */
+						__( 'Il tipo di atto della categoria "%1$s" ha decisioni aperte: %2$s', 'albo-pretorio-pa' ),
+						$nome,
+						implode( ' ', wp_list_pluck( $aperte, 'testo' ) )
+					)
+				);
+			}
 		}
 
 		// Dati dell'atto e del procedimento.
@@ -642,6 +676,11 @@ final class AnalisiImportazione {
 
 			$saltati[] = $giorno->format( 'd/m/Y' ) . ' ' . $festivo;
 			$giorno    = $giorno->add( new \DateInterval( 'P1D' ) );
+		}
+
+		// Lo slittamento finisce sul primo giorno non festivo: una fine che cade a sua volta di festa non si spiega cosi'.
+		if ( null !== $saltati && null !== Festivi::festivo( \DateTimeImmutable::createFromFormat( '!Y-m-d', $atto['fine'], wp_timezone() ), $contesto['festivi'] ) ) {
+			$saltati = null;
 		}
 
 		if ( null !== $saltati ) {
@@ -1000,62 +1039,81 @@ final class AnalisiImportazione {
 			$nome     = trim( (string) ( $riga['Nome'] ?? '' ) );
 			$giorni   = self::intero( $riga['Giorni'] ?? null ) ?? 0;
 			$genitore = (string) ( $riga['Genitore'] ?? '0' );
-			$tipo     = $contesto['tipi'][ self::chiave( $nome ) ] ?? null;
-			$segnala  = array();
-
-			if ( null === $tipo ) {
-				$corrisponde = __( 'tipo di atto da creare; l\'origine della durata (norma o scelta dell\'amministrazione) la dichiara chi importa', 'albo-pretorio-pa' );
-				$segnala[]   = self::segnalazione( 'dubbio', 'tipo_da_creare', __( 'Nel nuovo albo non c\'e\' un tipo di atto con questo nome.', 'albo-pretorio-pa' ) );
-				$chiave      = sprintf(
-					/* translators: %s: nome della categoria. */
-					__( '%s (tipo da creare)', 'albo-pretorio-pa' ),
-					$nome
-				);
-			} else {
-				$chiave = $tipo['nome'];
-
-				if ( null === $tipo['durata'] ) {
-					$corrisponde = __( 'tipo di atto esistente, senza durata configurata', 'albo-pretorio-pa' );
-				} else {
-					$corrisponde = sprintf(
-						/* translators: 1: giorni, 2: origine, 3: estremi. */
-						__( 'tipo di atto esistente: %1$d giorni, origine %2$s %3$s', 'albo-pretorio-pa' ),
-						$tipo['durata']['giorni'],
-						'norma' === $tipo['durata']['origine'] ? __( 'norma', 'albo-pretorio-pa' ) : __( 'scelta dell\'amministrazione', 'albo-pretorio-pa' ),
-						$tipo['durata']['estremi']
-					);
-
-					if ( $giorni > 0 && $tipo['durata']['giorni'] !== $giorni ) {
-						$segnala[] = self::segnalazione(
-							'dubbio',
-							'durata_tipo_diversa',
-							sprintf(
-								/* translators: 1: giorni della categoria, 2: giorni del tipo. */
-								__( 'La categoria ha %1$d giorni, il tipo di atto del nuovo albo %2$d: gli atti importati conservano le loro date, i nuovi seguiranno il tipo.', 'albo-pretorio-pa' ),
-								$giorni,
-								$tipo['durata']['giorni']
-							)
-						);
-					}
-				}
-			}
-
-			if ( $giorni <= 0 ) {
-				$segnala[] = self::segnalazione( 'dubbio', 'categoria_senza_giorni', __( 'La categoria non ha giorni di pubblicazione: il tipo di atto non avrebbe durata, e i suoi atti nuovi non si pubblicherebbero finche\' qualcuno non la imposta.', 'albo-pretorio-pa' ) );
-			}
+			$tipo     = self::tipo_di( $riga, $contesto );
 
 			$esito[] = array(
 				'id'           => (string) ( $riga['IdCategoria'] ?? '' ),
 				'nome'         => $nome,
 				'madre'        => ( '0' !== $genitore && isset( $per_id[ $genitore ] ) ) ? trim( (string) ( $per_id[ $genitore ]['Nome'] ?? '' ) ) : '',
 				'giorni'       => $giorni,
-				'atti'         => $conteggio[ $chiave ] ?? 0,
-				'corrisponde'  => $corrisponde,
-				'segnalazioni' => $segnala,
+				'atti'         => $conteggio[ $tipo['chiave'] ] ?? 0,
+				'corrisponde'  => $tipo['corrisponde'],
+				'segnalazioni' => $tipo['segnalazioni'],
 			);
 		}
 
 		return $esito;
+	}
+
+	/**
+	 * Il tipo di atto che una categoria diventerebbe, e le decisioni che restano aperte.
+	 *
+	 * @param array<string, string|null> $riga     Riga della tabella delle categorie.
+	 * @param array<string, mixed>       $contesto Stato del nuovo albo.
+	 * @return array{chiave: string, corrisponde: string, segnalazioni: array<int, array>}
+	 */
+	private static function tipo_di( array $riga, array $contesto ): array {
+		$nome    = trim( (string) ( $riga['Nome'] ?? '' ) );
+		$giorni  = self::intero( $riga['Giorni'] ?? null ) ?? 0;
+		$tipo    = $contesto['tipi'][ self::chiave( $nome ) ] ?? null;
+		$segnala = array();
+
+		if ( null === $tipo ) {
+			$corrisponde = __( 'tipo di atto da creare; l\'origine della durata (norma o scelta dell\'amministrazione) la dichiara chi importa', 'albo-pretorio-pa' );
+			$segnala[]   = self::segnalazione( 'dubbio', 'tipo_da_creare', __( 'Nel nuovo albo non c\'e\' un tipo di atto con questo nome.', 'albo-pretorio-pa' ) );
+			$chiave      = sprintf(
+				/* translators: %s: nome della categoria. */
+				__( '%s (tipo da creare)', 'albo-pretorio-pa' ),
+				$nome
+			);
+		} else {
+			$chiave = $tipo['nome'];
+
+			if ( null === $tipo['durata'] ) {
+				$corrisponde = __( 'tipo di atto esistente, senza durata configurata', 'albo-pretorio-pa' );
+			} else {
+				$corrisponde = sprintf(
+					/* translators: 1: giorni, 2: origine, 3: estremi. */
+					__( 'tipo di atto esistente: %1$d giorni, origine %2$s %3$s', 'albo-pretorio-pa' ),
+					$tipo['durata']['giorni'],
+					'norma' === $tipo['durata']['origine'] ? __( 'norma', 'albo-pretorio-pa' ) : __( 'scelta dell\'amministrazione', 'albo-pretorio-pa' ),
+					$tipo['durata']['estremi']
+				);
+
+				if ( $giorni > 0 && $tipo['durata']['giorni'] !== $giorni ) {
+					$segnala[] = self::segnalazione(
+						'dubbio',
+						'durata_tipo_diversa',
+						sprintf(
+							/* translators: 1: giorni della categoria, 2: giorni del tipo. */
+							__( 'La categoria ha %1$d giorni, il tipo di atto del nuovo albo %2$d: gli atti importati conservano le loro date, i nuovi seguiranno il tipo.', 'albo-pretorio-pa' ),
+							$giorni,
+							$tipo['durata']['giorni']
+						)
+					);
+				}
+			}
+		}
+
+		if ( $giorni <= 0 ) {
+			$segnala[] = self::segnalazione( 'dubbio', 'categoria_senza_giorni', __( 'La categoria non ha giorni di pubblicazione: il tipo di atto non avrebbe durata, e i suoi atti nuovi non si pubblicherebbero finche\' qualcuno non la imposta.', 'albo-pretorio-pa' ) );
+		}
+
+		return array(
+			'chiave'       => $chiave,
+			'corrisponde'  => $corrisponde,
+			'segnalazioni' => $segnala,
+		);
 	}
 
 	/**

@@ -18,6 +18,7 @@ namespace AlboPretorioPa\Tests;
 
 use AlboPretorioPa\AnalisiImportazione;
 use AlboPretorioPa\DatiProcedimento;
+use AlboPretorioPa\Festivi;
 use AlboPretorioPa\LettoreBackup;
 use AlboPretorioPa\Passaggi;
 use AlboPretorioPa\Permessi;
@@ -25,6 +26,7 @@ use AlboPretorioPa\Repertorio;
 use AlboPretorioPa\SchermataImportazione;
 
 use const AlboPretorioPa\TASSONOMIA_TIPO_ATTO;
+use const AlboPretorioPa\TIPO;
 
 /**
  * Il backup si legge, si confronta e si racconta, e niente si scrive.
@@ -231,7 +233,8 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$dump .= "INSERT INTO `x_options` (`option_id`, `option_name`, `option_value`, `autoload`) VALUES (5,'opt_AP_NumeroProgressivo','3','yes');\n";
 		$dump .= "UPDATE `x_options` SET `option_value` = '9' WHERE `option_name` ='opt_AP_NumeroProgressivo'";
 
-		$letto = LettoreBackup::leggi_sql( explode( "\n", $dump ) );
+		// A pezzi di lunghezza fissa, come li consegna la lettura a blocchi del flusso.
+		$letto = LettoreBackup::leggi_sql( str_split( $dump, 13 ) );
 
 		$this->assertIsArray( $letto, is_wp_error( $letto ) ? $letto->get_error_message() : '' );
 		$this->assertSame( 'x_', $letto['prefisso'] );
@@ -239,6 +242,41 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertSame( "Secondo con 'apice' e 'doppio'", $letto['tabelle']['albopretorio_atti'][1]['Oggetto'] );
 		$this->assertSame( array( 'IdAtto', 'Numero', 'Anno', 'Oggetto', 'DataInizio', 'DataFine', 'IdCategoria' ), $letto['colonne']['albopretorio_atti'], 'Indici e chiavi non sono colonne.' );
 		$this->assertSame( '9', $letto['opzioni']['opt_AP_NumeroProgressivo'], 'L\'aggiornamento del contatore in fondo prevale.' );
+
+		// Commenti in ogni posizione fuori dai testi, letti a pezzi di ogni misura: un commento non si mangia l'istruzione dopo.
+		$commenti  = "CREATE TABLE `c_albopretorio_atti` (`IdAtto` int(11), -- chiave\n `Oggetto` text # testo\n);\n";
+		$commenti .= "INSERT INTO `c_albopretorio_atti` VALUES (1,'uno'); -- dopo il punto e virgola\nINSERT INTO `c_albopretorio_atti` VALUES (2,'due -- non e\\' un commento # neppure /* questo */');\n";
+		$commenti .= "INSERT INTO `c_albopretorio_atti` VALUES -- prima della riga\n(3,'tre'), # fra due righe\n(4,/* dentro */'quattro');\n";
+		$commenti .= "INSERT INTO `c_albopretorio_atti` VALUES (5,'cinque')/* in fondo */;#ultimo\n";
+		$commenti .= "INSERT INTO `c_albopretorio_atti` VALUES (6,'sei');--";
+
+		foreach ( array( 1, 2, 3, 7, 4096 ) as $passo ) {
+			$letto = LettoreBackup::leggi_sql( str_split( $commenti, $passo ) );
+
+			$this->assertIsArray( $letto, is_wp_error( $letto ) ? $letto->get_error_message() : '' );
+			$this->assertSame( array( 'IdAtto', 'Oggetto' ), $letto['colonne']['albopretorio_atti'], 'Pezzi di ' . $passo );
+			$this->assertSame( array( 'uno', "due -- non e' un commento # neppure /* questo */", 'tre', 'quattro', 'cinque', 'sei' ), wp_list_pluck( $letto['tabelle']['albopretorio_atti'], 'Oggetto' ), 'Pezzi di ' . $passo );
+		}
+
+		// Le impostazioni sono quelle della tabella delle opzioni con il prefisso dell'albo, non di un altro sito della stessa banca dati.
+		$due  = "CREATE TABLE `wp_albopretorio_atti` (`IdAtto` int(11), `Numero` int(4));\nINSERT INTO `wp_albopretorio_atti` VALUES (1,1);\n";
+		$due .= "INSERT INTO `wp_options` (`option_id`,`option_name`,`option_value`,`autoload`) VALUES (1,'opt_AP_NumeroProgressivo','7','yes');\n";
+		$due .= "INSERT INTO `wp_2_options` (`option_id`,`option_name`,`option_value`,`autoload`) VALUES (1,'opt_AP_NumeroProgressivo','90','yes'),(2,'opt_AP_AnnoProgressivo','2039','yes');\n";
+		$due .= "UPDATE `wp_2_options` SET `option_value` = '91' WHERE `option_name` ='opt_AP_NumeroProgressivo';\n";
+
+		$letto = LettoreBackup::leggi_sql( array( $due ) );
+
+		$this->assertIsArray( $letto );
+		$this->assertSame( array( 'opt_AP_NumeroProgressivo' => '7' ), $letto['opzioni'], 'Le impostazioni di un altro sito non entrano.' );
+
+		// Un testo lunghissimo su una riga sola, letto dal flusso a blocchi: torna intero.
+		$lungo    = str_repeat( "abc'\\;", 400000 );
+		$percorso = $this->temporaneo( '.sql' );
+		file_put_contents( $percorso, "CREATE TABLE `wp_albopretorio_atti` (`IdAtto` int(11), `Oggetto` longtext);\nINSERT INTO `wp_albopretorio_atti` VALUES (1," . $this->valore_sql( $lungo, 'longtext' ) . ');' );
+		$letto = LettoreBackup::leggi( $percorso );
+
+		$this->assertIsArray( $letto, is_wp_error( $letto ) ? $letto->get_error_message() : '' );
+		$this->assertSame( $lungo, $letto['tabelle']['albopretorio_atti'][0]['Oggetto'], 'Una riga piu\' lunga di un blocco si ricompone.' );
 
 		// Una versione precedente: senza richiedente, ufficio, impronta, natura e note.
 		$vecchio = $this->schema_vecchio();
@@ -329,6 +367,52 @@ class ImportazioneTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 'Il backup non si legge: nell\'archivio ci sono piu\' file SQL: non si sa quale sia il backup.', LettoreBackup::leggi( $doppio )->get_error_message() );
 		$this->assertSame( 'Il backup non si legge: nell\'archivio ci sono due file con lo stesso nome (doc-a.pdf).', LettoreBackup::leggi( $omonimi )->get_error_message() );
+
+		// Troncato fuori dai testi: dentro l'ultimo aggiornamento del contatore, o dentro una creazione.
+		$contatore = $this->sql_vecchio(
+			$this->tabelle_vecchie( array( $this->atto_vecchio( array() ) ) ),
+			array(
+				'opt_AP_NumeroProgressivo' => '2',
+				'opt_AP_AnnoProgressivo'   => '2041',
+			)
+		);
+		$ultimo    = (int) strrpos( $contatore, 'UPDATE' );
+		$tagli     = array(
+			'dopo SET'                   => substr( $contatore, 0, (int) strpos( $contatore, 'SET', $ultimo ) + 3 ),
+			'dopo WHERE'                 => substr( $contatore, 0, (int) strpos( $contatore, 'WHERE', $ultimo ) + 5 ),
+			'dentro una creazione'       => substr( $contatore, 0, (int) strpos( $contatore, '`Oggetto`' ) ),
+			'dentro un inserimento'      => substr( $contatore, 0, (int) strpos( $contatore, 'VALUES (' ) + 10 ),
+			'dopo il nome della tabella' => substr( $contatore, 0, (int) strpos( $contatore, 'INSERT INTO `wp_options`' ) + 24 ),
+		);
+
+		foreach ( $tagli as $caso => $testo ) {
+			$letto = LettoreBackup::leggi_sql( array( $testo ) );
+
+			$this->assertWPError( $letto, $caso );
+			$this->assertStringContainsString( 'troncato', $letto->get_error_message(), $caso );
+		}
+
+		$this->assertIsArray( LettoreBackup::leggi_sql( array( $contatore ) ), 'Intero, con l\'ultimo aggiornamento senza punto e virgola, si legge.' );
+
+		// I limiti: appena sotto si legge, appena sopra si rifiuta, con e senza a capo e punto e virgola finale.
+		$creazione = 'CREATE TABLE `l_albopretorio_atti` (`IdAtto` int(11), `Oggetto` text);';
+		$riga      = "INSERT INTO `l_albopretorio_atti` VALUES (1,'" . str_repeat( 'a', 100 ) . "')";
+		$misura    = strlen( $riga );
+
+		foreach ( array( ";\n", ';', '' ) as $fine ) {
+			$testo = array( $creazione . $riga . $fine );
+
+			$this->assertIsArray( LettoreBackup::leggi_sql( $testo, array( 'istruzione' => $misura ) ), 'Al limite, fine ' . wp_json_encode( $fine ) );
+			$this->assertStringContainsString( 'troppo lunga', LettoreBackup::leggi_sql( $testo, array( 'istruzione' => $misura - 1 ) )->get_error_message(), 'Oltre il limite, fine ' . wp_json_encode( $fine ) );
+		}
+
+		$testo = array( $creazione . $riga . ';' );
+		$dati  = 1 + 100 + 2 * LettoreBackup::VALORE_COSTO;
+
+		$this->assertIsArray( LettoreBackup::leggi_sql( $testo, array( 'dati' => $dati ) ) );
+		$this->assertStringContainsString( 'troppi', LettoreBackup::leggi_sql( $testo, array( 'dati' => $dati - 1 ) )->get_error_message() );
+		$this->assertIsArray( LettoreBackup::leggi_sql( $testo, array( 'sql' => strlen( $testo[0] ) ) ) );
+		$this->assertStringContainsString( 'troppo grande', LettoreBackup::leggi_sql( $testo, array( 'sql' => strlen( $testo[0] ) - 1 ) )->get_error_message() );
 	}
 
 	/**
@@ -512,44 +596,62 @@ class ImportazioneTest extends \WP_UnitTestCase {
 	 */
 	public function test_a190_durate_e_tipi(): void {
 		$righe = array(
-			'giusta'       => array(
+			'giusta'        => array(
 				'DataInizio' => '2041-10-01',
 				'DataFine'   => '2041-10-16',
 			),
-			'breve'        => array(
+			'breve'         => array(
 				'DataInizio' => '2041-10-01',
 				'DataFine'   => '2041-10-11',
 			),
 			// 21 settembre piu' quindici giorni fa domenica 6 ottobre: la fine e' il lunedi'.
-			'festiva'      => array(
+			'festiva'       => array(
 				'DataInizio' => '2041-09-21',
 				'DataFine'   => '2041-10-07',
 			),
-			'lunga'        => array(
+			'lunga'         => array(
 				'DataInizio' => '2041-10-01',
 				'DataFine'   => '2041-10-21',
 			),
 			// Dal 20 ottobre al 4 novembre passa il cambio dell'ora legale: sono quindici giorni lo stesso.
-			'ora_legale'   => array(
+			'ora_legale'    => array(
 				'DataInizio' => '2041-10-20',
 				'DataFine'   => '2041-11-04',
 			),
-			'senza_giorni' => array(
+			'senza_giorni'  => array(
 				'DataInizio'  => '2041-10-01',
 				'DataFine'    => '2041-10-04',
 				'IdCategoria' => 4,
 			),
-			'avviso'       => array(
+			'avviso'        => array(
 				'DataInizio'  => '2041-10-01',
 				'DataFine'    => '2041-10-31',
 				'IdCategoria' => 2,
 			),
-			'bando'        => array(
+			'bando'         => array(
 				'DataInizio'  => '2041-10-01',
 				'DataFine'    => '2041-10-31',
 				'IdCategoria' => 3,
 			),
+			// 28 settembre piu' quindici giorni fa domenica 13 ottobre, ma il lunedi' 14 e' festa locale: non e' il primo giorno non festivo.
+			'festa_dopo'    => array(
+				'DataInizio' => '2041-09-28',
+				'DataFine'   => '2041-10-14',
+			),
+			// Scaduti con la durata giusta: l'unico dubbio e' il tipo di atto ancora da decidere.
+			'bando_finito'  => array(
+				'DataInizio'  => '2041-09-01',
+				'DataFine'    => '2041-10-01',
+				'IdCategoria' => 3,
+			),
+			'avviso_finito' => array(
+				'DataInizio'  => '2041-09-01',
+				'DataFine'    => '2041-10-01',
+				'IdCategoria' => 2,
+			),
 		);
+
+		$this->assertTrue( Festivi::salva( Festivi::ACCESO, '14/10/2041|Festa locale di prova', $this->amministratore, Passaggi::ora() ) );
 
 		$atti = array();
 		$id   = 0;
@@ -565,7 +667,13 @@ class ImportazioneTest extends \WP_UnitTestCase {
 			);
 		}
 
-		$tabelle                             = $this->tabelle_vecchie( $atti );
+		$tabelle                             = $this->tabelle_vecchie(
+			$atti,
+			array(
+				$this->documento( 1, 10, 'bando-finito.pdf', 'bando' ),
+				$this->documento( 2, 11, 'avviso-finito.pdf', 'avviso' ),
+			)
+		);
 		$tabelle['albopretorio_categorie'][] = array(
 			'IdCategoria' => 2,
 			'Nome'        => '  avviso ',
@@ -616,6 +724,16 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertSame( array(), $durate['senza_giorni'], 'Senza giorni nella categoria non c\'e\' niente da confrontare.' );
 		$this->assertSame( 'Avviso', $per_nome['avviso']['tipo'], 'Il nome si confronta senza maiuscole e spazi ai lati.' );
 		$this->assertSame( 'Bandi (tipo da creare)', $per_nome['bando']['tipo'] );
+		$this->assertSame( array( 'durata_lunga' ), array_values( $durate['festa_dopo'] ), 'La fine che cade a sua volta di festa non e\' uno slittamento.' );
+
+		foreach ( array( 'bando_finito', 'avviso_finito' ) as $nome ) {
+			$this->assertSame( 'finito', $per_nome[ $nome ]['stato'], $nome );
+			$this->assertSame( array( 'tipo_da_decidere' ), array_keys( $this->codici( $per_nome[ $nome ]['segnalazioni'] ) ), $nome );
+			$this->assertSame( AnalisiImportazione::DA_DECIDERE, $per_nome[ $nome ]['esito'], 'Una decisione aperta sul tipo cambia l\'esito dell\'atto: ' . $nome );
+		}
+
+		$this->assertStringContainsString( 'Nel nuovo albo non c\'e\' un tipo di atto con questo nome.', $this->testo_di( $per_nome['bando_finito']['segnalazioni'], 'tipo_da_decidere' ) );
+		$this->assertStringContainsString( 'La categoria ha 30 giorni', $this->testo_di( $per_nome['avviso_finito']['segnalazioni'], 'tipo_da_decidere' ) );
 
 		$categorie = array();
 
@@ -624,7 +742,7 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		}
 
 		$this->assertStringContainsString( '15 giorni, origine norma Estremi di prova', $categorie['Deliberazione']['corrisponde'] );
-		$this->assertSame( 5, $categorie['Deliberazione']['atti'] );
+		$this->assertSame( 6, $categorie['Deliberazione']['atti'] );
 		$this->assertArrayHasKey( 'durata_tipo_diversa', $this->codici( $categorie['avviso']['segnalazioni'] ) );
 		$this->assertArrayHasKey( 'tipo_da_creare', $this->codici( $categorie['Bandi']['segnalazioni'] ) );
 		$this->assertStringContainsString( 'origine della durata (norma o scelta dell\'amministrazione) la dichiara chi importa', $categorie['Bandi']['corrisponde'], 'Nessuna origine proposta.' );
@@ -705,6 +823,25 @@ class ImportazioneTest extends \WP_UnitTestCase {
 					'Anno'   => 0,
 				)
 			),
+			// Numeri che non sono numeri di registro: non diventano bozze.
+			$this->atto_vecchio(
+				array(
+					'IdAtto' => 8,
+					'Numero' => 'NULL',
+				)
+			),
+			$this->atto_vecchio(
+				array(
+					'IdAtto' => 9,
+					'Numero' => -4,
+				)
+			),
+			$this->atto_vecchio(
+				array(
+					'IdAtto' => 10,
+					'Numero' => "'12a'",
+				)
+			),
 		);
 
 		$scrivi = function ( array $opzioni ) use ( $atti ): string {
@@ -732,6 +869,18 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertSame( 'conflitto', $this->codici( $this->atto( $rapporto, '6' )['segnalazioni'] )['numero_oltre_partenza'] ?? null );
 		$this->assertSame( 'conflitto', $this->codici( $this->atto( $rapporto, '7' )['segnalazioni'] )['anno_non_valido'] ?? null, 'Un anno zero non e\' un anno.' );
 		$this->assertArrayNotHasKey( 'numerazione_non_letta', $this->codici( $rapporto['segnalazioni'] ), 'L\'anno zero non si chiede alla numerazione del nuovo albo.' );
+
+		foreach ( array(
+			'8'  => 'NULL',
+			'9'  => '-4',
+			'10' => '12a',
+		) as $id => $scritto ) {
+			$atto = $this->atto( $rapporto, (string) $id );
+
+			$this->assertNotSame( 'bozza', $atto['stato'], 'Un numero non valido non e\' una bozza: ' . $scritto );
+			$this->assertSame( 'conflitto', $this->codici( $atto['segnalazioni'] )['numero_non_valido'] ?? null, $scritto );
+			$this->assertStringContainsString( '(' . $scritto . ')', $this->testo_di( $atto['segnalazioni'], 'numero_non_valido' ), 'Il valore scritto si mostra com\'e\'.' );
+		}
 
 		$anni = array_column( $rapporto['numerazione']['anni'], null, 'anno' );
 
@@ -896,6 +1045,17 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$generali = $this->codici( $rapporto['segnalazioni'] );
 		$this->assertArrayHasKey( 'file_orfani', $generali );
 		$this->assertArrayHasKey( 'allegati_senza_atto', $generali );
+
+		// La schermata mostra quali file restano fuori e quale file e' stato scelto per ciascun documento.
+		ob_start();
+		SchermataImportazione::stampa( $rapporto );
+		$pagina = (string) ob_get_clean();
+
+		$this->assertSame( 1, preg_match( '#<ul class="albo-pretorio-orfani">(.*?)</ul>#s', $pagina, $elenco ), 'L\'elenco dei file esclusi e\' nella pagina.' );
+		$this->assertSame( array( '2040/doppio.pdf', '2041/doppio.pdf', 'di-nessuno.pdf', 'sparso.pdf' ), preg_match_all( '#<code>([^<]*)</code>#', $elenco[1], $nomi ) ? $nomi[1] : array() );
+		$this->assertStringContainsString( 'File nell&#039;archivio: <code>vecchi/bando.pdf</code>', $pagina, 'Il file trovato altrove si vede per percorso.' );
+		$this->assertStringContainsString( 'File nell&#039;archivio: <code>2041/10/avviso.pdf</code>', $pagina );
+		$this->assertSame( 6, substr_count( $pagina, 'class="albo-pretorio-file"' ), 'Solo i documenti con un file trovato hanno il percorso: non il mancante, non il doppio.' );
 	}
 
 	/**
@@ -1005,6 +1165,7 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'Rossi Maria, Bianchi Luca', $this->testo_di( $primo['segnalazioni'], 'soggetti_senza_posto' ) );
 		$this->assertSame( 'nota', $codici['informazioni_senza_posto'] ?? null );
 		$this->assertSame( 'nota', $codici['etichette_senza_posto'] ?? null );
+		$this->assertStringContainsString( '(gruppo: concorsi)', $this->testo_di( $primo['segnalazioni'], 'etichette_senza_posto' ), 'L\'etichetta si nomina con il suo valore.' );
 		$this->assertSame( 1, $rapporto['campi']['non_riconosciuti']['wp_albopretorio_atti']['Protocollo'] );
 		$this->assertArrayHasKey( 'campo_non_riconosciuto', $this->codici( $rapporto['segnalazioni'] ) );
 
@@ -1036,6 +1197,7 @@ class ImportazioneTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 'Rossi Maria (si mostra)', $primo['dati'][ DatiProcedimento::etichetta( DatiProcedimento::RESPONSABILE ) ] );
 		$this->assertSame( 'Ufficio tecnico (si conserva e non si mostra)', $primo['dati'][ DatiProcedimento::etichetta( DatiProcedimento::UFFICIO ) ] );
+		$this->assertSame( 'Comune vicino (si mostra)', $primo['dati'][ DatiProcedimento::etichetta( DatiProcedimento::RICHIEDENTE ) ], 'Il richiedente si mostra quando l\'amministrazione sceglie di usarlo.' );
 		$this->assertStringContainsString( 'Ufficio tecnico', $this->testo_di( $primo['segnalazioni'], 'fuori_elenco' ) );
 		$this->assertStringNotContainsString( 'Rossi Maria', $this->testo_di( $primo['segnalazioni'], 'fuori_elenco' ) );
 	}
@@ -1060,21 +1222,46 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		};
 
 		$soltanto_consulta = $this->utente_con( array( Permessi::CHIAVE_CONSULTAZIONE ) );
+		$soltanto_pubblica = $this->utente_con( array( 'publish_posts' ) );
 		$abbonato          = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+
+		// La voce del menu c'e' solo per chi puo' aprire la schermata.
+		$voce = function (): bool {
+			global $submenu;
+
+			$submenu = array(); // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- menu dell'amministrazione ricostruito per la prova.
+			SchermataImportazione::menu();
+
+			return in_array( SchermataImportazione::PAGINA, wp_list_pluck( $submenu[ 'edit.php?post_type=' . TIPO ] ?? array(), 2 ), true );
+		};
 
 		foreach ( array(
 			'redattore'         => $this->redattore,
 			'soltanto consulta' => $soltanto_consulta,
+			'soltanto pubblica' => $soltanto_pubblica,
 			'abbonato'          => $abbonato,
 		) as $chi => $utente ) {
 			wp_set_current_user( $utente );
 
 			$this->assertFalse( SchermataImportazione::permessa(), $chi );
+			$this->assertFalse( $voce(), $chi );
 
 			$esito = SchermataImportazione::da_invio( $gettone() + array( SchermataImportazione::CAMPO_PRESENTE => 'backup.zip' ), array() );
 			$this->assertWPError( $esito, $chi );
 			$this->assertSame( 'albo_importazione_permesso', $esito->get_error_code(), $chi );
+
+			try {
+				ob_start();
+				SchermataImportazione::mostra();
+				ob_end_clean();
+				$this->fail( 'La schermata si apre a: ' . $chi );
+			} catch ( \WPDieException $rifiuto ) {
+				ob_end_clean();
+				$this->assertStringContainsString( 'permesso', $rifiuto->getMessage(), $chi );
+			}
 		}
+
+		$this->assertTrue( user_can( $soltanto_pubblica, Permessi::mappa()['publish_posts'] ), 'Precondizione: pubblica davvero.' );
 
 		foreach ( array(
 			'amministratore'   => $this->amministratore,
@@ -1082,6 +1269,7 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		) as $chi => $utente ) {
 			wp_set_current_user( $utente );
 			$this->assertTrue( SchermataImportazione::permessa(), $chi );
+			$this->assertTrue( $voce(), $chi );
 		}
 
 		wp_set_current_user( $this->amministratore );
@@ -1226,7 +1414,8 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		);
 
 		foreach ( new \RecursiveIteratorIterator( $filtro ) as $file ) {
-			$fotografia[ (string) $file ] = $file->getSize() . ' ' . $file->getMTime();
+			// Anche il contenuto: una riscrittura della stessa lunghezza nello stesso secondo non deve passare.
+			$fotografia[ (string) $file ] = $file->getSize() . ' ' . $file->getMTime() . ' ' . sha1_file( (string) $file );
 		}
 
 		ksort( $fotografia );
