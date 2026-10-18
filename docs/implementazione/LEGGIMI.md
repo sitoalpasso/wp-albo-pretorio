@@ -43,3 +43,6 @@ Schede presenti:
 - [`dati-del-procedimento.md`](dati-del-procedimento.md): la scelta dell'amministrazione su
   responsabile del procedimento, ufficio e richiedente, gli elenchi da cui si scelgono e la
   loro copia nel registro alla pubblicazione. Righe di collaudo A-144..A-146 e A-165..A-173.
+- [`scaduti-invisibili.md`](scaduti-invisibili.md): l'atto scaduto non si vede su nessuna
+  strada del sito pubblico, per nessuno e senza impostazioni, atti importati compresi. Righe
+  di collaudo A-175..A-178.
