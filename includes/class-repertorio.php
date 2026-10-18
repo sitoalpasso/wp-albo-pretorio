@@ -185,6 +185,42 @@ final class Repertorio {
 	}
 
 	/**
+	 * Gli atti che portano un numero dell'anno indicato, o quel numero preciso.
+	 *
+	 * Serve alla consultazione riservata (ALBO-34) per cercare per numero di
+	 * registro. Nulla se la lettura non ha risposto: chi chiama lo dice, e non
+	 * lo scambia per "nessun atto".
+	 *
+	 * @param int      $anno   Anno.
+	 * @param int|null $numero Numero, o nullo per tutto l'anno.
+	 * @return array<int, int>|null
+	 */
+	public static function atti_numerati( int $anno, ?int $numero = null ): ?array {
+		global $wpdb;
+
+		if ( ! self::tabelle_presenti() ) {
+			return null;
+		}
+
+		$sql = null === $numero
+			? $wpdb->prepare( 'SELECT atto_id FROM %i WHERE anno = %d', self::tabella_assegnazioni(), $anno )
+			: $wpdb->prepare( 'SELECT atto_id FROM %i WHERE anno = %d AND numero = %d', self::tabella_assegnazioni(), $anno, $numero );
+
+		$righe = Lettura::righe( $sql, array( 'atto_id' ) );
+
+		if ( null === $righe ) {
+			return null;
+		}
+
+		return array_map(
+			static function ( array $riga ): int {
+				return (int) $riga['atto_id'];
+			},
+			$righe
+		);
+	}
+
+	/**
 	 * Il numero di un atto letto per assegnarlo, distinguendo l'atto senza numero dalla lettura mancata.
 	 *
 	 * @param int $atto_id Identificativo dell'atto.

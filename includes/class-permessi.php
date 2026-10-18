@@ -57,6 +57,19 @@ final class Permessi {
 	const CHIAVE_REGISTRO = 'leggere_registro';
 
 	/**
+	 * Il nome generico del permesso di consultare gli atti scaduti (ALBO-34).
+	 *
+	 * Come quello del registro, il permesso lo crea il meccanismo comune, uno
+	 * per tipo, e non lo assegna a nessuno. **Non fa parte degli insiemi di chi
+	 * redige o pubblica**: chi lo ha consulta e basta, e chi pubblica non lo
+	 * riceve da se' sui ruoli che il componente completa. Lo ricevono soltanto
+	 * i ruoli di `assegnazioni()`; agli altri lo da' l'amministrazione.
+	 *
+	 * @var string
+	 */
+	const CHIAVE_CONSULTAZIONE = 'consultare_scaduti';
+
+	/**
 	 * Chi pubblica: tutto quello che fa chi redige, piu' l'esposizione, piu'
 	 * la lettura del registro, dove trova i motivi dei rimandi in bozza.
 	 *
@@ -92,20 +105,23 @@ final class Permessi {
 	 * @return array<string, array<int, string>>
 	 */
 	public static function assegnazioni(): array {
+		$con_consultazione = array_merge( self::CHIAVI_PUBBLICAZIONE, array( self::CHIAVE_CONSULTAZIONE ) );
+
 		return array(
-			'administrator' => self::CHIAVI_PUBBLICAZIONE,
-			RUOLO           => self::CHIAVI_PUBBLICAZIONE,
+			'administrator' => $con_consultazione,
+			RUOLO           => $con_consultazione,
 		);
 	}
 
 	/**
 	 * La corrispondenza fra nomi generici e permessi derivati dal tipo, piu'
-	 * quello del registro delle modifiche.
+	 * quello del registro delle modifiche e quello della consultazione degli
+	 * scaduti.
 	 *
 	 * @return array<string, string>|\WP_Error
 	 */
 	public static function mappa() {
-		if ( ! function_exists( 'conformita_core_capacita_tipo' ) || ! function_exists( 'conformita_core_capacita_registro' ) ) {
+		if ( ! function_exists( 'conformita_core_capacita_tipo' ) || ! function_exists( 'conformita_core_capacita_registro' ) || ! function_exists( 'conformita_core_capacita_consultazione_scaduti' ) ) {
 			return new \WP_Error(
 				'albo_meccanismo_comune_assente',
 				__( 'I permessi del tipo atto si chiedono al meccanismo comune, che non e\' caricato.', 'albo-pretorio-pa' )
@@ -118,7 +134,14 @@ final class Permessi {
 			return $mappa;
 		}
 
-		$mappa[ self::CHIAVE_REGISTRO ] = (string) conformita_core_capacita_registro();
+		$consultazione = conformita_core_capacita_consultazione_scaduti( TIPO );
+
+		if ( is_wp_error( $consultazione ) ) {
+			return $consultazione;
+		}
+
+		$mappa[ self::CHIAVE_REGISTRO ]      = (string) conformita_core_capacita_registro();
+		$mappa[ self::CHIAVE_CONSULTAZIONE ] = (string) $consultazione;
 
 		return $mappa;
 	}

@@ -648,6 +648,24 @@ A-175 e A-177 si ripetono sulle sue strade.
 | A-178 | fatto | **Nessuna impostazione** (decisione dell'8 ottobre 2026): politica letta dal meccanismo comune e sorgenti dell'albo | la politica è `irraggiungibile`; c'è una sola registrazione della sezione e la sua chiamata è esattamente quella, con le due costanti passate dritte; le due costanti sono definite una volta con il loro valore; come sentinella, nessuna stringa con la forma di un nome di opzione, filtro o dato parla di scadenza, storico, oblio, archivio, politica o visibilità, tranne le due della registrazione. Una scelta scritta dentro la chiamata, come `get_option( ... ) ? 'archivio' : SCADENZA`, rende rossa la riga. Seconda sentinella: nei sorgenti nessuna rimozione di agganci (`remove_filter`, `remove_action`, `remove_all_filters`, `remove_all_actions`, anche per nome, ed elenco degli agganci); un'opzione che stacchi il filtro del meccanismo comune rende rossa la riga |
 | A-179 | fatto | **Indirizzo di un atto scaduto** (decisione del 17 ottobre 2026): tipo aperto, atto con fine il 16 ottobre 2041, scheda richiesta all'ultimo secondo e dalla mezzanotte, accanto a un indirizzo inventato; da visitatore e da amministratore | all'ultimo secondo la scheda si apre e non risponde "non trovata"; dalla mezzanotte la risposta è identica a quella dell'indirizzo inventato: pagina "non trovata", codice 404, nessun risultato, nessun oggetto. Nessun avviso "non più in pubblicazione" |
 
+## Consultazione riservata degli atti scaduti
+
+Stesso prefisso `A-`. Righe di ALBO-34, quelle della scheda
+[`consultazione-riservata.md`](implementazione/consultazione-riservata.md), provate in
+`tests/ConsultazioneScadutiTest.php`. La schermata vive nell'amministrazione, dove il filtro di
+scadenza del meccanismo comune non si applica: le prove la aprono con lo schermo
+dell'amministrazione impostato e l'orologio fissato, con il compito pianificato mai eseguito.
+Che la consultazione non riapra niente sul sito pubblico lo provano A-175, A-177 e A-179, che
+dal 18 ottobre 2026 si ripetono anche per chi ha soltanto il permesso di consultare.
+
+| ID | Stato | Caso | Atteso |
+|---|---|---|---|
+| A-180 | fatto | **Il permesso**: nome chiesto al meccanismo comune; assegnazione ai ruoli; un altro ruolo che pubblica; chi redige; chi ha soltanto il permesso, davanti a un atto scaduto | il nome è quello del meccanismo comune per il tipo atto; lo hanno l'amministratore e il ruolo dell'albo, non un altro ruolo che pubblica, non l'editore, non chi redige; chi ha soltanto il permesso non modifica né cancella l'atto o il suo documento, non pubblica, non modifica atti, non legge i privati |
+| A-181 | fatto | **L'elenco**: due atti con fine il 16 e il 20 ottobre 2041 e un atto scritto come lo scriverà l'importatore, con fine il 30 settembre; all'ultimo secondo del 16 e dalla mezzanotte; amministratore e chi consulta | all'ultimo secondo c'è solo l'importato; dalla mezzanotte il primo e l'importato, dal più recente, con oggetto e date "dal 01/10/2041 al 16/10/2041"; del secondo nessuna traccia; lo stato del primo resta pubblicato |
+| A-182 | fatto | **L'accesso**: chi redige, un abbonato, il visitatore; la voce di menu per l'amministratore, per chi consulta e per chi redige | i primi tre ricevono il rifiuto; l'amministratore trova la voce nel menu degli atti, chi consulta e basta in cima al menu, perché quello degli atti non lo vede; chi redige non ha la voce |
+| A-183 | fatto | **I documenti**: il collegamento della schermata, seguito da chi consulta e da un abbonato | il collegamento è quello della consegna amministrativa del meccanismo comune; a chi consulta consegna il file del documento dello scaduto, all'abbonato lo stesso collegamento risponde con il rifiuto |
+| A-184 | fatto | **La ricerca**: anno e numero, solo anno, un altro anno, oggetto, tipo, un tipo senza atti, numero senza anno, gettone sbagliato | ogni criterio restringe agli scaduti giusti; il numero senza anno è rifiutato con un messaggio; senza gettone valido la ricerca non si applica, l'elenco resta intero e c'è un avviso |
+
 ## Collaudo congiunto con la trasparenza
 
 Con entrambi i plugin attivi sullo stesso sito: le pagine dell'albo hanno noindex e sono

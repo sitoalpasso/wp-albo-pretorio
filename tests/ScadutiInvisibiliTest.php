@@ -48,6 +48,14 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 	private array $stati = array();
 
 	/**
+	 * Chi ha soltanto il permesso di consultare gli scaduti (ALBO-34): sul sito
+	 * pubblico vede quello che vede chiunque.
+	 *
+	 * @var int
+	 */
+	private int $consultatore = 0;
+
+	/**
 	 * L'ultimo istante in cui l'atto di prova e' in pubblicazione.
 	 */
 	private const ULTIMO_ISTANTE = '2041-10-16 23:59:59';
@@ -73,6 +81,7 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 		add_filter( 'register_post_type_args', array( $this, 'apri_il_tipo' ), 10, 2 );
 
 		$this->prepara_flusso();
+		$this->consultatore = $this->utente_con( array( \AlboPretorioPa\Permessi::CHIAVE_CONSULTAZIONE ) );
 		$this->set_permalink_structure( '' );
 
 		// Il server dell'interfaccia per programmi nasce con le rotte dei tipi di quel momento: si rifa' con il tipo aperto.
@@ -679,6 +688,7 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 		foreach ( array(
 			'visitatore'     => 0,
 			'amministratore' => $this->amministratore,
+			'consultatore'   => $this->consultatore,
 		) as $chi => $utente ) {
 			$this->fissa_orologi( self::ULTIMO_ISTANTE );
 			$this->assertSame(
@@ -758,6 +768,7 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 		foreach ( array(
 			'visitatore'     => 0,
 			'amministratore' => $this->amministratore,
+			'consultatore'   => $this->consultatore,
 		) as $chi => $utente ) {
 			wp_set_current_user( $utente );
 
@@ -863,6 +874,7 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 		foreach ( array(
 			'visitatore'     => 0,
 			'amministratore' => $this->amministratore,
+			'consultatore'   => $this->consultatore,
 		) as $chi => $utente ) {
 			// Lo stesso atto, prima della sua fine, si vede su ogni strada: l'assenza dopo non dipende dall'assetto.
 			$this->fissa_orologi( '2041-09-30 23:59:59' );
@@ -1000,6 +1012,9 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 		$this->assertSame(
 			array(
 				'includes/class-avvio.php: scadenza',
+				// Il permesso della consultazione riservata (ALBO-34): una schermata dell'amministrazione, non una scelta sul sito pubblico.
+				'includes/class-permessi.php: consultare_scaduti',
+				'includes/class-permessi.php: conformita_core_capacita_consultazione_scaduti',
 				'includes/class-tipo-atto.php: has_archive',
 			),
 			$nomi,

@@ -86,7 +86,12 @@ consultabile fra gli "storici", e la regola vale anche per gli atti portati da u
 precedente, che entrano con le loro date e, se la fine è passata, non sono mai visibili. Chi
 apre l'indirizzo di un atto scaduto trova la pagina "non trovata" del sito, la stessa di un
 indirizzo mai esistito, e non un avviso "non più in pubblicazione", che confermerebbe che
-l'atto c'è stato (decisione del 17 ottobre 2026). E finché è
+l'atto c'è stato (decisione del 17 ottobre 2026). Gli scaduti si consultano da una schermata
+dell'amministrazione, "Atti scaduti", aperta da un **permesso apposito** che il meccanismo
+comune crea per il tipo e l'albo dà all'amministratore e al proprio ruolo; agli altri ruoli lo
+dà l'amministrazione. Chi lo ha soltanto consulta: elenco, dati del registro, documenti, senza
+preparare, pubblicare o modificare niente, e sul sito pubblico vede quello che vede chiunque
+(ALBO-34, decisione del 17 ottobre 2026). E finché è
 pubblicato, le sue pagine dicono ai motori di ricerca di non indicizzarlo: meta
 `noindex`, esclusione dalla sitemap (ALBO-06). Attenzione: è la regola **opposta** a
 quella dell'amministrazione trasparente, dove l'indicizzazione è obbligatoria. Per
@@ -375,6 +380,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-30 | da fare | Il file scaricato ha un nome con numero di repertorio e date di pubblicazione, senza oggetto e senza il nome originale; il contenuto resta identico | **norma** il rischio di decontestualizzazione (Garante, delib. 243/2014 par. 2.d). **Prodotto** il nome del file come unica misura che non tocca il documento firmato, deciso il 2026-09-23; il formato esatto è nostro |
 | ALBO-31 | in corso | Proroga per disservizio: chi pubblica, con attestazione obbligatoria, allunga la fine degli atti in pubblicazione di un giorno per ogni giorno trascorso sotto le dodici ore di disponibilità; repertorio e inizio invariati, tutto nel registro | **norma** linee guida AgID sulla pubblicità legale, regola delle dodici ore (estremi del punto da verificare sul testo ufficiale). **Prodotto** chi la dispone, l'attestazione obbligatoria, l'irrevocabilità, deciso il 2026-10-08 |
 | ALBO-32 | fatto | Slittamento della fine al primo giorno non festivo, acceso o spento dall'amministrazione senza preselezione, con l'elenco dei festivi in configurazione | **norma** c.c. art. 2963 c. 3, c.p.c. art. 155 c. 4, la cui applicazione al periodo di affissione è interpretativa. **Prodotto** la scelta lasciata all'amministrazione, decisa il 2026-10-08 |
+| ALBO-34 | in corso | Consultazione riservata degli atti scaduti: una schermata dell'amministrazione, in sola lettura, per chi ha il permesso apposito, con ricerca e documenti; non riapre niente sul sito pubblico | **prodotto**, deciso il 2026-10-17: la conservazione degli atti per gli uffici è prassi, la norma chiede solo che lo scaduto non sia più pubblico. Il certificato di pubblicazione (ALBO-07) resta fuori finché non se ne conferma il contenuto |
 | ALBO-33 | fatto | Responsabile del procedimento, ufficio e richiedente: mostrarli e chiederli sugli atti nuovi lo sceglie l'amministrazione, dato per dato; sugli atti migrati si conservano sempre | **prodotto**, deciso il 2026-10-08; l. 241/1990 art. 8 come contesto, non come obbligo di pubblicazione |
 | ALBO-23 | fatto | All'attivazione l'insieme minimo di permessi sul tipo atto arriva all'amministratore | **prodotto** |
 | ALBO-24 | fatto | A ogni aggiornamento i permessi nuovi arrivano ai ruoli che avevano già gli altri | **prodotto** |
