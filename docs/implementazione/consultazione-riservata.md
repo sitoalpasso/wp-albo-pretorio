@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro
 com'è andata davvero.
 
 **Stato: costruita, in attesa di revisione.** Requisito ALBO-34, righe di collaudo
-A-180..A-184. Richiede la versione 1.7.0 del meccanismo comune.
+A-180..A-185. Richiede la versione 1.7.0 del meccanismo comune.
 
 ## In tre paragrafi
 
@@ -35,7 +35,9 @@ la schermata mostra solo l'importato, dalla mezzanotte anche il primo, il second
 non ha il permesso riceve il rifiuto; chi lo ha soltanto apre il documento dello scaduto
 seguendo il collegamento della schermata, e lo stesso collegamento è rifiutato a chi non ha
 il permesso. Mutazioni provate: con la condizione sulla fine rovesciata quattro righe su
-cinque diventano rosse; senza il controllo del permesso A-182 diventa rossa. Che la
+cinque diventano rosse; senza il controllo del permesso o senza l'aggancio del menu A-182 diventa rossa; ignorando
+la pagina chiesta o perdendo la ricerca nei collegamenti A-185 diventa rossa; ignorando il
+tipo o accettando solo nove cifre A-184 diventa rossa. Che la
 consultazione non riapra il sito pubblico lo provano A-175, A-177 e A-179, ripetute per chi
 ha soltanto il permesso.
 
@@ -70,7 +72,7 @@ ha soltanto il permesso.
 - `albo-pretorio-pa.php`: versione 0.5.0-alpha, che fa arrivare il permesso nuovo ai siti
   già installati, e interfaccia del meccanismo comune 1.7.0; `bin/installa-core.sh` fissa la
   revisione 3b33771.
-- `tests/ConsultazioneScadutiTest.php`: le cinque righe; `tests/ScadutiInvisibiliTest.php`:
+- `tests/ConsultazioneScadutiTest.php`: le sei righe; `tests/ScadutiInvisibiliTest.php`:
   chi consulta aggiunto alle strade pubbliche, e la sentinella di A-178 che autorizza i due
   nomi del permesso.
 - `docs/requisiti.md`, `docs/collaudo.md`, questa scheda e l'indice delle schede.
@@ -92,3 +94,12 @@ apriva solo a chi può modificare gli atti. Dal lato dell'albo una cosa da notar
 sentinella di A-178, che segnala ogni nome di opzione o dato che parli di scaduti, ha
 riconosciuto subito il nome del permesso nuovo. È il comportamento voluto: il nome è stato
 autorizzato a mano, con la sua ragione, e qualunque altro nome del genere resta segnalato.
+
+**Il primo giro di revisione** ha trovato una cosa nel codice e quattro nelle prove. Nel
+codice: un numero di dieci cifre, che il registro ammette, veniva scartato in silenzio e la
+ricerca mostrava l'intero anno; ora un campo scritto male ferma la ricerca con un messaggio.
+Nelle prove: il rifiuto all'abbonato arrivava dal gettone e non dal permesso; il menu era
+costruito a mano invece che dall'aggancio; le pagine e i tipi non erano provati con atti
+abbastanza diversi; bozze e privati non erano provati. Tutto sistemato, con le mutazioni
+qui sopra.
+

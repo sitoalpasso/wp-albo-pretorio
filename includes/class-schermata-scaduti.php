@@ -115,7 +115,7 @@ final class SchermataScaduti {
 	 * intero, con un avviso.
 	 *
 	 * @param array<string, mixed> $richiesta Parametri della richiesta.
-	 * @return array{anno: int|null, numero: int|null, oggetto: string, tipo: int|null, pagina: int, valida: bool}
+	 * @return array{anno: int|null, numero: int|null, oggetto: string, tipo: int|null, pagina: int, valida: bool, errore: string}
 	 */
 	public static function ricerca( array $richiesta ): array {
 		$vuota = array(
@@ -125,6 +125,7 @@ final class SchermataScaduti {
 			'tipo'    => null,
 			'pagina'  => 1,
 			'valida'  => true,
+			'errore'  => '',
 		);
 
 		$campi   = array( self::CAMPO_ANNO, self::CAMPO_NUMERO, self::CAMPO_OGGETTO, self::CAMPO_TIPO, self::CAMPO_PAGINA );
@@ -141,28 +142,55 @@ final class SchermataScaduti {
 			return $vuota;
 		}
 
-		$intero = static function ( string $campo ) use ( $chiesta ): ?int {
-			if ( ! isset( $chiesta[ $campo ] ) || ! is_scalar( $chiesta[ $campo ] ) ) {
+		/*
+		 * Un campo vuoto non restringe; un campo scritto male non si scarta in
+		 * silenzio, perche' l'elenco intero passerebbe per il risultato della
+		 * ricerca: si segnala, e l'elenco resta vuoto.
+		 */
+		$errori = array();
+		$intero = static function ( string $campo, int $massimo, string $nome ) use ( $chiesta, &$errori ): ?int {
+			if ( ! isset( $chiesta[ $campo ] ) ) {
 				return null;
 			}
 
-			$testo = trim( sanitize_text_field( wp_unslash( (string) $chiesta[ $campo ] ) ) );
+			$testo = is_scalar( $chiesta[ $campo ] ) ? trim( sanitize_text_field( wp_unslash( (string) $chiesta[ $campo ] ) ) ) : 'x';
 
-			return 1 === preg_match( '/^[0-9]{1,9}$/', $testo ) && (int) $testo > 0 ? (int) $testo : null;
+			if ( '' === $testo ) {
+				return null;
+			}
+
+			if ( 1 === preg_match( '/^[0-9]{1,10}$/', $testo ) && (int) $testo >= 1 && (int) $testo <= $massimo ) {
+				return (int) $testo;
+			}
+
+			$errori[] = $nome;
+
+			return null;
 		};
 
 		$oggetto = isset( $chiesta[ self::CAMPO_OGGETTO ] ) && is_scalar( $chiesta[ self::CAMPO_OGGETTO ] )
 			? trim( sanitize_text_field( wp_unslash( (string) $chiesta[ self::CAMPO_OGGETTO ] ) ) )
 			: '';
 
-		return array(
-			'anno'    => $intero( self::CAMPO_ANNO ),
-			'numero'  => $intero( self::CAMPO_NUMERO ),
+		$ricerca = array(
+			'anno'    => $intero( self::CAMPO_ANNO, 9999, __( 'l\'anno', 'albo-pretorio-pa' ) ),
+			'numero'  => $intero( self::CAMPO_NUMERO, Repertorio::MASSIMO, __( 'il numero', 'albo-pretorio-pa' ) ),
 			'oggetto' => $oggetto,
-			'tipo'    => $intero( self::CAMPO_TIPO ),
-			'pagina'  => $intero( self::CAMPO_PAGINA ) ?? 1,
+			'tipo'    => $intero( self::CAMPO_TIPO, PHP_INT_MAX, __( 'il tipo', 'albo-pretorio-pa' ) ),
+			'pagina'  => $intero( self::CAMPO_PAGINA, PHP_INT_MAX, __( 'la pagina', 'albo-pretorio-pa' ) ) ?? 1,
 			'valida'  => true,
+			'errore'  => '',
 		);
+
+		if ( array() !== $errori ) {
+			$ricerca['errore'] = sprintf(
+				/* translators: %s: elenco dei campi scritti male. */
+				__( 'La ricerca non e\' stata fatta: non e\' valido %s. Si scrivono solo cifre, senza spazi ne\' punti.', 'albo-pretorio-pa' ),
+				implode( ', ', $errori )
+			);
+		}
+
+		return $ricerca;
 	}
 
 	/**
@@ -173,11 +201,15 @@ final class SchermataScaduti {
 	 * dallo stato. Ogni atto trovato si ricontrolla con il meccanismo comune,
 	 * che resta il solo a decidere.
 	 *
-	 * @param array{anno: int|null, numero: int|null, oggetto: string, tipo: int|null, pagina: int, valida: bool} $ricerca Ricerca ripulita.
-	 * @param \DateTimeImmutable                                                                                  $adesso  Istante della consultazione.
+	 * @param array{anno: int|null, numero: int|null, oggetto: string, tipo: int|null, pagina: int, valida: bool, errore: string} $ricerca Ricerca ripulita.
+	 * @param \DateTimeImmutable                                                                                                  $adesso  Istante della consultazione.
 	 * @return array{atti: array<int, int>, totale: int}|\WP_Error
 	 */
 	public static function trovati( array $ricerca, \DateTimeImmutable $adesso ) {
+		if ( '' !== $ricerca['errore'] ) {
+			return new \WP_Error( 'albo_consultazione_campo_non_valido', $ricerca['errore'] );
+		}
+
 		$oggi = $adesso->setTimezone( wp_timezone() )->format( 'Y-m-d' );
 
 		$argomenti = array(
@@ -296,7 +328,7 @@ final class SchermataScaduti {
 	/**
 	 * Il modulo della ricerca.
 	 *
-	 * @param array{anno: int|null, numero: int|null, oggetto: string, tipo: int|null, pagina: int, valida: bool} $ricerca Ricerca ripulita.
+	 * @param array{anno: int|null, numero: int|null, oggetto: string, tipo: int|null, pagina: int, valida: bool, errore: string} $ricerca Ricerca ripulita.
 	 */
 	private static function modulo( array $ricerca ): void {
 		echo '<form method="get" action="' . esc_url( admin_url( 'admin.php' ) ) . '">';
@@ -471,8 +503,8 @@ final class SchermataScaduti {
 	/**
 	 * I collegamenti alle pagine dell'elenco.
 	 *
-	 * @param array{anno: int|null, numero: int|null, oggetto: string, tipo: int|null, pagina: int, valida: bool} $ricerca Ricerca ripulita.
-	 * @param int                                                                                                 $totale  Atti trovati in tutto.
+	 * @param array{anno: int|null, numero: int|null, oggetto: string, tipo: int|null, pagina: int, valida: bool, errore: string} $ricerca Ricerca ripulita.
+	 * @param int                                                                                                                 $totale  Atti trovati in tutto.
 	 */
 	private static function pagine( array $ricerca, int $totale ): void {
 		$quante = (int) ceil( $totale / self::PER_PAGINA );
