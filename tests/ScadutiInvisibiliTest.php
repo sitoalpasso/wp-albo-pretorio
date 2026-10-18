@@ -162,8 +162,67 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 
 		$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
 		$this->assertSame( 'publish', get_post_status( $id ), 'Precondizione: l\'atto e\' pubblicato.' );
+		$this->commenta( $id );
 
 		return $id;
+	}
+
+	/**
+	 * Un commento approvato sull'atto e uno sul suo documento.
+	 *
+	 * Sull'albo un commento non si scrive su un atto pubblicato, perche' la
+	 * barriera lo rifiuta: ci arriva solo da una scrittura diretta, per esempio
+	 * di un importatore. La prova lo scrive cosi', perche' i commenti sono
+	 * strade che il meccanismo comune chiude e che qui si devono vedere.
+	 *
+	 * @param int $atto_id Atto.
+	 */
+	private function commenta( int $atto_id ): void {
+		$documento = $this->documento( $atto_id );
+
+		foreach ( array( $atto_id, $documento ) as $destinatario ) {
+			$commento = $this->scavalca_barriera(
+				static function () use ( $destinatario ) {
+					return wp_insert_comment(
+						array(
+							'comment_post_ID'  => $destinatario,
+							'comment_content'  => 'Commento di prova ' . $destinatario,
+							'comment_approved' => 1,
+							'comment_author'   => 'Prova',
+						)
+					);
+				}
+			);
+			$this->assertGreaterThan( 0, (int) $commento, 'Precondizione: il commento e\' scritto.' );
+		}
+	}
+
+	/**
+	 * Gli atti, o i loro documenti, a cui appartengono i commenti indicati.
+	 *
+	 * @param mixed      $commenti  Commenti, come oggetti o come righe dell'interfaccia.
+	 * @param array<int> $atti      Atti in prova.
+	 * @param bool       $documenti Contano anche i commenti dei documenti.
+	 * @return int[]
+	 */
+	private function atti_dei_commenti( $commenti, array $atti, bool $documenti ): array {
+		$contenuti = array();
+		foreach ( (array) $commenti as $commento ) {
+			if ( $commento instanceof \WP_Comment ) {
+				$contenuti[] = (int) $commento->comment_post_ID;
+			} elseif ( is_array( $commento ) && isset( $commento['post'] ) ) {
+				$contenuti[] = (int) $commento['post'];
+			}
+		}
+
+		$trovati = array();
+		foreach ( $atti as $atto ) {
+			if ( in_array( $atto, $contenuti, true ) || ( $documenti && in_array( $this->documento( $atto ), $contenuti, true ) ) ) {
+				$trovati[] = $atto;
+			}
+		}
+
+		return $trovati;
 	}
 
 	/**
@@ -220,17 +279,14 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 
 		// Il rifiuto atteso, per intero: stato e corpo, senza niente dell'atto.
 		$rifiuti = array(
-			'dati per programmi, singolo'        => array(
-				404,
-				array(
-					'code'    => 'conformita_core_contenuto_non_trovato',
-					'message' => __( 'Contenuto non trovato.', 'conformita-core' ), // phpcs:ignore WordPress.WP.I18n.TextDomainMismatch -- il messaggio e' quello del meccanismo comune.
-					'data'    => array( 'status' => 404 ),
-				),
-			),
-			'anteprima incorporata, interfaccia' => $this->esito( $this->interfaccia( '/oembed/1.0/embed', array( 'url' => add_query_arg( 'p', PHP_INT_MAX, home_url( '/' ) ) ) ) ),
+			'dati per programmi, singolo'              => $this->esito( rest_do_request( new \WP_REST_Request( 'GET', '/wp/v2/' . TIPO . '/' . PHP_INT_MAX ) ) ),
+			'dati per programmi, scheda del documento' => $this->esito( rest_do_request( new \WP_REST_Request( 'GET', '/wp/v2/media/' . PHP_INT_MAX ) ) ),
+			'anteprima incorporata, interfaccia'       => $this->esito( $this->interfaccia( '/oembed/1.0/embed', array( 'url' => add_query_arg( 'p', PHP_INT_MAX, home_url( '/' ) ) ) ) ),
+			'anteprima incorporata del documento'      => $this->esito( $this->interfaccia( '/oembed/1.0/embed', array( 'url' => add_query_arg( 'attachment_id', PHP_INT_MAX, home_url( '/' ) ) ) ) ),
 		);
-		$this->assertSame( 404, $rifiuti['anteprima incorporata, interfaccia'][0], 'Precondizione: l\'anteprima di un indirizzo inesistente e\' rifiutata.' );
+		foreach ( $rifiuti as $strada => $rifiuto_atteso ) {
+			$this->assertSame( 404, $rifiuto_atteso[0], 'Precondizione: ' . $strada . ', un numero inesistente e\' rifiutato.' );
+		}
 
 		foreach ( $atti as $atto ) {
 			$oggetto   = get_post( $atto )->post_title;
@@ -269,6 +325,8 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 				'dati per programmi, singolo'              => rest_do_request( new \WP_REST_Request( 'GET', '/wp/v2/' . TIPO . '/' . $atto ) ),
 				'dati per programmi, documenti dell\'atto' => $this->interfaccia( '/wp/v2/media', array( 'parent' => $atto ) ),
 				'anteprima incorporata, interfaccia'       => $this->interfaccia( '/oembed/1.0/embed', array( 'url' => add_query_arg( 'p', $atto, home_url( '/' ) ) ) ),
+				'dati per programmi, scheda del documento' => rest_do_request( new \WP_REST_Request( 'GET', '/wp/v2/media/' . $documento ) ),
+				'anteprima incorporata del documento'      => $this->interfaccia( '/oembed/1.0/embed', array( 'url' => get_permalink( $documento ) ) ),
 			);
 
 			foreach ( $risposte as $strada => $risposta ) {
@@ -279,6 +337,13 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 				switch ( $strada ) {
 					case 'dati per programmi, singolo':
 						$visto = 200 === $risposta->get_status() && $atto === $numero && $oggetto === $titolo;
+						break;
+					case 'dati per programmi, scheda del documento':
+						$padre = (int) ( $campi['post'] ?? 0 );
+						$visto = 200 === $risposta->get_status() && $documento === $numero && $atto === $padre;
+						break;
+					case 'anteprima incorporata del documento':
+						$visto = 200 === $risposta->get_status() && get_post( $documento )->post_title === $titolo;
 						break;
 					case 'dati per programmi, documenti dell\'atto':
 						$visto = 200 === $risposta->get_status() && in_array( $documento, array_map( 'intval', wp_list_pluck( (array) $risposta->get_data(), 'id' ) ), true );
@@ -299,6 +364,58 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 			$anteprima = get_oembed_response_data( get_post( $atto ), 600 );
 			$segna( $visti, 'anteprima incorporata', $atto, is_array( $anteprima ) && isset( $anteprima['title'] ) && $oggetto === $anteprima['title'] );
 			$segna( $tracce, 'anteprima incorporata', $atto, ! empty( $anteprima ) );
+		}
+
+		$commenti = array(
+			'feed dei commenti'                 => add_query_arg( 'feed', 'comments-rss2', home_url( '/' ) ),
+			'feed della ricerca con i commenti' => add_query_arg(
+				array(
+					's'            => 'di prova',
+					'feed'         => 'rss2',
+					'withcomments' => '1',
+				),
+				home_url( '/' )
+			),
+		);
+		foreach ( $atti as $atto ) {
+			$commenti[ 'feed dei commenti dell\'atto ' . $atto ] = add_query_arg( 'feed', 'rss2', (string) get_permalink( $atto ) );
+		}
+
+		foreach ( $commenti as $strada => $indirizzo ) {
+			$this->richiesta( (string) $indirizzo );
+			$letti  = (array) ( $GLOBALS['wp_query']->comments ?? array() );
+			$strada = 0 === strpos( $strada, 'feed dei commenti dell\'atto ' ) ? 'feed dei commenti dell\'atto' : $strada;
+
+			$visti[ $strada ]  = array_values( array_unique( array_merge( $visti[ $strada ] ?? array(), $this->atti_dei_commenti( $letti, $atti, false ) ) ) );
+			$tracce[ $strada ] = array_values( array_unique( array_merge( $tracce[ $strada ] ?? array(), $this->atti_dei_commenti( $letti, $atti, true ) ) ) );
+		}
+
+		$risposte_commenti = array( 'dati per programmi, commenti' => array( $this->interfaccia( '/wp/v2/comments', array( 'per_page' => 100 ) ) ) );
+		foreach ( $atti as $atto ) {
+			$risposte_commenti['dati per programmi, commenti dell\'atto'][] = $this->interfaccia(
+				'/wp/v2/comments',
+				array(
+					'post'     => array( $atto, $this->documento( $atto ) ),
+					'per_page' => 100,
+				)
+			);
+		}
+
+		foreach ( $risposte_commenti as $strada => $elenco_risposte ) {
+			$visti[ $strada ]  = array();
+			$tracce[ $strada ] = array();
+			foreach ( $elenco_risposte as $risposta ) {
+				$righe             = 200 === $risposta->get_status() ? (array) $risposta->get_data() : array();
+				$visti[ $strada ]  = array_merge( $visti[ $strada ], $this->atti_dei_commenti( $righe, $atti, false ) );
+				$tracce[ $strada ] = array_merge( $tracce[ $strada ], $this->atti_dei_commenti( (array) $risposta->get_data(), $atti, true ) );
+				foreach ( $atti as $atto ) {
+					if ( false !== strpos( (string) wp_json_encode( $risposta->get_data() ), 'Commento di prova ' . $atto ) ) {
+						$tracce[ $strada ][] = $atto;
+					}
+				}
+			}
+			$visti[ $strada ]  = array_values( array_unique( $visti[ $strada ] ) );
+			$tracce[ $strada ] = array_values( array_unique( $tracce[ $strada ] ) );
 		}
 
 		$elenchi = array(
@@ -513,14 +630,21 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 			'anteprima incorporata, interfaccia',
 			'dati per programmi, documenti dell\'atto',
 			'dati per programmi, elenco',
+			'anteprima incorporata del documento',
+			'dati per programmi, commenti',
+			'dati per programmi, commenti dell\'atto',
 			'dati per programmi, ricerca',
+			'dati per programmi, scheda del documento',
 			'dati per programmi, singolo',
 			'documento',
 			'elenco',
 			'elenco per anno',
 			'elenco per autore',
 			'feed',
+			'feed dei commenti',
+			'feed dei commenti dell\'atto',
 			'feed della ricerca',
+			'feed della ricerca con i commenti',
 			'interrogazione di terzi',
 			'pagina del documento',
 			'precedente e successivo',
@@ -530,7 +654,10 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 			'scheda per numero e tipo',
 		);
 
-		return array_fill_keys( $strade, $atti );
+		$tutte = array_fill_keys( $strade, $atti );
+		ksort( $tutte );
+
+		return $tutte;
 	}
 
 	/**
@@ -726,6 +853,7 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 			}
 		);
 		$this->assertTrue( $scritta, 'Precondizione: la fine originale e\' scritta.' );
+		$this->commenta( $importato );
 		$this->assertSame( '2041-09-30', conformita_core_fine_pubblicazione( $importato ), 'Precondizione: la fine originale si rilegge.' );
 
 		clean_post_cache( $importato );

@@ -54,10 +54,10 @@ stessa cosa che si guarda per l'atto in corso lascerebbe passare un'esposizione 
 | Feed dell'elenco e della ricerca | richiesta vera del feed | filtro in lettura (C-13) |
 | Interfaccia per programmi, elenco, singolo e ricerca | richiesta all'interfaccia | filtro in lettura (C-15, C-16) |
 | Documenti dell'atto nell'interfaccia per programmi | elenco filtrato per atto | filtro in lettura |
-| Scheda del singolo documento nell'interfaccia per programmi | **non provata**: resta aperta, vedi in fondo | meccanismo comune, da correggere |
+| Scheda del singolo documento nell'interfaccia per programmi | richiesta all'interfaccia `/wp/v2/media/<numero>` | filtro in lettura, dalla versione 1.6.0 del meccanismo comune |
 | Anteprima incorporata dell'atto | dati dell'anteprima e richiesta all'interfaccia `/oembed/1.0/embed` | filtro in lettura (C-17) |
-| Anteprima incorporata del documento | **non provata**: resta aperta, vedi in fondo | meccanismo comune, da correggere |
-| Feed generale dei commenti, feed della ricerca con i commenti, commenti nell'interfaccia | **non provati**: restano aperti, vedi in fondo | meccanismo comune, da correggere |
+| Anteprima incorporata del documento | richiesta all'interfaccia `/oembed/1.0/embed` con l'indirizzo della pagina del documento | filtro in lettura, dalla versione 1.6.0 |
+| Commenti: feed generale, feed dell'atto, feed della ricerca con i commenti, elenco dell'interfaccia, anche per atto e documento | un commento sull'atto e uno sul documento, richiesta vera dei feed e richiesta all'interfaccia | filtro in lettura, dalla versione 1.6.0 |
 | Pagina del documento | richiesta vera della pagina dell'allegato | filtro in lettura (C-19) |
 | Precedente e successivo | vicini di ciascun atto | filtro in lettura (C-20) |
 | Interrogazioni di altri componenti | interrogazione sul tipo | filtro in lettura (C-21) |
@@ -110,6 +110,12 @@ non compare mai. Alle strade dell'elenco chiuso la prova aggiunge l'indirizzo co
 tipo, l'elenco per anno, quello per autore, la ricerca dell'interfaccia per programmi e
 l'elenco dei documenti di un atto nella stessa interfaccia: chiuse anche loro.
 
+**Aggiornamento: i buchi qui sotto li ha chiusi la versione 1.6.0 del meccanismo comune.**
+L'albo ora la richiede, e A-175 prova le loro strade: scheda del documento nell'interfaccia,
+anteprima del documento, commenti. Il rifiuto dell'interfaccia per uno scaduto è ora
+identico a quello di un numero inesistente, e la prova lo confronta così. Contro la versione
+precedente del meccanismo comune, A-175 è rossa. Il racconto che segue resta com'era.
+
 **Un buco vero, nel meccanismo comune e non nell'albo.** La scheda del singolo documento
 nell'interfaccia per programmi (`/wp/v2/media/<numero>`) risponde ancora dopo la scadenza,
 con il nome del file caricato, l'atto a cui appartiene e i suoi indirizzi. Il file non
@@ -141,7 +147,7 @@ due nel meccanismo comune, tutti e due rifatti a mano prima di scriverli qui:
 programmi rifiuta un atto scaduto, il rifiuto non porta niente dell'atto, ma ha un codice
 diverso da quello di un numero mai esistito. Chi prova i numeri uno per uno può quindi capire
 che dietro un numero c'era un atto, senza vederne niente. Anche questo sta nel meccanismo
-comune, e la prova dell'albo si limita a pretendere il rifiuto esatto del meccanismo comune.
+comune; chiuso anch'esso dalla versione 1.6.0.
 
 **Una cosa vista di passaggio, che non riguarda la scadenza.** Con il tipo chiuso, sui siti
 dove le pagine degli allegati sono accese, la pagina del documento di un atto **in corso**
