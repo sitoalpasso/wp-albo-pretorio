@@ -49,3 +49,6 @@ Schede presenti:
 - [`consultazione-riservata.md`](consultazione-riservata.md): la schermata "Atti scaduti"
   dell'amministrazione, il permesso apposito e i documenti in sola lettura. Righe di collaudo
   A-180..A-185.
+- [`importazione-a-secco.md`](importazione-a-secco.md): la lettura del backup del plugin
+  "Albo Pretorio On line" e il rapporto di cosa si porterebbe, senza scrivere niente. Righe
+  di collaudo A-186..A-194.
