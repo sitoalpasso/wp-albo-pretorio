@@ -41,7 +41,7 @@ Il testo SQL **non si esegue**: si interpreta istruzione per istruzione. I testi
 seguono le regole di MySQL (barra rovesciata davanti ad apice e barra, sequenze `\0 \n \r \Z`,
 due apici di fila). Un intero vuoto è scritto con il valore predefinito della colonna, o
 `NULL`. Il file si rifiuta, con il motivo, se: non c'è il file SQL alla radice o ce n'è più
-d'uno; il testo finisce a metà di un valore; una riga ha più o meno valori delle colonne; i
+d'uno; due file dell'archivio hanno lo stesso nome; il testo finisce a metà di un valore; una riga ha più o meno valori delle colonne; i
 dati di una tabella arrivano senza colonne note; ci sono le tabelle dell'albo di due siti.
 
 L'archivio non si estrae sul disco: ogni file si legge come flusso e se ne calcola

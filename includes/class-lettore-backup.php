@@ -134,8 +134,9 @@ final class LettoreBackup {
 			return self::errore( __( 'l\'archivio zip non si apre: e\' danneggiato o non e\' un archivio.', 'albo-pretorio-pa' ) );
 		}
 
-		$sql  = array();
-		$file = array();
+		$sql   = array();
+		$file  = array();
+		$visti = array();
 
 		$quanti = $archivio->count();
 
@@ -148,6 +149,21 @@ final class LettoreBackup {
 
 			$nome = (string) $voce['name'];
 
+			// I file si aprono per nome: due voci con lo stesso nome darebbero l'impronta di una sola.
+			if ( isset( $visti[ $nome ] ) ) {
+				$archivio->close();
+
+				return self::errore(
+					sprintf(
+						/* translators: %s: nome del file nell'archivio. */
+						__( 'nell\'archivio ci sono due file con lo stesso nome (%s).', 'albo-pretorio-pa' ),
+						$nome
+					)
+				);
+			}
+
+			$visti[ $nome ] = true;
+
 			if ( false === strpos( $nome, '/' ) && 1 === preg_match( '/\.sql\z/i', $nome ) ) {
 				$sql[] = array(
 					'nome' => $nome,
@@ -156,7 +172,7 @@ final class LettoreBackup {
 				continue;
 			}
 
-			$impronta = self::impronta( $archivio, $indice );
+			$impronta = self::impronta( $archivio, $nome );
 
 			if ( null === $impronta ) {
 				$archivio->close();
@@ -219,11 +235,11 @@ final class LettoreBackup {
 	 * L'impronta SHA-256 di un file dell'archivio, letto a pezzi.
 	 *
 	 * @param \ZipArchive $archivio Archivio aperto.
-	 * @param int         $indice   Posizione del file.
+	 * @param string      $nome     Nome del file nell'archivio, unico.
 	 * @return string|null
 	 */
-	private static function impronta( \ZipArchive $archivio, int $indice ): ?string {
-		$flusso = $archivio->getStreamIndex( $indice );
+	private static function impronta( \ZipArchive $archivio, string $nome ): ?string {
+		$flusso = $archivio->getStream( $nome );
 
 		if ( false === $flusso ) {
 			return null;

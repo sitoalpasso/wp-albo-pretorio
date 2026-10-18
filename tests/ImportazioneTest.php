@@ -288,6 +288,17 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$zip->close();
 		$casi['archivio con due sql'] = $doppio;
 
+		// Due voci con lo stesso nome: si scrivono con nomi diversi della stessa lunghezza e poi si rinomina nei byte.
+		$omonimi = $this->temporaneo( '.zip' );
+		$zip     = new \ZipArchive();
+		$zip->open( $omonimi, \ZipArchive::CREATE );
+		$zip->addFromString( 'AlboPretorio.sql', $buono );
+		$zip->addFromString( 'doc-a.pdf', 'primo' );
+		$zip->addFromString( 'doc-b.pdf', 'secondo' );
+		$zip->close();
+		file_put_contents( $omonimi, str_replace( 'doc-b.pdf', 'doc-a.pdf', (string) file_get_contents( $omonimi ) ) );
+		$casi['archivio con due file omonimi'] = $omonimi;
+
 		$rotto = $this->temporaneo( '.zip' );
 		file_put_contents( $rotto, "PK\x03\x04" . str_repeat( 'x', 64 ) );
 		$casi['archivio rotto'] = $rotto;
@@ -317,6 +328,7 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		}
 
 		$this->assertSame( 'Il backup non si legge: nell\'archivio ci sono piu\' file SQL: non si sa quale sia il backup.', LettoreBackup::leggi( $doppio )->get_error_message() );
+		$this->assertSame( 'Il backup non si legge: nell\'archivio ci sono due file con lo stesso nome (doc-a.pdf).', LettoreBackup::leggi( $omonimi )->get_error_message() );
 	}
 
 	/**
