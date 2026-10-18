@@ -186,7 +186,7 @@ final class SchermataImportazione {
 				return new \WP_Error(
 					'albo_importazione_caricamento',
 					in_array( (int) $caricato['error'], array( UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE ), true )
-						? __( 'Il file e\' piu\' grande di quanto il server accetti in un caricamento. Il backup si puo\' lasciare nella cartella dei backup del vecchio albo e sceglierlo da li\'.', 'albo-pretorio-pa' )
+						? self::troppo_grande()
 						: __( 'Il caricamento del file non e\' riuscito.', 'albo-pretorio-pa' )
 				);
 			}
@@ -218,17 +218,9 @@ final class SchermataImportazione {
 			return $letto;
 		}
 
-		$anni = array();
-
-		foreach ( $letto['tabelle']['albopretorio_atti'] ?? array() as $riga ) {
-			if ( isset( $riga['Anno'] ) && 1 === preg_match( '/\A[0-9]{1,4}\z/', (string) $riga['Anno'] ) ) {
-				$anni[] = (int) $riga['Anno'];
-			}
-		}
-
 		$adesso = Passaggi::ora();
 
-		return AnalisiImportazione::rapporto( $letto, AnalisiImportazione::contesto( $anni, $adesso ) );
+		return AnalisiImportazione::rapporto( $letto, AnalisiImportazione::contesto( AnalisiImportazione::anni( $letto ), $adesso ) );
 	}
 
 	/**
@@ -245,6 +237,8 @@ final class SchermataImportazione {
 		if ( isset( $_POST[ self::CAMPO_GETTONE ] ) ) {
 			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- il gettone lo verifica da_invio().
 			$esito = self::da_invio( $_POST, $_FILES );
+		} elseif ( self::invio_perso() ) {
+			$esito = new \WP_Error( 'albo_importazione_caricamento', self::troppo_grande() );
 		}
 
 		echo '<div class="wrap albo-pretorio-importazione">';
@@ -263,6 +257,28 @@ final class SchermataImportazione {
 		}
 
 		echo '</div>';
+	}
+
+	/**
+	 * Il messaggio per un file oltre i limiti di caricamento del server.
+	 */
+	private static function troppo_grande(): string {
+		return __( 'Il file e\' piu\' grande di quanto il server accetti in un caricamento. Il backup si puo\' lasciare nella cartella dei backup del vecchio albo e sceglierlo da li\'.', 'albo-pretorio-pa' );
+	}
+
+	/**
+	 * Vero se e' arrivato un invio che PHP ha scartato tutto.
+	 *
+	 * Quando la richiesta supera post_max_size PHP svuota sia i campi sia i
+	 * file: senza questo controllo la pagina si ripresenterebbe come se
+	 * nessuno avesse inviato niente.
+	 */
+	private static function invio_perso(): bool {
+		$metodo    = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : '';
+		$lunghezza = isset( $_SERVER['CONTENT_LENGTH'] ) ? (int) $_SERVER['CONTENT_LENGTH'] : 0;
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- si controlla solo che l'invio sia vuoto.
+		return 'POST' === $metodo && $lunghezza > 0 && array() === $_POST && array() === $_FILES;
 	}
 
 	/**

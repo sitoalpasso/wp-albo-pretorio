@@ -133,8 +133,11 @@ Il rapporto vive solo nella pagina che lo mostra. Ogni testo esce sfuggito.
 
 ## Modi di guasto previsti
 
-- Backup troppo grande per il caricamento: il messaggio dice di lasciarlo nella cartella dei
-  backup e sceglierlo da lì.
+- Backup troppo grande per il caricamento, anche quando PHP scarta l'intero invio: il
+  messaggio dice di lasciarlo nella cartella dei backup e sceglierlo da lì.
+- Archivio molto grande: la lettura dei file per l'impronta può superare il tempo massimo
+  di una richiesta del server. Il rapporto allora non compare; si riprova con un tempo più
+  lungo o sul sito di prova.
 - Testo SQL oltre 512 MB, o una singola istruzione oltre 64 MB: rifiuto con il motivo.
 - La numerazione del nuovo albo non risponde: conflitto generale, perché non si può dire se i
   numeri sono già stati dati.

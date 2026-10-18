@@ -91,6 +91,24 @@ final class AnalisiImportazione {
 	const TABELLE_NECESSARIE = array( 'albopretorio_atti', 'albopretorio_allegati', 'albopretorio_categorie' );
 
 	/**
+	 * Gli anni dei numeri scritti nel backup, quelli che sono anni davvero.
+	 *
+	 * @param array<string, mixed> $letto Il backup letto da LettoreBackup.
+	 * @return array<int, int>
+	 */
+	public static function anni( array $letto ): array {
+		$anni = array();
+
+		foreach ( $letto['tabelle']['albopretorio_atti'] ?? array() as $riga ) {
+			if ( isset( $riga['Anno'] ) && 1 === preg_match( '/\A[1-9][0-9]{0,3}\z/', (string) $riga['Anno'] ) ) {
+				$anni[] = (int) $riga['Anno'];
+			}
+		}
+
+		return array_values( array_unique( $anni ) );
+	}
+
+	/**
 	 * Lo stato del nuovo albo che serve al confronto.
 	 *
 	 * @param array<int, int>    $anni   Anni degli atti del backup.
@@ -375,6 +393,18 @@ final class AnalisiImportazione {
 		}
 
 		// Numero e anno.
+		if ( $anno < 1 || $anno > 9999 ) {
+			$segnala[] = self::segnalazione(
+				'conflitto',
+				'anno_non_valido',
+				sprintf(
+					/* translators: %d: anno scritto nel backup. */
+					__( 'L\'anno del numero (%d) non e\' un anno: il numero non si puo\' portare finche\' non si corregge.', 'albo-pretorio-pa' ),
+					$anno
+				)
+			);
+		}
+
 		$doppi = $indici['doppioni'][ $anno . '/' . $numero ] ?? array();
 
 		if ( count( $doppi ) > 1 ) {
@@ -1050,6 +1080,11 @@ final class AnalisiImportazione {
 		$per_anno = array();
 
 		foreach ( array_keys( $anni ) as $anno ) {
+			// Un anno che non e' un anno ha gia' il suo conflitto sull'atto.
+			if ( $anno < 1 || $anno > 9999 ) {
+				continue;
+			}
+
 			if ( ! isset( $contesto['numerazione'][ $anno ] ) || null === $contesto['numerazione'][ $anno ]['usati'] ) {
 				$generali[] = self::segnalazione(
 					'conflitto',

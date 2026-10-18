@@ -254,20 +254,11 @@ final class LettoreBackup {
 	 * @return \Generator<int, string>
 	 */
 	private static function righe( $flusso ): \Generator {
-		$letti = 0;
-
 		while ( ! feof( $flusso ) ) {
 			$riga = fgets( $flusso );
 
 			if ( false === $riga ) {
 				break;
-			}
-
-			$letti += strlen( $riga );
-
-			if ( $letti > self::SQL_MASSIMO ) {
-				yield "\0TROPPO";
-				return;
 			}
 
 			yield $riga;
@@ -300,9 +291,13 @@ final class LettoreBackup {
 		$apice      = '';
 		$fuga       = false;
 		$commento   = false;
+		$letti      = 0;
 
 		foreach ( $righe as $riga ) {
-			if ( "\0TROPPO" === $riga ) {
+			$lunghezza = strlen( $riga );
+			$letti    += $lunghezza;
+
+			if ( $letti > self::SQL_MASSIMO ) {
 				return self::errore( __( 'il file SQL e\' troppo grande per essere letto qui.', 'albo-pretorio-pa' ) );
 			}
 
@@ -315,31 +310,61 @@ final class LettoreBackup {
 				}
 			}
 
-			$lunghezza = strlen( $riga );
+			$i = 0;
 
-			for ( $i = 0; $i < $lunghezza; $i++ ) {
-				$carattere = $riga[ $i ];
-
+			while ( $i < $lunghezza ) {
 				if ( $commento ) {
-					if ( '*' === $carattere && $i + 1 < $lunghezza && '/' === $riga[ $i + 1 ] ) {
-						$commento = false;
-						++$i;
+					$chiusura = strpos( $riga, '*/', $i );
+
+					if ( false === $chiusura ) {
+						break;
 					}
+
+					$commento = false;
+					$i        = $chiusura + 2;
 					continue;
 				}
 
 				if ( '' !== $apice ) {
-					$istruzione .= $carattere;
-
 					if ( $fuga ) {
-						$fuga = false;
-					} elseif ( '\\' === $carattere ) {
+						$istruzione .= $riga[ $i ];
+						$fuga        = false;
+						++$i;
+						continue;
+					}
+
+					// Si salta in un colpo fino al prossimo apice o barra rovesciata.
+					$tratto      = strcspn( $riga, $apice . '\\', $i );
+					$istruzione .= substr( $riga, $i, $tratto );
+					$i          += $tratto;
+
+					if ( $i >= $lunghezza ) {
+						break;
+					}
+
+					$carattere   = $riga[ $i ];
+					$istruzione .= $carattere;
+					++$i;
+
+					if ( '\\' === $carattere ) {
 						$fuga = true;
-					} elseif ( $carattere === $apice ) {
+					} else {
 						$apice = '';
 					}
 					continue;
 				}
+
+				// Fuori dai testi si salta fino al prossimo carattere che conta.
+				$tratto      = strcspn( $riga, "'\"`/;", $i );
+				$istruzione .= substr( $riga, $i, $tratto );
+				$i          += $tratto;
+
+				if ( $i >= $lunghezza ) {
+					break;
+				}
+
+				$carattere = $riga[ $i ];
+				++$i;
 
 				if ( "'" === $carattere || '"' === $carattere || '`' === $carattere ) {
 					$apice       = $carattere;
@@ -348,7 +373,7 @@ final class LettoreBackup {
 				}
 
 				// I commenti fra barra e asterisco si saltano; quelli condizionali di mysqldump sono impostazioni della sessione.
-				if ( '/' === $carattere && $i + 1 < $lunghezza && '*' === $riga[ $i + 1 ] ) {
+				if ( '/' === $carattere && $i < $lunghezza && '*' === $riga[ $i ] ) {
 					$commento = true;
 					++$i;
 					continue;

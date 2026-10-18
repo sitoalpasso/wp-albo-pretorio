@@ -100,13 +100,7 @@ class ImportazioneTest extends \WP_UnitTestCase {
 
 		$this->assertIsArray( $letto, is_wp_error( $letto ) ? $letto->get_error_message() : '' );
 
-		$anni = array();
-
-		foreach ( $letto['tabelle']['albopretorio_atti'] ?? array() as $riga ) {
-			$anni[] = (int) $riga['Anno'];
-		}
-
-		return AnalisiImportazione::rapporto( $letto, AnalisiImportazione::contesto( $anni, Passaggi::ora() ) );
+		return AnalisiImportazione::rapporto( $letto, AnalisiImportazione::contesto( AnalisiImportazione::anni( $letto ), Passaggi::ora() ) );
 	}
 
 	/**
@@ -692,6 +686,13 @@ class ImportazioneTest extends \WP_UnitTestCase {
 					'Anno'   => 2041,
 				)
 			),
+			$this->atto_vecchio(
+				array(
+					'IdAtto' => 7,
+					'Numero' => 3,
+					'Anno'   => 0,
+				)
+			),
 		);
 
 		$scrivi = function ( array $opzioni ) use ( $atti ): string {
@@ -717,6 +718,8 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertSame( array(), array_intersect( array( 'numero_doppio', 'numero_gia_usato', 'numero_oltre_partenza' ), array_keys( $this->codici( $this->atto( $rapporto, '4' )['segnalazioni'] ) ) ) );
 		$this->assertSame( 'conflitto', $this->codici( $this->atto( $rapporto, '5' )['segnalazioni'] )['numero_gia_usato'] ?? null );
 		$this->assertSame( 'conflitto', $this->codici( $this->atto( $rapporto, '6' )['segnalazioni'] )['numero_oltre_partenza'] ?? null );
+		$this->assertSame( 'conflitto', $this->codici( $this->atto( $rapporto, '7' )['segnalazioni'] )['anno_non_valido'] ?? null, 'Un anno zero non e\' un anno.' );
+		$this->assertArrayNotHasKey( 'numerazione_non_letta', $this->codici( $rapporto['segnalazioni'] ), 'L\'anno zero non si chiede alla numerazione del nuovo albo.' );
 
 		$anni = array_column( $rapporto['numerazione']['anni'], null, 'anno' );
 
@@ -1117,6 +1120,21 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( '&lt;script&gt;alert(1)&lt;/script&gt; Avviso', $pagina );
 		$this->assertStringNotContainsString( '<script>alert(1)', $pagina );
 		$this->assertStringContainsString( 'enctype="multipart/form-data"', $pagina );
+
+		// Un invio oltre post_max_size arriva senza campi e senza file: si dice perche'.
+		$_POST                     = array();
+		$_FILES                    = array();
+		$_SERVER['REQUEST_METHOD'] = 'POST';
+		$_SERVER['CONTENT_LENGTH'] = '999999999';
+
+		ob_start();
+		SchermataImportazione::mostra();
+		$pagina = (string) ob_get_clean();
+
+		unset( $_SERVER['REQUEST_METHOD'], $_SERVER['CONTENT_LENGTH'] );
+
+		$this->assertStringContainsString( 'cartella dei backup', $pagina, 'Un invio scartato da PHP non passa in silenzio.' );
+		$this->assertStringContainsString( 'notice-error', $pagina );
 
 		wp_set_current_user( $soltanto_consulta );
 		$this->expectException( \WPDieException::class );
