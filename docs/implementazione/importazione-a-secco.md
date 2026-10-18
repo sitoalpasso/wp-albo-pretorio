@@ -39,9 +39,15 @@ plugin (`opt_AP_`).
 
 Il testo SQL **non si esegue**: si interpreta istruzione per istruzione. I testi fra apici
 seguono le regole di MySQL (barra rovesciata davanti ad apice e barra, sequenze `\0 \n \r \Z`,
-due apici di fila). Un intero vuoto è scritto con il valore predefinito della colonna, o
-`NULL`. Il file si rifiuta, con il motivo, se: non c'è il file SQL alla radice o ce n'è più
-d'uno; due file dell'archivio hanno lo stesso nome; il testo finisce a metà di un valore; una riga ha più o meno valori delle colonne; i
+due apici di fila). I commenti (`-- ` e `#` fino all'a capo, fra barra e asterisco) valgono
+come uno spazio in qualunque punto fuori dai testi. Un intero vuoto è scritto con il valore
+predefinito della colonna, o `NULL`. Le impostazioni valgono solo se stanno nella tabella delle
+opzioni con lo stesso prefisso delle tabelle dell'albo: in una copia intera di più siti, quelle
+degli altri non entrano. L'ultima istruzione può mancare del punto e virgola (il backup del
+plugin finisce così) e allora si accetta solo se è intera. Il file si rifiuta, con il motivo, se: non c'è il file SQL alla radice o ce n'è più
+d'uno; due file dell'archivio hanno lo stesso nome; il testo finisce a metà di un valore o di
+un'istruzione (una creazione senza la parentesi che la chiude, un aggiornamento delle
+impostazioni che non arriva alla condizione); una riga ha più o meno valori delle colonne; i
 dati di una tabella arrivano senza colonne note; ci sono le tabelle dell'albo di due siti.
 
 L'archivio non si estrae sul disco: ogni file si legge come flusso e se ne calcola
@@ -50,7 +56,9 @@ caricamento.
 
 ## Le regole di traduzione
 
-**Atti.** Un atto con numero 0 è una bozza: non si porta. Gli altri si portano con il loro
+**Atti.** Un atto con numero 0 è una bozza: non si porta. Un numero assente, negativo o
+illeggibile non è una bozza: è un conflitto, con il valore scritto, e lo stesso vale per un
+anno che non è un anno. Gli altri si portano con il loro
 numero e anno, che non si ricalcolano. Le date si leggono come giorni di calendario, così come
 sono scritte; la data zero vale come assente.
 
@@ -69,14 +77,17 @@ sono scritte; la data zero vale come assente.
 del nuovo albo, e porta la sua origine: "date scritte nel vecchio albo". Si confronta con i
 giorni della categoria: più corta è un dubbio; più lunga è spiegata quando tutti i giorni
 saltati, dalla fine calcolata in poi, sono festivi (domeniche e l'elenco dei festivi del nuovo
-albo, o la proposta con le feste nazionali se l'elenco non è ancora salvato), e allora è una
-nota sullo slittamento; altrimenti è un dubbio (una proroga o una correzione a mano).
+albo, o la proposta con le feste nazionali se l'elenco non è ancora salvato) e la fine
+scritta non lo è, e allora è una nota sullo slittamento; altrimenti è un dubbio (una proroga o
+una correzione a mano).
 
 **Categorie e tipi.** Ogni categoria si confronta per nome, senza maiuscole e spazi ai lati,
 con i tipi di atto del nuovo albo. Se il tipo c'è si mostrano durata e origine; se non c'è,
 "tipo da creare", e **l'origine della durata la dichiara chi importa, senza valore proposto**.
 Una categoria senza giorni darebbe un tipo senza durata. Le categorie annidate si mostrano con
-la madre davanti.
+la madre davanti. Le decisioni aperte su un tipo (da creare, giorni diversi, senza giorni) sono
+anche un dubbio su ciascun atto di quella categoria, che quindi non risulta importabile finché
+il tipo non è deciso.
 
 **Numerazione.** Conflitti: lo stesso numero e anno su due atti; un numero già dato dal nuovo
 albo; un numero oltre l'ultimo numero del vecchio registro dichiarato nel nuovo albo per
@@ -92,7 +103,7 @@ indicata in `RespProc`), ufficio (`IdUnitaOrganizzativa`) e richiedente si conse
 si mostrano secondo la scelta corrente dell'amministrazione (ALBO-33); un nome fuori dagli
 elenchi del nuovo albo resta come un nome tolto dall'elenco. Senza posto nel nuovo albo, e
 quindi nota: le altre persone collegate (`Soggetti`), le note (`Informazioni`), le etichette
-di raggruppamento. Un atto di un'altra amministrazione (`Ente` diverso da 0) è un dubbio
+di raggruppamento, nominate con il loro valore. Un atto di un'altra amministrazione (`Ente` diverso da 0) è un dubbio
 finché le amministrazioni ospitate (ALBO-29) non ci sono. `Data` e `DataOblio` si riconoscono
 e non servono. Un testo che il nuovo albo non conserverebbe alla lettera, o non in UTF-8, è un
 dubbio.
@@ -104,7 +115,8 @@ purché uno solo (nota). Con l'impronta registrata si dice se il file è quello 
 file mancante o diverso è un conflitto su un atto visibile e un dubbio sugli altri. Natura `D`
 è documento, `A` allegato: zero o più documenti sono un dubbio, perché il principale è uno e
 lo sceglie chi importa. "Pubblicato per estratto" non ha posto: dubbio. I file dell'archivio
-non citati da nessun allegato di un atto restano fuori, e si elencano.
+non citati da nessun allegato di un atto restano fuori, e la schermata li elenca per nome;
+accanto a ogni documento trovato mostra il file dell'archivio scelto.
 
 **Campi.** Ogni colonna fuori dall'elenco conosciuto è "non riconosciuta", con il numero di
 righe in cui è compilata; ogni colonna conosciuta che manca è "assente", come nelle versioni
@@ -138,7 +150,12 @@ Il rapporto vive solo nella pagina che lo mostra. Ogni testo esce sfuggito.
 - Archivio molto grande: la lettura dei file per l'impronta può superare il tempo massimo
   di una richiesta del server. Il rapporto allora non compare; si riprova con un tempo più
   lungo o sul sito di prova.
-- Testo SQL oltre 512 MB, o una singola istruzione oltre 64 MB: rifiuto con il motivo.
+- Il testo si legge a pezzi di un megabyte al massimo, mai una riga intera prima dei
+  controlli. Testo SQL oltre 512 MB, una singola istruzione oltre 16 MB (controllata prima di
+  interpretarla), o dati dell'albo conservati oltre 128 MB stimati (ogni valore conta la sua
+  lunghezza più 80 byte): rifiuto con il motivo. Le righe delle altre tabelle non si tengono e
+  non contano. Il backup del plugin scrive un'istruzione per record e mysqldump le unisce fino
+  a un megabyte circa: i limiti stanno molto sopra un albo vero.
 - La numerazione del nuovo albo non risponde: conflitto generale, perché non si può dire se i
   numeri sono già stati dati.
 
