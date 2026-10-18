@@ -3,7 +3,7 @@
  * Plugin Name:       Albo Pretorio
  * Plugin URI:        https://github.com/sitoalpasso/wp-albo-pretorio
  * Description:       Pubblicazione con effetto di pubblicità legale. Attua requisiti derivati dalla normativa applicabile ai soggetti dell'art. 2-bis del d.lgs. 33/2013.
- * Version:           0.4.0-alpha
+ * Version:           0.5.0-alpha
  * Requires at least: 6.5
  * Requires PHP:      8.1
  * Requires Plugins:  conformita-core
@@ -26,7 +26,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Versione del plugin.
  */
-const VERSIONE = '0.4.0-alpha';
+const VERSIONE = '0.5.0-alpha';
 
 /**
  * Versione minima di WordPress dichiarata.
@@ -45,7 +45,7 @@ const PHP_MINIMA = '8.1';
  * comune e non la sua versione, perché accetta slug e non vincoli di versione:
  * il vincolo di versione vive qui e si verifica a ogni avvio.
  */
-const CORE_API_RICHIESTA = '1.6.0';
+const CORE_API_RICHIESTA = '1.7.0';
 
 /**
  * Nome visibile del componente, come compare negli avvisi in amministrazione.
@@ -206,6 +206,7 @@ require_once __DIR__ . '/includes/class-proroga.php';
 require_once __DIR__ . '/includes/class-schermata-proroga.php';
 require_once __DIR__ . '/includes/class-festivi.php';
 require_once __DIR__ . '/includes/class-schermata-festivi.php';
+require_once __DIR__ . '/includes/class-schermata-scaduti.php';
 require_once __DIR__ . '/includes/funzioni-api.php';
 
 /*
@@ -258,6 +259,7 @@ add_action( 'admin_menu', array( SchermataFestivi::class, 'menu' ) );
 add_action( 'admin_post_' . SchermataFestivi::AZIONE, array( SchermataFestivi::class, 'da_invio' ) );
 add_action( 'admin_notices', array( SchermataFestivi::class, 'avviso' ) );
 add_action( 'admin_menu', array( SchermataDatiProcedimento::class, 'menu' ) );
+add_action( 'admin_menu', array( SchermataScaduti::class, 'menu' ) );
 add_action( 'admin_post_' . SchermataDatiProcedimento::AZIONE, array( SchermataDatiProcedimento::class, 'da_invio' ) );
 add_action( 'admin_notices', array( SchermataDatiProcedimento::class, 'avviso' ) );
 
