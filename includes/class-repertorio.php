@@ -224,7 +224,7 @@ final class Repertorio {
 	 * I numeri gia' dati nell'anno indicato, come chiavi.
 	 *
 	 * Serve all'importazione a secco (ALBO-35) per dire quali numeri del
-	 * vecchio registro il nuovo albo ha gia' dato. Nulla se la lettura non ha
+	 * registro precedente questo albo ha gia' dato. Nulla se la lettura non ha
 	 * risposto.
 	 *
 	 * @param int $anno Anno.

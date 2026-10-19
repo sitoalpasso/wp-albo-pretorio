@@ -122,7 +122,7 @@ questo la politica di indicizzazione è un parametro dichiarato, mai un default.
   Per questo, nel **primo anno d'uso**, il componente non assegna nessun numero finché chi
   pubblica non ha dichiarato l'ultimo numero già usato quell'anno, zero se non ce n'è
   nessuno. Un valore predefinito non c'è: partire da 1 in silenzio produrrebbe due atti con
-  lo stesso numero, uno nel registro vecchio e uno qui. La dichiarazione si corregge finché
+  lo stesso numero, uno nel registro precedente e uno qui. La dichiarazione si corregge finché
   nessun numero di quell'anno è stato assegnato, e dopo non si tocca più, da nessuno. Negli
   anni successivi la numerazione riparte da 1 da sola: il registro dell'anno prima lo
   teneva già il componente, e ricominciare da 1 è la regola della numerazione annuale, non
