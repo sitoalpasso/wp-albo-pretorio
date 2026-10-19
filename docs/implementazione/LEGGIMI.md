@@ -52,3 +52,6 @@ Schede presenti:
 - [`importazione-a-secco.md`](importazione-a-secco.md): la lettura del backup del plugin
   "Albo Pretorio On line" e il rapporto di cosa si porterebbe, senza scrivere niente. Righe
   di collaudo A-186..A-194.
+- [`pagina-pubblica.md`](pagina-pubblica.md): la pagina pubblica dell'albo con il codice breve
+  `[albo_pretorio]`: elenco, scheda, ricerca, divieto ai motori, accessibilità del codice
+  prodotto. Righe di collaudo A-195..A-203.
