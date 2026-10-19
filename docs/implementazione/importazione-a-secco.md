@@ -31,7 +31,8 @@ Le tabelle lette sono sette, con il prefisso del sito: `albopretorio_atti`,
 `albopretorio_resprocedura`, `albopretorio_attimeta`, `albopretorio_unitaorganizzative`. Il
 registro delle operazioni non è nel backup.
 
-Si accettano anche il **solo file SQL** (gli allegati risultano allora non verificabili) e
+Si accettano anche il **solo file SQL** (gli allegati risultano allora non verificabili, e ogni
+atto con documenti ha un dubbio: non è portabile così com'è) e
 una **copia intera della banca dati** fatta con mysqldump: le righe con l'elenco delle
 colonne, più righe per istruzione, i commenti e le impostazioni di sessione si leggono; delle
 altre tabelle si annota il nome e basta, e delle impostazioni si tengono solo quelle del
@@ -87,7 +88,8 @@ scritta non lo è, e allora è una nota sullo slittamento; altrimenti è un dubb
 una correzione a mano).
 
 **Categorie e tipi.** Ogni categoria si confronta per nome, senza maiuscole e spazi ai lati,
-con i tipi di atto del nuovo albo. Se il tipo c'è si mostrano durata e origine; se non c'è,
+con i tipi di atto del nuovo albo. Gli atti si contano per categoria, non per tipo: due
+categorie che diventano lo stesso tipo restano distinte. Se il tipo c'è si mostrano durata e origine; se non c'è,
 "tipo da creare", e **l'origine della durata la dichiara chi importa, senza valore proposto**.
 Una categoria senza giorni darebbe un tipo senza durata. Le categorie annidate si mostrano con
 la madre davanti. Le decisioni aperte su un tipo (da creare, giorni diversi, senza giorni) sono
@@ -127,6 +129,12 @@ ha quel file come documento principale (nota), con più file il principale lo sc
 non citati da nessun allegato di un atto restano fuori (gli allegati di atti che nel backup non
 ci sono stanno in una nota sola, con i numeri interni), e la schermata li elenca per nome;
 accanto a ogni documento trovato mostra il file dell'archivio scelto.
+
+**Identificativi.** Un numero interno di atto assente o portato da più atti è un conflitto:
+quegli atti non ricevono allegati né etichette, e l'elenco degli identificativi sta una volta
+sola fra le segnalazioni generali. Un identificativo ripetuto nelle tabelle di categorie,
+enti, responsabili e uffici è un conflitto generale, e gli atti che lo citano lo trovano
+assente invece di riceverne una riga a caso.
 
 **Campi.** Ogni colonna fuori dall'elenco conosciuto è "non riconosciuta", con il numero di
 righe in cui è compilata; ogni colonna conosciuta che manca è "assente", come nelle versioni
