@@ -248,6 +248,24 @@ final class AnalisiImportazione {
 			}
 		}
 
+		// L'elenco degli atti con lo stesso numero sta una volta sola, fra le segnalazioni generali: sugli atti c'e' solo quanti sono.
+		foreach ( $doppioni as $chiave => $doppi ) {
+			if ( count( $doppi ) > 1 ) {
+				list( $anno_doppio, $numero_doppio ) = explode( '/', (string) $chiave );
+
+				$generali[] = self::segnalazione(
+					'conflitto',
+					'numero_doppio',
+					sprintf(
+						/* translators: 1: numero/anno, 2: elenco dei numeri interni. */
+						__( 'Il numero %1$s e\' portato da piu\' atti: numeri interni %2$s.', 'albo-pretorio-pa' ),
+						$numero_doppio . '/' . $anno_doppio,
+						implode( ', ', $doppi )
+					)
+				);
+			}
+		}
+
 		$file_usati = array();
 		$atti       = array();
 
@@ -444,10 +462,10 @@ final class AnalisiImportazione {
 				'conflitto',
 				'numero_doppio',
 				sprintf(
-					/* translators: 1: numero/anno, 2: elenco dei numeri interni. */
-					__( 'Il numero %1$s e\' portato da piu\' atti (numeri interni %2$s): nel nuovo albo un numero e\' di un atto solo.', 'albo-pretorio-pa' ),
+					/* translators: 1: numero/anno, 2: quanti atti lo portano. */
+					__( 'Il numero %1$s e\' portato da %2$d atti, elencati fra le segnalazioni generali: nel nuovo albo un numero e\' di un atto solo.', 'albo-pretorio-pa' ),
 					$numero . '/' . $anno,
-					implode( ', ', $doppi )
+					count( $doppi )
 				)
 			);
 		}

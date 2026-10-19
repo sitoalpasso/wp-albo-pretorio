@@ -105,6 +105,13 @@ final class LettoreBackup {
 	const FILE_MASSIMI = 200000;
 
 	/**
+	 * Byte oltre i quali due voci con lo stesso nome non si confrontano dove PHP non apre un flusso per posizione.
+	 *
+	 * @var int
+	 */
+	const DOPPIO_MASSIMO = 67108864;
+
+	/**
 	 * La lunghezza massima di un pezzo letto dal flusso, in byte.
 	 *
 	 * @var int
@@ -197,9 +204,12 @@ final class LettoreBackup {
 			$nome = (string) $voce['name'];
 
 			// I file si aprono per nome. Il plugin di provenienza aggiunge due volte lo stesso file quando due allegati lo citano:
-			// due voci con stessa lunghezza e stesso controllo sono lo stesso file e se ne tiene una. Diverse, l'impronta sarebbe di una sola.
+			// due voci con la stessa impronta, letta per posizione, sono lo stesso file e se ne tiene una. Diverse, l'impronta sarebbe di una sola.
 			if ( isset( $visti[ $nome ] ) ) {
-				if ( array( (int) $voce['size'], (int) $voce['crc'] ) === $visti[ $nome ] ) {
+				$prima   = self::impronta_indice( $archivio, $visti[ $nome ] );
+				$seconda = self::impronta_indice( $archivio, $indice );
+
+				if ( null !== $prima && $prima === $seconda ) {
 					continue;
 				}
 
@@ -214,7 +224,7 @@ final class LettoreBackup {
 				);
 			}
 
-			$visti[ $nome ] = array( (int) $voce['size'], (int) $voce['crc'] );
+			$visti[ $nome ] = $indice;
 
 			if ( false === strpos( $nome, '/' ) && 1 === preg_match( '/\.sql\z/i', $nome ) ) {
 				$sql[] = array(
@@ -313,6 +323,51 @@ final class LettoreBackup {
 		fclose( $flusso ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- chiusura del flusso aperto qui.
 
 		return hash_final( $contesto );
+	}
+
+	/**
+	 * L'impronta SHA-256 di una voce dell'archivio, per posizione: serve per i nomi doppi.
+	 * Dove PHP non apre un flusso per posizione la voce si legge intera, solo se piccola.
+	 *
+	 * @param \ZipArchive $archivio Archivio aperto.
+	 * @param int         $indice   Posizione della voce.
+	 * @return string|null
+	 */
+	private static function impronta_indice( \ZipArchive $archivio, int $indice ): ?string {
+		if ( method_exists( $archivio, 'getStreamIndex' ) ) {
+			$flusso = $archivio->getStreamIndex( $indice );
+
+			if ( false === $flusso ) {
+				return null;
+			}
+
+			$contesto = hash_init( 'sha256' );
+
+			while ( ! feof( $flusso ) ) {
+				$pezzo = fread( $flusso, 1048576 ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread -- lettura a pezzi di un flusso dell'archivio.
+
+				if ( false === $pezzo ) {
+					fclose( $flusso ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- chiusura del flusso aperto qui.
+					return null;
+				}
+
+				hash_update( $contesto, $pezzo );
+			}
+
+			fclose( $flusso ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- chiusura del flusso aperto qui.
+
+			return hash_final( $contesto );
+		}
+
+		$voce = $archivio->statIndex( $indice );
+
+		if ( false === $voce || (int) $voce['size'] > self::DOPPIO_MASSIMO ) {
+			return null;
+		}
+
+		$contenuto = $archivio->getFromIndex( $indice );
+
+		return false === $contenuto ? null : hash( 'sha256', $contenuto );
 	}
 
 	/**
@@ -634,8 +689,18 @@ final class LettoreBackup {
 				return self::troncato();
 			}
 
+			// Delle altre tabelle si tiene solo il nome; le colonne si tengono, e si contano, solo per le tabelle che servono.
+			if ( null === self::nota_tabella( $nome, $stato ) ) {
+				return self::ignora( $nome, $stato );
+			}
+
+			$esito = self::conta( $stato, array_merge( array( $nome ), $colonne ) );
+
+			if ( is_wp_error( $esito ) ) {
+				return $esito;
+			}
+
 			$stato['colonne'][ $nome ] = $colonne;
-			self::nota_tabella( $nome, $stato );
 
 			return true;
 		}
@@ -645,7 +710,7 @@ final class LettoreBackup {
 			$tipo = self::nota_tabella( $nome, $stato );
 
 			if ( null === $tipo ) {
-				return $ultima ? self::troncato() : true;
+				return $ultima ? self::troncato() : self::ignora( $nome, $stato );
 			}
 
 			$esito = self::inserimento( $nome, $tipo, substr( $testo, strlen( $parti[0] ) ), $stato );
@@ -746,9 +811,30 @@ final class LettoreBackup {
 			return 'opzioni';
 		}
 
+		return null;
+	}
+
+	/**
+	 * Annota il nome di una tabella che non serve: una volta sola, e contato come i dati.
+	 *
+	 * @param string               $nome  Tabella.
+	 * @param array<string, mixed> $stato Stato della lettura, aggiornato.
+	 * @return true|\WP_Error
+	 */
+	private static function ignora( string $nome, array &$stato ) {
+		if ( isset( $stato['ignorate'][ $nome ] ) ) {
+			return true;
+		}
+
+		$esito = self::conta( $stato, array( $nome ) );
+
+		if ( is_wp_error( $esito ) ) {
+			return $esito;
+		}
+
 		$stato['ignorate'][ $nome ] = true;
 
-		return null;
+		return true;
 	}
 
 	/**

@@ -373,6 +373,32 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		file_put_contents( $simili, str_replace( 'doc-b.pdf', 'doc-a.pdf', (string) file_get_contents( $simili ) ) );
 		$casi['archivio con due file omonimi della stessa lunghezza'] = $simili;
 
+		// Stessa lunghezza e stesso controllo CRC32, contenuto diverso: il controllo dello zip non basta a dirli uguali.
+		$uno = (string) hex2bin( '7072696d6f2d4142' );
+		$due = (string) hex2bin( '7365636fd2be7c5d' );
+		$this->assertSame( crc32( $uno ), crc32( $due ), 'Precondizione: i due contenuti hanno lo stesso CRC32.' );
+		$this->assertNotSame( $uno, $due );
+
+		$collisione = $this->temporaneo( '.zip' );
+		$zip        = new \ZipArchive();
+		$zip->open( $collisione, \ZipArchive::CREATE );
+		$zip->addFromString( 'AlboPretorio.sql', $buono );
+		$zip->addFromString( 'doc-a.pdf', $uno );
+		$zip->addFromString( 'doc-b.pdf', $due );
+		$zip->close();
+		file_put_contents( $collisione, str_replace( 'doc-b.pdf', 'doc-a.pdf', (string) file_get_contents( $collisione ) ) );
+		$casi['archivio con due file omonimi con lo stesso CRC32'] = $collisione;
+
+		// Due file SQL con lo stesso nome e contenuto diverso.
+		$sql_omonimi = $this->temporaneo( '.zip' );
+		$zip         = new \ZipArchive();
+		$zip->open( $sql_omonimi, \ZipArchive::CREATE );
+		$zip->addFromString( 'AlboPretorio-a.sql', $buono );
+		$zip->addFromString( 'AlboPretorio-b.sql', $buono . ' ' );
+		$zip->close();
+		file_put_contents( $sql_omonimi, str_replace( 'AlboPretorio-b.sql', 'AlboPretorio-a.sql', (string) file_get_contents( $sql_omonimi ) ) );
+		$casi['archivio con due sql omonimi'] = $sql_omonimi;
+
 		$rotto = $this->temporaneo( '.zip' );
 		file_put_contents( $rotto, "PK\x03\x04" . str_repeat( 'x', 64 ) );
 		$casi['archivio rotto'] = $rotto;
@@ -404,6 +430,8 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertSame( 'Il backup non si legge: nell\'archivio ci sono piu\' file SQL: non si sa quale sia il backup.', LettoreBackup::leggi( $doppio )->get_error_message() );
 		$this->assertSame( 'Il backup non si legge: nell\'archivio ci sono due file con lo stesso nome (doc-a.pdf).', LettoreBackup::leggi( $omonimi )->get_error_message() );
 		$this->assertSame( 'Il backup non si legge: nell\'archivio ci sono due file con lo stesso nome (doc-a.pdf).', LettoreBackup::leggi( $simili )->get_error_message() );
+		$this->assertSame( 'Il backup non si legge: nell\'archivio ci sono due file con lo stesso nome (doc-a.pdf).', LettoreBackup::leggi( $collisione )->get_error_message() );
+		$this->assertSame( 'Il backup non si legge: nell\'archivio ci sono due file con lo stesso nome (AlboPretorio-a.sql).', LettoreBackup::leggi( $sql_omonimi )->get_error_message() );
 
 		// Lo stesso file aggiunto due volte, come fa il plugin di provenienza quando due allegati lo citano: se ne tiene uno.
 		$gemelli = $this->temporaneo( '.zip' );
@@ -481,7 +509,8 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		}
 
 		$testo = array( $creazione . $riga . ';' );
-		$dati  = 1 + 100 + 2 * LettoreBackup::VALORE_COSTO;
+		// La creazione conta il nome della tabella e le colonne; la riga i suoi due valori.
+		$dati = strlen( 'l_albopretorio_attiIdAttoOggetto' ) + 3 * LettoreBackup::VALORE_COSTO + 1 + 100 + 2 * LettoreBackup::VALORE_COSTO;
 
 		$this->assertIsArray( LettoreBackup::leggi_sql( $testo, array( 'dati' => $dati ) ) );
 		$this->assertStringContainsString( 'troppi', LettoreBackup::leggi_sql( $testo, array( 'dati' => $dati - 1 ) )->get_error_message() );
@@ -499,6 +528,30 @@ class ImportazioneTest extends \WP_UnitTestCase {
 
 		$letto = LettoreBackup::leggi_sql( array( $tante . implode( ',', $righe ) . ';' ), array( 'dati' => 100 * 3 * LettoreBackup::VALORE_COSTO ) );
 		$this->assertStringContainsString( 'troppi', $letto->get_error_message(), 'Molte impostazioni contano anche loro.' );
+
+		// Le creazioni contano anche loro, senza nessun inserimento: quelle delle altre tabelle per il nome, quelle dell'albo per nome e colonne.
+		$estranee = '';
+
+		for ( $n = 0; $n < 200; $n++ ) {
+			$estranee .= 'CREATE TABLE `altra_' . $n . '` (`a' . $n . '` int, `b' . $n . '` text);';
+		}
+
+		$letto = LettoreBackup::leggi_sql( array( $creazione . $estranee ), array( 'dati' => 100 * LettoreBackup::VALORE_COSTO ) );
+		$this->assertStringContainsString( 'troppi', $letto->get_error_message(), 'Molte creazioni di altre tabelle contano.' );
+
+		$letto = LettoreBackup::leggi_sql( array( $creazione . $estranee ) );
+		$this->assertIsArray( $letto );
+		$this->assertCount( 200, $letto['ignorate'] );
+		$this->assertSame( array( 'albopretorio_atti' ), array_keys( $letto['colonne'] ), 'Delle altre tabelle non si tengono le colonne.' );
+
+		$riconosciute = '';
+
+		for ( $n = 0; $n < 200; $n++ ) {
+			$riconosciute .= $creazione;
+		}
+
+		$letto = LettoreBackup::leggi_sql( array( $riconosciute ), array( 'dati' => 100 * LettoreBackup::VALORE_COSTO ) );
+		$this->assertStringContainsString( 'troppi', $letto->get_error_message(), 'Anche le creazioni dell\'albo ripetute contano.' );
 
 		// Una riga con piu' valori di quante colonne possa avere una tabella non si legge.
 		$larga = $creazione . 'INSERT INTO `l_albopretorio_atti` VALUES (' . implode( ',', array_fill( 0, LettoreBackup::COLONNE_MASSIME + 1, '1' ) ) . ');';
@@ -981,7 +1034,8 @@ class ImportazioneTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 'conflitto', $this->codici( $this->atto( $rapporto, '1' )['segnalazioni'] )['numero_doppio'] ?? null );
 		$this->assertSame( 'conflitto', $this->codici( $this->atto( $rapporto, '2' )['segnalazioni'] )['numero_doppio'] ?? null );
-		$this->assertStringContainsString( 'numeri interni 1, 2', $this->testo_di( $this->atto( $rapporto, '1' )['segnalazioni'], 'numero_doppio' ) );
+		$this->assertStringContainsString( 'portato da 2 atti', $this->testo_di( $this->atto( $rapporto, '1' )['segnalazioni'], 'numero_doppio' ) );
+		$this->assertStringContainsString( 'numeri interni 1, 2.', $this->testo_di( $rapporto['segnalazioni'], 'numero_doppio' ), 'L\'elenco sta una volta sola, fra le generali.' );
 		$this->assertSame( 'dubbio', $this->codici( $this->atto( $rapporto, '3' )['segnalazioni'] )['anno_diverso'] ?? null );
 		$this->assertSame( array(), array_intersect( array( 'numero_doppio', 'numero_gia_usato', 'numero_oltre_partenza' ), array_keys( $this->codici( $this->atto( $rapporto, '4' )['segnalazioni'] ) ) ) );
 		$this->assertSame( 'conflitto', $this->codici( $this->atto( $rapporto, '5' )['segnalazioni'] )['numero_gia_usato'] ?? null );
@@ -1096,6 +1150,39 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertArrayHasKey( 'contatore_assente', $this->codici( $rapporto['segnalazioni'] ) );
 		$this->assertNull( $rapporto['numerazione']['proposta'] );
 		$this->assertSame( self::PARTENZA + 1, Repertorio::anno( 2041 )['ultimo'], 'La lettura non ha toccato la numerazione.' );
+
+		// Molti atti con lo stesso numero: il rapporto cresce con gli atti, non con il loro quadrato.
+		$lunghezza = function ( int $quanti ): int {
+			$molti = array();
+
+			for ( $n = 1; $n <= $quanti; $n++ ) {
+				$molti[] = $this->atto_vecchio(
+					array(
+						'IdAtto'     => 1000 + $n,
+						'Numero'     => 5,
+						'Anno'       => 2030,
+						'DataInizio' => '2030-03-01',
+						'DataFine'   => '2030-03-16',
+					)
+				);
+			}
+
+			$percorso = $this->temporaneo( '.sql' );
+			file_put_contents( $percorso, $this->sql_vecchio( $this->tabelle_vecchie( $molti ) ) );
+			$rapporto = $this->rapporto_di( $percorso );
+			$testi    = array_column( $rapporto['segnalazioni'], 'testo' );
+
+			foreach ( $rapporto['atti'] as $atto ) {
+				$testi = array_merge( $testi, array_column( $atto['segnalazioni'], 'testo' ) );
+			}
+
+			return strlen( implode( '', $testi ) );
+		};
+
+		$cento   = $lunghezza( 100 );
+		$quattro = $lunghezza( 400 );
+
+		$this->assertLessThan( 5 * $cento, $quattro, 'Quattro volte gli atti, poco piu\' di quattro volte il testo.' );
 	}
 
 	/**
