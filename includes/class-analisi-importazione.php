@@ -1116,9 +1116,10 @@ final class AnalisiImportazione {
 		$senza_archivio = false;
 		$grave          = self::visibile( $atto ) ? 'conflitto' : 'dubbio';
 
-		// Le versioni precedenti del vecchio albo non distinguono documento e allegati: un file solo e' per forza il documento.
+		// Le versioni precedenti del vecchio albo non distinguono documento e allegati, e nelle successive chi pubblicava
+		// lasciava spesso la scelta preimpostata ad allegato: un file solo e' per forza il documento.
 		$senza_natura = array() !== $righe && ! array_key_exists( 'Natura', reset( $righe ) );
-		$unico        = $senza_natura && 1 === count( $righe );
+		$unico        = 1 === count( $righe ) && ( $senza_natura || 'D' !== strtoupper( trim( (string) ( reset( $righe )['Natura'] ?? '' ) ) ) );
 
 		foreach ( $righe as $riga ) {
 			$natura = $unico ? 'D' : strtoupper( trim( (string) ( $riga['Natura'] ?? 'A' ) ) );
@@ -1204,8 +1205,10 @@ final class AnalisiImportazione {
 			$segnala[] = self::segnalazione( 'dubbio', 'documenti_non_verificabili', __( 'E\' stato letto il solo file SQL: i file dei documenti di questo atto non si possono controllare.', 'albo-pretorio-pa' ) );
 		}
 
-		if ( $unico ) {
+		if ( $unico && $senza_natura ) {
 			$segnala[] = self::segnalazione( 'nota', 'principale_unico', __( 'Questa versione del vecchio albo non distingue documento e allegati: l\'unico file dell\'atto diventa il documento principale.', 'albo-pretorio-pa' ) );
+		} elseif ( $unico ) {
+			$segnala[] = self::segnalazione( 'nota', 'principale_unico', __( 'Il vecchio albo segna l\'unico file dell\'atto come allegato: diventa il documento principale.', 'albo-pretorio-pa' ) );
 		} elseif ( $senza_natura ) {
 			$segnala[] = self::segnalazione( 'dubbio', 'principale_assente', __( 'Questa versione del vecchio albo non distingue documento e allegati: il documento principale lo sceglie chi importa.', 'albo-pretorio-pa' ) );
 		} elseif ( 0 === $principali ) {

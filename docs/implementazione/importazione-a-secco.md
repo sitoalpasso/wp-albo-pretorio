@@ -130,8 +130,10 @@ anche se il sito è stato spostato. Altrimenti un file con lo stesso nome in un'
 purché uno solo (nota). Con l'impronta registrata si dice se il file è quello caricato. Un
 file mancante o diverso è un conflitto su un atto visibile e un dubbio sugli altri. Natura `D`
 è documento, `A` allegato: zero o più documenti sono un dubbio, perché il principale è uno e
-lo sceglie chi importa. Le versioni precedenti non hanno la colonna `Natura`: un atto con un solo file
-ha quel file come documento principale (nota), con più file il principale lo sceglie chi importa. "Pubblicato per estratto" non ha posto: dubbio. I file dell'archivio
+lo sceglie chi importa. Un atto con un solo file ha quel file come documento principale (nota),
+anche se è segnato `A`: nelle versioni precedenti la colonna `Natura` non c'è, e in quelle
+successive chi pubblicava lasciava spesso la scelta preimpostata ad allegato (su un backup vero
+quasi tutti i file sono `A`). Con più file e nessun `D` il principale lo sceglie chi importa. "Pubblicato per estratto" non ha posto: dubbio. I file dell'archivio
 non citati da nessun allegato di un atto restano fuori (gli allegati di atti che nel backup non
 ci sono stanno in una nota sola, con i numeri interni), e la schermata li elenca per nome;
 accanto a ogni documento trovato mostra il file dell'archivio scelto.

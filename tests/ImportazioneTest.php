@@ -319,6 +319,57 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertSame( array( 'allegato', 'allegato' ), array_column( $atto['documenti'], 'ruolo' ) );
 		$this->assertSame( 'dubbio', $this->codici( $atto['segnalazioni'] )['principale_assente'] ?? null );
 		$this->assertStringContainsString( 'non distingue documento e allegati', $this->testo_di( $atto['segnalazioni'], 'principale_assente' ) );
+
+		// Con la colonna, un file solo segnato come allegato e' il documento; con due file segnati allegato si sceglie.
+		$zip      = $this->zip_vecchio(
+			$this->sql_vecchio(
+				$this->tabelle_vecchie(
+					array(
+						$this->atto_vecchio( array() ),
+						$this->atto_vecchio(
+							array(
+								'IdAtto' => 2,
+								'Numero' => 2,
+							)
+						),
+						$this->atto_vecchio(
+							array(
+								'IdAtto' => 3,
+								'Numero' => 3,
+							)
+						),
+					),
+					array(
+						$this->documento( 1, 1, 'solo.pdf', 'solo', 'A' ),
+						$this->documento( 2, 2, 'primo.pdf', 'primo', 'A' ),
+						$this->documento( 3, 2, 'secondo.pdf', 'secondo', 'A' ),
+						$this->documento( 4, 3, 'segnato.pdf', 'segnato', 'D' ),
+					)
+				)
+			),
+			array(
+				'solo.pdf'    => 'solo',
+				'primo.pdf'   => 'primo',
+				'secondo.pdf' => 'secondo',
+				'segnato.pdf' => 'segnato',
+			)
+		);
+		$rapporto = $this->rapporto_di( $zip );
+		$solo     = $this->atto( $rapporto, '1' );
+
+		$this->assertSame( array( 'documento' ), array_column( $solo['documenti'], 'ruolo' ), 'L\'unico file segnato allegato e\' il documento.' );
+		$this->assertSame( 'nota', $this->codici( $solo['segnalazioni'] )['principale_unico'] ?? null );
+		$this->assertStringContainsString( 'segna l\'unico file dell\'atto come allegato', $this->testo_di( $solo['segnalazioni'], 'principale_unico' ) );
+		$this->assertArrayNotHasKey( 'principale_assente', $this->codici( $solo['segnalazioni'] ) );
+
+		$due = $this->atto( $rapporto, '2' );
+		$this->assertSame( array( 'allegato', 'allegato' ), array_column( $due['documenti'], 'ruolo' ) );
+		$this->assertSame( 'dubbio', $this->codici( $due['segnalazioni'] )['principale_assente'] ?? null );
+		$this->assertArrayNotHasKey( 'principale_unico', $this->codici( $due['segnalazioni'] ) );
+
+		$segnato = $this->codici( $this->atto( $rapporto, '3' )['segnalazioni'] );
+		$this->assertArrayNotHasKey( 'principale_unico', $segnato, 'Un file solo gia\' segnato come documento non ha bisogno di nota.' );
+		$this->assertArrayNotHasKey( 'principale_assente', $segnato );
 	}
 
 	/**
