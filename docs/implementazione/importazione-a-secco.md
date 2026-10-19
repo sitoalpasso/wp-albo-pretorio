@@ -49,7 +49,7 @@ predefinito della colonna, o `NULL`. Le impostazioni valgono solo se stanno nell
 opzioni con lo stesso prefisso delle tabelle dell'albo: in una copia intera di più siti, quelle
 degli altri non entrano. L'ultima istruzione può mancare del punto e virgola (il backup del
 plugin finisce così) e allora si accetta solo se è intera. Il file si rifiuta, con il motivo, se: non c'è il file SQL alla radice o ce n'è più
-d'uno; due file dell'archivio hanno lo stesso nome e contenuto diverso (lo stesso file aggiunto due volte, come fa il plugin di provenienza quando due allegati lo citano, si tiene una volta sola); il testo finisce a metà di un valore o di
+d'uno; due file dell'archivio hanno lo stesso nome e contenuto diverso (lo stesso file aggiunto due volte, come fa il plugin di provenienza quando due allegati lo citano, si tiene una volta sola: le due voci si confrontano con l'impronta SHA-256 di ciascuna, non con il controllo dello zip; dove PHP non apre una voce per posizione, cioè prima della versione 8.2, si confrontano solo voci fino a 64 MB); il testo finisce a metà di un valore o di
 un'istruzione (una creazione senza la parentesi che la chiude, un aggiornamento delle
 impostazioni che non arriva alla condizione); una riga ha più o meno valori delle colonne; i
 dati di una tabella arrivano senza colonne note; ci sono le tabelle dell'albo di due siti.
@@ -94,7 +94,8 @@ la madre davanti. Le decisioni aperte su un tipo (da creare, giorni diversi, sen
 anche un dubbio su ciascun atto di quella categoria, che quindi non risulta importabile finché
 il tipo non è deciso.
 
-**Numerazione.** Conflitti: lo stesso numero e anno su due atti; un numero già dato dal nuovo
+**Numerazione.** Conflitti: lo stesso numero e anno su due atti (sull'atto si dice quanti sono, l'elenco dei
+numeri interni sta una volta sola fra le segnalazioni generali); un numero già dato dal nuovo
 albo; un numero oltre l'ultimo numero del vecchio registro dichiarato nel nuovo albo per
 quell'anno. Dubbio: l'anno del numero diverso dall'anno di inizio. Per ogni anno si contano
 i numeri mancanti nella serie. Dal contatore (`opt_AP_NumeroProgressivo`,
@@ -164,7 +165,8 @@ Il rapporto vive solo nella pagina che lo mostra. Ogni testo esce sfuggito.
   interpretarla), o dati dell'albo conservati oltre 128 MB stimati (ogni valore conta la sua
   lunghezza più 80 byte): rifiuto con il motivo. Le righe si leggono una alla volta e il conto
   si fa prima di tenerle; contano anche le impostazioni del plugin, di qualunque tabella delle
-  opzioni. Una riga con più di 4096 valori (il massimo di colonne di una tabella MySQL) si
+  opzioni, i nomi e le colonne delle tabelle dell'albo e delle opzioni, e i nomi delle altre
+  tabelle (delle quali le colonne non si tengono). Una riga con più di 4096 valori (il massimo di colonne di una tabella MySQL) si
   ferma mentre si legge; un archivio con più di 200000 file si rifiuta prima di guardarli. Le
   righe delle altre tabelle non si tengono e non contano. Il backup del plugin scrive un'istruzione per record e mysqldump le unisce fino
   a un megabyte circa: i limiti stanno molto sopra un albo vero.
