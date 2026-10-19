@@ -1,0 +1,241 @@
+/*
+ * Albo Pretorio: stili della pagina pubblica.
+ *
+ * Il componente risponde da solo dell'accessibilita' delle pagine che genera
+ * (ALBO-28): ogni classe usata nel codice prodotto e' definita qui, e nessuna
+ * e' presa in prestito dal tema. I colori del testo e dello sfondo restano
+ * quelli del tema; l'albo disegna l'indicatore del fuoco, in due colori, cosi'
+ * che si veda su uno sfondo chiaro come su uno scuro.
+ */
+
+.albo-pretorio {
+	box-sizing: border-box;
+	max-width: 100%;
+	line-height: 1.5;
+}
+
+.albo-pretorio *,
+.albo-pretorio *::before,
+.albo-pretorio *::after {
+	box-sizing: inherit;
+}
+
+.albo-pretorio__ricerca,
+.albo-pretorio__risultati,
+.albo-pretorio__scheda {
+	margin: 0 0 2em;
+}
+
+.albo-pretorio__titolo {
+	margin: 0 0 0.75em;
+	font-size: 1.4em;
+	line-height: 1.3;
+}
+
+.albo-pretorio__sottotitolo,
+.albo-pretorio__oggetto {
+	margin: 0 0 0.5em;
+	font-size: 1.15em;
+	line-height: 1.35;
+}
+
+.albo-pretorio__modulo {
+	margin: 0;
+}
+
+.albo-pretorio__campi {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1em;
+	margin: 0 0 1em;
+}
+
+.albo-pretorio__campo {
+	display: flex;
+	flex: 1 1 12em;
+	flex-direction: column;
+	gap: 0.25em;
+	min-width: 0;
+}
+
+.albo-pretorio__campo--largo {
+	flex-basis: 100%;
+}
+
+.albo-pretorio__campo label {
+	font-weight: 700;
+}
+
+.albo-pretorio__campo input,
+.albo-pretorio__campo select {
+	width: 100%;
+	min-height: 2.75em;
+	padding: 0.4em 0.6em;
+	border: 2px solid currentColor;
+	border-radius: 0;
+	font: inherit;
+}
+
+.albo-pretorio__campo input[aria-invalid="true"],
+.albo-pretorio__campo select[aria-invalid="true"] {
+	border-width: 4px;
+}
+
+.albo-pretorio__aiuto {
+	margin: 0;
+	font-size: 0.95em;
+}
+
+.albo-pretorio__pulsanti {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 1em;
+}
+
+.albo-pretorio__pulsante {
+	min-height: 2.75em;
+	padding: 0.5em 1.5em;
+	border: 2px solid #1a1a1a;
+	border-radius: 0;
+	background: #1a1a1a;
+	color: #fff;
+	font: inherit;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.albo-pretorio__pulsante:hover {
+	background: #fff;
+	color: #1a1a1a;
+}
+
+.albo-pretorio__collegamento {
+	text-decoration: underline;
+	text-underline-offset: 0.15em;
+}
+
+.albo-pretorio__avviso {
+	margin: 0 0 1em;
+	padding: 0.75em 1em;
+	border-left: 6px solid currentColor;
+	font-weight: 700;
+}
+
+.albo-pretorio__conteggio {
+	margin: 0 0 1em;
+}
+
+.albo-pretorio__elenco {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.albo-pretorio__atto {
+	margin: 0;
+	padding: 1em 0;
+	border-top: 1px solid currentColor;
+}
+
+.albo-pretorio__atto:last-child {
+	border-bottom: 1px solid currentColor;
+}
+
+.albo-pretorio__dati {
+	margin: 0;
+}
+
+.albo-pretorio__dato {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0 0.5em;
+	margin: 0 0 0.25em;
+}
+
+.albo-pretorio__dato dt {
+	margin: 0;
+	font-weight: 700;
+}
+
+.albo-pretorio__dato dt::after {
+	content: ":";
+}
+
+.albo-pretorio__dato dd {
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.albo-pretorio__torna {
+	margin: 0 0 1em;
+}
+
+.albo-pretorio__documenti {
+	margin: 0;
+	padding: 0 0 0 1.25em;
+}
+
+.albo-pretorio__documento {
+	margin: 0 0 0.5em;
+}
+
+.albo-pretorio__dettagli {
+	white-space: nowrap;
+}
+
+.albo-pretorio__pagine {
+	margin: 1.5em 0 0;
+}
+
+.albo-pretorio__numeri {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.albo-pretorio__numero {
+	margin: 0;
+}
+
+.albo-pretorio__numero .albo-pretorio__collegamento {
+	display: inline-block;
+	min-width: 2.75em;
+	min-height: 2.75em;
+	padding: 0.5em;
+	border: 1px solid currentColor;
+	text-align: center;
+}
+
+.albo-pretorio__numero .albo-pretorio__collegamento[aria-current="page"] {
+	border-width: 3px;
+	font-weight: 700;
+	text-decoration: none;
+}
+
+.albo-pretorio a:focus,
+.albo-pretorio input:focus,
+.albo-pretorio select:focus,
+.albo-pretorio button:focus {
+	outline: 3px solid #1a1a1a;
+	outline-offset: 2px;
+	box-shadow: 0 0 0 5px #fff;
+}
+
+.albo-pretorio a:focus:not(:focus-visible),
+.albo-pretorio button:focus:not(:focus-visible) {
+	outline: none;
+	box-shadow: none;
+}
+
+.albo-pretorio a:focus-visible,
+.albo-pretorio input:focus-visible,
+.albo-pretorio select:focus-visible,
+.albo-pretorio button:focus-visible {
+	outline: 3px solid #1a1a1a;
+	outline-offset: 2px;
+	box-shadow: 0 0 0 5px #fff;
+}
