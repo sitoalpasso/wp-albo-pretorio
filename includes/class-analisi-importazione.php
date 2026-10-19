@@ -926,7 +926,8 @@ final class AnalisiImportazione {
 		if ( '' !== $riferimento ) {
 			$pulito = DatiAtto::numero_da_ingresso( $riferimento );
 
-			$atto['dati'][ __( 'Numero proprio (proposto dal riferimento)', 'albo-pretorio-pa' ) ] = $riferimento;
+			// Come per i dati del procedimento, di un testo lunghissimo il rapporto mostra solo l'inizio.
+			$atto['dati'][ __( 'Numero proprio (proposto dal riferimento)', 'albo-pretorio-pa' ) ] = strlen( $riferimento ) > self::NOME_MASSIMO ? mb_strcut( $riferimento, 0, self::NOME_MASSIMO, 'UTF-8' ) . ' [...]' : $riferimento;
 
 			if ( $pulito !== $riferimento ) {
 				$segnala[] = self::segnalazione( 'dubbio', 'riferimento_non_conservabile', __( 'Il riferimento contiene a capo, marcatori o caratteri che il numero proprio non accetta: non si conserverebbe alla lettera.', 'albo-pretorio-pa' ) );
@@ -1001,11 +1002,23 @@ final class AnalisiImportazione {
 				? __( 'si mostra', 'albo-pretorio-pa' )
 				: ( DatiProcedimento::NON_USA === $scelta ? __( 'si conserva e non si mostra', 'albo-pretorio-pa' ) : __( 'si conserva; si mostra se l\'amministrazione sceglie di usarlo', 'albo-pretorio-pa' ) );
 
-			$atto['dati'][ DatiProcedimento::etichetta( $dato ) ] = $valore . ' (' . $come . ')';
+			// Un testo lunghissimo non si ricopia per intero nel rapporto: se ne mostra l'inizio.
+			$mostrato = strlen( $valore ) > self::NOME_MASSIMO ? mb_strcut( $valore, 0, self::NOME_MASSIMO, 'UTF-8' ) . ' [...]' : $valore;
 
-			$letto = DatiProcedimento::leggi_elenco( $valore );
+			$atto['dati'][ DatiProcedimento::etichetta( $dato ) ] = $mostrato . ' (' . $come . ')';
 
-			if ( is_wp_error( $letto ) || array( $valore ) !== $letto || 1 === preg_match( '/[\x00-\x1F\x7F]/', $grezzi[ $dato ] ?? '' ) ) {
+			// Lunghezza e caratteri di controllo si guardano prima di leggere il nome come elenco: un testo
+			// con milioni di a capo non si divide in milioni di righe.
+			$valido = strlen( $valore ) <= 4 * DatiProcedimento::LUNGHEZZA_MASSIMA
+				&& 1 !== preg_match( '/[\x00-\x1F\x7F]/', $grezzi[ $dato ] ?? $valore )
+				&& 1 !== preg_match( '/[\x00-\x1F\x7F]/', $valore );
+
+			if ( $valido ) {
+				$letto  = DatiProcedimento::leggi_elenco( $valore );
+				$valido = ! is_wp_error( $letto ) && array( $valore ) === $letto;
+			}
+
+			if ( ! $valido ) {
 				$segnala[] = self::segnalazione(
 					'dubbio',
 					'nome_non_conservabile',

@@ -546,6 +546,23 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$indici = 'CREATE TABLE `altra` (`a` int,' . implode( ',', array_fill( 0, 2 * LettoreBackup::COLONNE_MASSIME, 'KEY (`a`)' ) ) . ');';
 		$this->assertStringContainsString( 'piu\' colonne', LettoreBackup::leggi_sql( array( $creazione . $indici ) )->get_error_message() );
 
+		// Due colonne con lo stesso nome nella creazione: un valore coprirebbe l'altro, il backup non si legge.
+		foreach (
+			array(
+				'uguali'                => array( 'l_albopretorio_atti', '`Numero` int', '`Numero` int' ),
+				'con e senza accenti'   => array( 'l_albopretorio_atti', '`Numero` int', 'Numero int' ),
+				'con maiuscole diverse' => array( 'l_albopretorio_atti', '`Numero` int', '`numero` int' ),
+				'di un\'altra tabella'  => array( 'altra', '`a` int', '`a` int' ),
+			) as $caso => $definizioni
+		) {
+			$tabella = array_shift( $definizioni );
+			$letto   = LettoreBackup::leggi_sql( array( 'CREATE TABLE `' . $tabella . '` (`IdAtto` int, ' . implode( ', ', $definizioni ) . ');INSERT INTO `' . $tabella . '` VALUES (1,7,0);' ) );
+			$this->assertWPError( $letto, $caso );
+			$this->assertStringContainsString( 'stesso nome', $letto->get_error_message(), $caso );
+		}
+
+		$this->assertIsArray( LettoreBackup::leggi_sql( array( 'CREATE TABLE `l_albopretorio_atti` (`IdAtto` int, `Numero` int, KEY `Numero` (`Numero`));' ) ), 'Un indice con il nome di una colonna non e\' una colonna doppia.' );
+
 		// Le creazioni contano anche loro, senza nessun inserimento: quelle delle altre tabelle per il nome, quelle dell'albo per nome e colonne.
 		$estranee = '';
 
@@ -584,11 +601,12 @@ class ImportazioneTest extends \WP_UnitTestCase {
 
 		foreach (
 			array(
-				'oltre il massimo'       => array_merge( $nomi, array( '`altra`' ) ),
-				'ripetuto'               => array( '`IdAtto`', '`Oggetto`', '`IdAtto`' ),
-				'ripetuto senza accenti' => array( '`IdAtto`', 'IdAtto' ),
-				'vuoto'                  => array( '`IdAtto`', '', '`Oggetto`' ),
-				'vuoto in fondo'         => array( '`IdAtto`', '' ),
+				'oltre il massimo'               => array_merge( $nomi, array( '`altra`' ) ),
+				'ripetuto'                       => array( '`IdAtto`', '`Oggetto`', '`IdAtto`' ),
+				'ripetuto senza accenti'         => array( '`IdAtto`', 'IdAtto' ),
+				'ripetuto con maiuscole diverse' => array( '`IdAtto`', '`idatto`' ),
+				'vuoto'                          => array( '`IdAtto`', '', '`Oggetto`' ),
+				'vuoto in fondo'                 => array( '`IdAtto`', '' ),
 			) as $caso => $colonne
 		) {
 			$letto = LettoreBackup::leggi_sql( array( $creazione . $elenco( $colonne ) ) );
@@ -1831,6 +1849,48 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$testo = $this->testo_di( $this->atto( $this->rapporto_di( $enorme ), '1' )['segnalazioni'], 'soggetti_senza_posto' );
 		$this->assertStringContainsString( 'e altre ' . ( AnalisiImportazione::SOGGETTI_LETTI - AnalisiImportazione::SOGGETTI_NOMINATI ), $testo );
 		$this->assertStringContainsString( 'non si legge per intero', $testo );
+
+		// Un richiedente con milioni di a capo non si divide in righe: e' gia' un nome che non si conserva.
+		$gonfio = $this->temporaneo( '.sql' );
+		file_put_contents(
+			$gonfio,
+			$this->sql_vecchio(
+				$this->tabelle_vecchie(
+					array(
+						$this->atto_vecchio( array( 'Richiedente' => str_repeat( "a\n", 3000000 ) . 'b' ) ),
+					)
+				)
+			)
+		);
+		$letto    = LettoreBackup::leggi( $gonfio );
+		$contesto = AnalisiImportazione::contesto( AnalisiImportazione::anni( $letto ), Passaggi::ora() );
+
+		if ( function_exists( 'memory_reset_peak_usage' ) ) {
+			memory_reset_peak_usage();
+		}
+
+		$prima    = memory_get_usage();
+		$rapporto = AnalisiImportazione::rapporto( $letto, $contesto );
+
+		if ( function_exists( 'memory_reset_peak_usage' ) ) {
+			$this->assertLessThan( 64 * 1024 * 1024, memory_get_peak_usage() - $prima, 'Il testo non si espande in milioni di righe.' );
+		}
+
+		$gonfiato = $this->atto( $rapporto, '1' );
+		$this->assertSame( 'dubbio', $this->codici( $gonfiato['segnalazioni'] )['nome_non_conservabile'] ?? null );
+		$this->assertLessThan( AnalisiImportazione::NOME_MASSIMO + 100, strlen( $gonfiato['dati'][ DatiProcedimento::etichetta( DatiProcedimento::RICHIEDENTE ) ] ), 'Del testo lunghissimo si mostra solo l\'inizio.' );
+
+		// Lo stesso per un riferimento lunghissimo: si mostra l'inizio, e non si conserverebbe alla lettera.
+		file_put_contents( $gonfio, $this->sql_vecchio( $this->tabelle_vecchie( array( $this->atto_vecchio( array( 'Riferimento' => str_repeat( "a\n", 100000 ) . 'b' ) ) ) ) ) );
+		$lungo = $this->atto( $this->rapporto_di( $gonfio ), '1' );
+		$this->assertLessThan( AnalisiImportazione::NOME_MASSIMO + 100, strlen( $lungo['dati']['Numero proprio (proposto dal riferimento)'] ?? str_repeat( 'x', 2000 ) ) );
+		$this->assertSame( 'dubbio', $this->codici( $lungo['segnalazioni'] )['riferimento_non_conservabile'] ?? null );
+
+		// Un nome di una riga sola ma piu' lungo del massimo e' un dubbio anche lui, senza leggerlo come elenco.
+		file_put_contents( $gonfio, $this->sql_vecchio( $this->tabelle_vecchie( array( $this->atto_vecchio( array( 'Richiedente' => str_repeat( 'a', 4 * DatiProcedimento::LUNGHEZZA_MASSIMA + 1 ) ) ) ) ) ) );
+		$this->assertSame( 'dubbio', $this->codici( $this->atto( $this->rapporto_di( $gonfio ), '1' )['segnalazioni'] )['nome_non_conservabile'] ?? null );
+		file_put_contents( $gonfio, $this->sql_vecchio( $this->tabelle_vecchie( array( $this->atto_vecchio( array( 'Richiedente' => str_repeat( 'a', DatiProcedimento::LUNGHEZZA_MASSIMA ) ) ) ) ) ) );
+		$this->assertArrayNotHasKey( 'nome_non_conservabile', $this->codici( $this->atto( $this->rapporto_di( $gonfio ), '1' )['segnalazioni'] ), 'Al massimo il nome si conserva.' );
 	}
 
 	/**

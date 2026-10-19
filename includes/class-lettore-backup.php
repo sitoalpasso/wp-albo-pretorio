@@ -689,11 +689,21 @@ final class LettoreBackup {
 				return self::troncato();
 			}
 
-			if ( false === $colonne ) {
+			if ( 'troppe' === $colonne ) {
 				return self::errore(
 					sprintf(
 						/* translators: %s: nome della tabella. */
 						__( 'la creazione della tabella %s ha piu\' colonne di quante una tabella ne possa avere.', 'albo-pretorio-pa' ),
+						$nome
+					)
+				);
+			}
+
+			if ( 'doppia' === $colonne ) {
+				return self::errore(
+					sprintf(
+						/* translators: %s: nome della tabella. */
+						__( 'la creazione della tabella %s ha due colonne con lo stesso nome: non si puo\' sapere quale valore vale.', 'albo-pretorio-pa' ),
 						$nome
 					)
 				);
@@ -1135,10 +1145,11 @@ final class LettoreBackup {
 	 * cominciano con una parola chiave di indice o vincolo non sono colonne.
 	 *
 	 * @param string $corpo Testo dopo la parentesi aperta.
-	 * @return array<int, string>|null|false Nullo se la parentesi della creazione non si chiude (istruzione troncata), falso oltre il massimo di colonne.
+	 * @return array<int, string>|string|null Nullo se la parentesi della creazione non si chiude (istruzione troncata), 'troppe' oltre il massimo di colonne o di definizioni, 'doppia' con due colonne dallo stesso nome.
 	 */
 	private static function colonne_create( string $corpo ) {
 		$colonne     = array();
+		$visti       = array();
 		$definizioni = 0;
 		$corrente    = '';
 		$livello     = 0;
@@ -1178,8 +1189,10 @@ final class LettoreBackup {
 				--$livello;
 			} elseif ( ',' === $carattere && 0 === $livello ) {
 				// Ogni definizione si guarda appena finisce: oltre il massimo la lettura si ferma, senza accumulare.
-				if ( ! self::definizione( $corrente, $colonne, $definizioni ) ) {
-					return false;
+				$motivo = self::definizione( $corrente, $colonne, $visti, $definizioni );
+
+				if ( '' !== $motivo ) {
+					return $motivo;
 				}
 
 				$corrente = '';
@@ -1193,36 +1206,47 @@ final class LettoreBackup {
 			return null;
 		}
 
-		return self::definizione( $corrente, $colonne, $definizioni ) ? $colonne : false;
+		$motivo = self::definizione( $corrente, $colonne, $visti, $definizioni );
+
+		return '' === $motivo ? $colonne : $motivo;
 	}
 
 	/**
 	 * Una definizione della creazione: se e' una colonna, il suo nome si aggiunge.
 	 *
-	 * @param string             $definizione Testo della definizione.
-	 * @param array<int, string> $colonne     Colonne trovate, aggiornate.
-	 * @param int                $definizioni Definizioni viste, aggiornate.
-	 * @return bool Falso oltre il massimo di colonne o di definizioni.
+	 * @param string              $definizione Testo della definizione.
+	 * @param array<int, string>  $colonne     Colonne trovate, aggiornate.
+	 * @param array<string, bool> $visti      Nomi gia' visti, in minuscolo, aggiornati.
+	 * @param int                 $definizioni Definizioni viste, aggiornate.
+	 * @return string Vuoto se la definizione va bene; 'troppe' oltre il massimo di colonne o di definizioni; 'doppia' con un nome gia' visto.
 	 */
-	private static function definizione( string $definizione, array &$colonne, int &$definizioni ): bool {
+	private static function definizione( string $definizione, array &$colonne, array &$visti, int &$definizioni ): string {
 		// Indici e vincoli si aggiungono alle colonne: il doppio del massimo di colonne e' gia' oltre ogni tabella vera.
 		if ( ++$definizioni > 2 * self::COLONNE_MASSIME ) {
-			return false;
+			return 'troppe';
 		}
 
 		$definizione = trim( $definizione );
 
 		if ( 1 !== preg_match( '/\A(`[^`]+`|[A-Za-z0-9_$]+)/', $definizione, $parti ) ) {
-			return true;
+			return '';
 		}
 
 		if ( '`' !== $parti[1][0] && in_array( strtoupper( $parti[1] ), array( 'PRIMARY', 'KEY', 'UNIQUE', 'INDEX', 'CONSTRAINT', 'FULLTEXT', 'SPATIAL', 'CHECK', 'FOREIGN' ), true ) ) {
-			return true;
+			return '';
 		}
 
-		$colonne[] = self::nome( $parti[1] );
+		$colonna = self::nome( $parti[1] );
 
-		return count( $colonne ) <= self::COLONNE_MASSIME;
+		// Come per MySQL, due nomi che differiscono solo per le maiuscole sono la stessa colonna.
+		if ( isset( $visti[ strtolower( $colonna ) ] ) ) {
+			return 'doppia';
+		}
+
+		$visti[ strtolower( $colonna ) ] = true;
+		$colonne[]                       = $colonna;
+
+		return count( $colonne ) <= self::COLONNE_MASSIME ? '' : 'troppe';
 	}
 
 	/**
@@ -1248,13 +1272,13 @@ final class LettoreBackup {
 			$fine    = false === $virgola ? $lungo : $virgola;
 			$colonna = self::nome( substr( $elenco, $inizio, $fine - $inizio ) );
 
-			if ( '' === $colonna || isset( $visti[ $colonna ] ) ) {
+			if ( '' === $colonna || isset( $visti[ strtolower( $colonna ) ] ) ) {
 				return null;
 			}
 
-			$visti[ $colonna ] = true;
-			$colonne[]         = $colonna;
-			$inizio            = $fine + 1;
+			$visti[ strtolower( $colonna ) ] = true;
+			$colonne[]                       = $colonna;
+			$inizio                          = $fine + 1;
 		}
 
 		return $colonne;

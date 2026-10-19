@@ -117,7 +117,10 @@ di raggruppamento, nominate con il loro valore. Un atto di un'altra amministrazi
 finché le amministrazioni ospitate (ALBO-29) non ci sono. `Data` e `DataOblio` si riconoscono
 e non servono. Un testo che il nuovo albo non conserverebbe alla lettera, o non in UTF-8, è un
 dubbio; per responsabile, ufficio e richiedente vale anche un carattere di controllo (a capo,
-tabulazione) ai margini, che togliendo gli spazi ai lati si perderebbe. Delle altre persone
+tabulazione) ai margini, che togliendo gli spazi ai lati si perderebbe. Lunghezza e caratteri
+di controllo si guardano prima di leggere il nome: un testo con molti a capo non si divide in
+righe, è già un dubbio. Di un richiedente o di un riferimento più lungo di 1000 byte il rapporto
+mostra solo l'inizio. Delle altre persone
 collegate se ne nominano venti e le altre si contano; l'elenco si legge una voce alla volta e
 oltre mille voci la lettura si ferma e lo dice ("e altre ancora").
 
@@ -181,7 +184,9 @@ Il rapporto vive solo nella pagina che lo mostra. Ogni testo esce sfuggito.
   ferma mentre si legge, e così una creazione con più di 4096 colonne o più di 8192
   definizioni, anche di un'altra tabella. L'elenco esplicito delle colonne di un inserimento si
   legge un nome alla volta e si rifiuta alla colonna 4097, a un nome vuoto o a un nome ripetuto,
-  senza costruire il resto dell'elenco; un archivio con più di 200000 file si rifiuta prima di guardarli. Le
+  senza costruire il resto dell'elenco. Due colonne con lo stesso nome, nella creazione o
+  nell'elenco dell'inserimento, anche scritte con e senza accenti gravi o con maiuscole diverse
+  (per MySQL sono la stessa colonna), fanno rifiutare il backup: un valore coprirebbe l'altro; un archivio con più di 200000 file si rifiuta prima di guardarli. Le
   righe delle altre tabelle non si tengono e non contano. Il backup del plugin scrive un'istruzione per record e mysqldump le unisce fino
   a un megabyte circa: i limiti stanno molto sopra un albo vero.
 - Un nome di categoria, amministrazione, persona o ufficio più lungo di 1000 byte si
