@@ -305,6 +305,20 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertSame( array( 'Impronta', 'Natura', 'Note' ), $rapporto['campi']['assenti']['wp_albopretorio_allegati'] );
 		$this->assertCount( 1, $rapporto['atti'] );
 		$this->assertSame( array(), $rapporto['orfani'], 'Il file si trova anche senza le colonne nuove.' );
+		$this->assertSame( 'documento', $this->atto( $rapporto, '1' )['documenti'][0]['ruolo'], 'Senza la colonna, l\'unico file e\' il documento.' );
+		$this->assertSame( 'nota', $this->codici( $this->atto( $rapporto, '1' )['segnalazioni'] )['principale_unico'] ?? null );
+		$this->assertArrayNotHasKey( 'principale_assente', $this->codici( $this->atto( $rapporto, '1' )['segnalazioni'] ) );
+
+		// Senza la colonna e con due file, il principale lo sceglie chi importa.
+		$zip  = $this->zip_vecchio(
+			$this->sql_vecchio( $this->tabelle_vecchie( array( $this->atto_vecchio( array() ) ), array( $this->allegato_vecchio( array() ), $this->allegato_vecchio( array( 'IdAllegato' => 2 ) ) ) ), array(), 'wp_', $vecchio ),
+			array( 'documento.pdf' => 'contenuto' )
+		);
+		$atto = $this->atto( $this->rapporto_di( $zip ), '1' );
+
+		$this->assertSame( array( 'allegato', 'allegato' ), array_column( $atto['documenti'], 'ruolo' ) );
+		$this->assertSame( 'dubbio', $this->codici( $atto['segnalazioni'] )['principale_assente'] ?? null );
+		$this->assertStringContainsString( 'non distingue documento e allegati', $this->testo_di( $atto['segnalazioni'], 'principale_assente' ) );
 	}
 
 	/**
@@ -348,6 +362,17 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		file_put_contents( $omonimi, str_replace( 'doc-b.pdf', 'doc-a.pdf', (string) file_get_contents( $omonimi ) ) );
 		$casi['archivio con due file omonimi'] = $omonimi;
 
+		// Stessa lunghezza, contenuto diverso: anche cosi' non si sa quale sia il file.
+		$simili = $this->temporaneo( '.zip' );
+		$zip    = new \ZipArchive();
+		$zip->open( $simili, \ZipArchive::CREATE );
+		$zip->addFromString( 'AlboPretorio.sql', $buono );
+		$zip->addFromString( 'doc-a.pdf', 'primo' );
+		$zip->addFromString( 'doc-b.pdf', 'prima' );
+		$zip->close();
+		file_put_contents( $simili, str_replace( 'doc-b.pdf', 'doc-a.pdf', (string) file_get_contents( $simili ) ) );
+		$casi['archivio con due file omonimi della stessa lunghezza'] = $simili;
+
 		$rotto = $this->temporaneo( '.zip' );
 		file_put_contents( $rotto, "PK\x03\x04" . str_repeat( 'x', 64 ) );
 		$casi['archivio rotto'] = $rotto;
@@ -378,6 +403,21 @@ class ImportazioneTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 'Il backup non si legge: nell\'archivio ci sono piu\' file SQL: non si sa quale sia il backup.', LettoreBackup::leggi( $doppio )->get_error_message() );
 		$this->assertSame( 'Il backup non si legge: nell\'archivio ci sono due file con lo stesso nome (doc-a.pdf).', LettoreBackup::leggi( $omonimi )->get_error_message() );
+		$this->assertSame( 'Il backup non si legge: nell\'archivio ci sono due file con lo stesso nome (doc-a.pdf).', LettoreBackup::leggi( $simili )->get_error_message() );
+
+		// Lo stesso file aggiunto due volte, come fa il plugin di provenienza quando due allegati lo citano: se ne tiene uno.
+		$gemelli = $this->temporaneo( '.zip' );
+		$zip     = new \ZipArchive();
+		$zip->open( $gemelli, \ZipArchive::CREATE );
+		$zip->addFromString( 'AlboPretorio.sql', $buono );
+		$zip->addFromString( 'doc-a.pdf', 'primo' );
+		$zip->addFromString( 'doc-b.pdf', 'primo' );
+		$zip->close();
+		file_put_contents( $gemelli, str_replace( 'doc-b.pdf', 'doc-a.pdf', (string) file_get_contents( $gemelli ) ) );
+		$letto = LettoreBackup::leggi( $gemelli );
+		$this->assertIsArray( $letto );
+		$this->assertSame( array( 'doc-a.pdf' ), array_keys( $letto['file'] ) );
+		$this->assertSame( hash( 'sha256', 'primo' ), $letto['file']['doc-a.pdf']['impronta'] );
 
 		// Troncato fuori dai testi: dentro l'ultimo aggiornamento del contatore, o dentro una creazione.
 		$contatore = $this->sql_vecchio(
@@ -1141,6 +1181,8 @@ class ImportazioneTest extends \WP_UnitTestCase {
 			$this->documento( 8, 7, '2041/10/mancante-visibile.pdf', 'x' ),
 			$this->documento( 9, 8, 'doppio.pdf', 'doppio' ),
 			$this->documento( 10, 99, 'di-nessuno.pdf', 'nessuno' ),
+			$this->documento( 11, 98, 'di-nessuno.pdf', 'nessuno' ),
+			$this->documento( 12, 98, 'di-nessuno.pdf', 'nessuno' ),
 		);
 
 		$file = array(
@@ -1184,6 +1226,9 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$generali = $this->codici( $rapporto['segnalazioni'] );
 		$this->assertArrayHasKey( 'file_orfani', $generali );
 		$this->assertArrayHasKey( 'allegati_senza_atto', $generali );
+		$senza_atto = array_values( wp_list_filter( $rapporto['segnalazioni'], array( 'codice' => 'allegati_senza_atto' ) ) );
+		$this->assertCount( 1, $senza_atto, 'Una nota sola anche per piu\' atti mancanti.' );
+		$this->assertStringContainsString( ': 3, di 2 atti (numeri interni 98, 99)', $senza_atto[0]['testo'] );
 
 		// La schermata mostra quali file restano fuori e quale file e' stato scelto per ciascun documento.
 		ob_start();

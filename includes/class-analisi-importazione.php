@@ -279,19 +279,31 @@ final class AnalisiImportazione {
 			)
 		);
 
+		// Gli allegati di atti che non ci sono: una nota sola, con i numeri interni, anche quando sono molti.
+		$senza_atto = array();
+		$quanti     = 0;
+
 		foreach ( $allegati as $id_atto => $righe ) {
 			if ( ! isset( $ids[ $id_atto ] ) ) {
-				$generali[] = self::segnalazione(
-					'nota',
-					'allegati_senza_atto',
-					sprintf(
-						/* translators: 1: numero di allegati, 2: numero interno dell'atto. */
-						_n( '%1$d allegato rimanda all\'atto interno %2$s, che nel backup non c\'e\': non si porterebbe.', '%1$d allegati rimandano all\'atto interno %2$s, che nel backup non c\'e\': non si porterebbero.', count( $righe ), 'albo-pretorio-pa' ),
-						count( $righe ),
-						$id_atto
-					)
-				);
+				$senza_atto[] = (string) $id_atto;
+				$quanti      += count( $righe );
 			}
+		}
+
+		if ( array() !== $senza_atto ) {
+			sort( $senza_atto, SORT_NATURAL );
+
+			$generali[] = self::segnalazione(
+				'nota',
+				'allegati_senza_atto',
+				sprintf(
+					/* translators: 1: numero di allegati, 2: numero di atti, 3: numeri interni degli atti. */
+					__( 'Allegati che rimandano ad atti che nel backup non ci sono: %1$d, di %2$d atti (numeri interni %3$s). Non si porterebbero.', 'albo-pretorio-pa' ),
+					$quanti,
+					count( $senza_atto ),
+					implode( ', ', $senza_atto )
+				)
+			);
 		}
 
 		$orfani = array_values( array_diff( array_keys( $letto['file'] ), array_keys( $file_usati ) ) );
@@ -877,8 +889,12 @@ final class AnalisiImportazione {
 		$principali = 0;
 		$grave      = self::visibile( $atto ) ? 'conflitto' : 'dubbio';
 
+		// Le versioni precedenti del vecchio albo non distinguono documento e allegati: un file solo e' per forza il documento.
+		$senza_natura = array() !== $righe && ! array_key_exists( 'Natura', reset( $righe ) );
+		$unico        = $senza_natura && 1 === count( $righe );
+
 		foreach ( $righe as $riga ) {
-			$natura = strtoupper( trim( (string) ( $riga['Natura'] ?? 'A' ) ) );
+			$natura = $unico ? 'D' : strtoupper( trim( (string) ( $riga['Natura'] ?? 'A' ) ) );
 			$titolo = trim( (string) ( $riga['TitoloAllegato'] ?? '' ) );
 			$file   = self::trova_file( (string) ( $riga['Allegato'] ?? '' ), $indici['file'] );
 
@@ -956,7 +972,11 @@ final class AnalisiImportazione {
 			$atto['documenti'][] = $documento;
 		}
 
-		if ( 0 === $principali ) {
+		if ( $unico ) {
+			$segnala[] = self::segnalazione( 'nota', 'principale_unico', __( 'Questa versione del vecchio albo non distingue documento e allegati: l\'unico file dell\'atto diventa il documento principale.', 'albo-pretorio-pa' ) );
+		} elseif ( $senza_natura ) {
+			$segnala[] = self::segnalazione( 'dubbio', 'principale_assente', __( 'Questa versione del vecchio albo non distingue documento e allegati: il documento principale lo sceglie chi importa.', 'albo-pretorio-pa' ) );
+		} elseif ( 0 === $principali ) {
 			$segnala[] = self::segnalazione( 'dubbio', 'principale_assente', __( 'Nessun allegato e\' segnato come documento: il documento principale lo sceglie chi importa.', 'albo-pretorio-pa' ) );
 		} elseif ( $principali > 1 ) {
 			$segnala[] = self::segnalazione(

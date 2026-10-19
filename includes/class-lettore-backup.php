@@ -196,8 +196,13 @@ final class LettoreBackup {
 
 			$nome = (string) $voce['name'];
 
-			// I file si aprono per nome: due voci con lo stesso nome darebbero l'impronta di una sola.
+			// I file si aprono per nome. Il plugin di provenienza aggiunge due volte lo stesso file quando due allegati lo citano:
+			// due voci con stessa lunghezza e stesso controllo sono lo stesso file e se ne tiene una. Diverse, l'impronta sarebbe di una sola.
 			if ( isset( $visti[ $nome ] ) ) {
+				if ( array( (int) $voce['size'], (int) $voce['crc'] ) === $visti[ $nome ] ) {
+					continue;
+				}
+
 				$archivio->close();
 
 				return self::errore(
@@ -209,7 +214,7 @@ final class LettoreBackup {
 				);
 			}
 
-			$visti[ $nome ] = true;
+			$visti[ $nome ] = array( (int) $voce['size'], (int) $voce['crc'] );
 
 			if ( false === strpos( $nome, '/' ) && 1 === preg_match( '/\.sql\z/i', $nome ) ) {
 				$sql[] = array(
