@@ -116,7 +116,9 @@ quindi nota: le altre persone collegate (`Soggetti`), le note (`Informazioni`), 
 di raggruppamento, nominate con il loro valore. Un atto di un'altra amministrazione (`Ente` diverso da 0) è un dubbio
 finché le amministrazioni ospitate (ALBO-29) non ci sono. `Data` e `DataOblio` si riconoscono
 e non servono. Un testo che il nuovo albo non conserverebbe alla lettera, o non in UTF-8, è un
-dubbio.
+dubbio; per responsabile, ufficio e richiedente vale anche un carattere di controllo (a capo,
+tabulazione) ai margini, che togliendo gli spazi ai lati si perderebbe. Delle altre persone
+collegate se ne nominano venti e le altre si contano.
 
 **Documenti.** Il percorso registrato è completo, sul server di provenienza: vince il file
 dell'archivio il cui nome coincide con la parte finale più lunga del percorso, così si trova
@@ -175,9 +177,14 @@ Il rapporto vive solo nella pagina che lo mostra. Ogni testo esce sfuggito.
   si fa prima di tenerle; contano anche le impostazioni del plugin, di qualunque tabella delle
   opzioni, i nomi e le colonne delle tabelle dell'albo e delle opzioni, e i nomi delle altre
   tabelle (delle quali le colonne non si tengono). Una riga con più di 4096 valori (il massimo di colonne di una tabella MySQL) si
-  ferma mentre si legge; un archivio con più di 200000 file si rifiuta prima di guardarli. Le
+  ferma mentre si legge, e così una creazione con più di 4096 colonne o più di 8192
+  definizioni, anche di un'altra tabella; un archivio con più di 200000 file si rifiuta prima di guardarli. Le
   righe delle altre tabelle non si tengono e non contano. Il backup del plugin scrive un'istruzione per record e mysqldump le unisce fino
   a un megabyte circa: i limiti stanno molto sopra un albo vero.
+- Un nome di categoria, amministrazione, persona o ufficio più lungo di 1000 byte si
+  ricopierebbe su ogni atto che lo cita: la riga non si usa (conflitto generale) e gli atti la
+  trovano assente. Il rapporto si misura atto per atto: oltre 64 MB stimati si ferma, dice
+  quanti atti ha analizzato su quanti, e gli altri non li analizza.
 - La numerazione del nuovo albo non risponde, per i numeri usati o per la riga dell'anno con la
   partenza dichiarata: conflitto generale e conflitto su ogni atto di quell'anno, perché non si
   può dire se i numeri sono già stati dati o oltre la partenza. Un anno senza riga non è un
