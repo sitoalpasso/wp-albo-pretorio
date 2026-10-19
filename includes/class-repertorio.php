@@ -221,6 +221,41 @@ final class Repertorio {
 	}
 
 	/**
+	 * I numeri gia' dati nell'anno indicato, come chiavi.
+	 *
+	 * Serve all'importazione a secco (ALBO-35) per dire quali numeri del
+	 * vecchio registro il nuovo albo ha gia' dato. Nulla se la lettura non ha
+	 * risposto.
+	 *
+	 * @param int $anno Anno.
+	 * @return array<int, true>|null
+	 */
+	public static function numeri_usati( int $anno ): ?array {
+		global $wpdb;
+
+		if ( ! self::tabelle_presenti() ) {
+			return null;
+		}
+
+		$righe = Lettura::righe(
+			$wpdb->prepare( 'SELECT numero FROM %i WHERE anno = %d', self::tabella_assegnazioni(), $anno ),
+			array( 'numero' )
+		);
+
+		if ( null === $righe ) {
+			return null;
+		}
+
+		$usati = array();
+
+		foreach ( $righe as $riga ) {
+			$usati[ (int) $riga['numero'] ] = true;
+		}
+
+		return $usati;
+	}
+
+	/**
 	 * Il numero di un atto letto per assegnarlo, distinguendo l'atto senza numero dalla lettura mancata.
 	 *
 	 * @param int $atto_id Identificativo dell'atto.
@@ -281,6 +316,44 @@ final class Repertorio {
 			'apertura'      => (string) $riga['apertura'],
 			'dichiarato_da' => (int) $riga['dichiarato_da'],
 			'dichiarato_il' => null === $riga['dichiarato_il'] ? null : (string) $riga['dichiarato_il'],
+		);
+	}
+
+	/**
+	 * La riga di un anno, distinguendo l'anno senza riga dalla lettura mancata.
+	 *
+	 * Serve all'importazione a secco: una lettura fallita non deve sembrare un anno ancora da numerare.
+	 *
+	 * @param int $anno Anno.
+	 * @return array{anno: int, ultimo: int, partenza: int, apertura: string, dichiarato_da: int, dichiarato_il: ?string}|null|false Nulla se l'anno non ha riga, falso se la lettura non ha risposto.
+	 */
+	public static function anno_verificato( int $anno ) {
+		global $wpdb;
+
+		if ( ! self::tabelle_presenti() ) {
+			return false;
+		}
+
+		$righe = Lettura::righe(
+			$wpdb->prepare( 'SELECT * FROM %i WHERE anno = %d', self::tabella_anni(), $anno ),
+			array( 'anno', 'ultimo', 'partenza', 'apertura', 'dichiarato_da', 'dichiarato_il' )
+		);
+
+		if ( null === $righe ) {
+			return false;
+		}
+
+		if ( array() === $righe ) {
+			return null;
+		}
+
+		return array(
+			'anno'          => (int) $righe[0]['anno'],
+			'ultimo'        => (int) $righe[0]['ultimo'],
+			'partenza'      => (int) $righe[0]['partenza'],
+			'apertura'      => (string) $righe[0]['apertura'],
+			'dichiarato_da' => (int) $righe[0]['dichiarato_da'],
+			'dichiarato_il' => null === $righe[0]['dichiarato_il'] ? null : (string) $righe[0]['dichiarato_il'],
 		);
 	}
 

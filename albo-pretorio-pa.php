@@ -207,6 +207,9 @@ require_once __DIR__ . '/includes/class-schermata-proroga.php';
 require_once __DIR__ . '/includes/class-festivi.php';
 require_once __DIR__ . '/includes/class-schermata-festivi.php';
 require_once __DIR__ . '/includes/class-schermata-scaduti.php';
+require_once __DIR__ . '/includes/class-lettore-backup.php';
+require_once __DIR__ . '/includes/class-analisi-importazione.php';
+require_once __DIR__ . '/includes/class-schermata-importazione.php';
 require_once __DIR__ . '/includes/funzioni-api.php';
 
 /*
@@ -260,6 +263,7 @@ add_action( 'admin_post_' . SchermataFestivi::AZIONE, array( SchermataFestivi::c
 add_action( 'admin_notices', array( SchermataFestivi::class, 'avviso' ) );
 add_action( 'admin_menu', array( SchermataDatiProcedimento::class, 'menu' ) );
 add_action( 'admin_menu', array( SchermataScaduti::class, 'menu' ) );
+add_action( 'admin_menu', array( SchermataImportazione::class, 'menu' ) );
 add_action( 'admin_post_' . SchermataDatiProcedimento::AZIONE, array( SchermataDatiProcedimento::class, 'da_invio' ) );
 add_action( 'admin_notices', array( SchermataDatiProcedimento::class, 'avviso' ) );
 

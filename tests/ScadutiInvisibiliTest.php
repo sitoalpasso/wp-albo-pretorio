@@ -1011,6 +1011,8 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 		);
 		$this->assertSame(
 			array(
+				// Il nome di una colonna del backup del vecchio albo (ALBO-35): l'importazione a secco la riconosce e la scarta.
+				'includes/class-analisi-importazione.php: DataOblio',
 				'includes/class-avvio.php: scadenza',
 				// Il permesso della consultazione riservata (ALBO-34): una schermata dell'amministrazione, non una scelta sul sito pubblico.
 				'includes/class-permessi.php: consultare_scaduti',
