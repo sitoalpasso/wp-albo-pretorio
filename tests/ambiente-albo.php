@@ -38,6 +38,7 @@ trait AmbienteAlbo {
 		\AlboPretorioPa\Durate::azzera();
 		\AlboPretorioPa\DatiAtto::azzera();
 		\AlboPretorioPa\DocumentiAtto::azzera();
+		\AlboPretorioPa\PaginaPubblica::azzera();
 
 		foreach ( array( \AlboPretorioPa\TASSONOMIA_TIPO_ATTO, \AlboPretorioPa\TASSONOMIA_ORGANO ) as $elenco ) {
 			if ( taxonomy_exists( $elenco ) ) {
