@@ -1194,6 +1194,34 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertNull( $rapporto['numerazione']['proposta'] );
 		$this->assertSame( self::PARTENZA + 1, Repertorio::anno( 2041 )['ultimo'], 'La lettura non ha toccato la numerazione.' );
 
+		// L'anno senza riga nel nuovo albo non e' una lettura mancata.
+		$this->assertArrayNotHasKey( 'numerazione_non_letta', $this->codici( $this->atto( $rapporto, '12' )['segnalazioni'] ), 'Il 2030 non ha riga: e\' un anno da numerare, non un guasto.' );
+		$this->assertArrayNotHasKey( 'numerazione_non_letta', $this->codici( $rapporto['segnalazioni'] ) );
+
+		// Si guasta la sola lettura della riga dell'anno; quella dei numeri usati risponde.
+		$tabella_anni = Repertorio::tabella_anni();
+		$guasta       = static function ( string $istruzione ) use ( $tabella_anni ): string {
+			return ( str_starts_with( $istruzione, 'SELECT * FROM' ) && str_contains( $istruzione, $tabella_anni ) ) ? 'SELECT * FROM tabella_che_non_esiste_mai' : $istruzione;
+		};
+		$percorso     = $scrivi( array() );
+
+		add_filter( 'query', $guasta );
+		$GLOBALS['wpdb']->suppress_errors( true );
+
+		try {
+			$rapporto = $this->rapporto_di( $percorso );
+		} finally {
+			remove_filter( 'query', $guasta );
+			$GLOBALS['wpdb']->suppress_errors( false );
+		}
+
+		$quarantacinque = $this->codici( $this->atto( $rapporto, '6' )['segnalazioni'] );
+
+		$this->assertSame( 'conflitto', $quarantacinque['numerazione_non_letta'] ?? null, 'Una lettura mancata non sembra un anno da numerare.' );
+		$this->assertSame( AnalisiImportazione::CONFLITTO, $this->atto( $rapporto, '6' )['esito'] );
+		$this->assertSame( 'conflitto', $this->codici( $rapporto['segnalazioni'] )['numerazione_non_letta'] ?? null );
+		$this->assertNull( array_column( $rapporto['numerazione']['anni'], null, 'anno' )[2041]['nuovo'] );
+
 		// Molti atti con lo stesso numero: il rapporto cresce con gli atti, non con il loro quadrato.
 		$lunghezza = function ( int $quanti ): int {
 			$molti = array();
@@ -1386,8 +1414,19 @@ class ImportazioneTest extends \WP_UnitTestCase {
 				$allegati[] = $this->documento( $n, 7, 'stesso.pdf', 'stesso' );
 			}
 
+			$tabelle = $this->tabelle_vecchie( $atti, $allegati );
+
+			for ( $n = 1; $n <= $quanti; $n++ ) {
+				$tabelle['albopretorio_attimeta'][] = array(
+					'IdAttoMeta' => 1000 + $n,
+					'IdAtto'     => 7,
+					'Meta'       => 'gruppo',
+					'Value'      => 'etichetta-' . $n,
+				);
+			}
+
 			$percorso = $this->temporaneo( '.sql' );
-			file_put_contents( $percorso, $this->sql_vecchio( $this->tabelle_vecchie( $atti, $allegati ) ) );
+			file_put_contents( $percorso, $this->sql_vecchio( $tabelle ) );
 
 			return $this->rapporto_di( $percorso );
 		};
@@ -1398,6 +1437,7 @@ class ImportazioneTest extends \WP_UnitTestCase {
 
 		foreach ( $rapporto['atti'] as $atto ) {
 			$this->assertSame( array(), $atto['documenti'] );
+			$this->assertArrayNotHasKey( 'etichette_senza_posto', $this->codici( $atto['segnalazioni'] ), 'Le etichette di un numero interno doppio non si attribuiscono.' );
 			$this->assertSame( 'conflitto', $this->codici( $atto['segnalazioni'] )['id_atto_doppio'] ?? null );
 		}
 

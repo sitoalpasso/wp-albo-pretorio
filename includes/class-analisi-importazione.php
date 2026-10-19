@@ -138,7 +138,7 @@ final class AnalisiImportazione {
 
 		foreach ( array_unique( $anni ) as $anno ) {
 			$numerazione[ $anno ] = array(
-				'riga'  => Repertorio::anno( $anno ),
+				'riga'  => Repertorio::anno_verificato( $anno ),
 				'usati' => Repertorio::numeri_usati( $anno ),
 			);
 		}
@@ -535,6 +535,19 @@ final class AnalisiImportazione {
 		}
 
 		$numerazione = $contesto['numerazione'][ $anno ] ?? null;
+
+		// Se la numerazione del nuovo albo non ha risposto, non si sa se il numero e' gia' dato o oltre la partenza: l'atto non e' portabile.
+		if ( $numero > 0 && $anno >= 1 && $anno <= 9999 && ( ! is_array( $numerazione ) || null === $numerazione['usati'] || false === $numerazione['riga'] ) ) {
+			$segnala[] = self::segnalazione(
+				'conflitto',
+				'numerazione_non_letta',
+				sprintf(
+					/* translators: %d: anno. */
+					__( 'La numerazione del nuovo albo per il %d non ha risposto: non si puo\' dire se il numero e\' gia\' stato dato.', 'albo-pretorio-pa' ),
+					$anno
+				)
+			);
+		}
 
 		if ( is_array( $numerazione ) && is_array( $numerazione['usati'] ) && isset( $numerazione['usati'][ $numero ] ) ) {
 			$segnala[] = self::segnalazione(
@@ -949,7 +962,7 @@ final class AnalisiImportazione {
 			$segnala[] = self::segnalazione( 'nota', 'informazioni_senza_posto', __( 'L\'atto ha delle note (campo Informazioni): il nuovo albo non ha un campo per loro, non si porterebbero.', 'albo-pretorio-pa' ) );
 		}
 
-		if ( isset( $indici['etichette'][ $atto['id'] ] ) ) {
+		if ( isset( $indici['etichette'][ $atto['id'] ] ) && ! isset( $indici['id_doppi'][ $atto['id'] ] ) ) {
 			$segnala[] = self::segnalazione(
 				'nota',
 				'etichette_senza_posto',
@@ -1256,7 +1269,7 @@ final class AnalisiImportazione {
 				continue;
 			}
 
-			if ( ! isset( $contesto['numerazione'][ $anno ] ) || null === $contesto['numerazione'][ $anno ]['usati'] ) {
+			if ( ! isset( $contesto['numerazione'][ $anno ] ) || null === $contesto['numerazione'][ $anno ]['usati'] || false === $contesto['numerazione'][ $anno ]['riga'] ) {
 				$generali[] = self::segnalazione(
 					'conflitto',
 					'numerazione_non_letta',
@@ -1279,7 +1292,7 @@ final class AnalisiImportazione {
 				'atti'     => count( $numeri ),
 				'massimo'  => $massimo,
 				'mancanti' => $mancanti,
-				'nuovo'    => $contesto['numerazione'][ $anno ]['riga'] ?? null,
+				'nuovo'    => is_array( $contesto['numerazione'][ $anno ]['riga'] ?? null ) ? $contesto['numerazione'][ $anno ]['riga'] : null,
 			);
 
 			if ( $mancanti > 0 ) {

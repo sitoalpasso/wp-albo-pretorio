@@ -320,6 +320,44 @@ final class Repertorio {
 	}
 
 	/**
+	 * La riga di un anno, distinguendo l'anno senza riga dalla lettura mancata.
+	 *
+	 * Serve all'importazione a secco: una lettura fallita non deve sembrare un anno ancora da numerare.
+	 *
+	 * @param int $anno Anno.
+	 * @return array{anno: int, ultimo: int, partenza: int, apertura: string, dichiarato_da: int, dichiarato_il: ?string}|null|false Nulla se l'anno non ha riga, falso se la lettura non ha risposto.
+	 */
+	public static function anno_verificato( int $anno ) {
+		global $wpdb;
+
+		if ( ! self::tabelle_presenti() ) {
+			return false;
+		}
+
+		$righe = Lettura::righe(
+			$wpdb->prepare( 'SELECT * FROM %i WHERE anno = %d', self::tabella_anni(), $anno ),
+			array( 'anno', 'ultimo', 'partenza', 'apertura', 'dichiarato_da', 'dichiarato_il' )
+		);
+
+		if ( null === $righe ) {
+			return false;
+		}
+
+		if ( array() === $righe ) {
+			return null;
+		}
+
+		return array(
+			'anno'          => (int) $righe[0]['anno'],
+			'ultimo'        => (int) $righe[0]['ultimo'],
+			'partenza'      => (int) $righe[0]['partenza'],
+			'apertura'      => (string) $righe[0]['apertura'],
+			'dichiarato_da' => (int) $righe[0]['dichiarato_da'],
+			'dichiarato_il' => null === $righe[0]['dichiarato_il'] ? null : (string) $righe[0]['dichiarato_il'],
+		);
+	}
+
+	/**
 	 * Il numero che riceverebbe il prossimo atto pubblicato in quell'anno.
 	 *
 	 * @param int $anno Anno.
