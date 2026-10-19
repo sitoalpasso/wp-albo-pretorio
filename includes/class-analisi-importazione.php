@@ -207,21 +207,46 @@ final class AnalisiImportazione {
 			}
 		}
 
-		$per_id    = static function ( array $righe, string $chiave ): array {
+		// Un identificativo che compare due volte non dice quale riga valga: si toglie dall'indice e si segnala, invece di tenere l'ultima.
+		$per_id    = static function ( array $righe, string $chiave, string $tabella ) use ( &$generali, $letto ): array {
 			$indice = array();
+			$doppi  = array();
 
 			foreach ( $righe as $riga ) {
 				if ( isset( $riga[ $chiave ] ) ) {
-					$indice[ (string) $riga[ $chiave ] ] = $riga;
+					$id = (string) $riga[ $chiave ];
+
+					if ( isset( $indice[ $id ] ) || isset( $doppi[ $id ] ) ) {
+						$doppi[ $id ] = true;
+					}
+
+					$indice[ $id ] = $riga;
 				}
+			}
+
+			if ( array() !== $doppi ) {
+				$indice = array_diff_key( $indice, $doppi );
+				$elenco = array_keys( $doppi );
+				sort( $elenco, SORT_NATURAL );
+
+				$generali[] = self::segnalazione(
+					'conflitto',
+					'id_doppio_tabella',
+					sprintf(
+						/* translators: 1: nome della tabella, 2: identificativi. */
+						__( 'Nella tabella %1$s piu\' righe hanno lo stesso identificativo (%2$s): non si sa quale valga, e gli atti che le citano le trovano assenti.', 'albo-pretorio-pa' ),
+						$letto['prefisso'] . $tabella,
+						implode( ', ', $elenco )
+					)
+				);
 			}
 
 			return $indice;
 		};
-		$categorie = $per_id( $tabelle['albopretorio_categorie'] ?? array(), 'IdCategoria' );
-		$enti      = $per_id( $tabelle['albopretorio_enti'] ?? array(), 'IdEnte' );
-		$persone   = $per_id( $tabelle['albopretorio_resprocedura'] ?? array(), 'IdResponsabile' );
-		$uffici    = $per_id( $tabelle['albopretorio_unitaorganizzative'] ?? array(), 'IdUO' );
+		$categorie = $per_id( $tabelle['albopretorio_categorie'] ?? array(), 'IdCategoria', 'albopretorio_categorie' );
+		$enti      = $per_id( $tabelle['albopretorio_enti'] ?? array(), 'IdEnte', 'albopretorio_enti' );
+		$persone   = $per_id( $tabelle['albopretorio_resprocedura'] ?? array(), 'IdResponsabile', 'albopretorio_resprocedura' );
+		$uffici    = $per_id( $tabelle['albopretorio_unitaorganizzative'] ?? array(), 'IdUO', 'albopretorio_unitaorganizzative' );
 		$etichette = array();
 
 		foreach ( $tabelle['albopretorio_attimeta'] ?? array() as $riga ) {
@@ -239,6 +264,43 @@ final class AnalisiImportazione {
 
 		$atti_letti = $tabelle['albopretorio_atti'] ?? array();
 		$doppioni   = array();
+
+		// Un numero interno assente o portato da piu' atti non dice di chi siano allegati ed etichette: quegli atti non li ricevono.
+		$id_contati = array_count_values(
+			array_map(
+				static function ( array $riga ): string {
+					return (string) ( $riga['IdAtto'] ?? '' );
+				},
+				$atti_letti
+			)
+		);
+		$id_doppi   = array();
+
+		foreach ( $id_contati as $id_atto => $quante ) {
+			if ( $quante > 1 || '' === trim( (string) $id_atto ) ) {
+				$id_doppi[ (string) $id_atto ] = true;
+			}
+		}
+
+		if ( array() !== $id_doppi ) {
+			$elenco = array_map(
+				static function ( string $id_atto ): string {
+					return '' === trim( $id_atto ) ? __( 'vuoto', 'albo-pretorio-pa' ) : $id_atto;
+				},
+				array_map( 'strval', array_keys( $id_doppi ) )
+			);
+			sort( $elenco, SORT_NATURAL );
+
+			$generali[] = self::segnalazione(
+				'conflitto',
+				'id_atto_doppio',
+				sprintf(
+					/* translators: %s: numeri interni. */
+					__( 'Piu\' atti hanno lo stesso numero interno, o non ce l\'hanno (%s): i loro allegati e le loro etichette non si possono attribuire.', 'albo-pretorio-pa' ),
+					implode( ', ', $elenco )
+				)
+			);
+		}
 
 		foreach ( $atti_letti as $riga ) {
 			$numero = self::intero( $riga['Numero'] ?? null );
@@ -280,6 +342,7 @@ final class AnalisiImportazione {
 					'etichette' => $etichette,
 					'allegati'  => $allegati,
 					'doppioni'  => $doppioni,
+					'id_doppi'  => $id_doppi,
 					'file'      => $letto['file'],
 					'zip'       => $letto['zip'],
 				),
@@ -412,6 +475,7 @@ final class AnalisiImportazione {
 			'pubblico'     => '',
 			'in_vista'     => false,
 			'tipo'         => '',
+			'categoria'    => (string) ( $riga['IdCategoria'] ?? '' ),
 			'dati'         => array(),
 			'documenti'    => array(),
 			'esito'        => '',
@@ -556,8 +620,12 @@ final class AnalisiImportazione {
 		// Dati dell'atto e del procedimento.
 		self::dati( $atto, $riga, $indici, $contesto, $segnala );
 
-		// Documenti.
-		self::documenti( $atto, $indici, $file_usati, $segnala );
+		// Documenti, solo se il numero interno dice di chi sono.
+		if ( isset( $indici['id_doppi'][ $id ] ) ) {
+			$segnala[] = self::segnalazione( 'conflitto', 'id_atto_doppio', __( 'Il numero interno di questo atto e\' assente o portato anche da altri atti: allegati ed etichette non si possono attribuire.', 'albo-pretorio-pa' ) );
+		} else {
+			self::documenti( $atto, $indici, $file_usati, $segnala );
+		}
 
 		$atto['segnalazioni'] = $segnala;
 		$atto['esito']        = self::esito( $segnala );
@@ -903,9 +971,10 @@ final class AnalisiImportazione {
 	 * @param array<int, array>    $segnala    Segnalazioni dell'atto, aggiornate.
 	 */
 	private static function documenti( array &$atto, array $indici, array &$file_usati, array &$segnala ): void {
-		$righe      = $indici['allegati'][ $atto['id'] ] ?? array();
-		$principali = 0;
-		$grave      = self::visibile( $atto ) ? 'conflitto' : 'dubbio';
+		$righe          = $indici['allegati'][ $atto['id'] ] ?? array();
+		$principali     = 0;
+		$senza_archivio = false;
+		$grave          = self::visibile( $atto ) ? 'conflitto' : 'dubbio';
 
 		// Le versioni precedenti del vecchio albo non distinguono documento e allegati: un file solo e' per forza il documento.
 		$senza_natura = array() !== $righe && ! array_key_exists( 'Natura', reset( $righe ) );
@@ -929,6 +998,7 @@ final class AnalisiImportazione {
 
 			if ( ! $indici['zip'] ) {
 				$documento['verifica'] = __( 'non verificabile senza archivio', 'albo-pretorio-pa' );
+				$senza_archivio        = true;
 			} elseif ( null === $file['nome'] ) {
 				$documento['verifica'] = __( 'file mancante nell\'archivio', 'albo-pretorio-pa' );
 				$segnala[]             = self::segnalazione(
@@ -988,6 +1058,10 @@ final class AnalisiImportazione {
 			}
 
 			$atto['documenti'][] = $documento;
+		}
+
+		if ( $senza_archivio ) {
+			$segnala[] = self::segnalazione( 'dubbio', 'documenti_non_verificabili', __( 'E\' stato letto il solo file SQL: i file dei documenti di questo atto non si possono controllare.', 'albo-pretorio-pa' ) );
 		}
 
 		if ( $unico ) {
@@ -1067,10 +1141,9 @@ final class AnalisiImportazione {
 	private static function categorie( array $righe, array $per_id, array $atti, array $contesto ): array {
 		$conteggio = array();
 
+		// Si conta per identificativo della categoria: due categorie che diventano lo stesso tipo restano distinte.
 		foreach ( $atti as $atto ) {
-			if ( '' !== $atto['tipo'] ) {
-				$conteggio[ $atto['tipo'] ] = ( $conteggio[ $atto['tipo'] ] ?? 0 ) + 1;
-			}
+			$conteggio[ $atto['categoria'] ] = ( $conteggio[ $atto['categoria'] ] ?? 0 ) + 1;
 		}
 
 		$esito = array();
@@ -1086,7 +1159,7 @@ final class AnalisiImportazione {
 				'nome'         => $nome,
 				'madre'        => ( '0' !== $genitore && isset( $per_id[ $genitore ] ) ) ? trim( (string) ( $per_id[ $genitore ]['Nome'] ?? '' ) ) : '',
 				'giorni'       => $giorni,
-				'atti'         => $conteggio[ $tipo['chiave'] ] ?? 0,
+				'atti'         => $conteggio[ (string) ( $riga['IdCategoria'] ?? '' ) ] ?? 0,
 				'corrisponde'  => $tipo['corrisponde'],
 				'segnalazioni' => $tipo['segnalazioni'],
 			);

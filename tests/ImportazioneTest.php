@@ -721,6 +721,15 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertSame( array(), $per_nome['scaduto']['segnalazioni'], 'Uno scaduto con il suo documento integro non chiede niente.' );
 		$this->assertSame( AnalisiImportazione::IMPORTABILE, $per_nome['scaduto']['esito'] );
 
+		// Lo stesso backup letto dal solo file SQL: i documenti non si possono controllare, e l'atto lo dice.
+		$solo_sql = $this->temporaneo( '.sql' );
+		file_put_contents( $solo_sql, $this->sql_vecchio( $this->tabelle_vecchie( $atti, $allegati ) ) );
+		$scaduto = wp_list_filter( $this->rapporto_di( $solo_sql )['atti'], array( 'oggetto' => 'scaduto' ) );
+		$scaduto = reset( $scaduto );
+
+		$this->assertSame( array( 'documenti_non_verificabili' ), array_keys( $this->codici( $scaduto['segnalazioni'] ) ) );
+		$this->assertSame( AnalisiImportazione::DA_DECIDERE, $scaduto['esito'], 'Senza archivio lo scaduto non e\' portabile cosi\' com\'e\'.' );
+
 		$this->assertSame( AnalisiImportazione::ESCLUSO, $per_nome['bozza']['esito'] );
 		$this->assertSame( 'bozza', $per_nome['bozza']['stato'] );
 
@@ -802,6 +811,17 @@ class ImportazioneTest extends \WP_UnitTestCase {
 				'DataFine'    => '2041-10-01',
 				'IdCategoria' => 2,
 			),
+			// Un'altra categoria che diventa lo stesso tipo, e una da creare con spazi ai lati del nome.
+			'avviso_bis'    => array(
+				'DataInizio'  => '2041-10-01',
+				'DataFine'    => '2041-10-31',
+				'IdCategoria' => 5,
+			),
+			'concorso'      => array(
+				'DataInizio'  => '2041-10-01',
+				'DataFine'    => '2041-10-31',
+				'IdCategoria' => 6,
+			),
 		);
 
 		$this->assertTrue( Festivi::salva( Festivi::ACCESO, '14/10/2041|Festa locale di prova', $this->amministratore, Passaggi::ora() ) );
@@ -848,11 +868,31 @@ class ImportazioneTest extends \WP_UnitTestCase {
 			'Genitore'    => 0,
 			'Giorni'      => 0,
 		);
+		$tabelle['albopretorio_categorie'][] = array(
+			'IdCategoria' => 5,
+			'Nome'        => 'AVVISO',
+			'Descrizione' => '',
+			'Genitore'    => 0,
+			'Giorni'      => 30,
+		);
+		$tabelle['albopretorio_categorie'][] = array(
+			'IdCategoria' => 6,
+			'Nome'        => '  Concorsi ',
+			'Descrizione' => '',
+			'Genitore'    => 0,
+			'Giorni'      => 30,
+		);
 
-		$percorso = $this->temporaneo( '.sql' );
-		file_put_contents( $percorso, $this->sql_vecchio( $tabelle ) );
-
-		$rapporto = $this->rapporto_di( $percorso );
+		// Con l'archivio e i documenti integri, cosi' i due scaduti hanno solo il dubbio sul tipo.
+		$rapporto = $this->rapporto_di(
+			$this->zip_vecchio(
+				$this->sql_vecchio( $tabelle ),
+				array(
+					'bando-finito.pdf'  => 'bando',
+					'avviso-finito.pdf' => 'avviso',
+				)
+			)
+		);
 		$per_nome = array();
 
 		foreach ( $rapporto['atti'] as $atto ) {
@@ -896,6 +936,9 @@ class ImportazioneTest extends \WP_UnitTestCase {
 
 		$this->assertStringContainsString( '15 giorni, origine norma Estremi di prova', $categorie['Deliberazione']['corrisponde'] );
 		$this->assertSame( 6, $categorie['Deliberazione']['atti'] );
+		$this->assertSame( 2, $categorie['avviso']['atti'], 'Si conta per categoria, non per tipo: due categorie dello stesso tipo restano distinte.' );
+		$this->assertSame( 1, $categorie['AVVISO']['atti'] );
+		$this->assertSame( 1, $categorie['Concorsi']['atti'], 'Gli spazi ai lati del nome non fanno perdere il conto.' );
 		$this->assertArrayHasKey( 'durata_tipo_diversa', $this->codici( $categorie['avviso']['segnalazioni'] ) );
 		$this->assertArrayHasKey( 'tipo_da_creare', $this->codici( $categorie['Bandi']['segnalazioni'] ) );
 		$this->assertStringContainsString( 'origine della durata (norma o scelta dell\'amministrazione) la dichiara chi importa', $categorie['Bandi']['corrisponde'], 'Nessuna origine proposta.' );
@@ -1327,6 +1370,55 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'File nell&#039;archivio: <code>vecchi/bando.pdf</code>', $pagina, 'Il file trovato altrove si vede per percorso.' );
 		$this->assertStringContainsString( 'File nell&#039;archivio: <code>2041/10/avviso.pdf</code>', $pagina );
 		$this->assertSame( 6, substr_count( $pagina, 'class="albo-pretorio-file"' ), 'Solo i documenti con un file trovato hanno il percorso: non il mancante, non il doppio.' );
+
+		// Atti con lo stesso numero interno: allegati ed etichette non si attribuiscono, e il rapporto non si moltiplica.
+		$lunghezza = function ( int $quanti ): array {
+			$atti     = array();
+			$allegati = array();
+
+			for ( $n = 1; $n <= $quanti; $n++ ) {
+				$atti[]     = $this->atto_vecchio(
+					array(
+						'IdAtto' => 7,
+						'Numero' => $n,
+					)
+				);
+				$allegati[] = $this->documento( $n, 7, 'stesso.pdf', 'stesso' );
+			}
+
+			$percorso = $this->temporaneo( '.sql' );
+			file_put_contents( $percorso, $this->sql_vecchio( $this->tabelle_vecchie( $atti, $allegati ) ) );
+
+			return $this->rapporto_di( $percorso );
+		};
+
+		$rapporto = $lunghezza( 50 );
+
+		$this->assertSame( 'conflitto', $this->codici( $rapporto['segnalazioni'] )['id_atto_doppio'] ?? null );
+
+		foreach ( $rapporto['atti'] as $atto ) {
+			$this->assertSame( array(), $atto['documenti'] );
+			$this->assertSame( 'conflitto', $this->codici( $atto['segnalazioni'] )['id_atto_doppio'] ?? null );
+		}
+
+		$this->assertLessThan( 5 * strlen( (string) wp_json_encode( $rapporto ) ), strlen( (string) wp_json_encode( $lunghezza( 200 ) ) ), 'Quattro volte gli atti, non sedici volte il rapporto.' );
+
+		// Una categoria con lo stesso identificativo su due righe: non si sceglie, si segnala.
+		$tabelle                             = $this->tabelle_vecchie( array( $this->atto_vecchio( array() ) ) );
+		$tabelle['albopretorio_categorie'][] = array(
+			'IdCategoria' => 1,
+			'Nome'        => 'Altra',
+			'Descrizione' => '',
+			'Genitore'    => 0,
+			'Giorni'      => 30,
+		);
+		$percorso                            = $this->temporaneo( '.sql' );
+		file_put_contents( $percorso, $this->sql_vecchio( $tabelle ) );
+		$rapporto = $this->rapporto_di( $percorso );
+
+		$this->assertSame( 'conflitto', $this->codici( $rapporto['segnalazioni'] )['id_doppio_tabella'] ?? null );
+		$this->assertStringContainsString( 'wp_albopretorio_categorie', $this->testo_di( $rapporto['segnalazioni'], 'id_doppio_tabella' ) );
+		$this->assertSame( 'conflitto', $this->codici( $this->atto( $rapporto, '1' )['segnalazioni'] )['categoria_assente'] ?? null, 'L\'atto non riceve una delle due a caso.' );
 	}
 
 	/**
