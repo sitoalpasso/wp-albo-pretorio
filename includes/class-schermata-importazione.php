@@ -362,6 +362,20 @@ final class SchermataImportazione {
 			)
 		);
 
+		if ( $rapporto['riepilogo']['totale']['atti'] !== $rapporto['riepilogo']['totale']['nel_backup'] ) {
+			printf(
+				'<p><strong>%s</strong></p>',
+				esc_html(
+					sprintf(
+						/* translators: 1: atti analizzati, 2: atti nel backup. */
+						__( 'Rapporto parziale: i conteggi qui sotto e le categorie riguardano solo gli atti analizzati, %1$d su %2$d.', 'albo-pretorio-pa' ),
+						$rapporto['riepilogo']['totale']['atti'],
+						$rapporto['riepilogo']['totale']['nel_backup']
+					)
+				)
+			);
+		}
+
 		echo '<ul class="albo-pretorio-riepilogo">';
 
 		foreach ( $esiti as $esito => $titolo ) {

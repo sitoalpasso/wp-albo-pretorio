@@ -574,6 +574,35 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$larga = $creazione . 'INSERT INTO `l_albopretorio_atti` VALUES (' . implode( ',', array_fill( 0, LettoreBackup::COLONNE_MASSIME + 1, '1' ) ) . ');';
 		$this->assertWPError( LettoreBackup::leggi_sql( array( $larga ) ) );
 
+		// L'elenco esplicito delle colonne di un inserimento ha gli stessi limiti, e nomi non vuoti e non ripetuti.
+		$elenco = static function ( array $nomi ): string {
+			return 'INSERT INTO `l_albopretorio_atti` (' . implode( ',', $nomi ) . ') VALUES (' . implode( ',', array_fill( 0, count( $nomi ), '1' ) ) . ');';
+		};
+		$nomi   = array_map( fn( $n ) => '`c' . $n . '`', range( 1, LettoreBackup::COLONNE_MASSIME ) );
+
+		$this->assertIsArray( LettoreBackup::leggi_sql( array( $creazione . $elenco( $nomi ) ) ), 'Al massimo si legge.' );
+
+		foreach (
+			array(
+				'oltre il massimo'       => array_merge( $nomi, array( '`altra`' ) ),
+				'ripetuto'               => array( '`IdAtto`', '`Oggetto`', '`IdAtto`' ),
+				'ripetuto senza accenti' => array( '`IdAtto`', 'IdAtto' ),
+				'vuoto'                  => array( '`IdAtto`', '', '`Oggetto`' ),
+				'vuoto in fondo'         => array( '`IdAtto`', '' ),
+			) as $caso => $colonne
+		) {
+			$letto = LettoreBackup::leggi_sql( array( $creazione . $elenco( $colonne ) ) );
+			$this->assertWPError( $letto, $caso );
+			$this->assertStringContainsString( 'elenco di colonne non valido', $letto->get_error_message(), $caso );
+		}
+
+		// La lettura dell'elenco si ferma alla prima colonna di troppo: un elenco di milioni di nomi non si costruisce per intero.
+		$colonne_inserimento = new \ReflectionMethod( LettoreBackup::class, 'colonne_inserimento' );
+		$colonne_inserimento->setAccessible( true );
+		$this->assertNull( $colonne_inserimento->invoke( null, str_repeat( 'a,', 2000000 ) . 'a' ), 'Molti nomi uguali: ci si ferma al secondo.' );
+		$this->assertNull( $colonne_inserimento->invoke( null, implode( ',', array_map( fn( $n ) => 'c' . $n, range( 1, 300000 ) ) ) ) );
+		$this->assertSame( array( 'IdAtto', 'Oggetto' ), $colonne_inserimento->invoke( null, ' `IdAtto` , Oggetto ' ) );
+
 		// Il controllo scatta mentre la riga si legge, non dopo: al valore in piu' la lettura si ferma.
 		$tuple = new \ReflectionMethod( LettoreBackup::class, 'tuple' );
 		$tuple->setAccessible( true );
@@ -1519,6 +1548,56 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertCount( 1, $fermato['atti'], 'Il primo atto supera gia\' il massimo: il secondo non si analizza.' );
 		$this->assertSame( 'conflitto', $this->codici( $fermato['segnalazioni'] )['rapporto_troppo_grande'] ?? null );
 		$this->assertStringContainsString( '1 su 20', $this->testo_di( $fermato['segnalazioni'], 'rapporto_troppo_grande' ) );
+
+		// Un rapporto fermato non fa passare per completi numerazione e file: si calcolano su tutto il backup.
+		$atti     = array();
+		$allegati = array();
+		$file     = array();
+
+		for ( $n = 1; $n <= 20; $n++ ) {
+			$atti[]                        = $this->atto_vecchio(
+				array(
+					'IdAtto' => $n,
+					'Numero' => $n,
+				)
+			);
+			$allegati[]                    = $this->documento( 100 + $n, $n, 'atto-' . $n . '.pdf', 'contenuto ' . $n );
+			$file[ 'atto-' . $n . '.pdf' ] = 'contenuto ' . $n;
+		}
+
+		$zip      = $this->zip_vecchio(
+			$this->sql_vecchio(
+				$this->tabelle_vecchie( $atti, $allegati ),
+				array(
+					'opt_AP_NumeroProgressivo' => '2',
+					'opt_AP_AnnoProgressivo'   => '2041',
+				)
+			),
+			$file
+		);
+		$letto    = LettoreBackup::leggi( $zip );
+		$contesto = AnalisiImportazione::contesto( AnalisiImportazione::anni( $letto ), Passaggi::ora() );
+		$intero   = AnalisiImportazione::rapporto( $letto, $contesto );
+
+		$contesto['rapporto_massimo'] = 1;
+		$parziale                     = AnalisiImportazione::rapporto( $letto, $contesto );
+
+		$this->assertCount( 1, $parziale['atti'] );
+		$this->assertSame( 20, $parziale['numerazione']['proposta']['ultimo'] ?? null, 'L\'ultimo numero usato guarda anche gli atti non analizzati.' );
+		$this->assertSame( $intero['numerazione'], $parziale['numerazione'] );
+		$this->assertSame( 20, $parziale['numerazione']['anni'][0]['massimo'] ?? null );
+		$this->assertSame( array(), $intero['orfani'] );
+		$this->assertSame( array(), $parziale['orfani'], 'I file degli atti non analizzati sono citati: non sono file che nessuno cita.' );
+		$this->assertArrayNotHasKey( 'file_orfani', $this->codici( $parziale['segnalazioni'] ) );
+		$this->assertSame(
+			array(
+				'atti'       => 1,
+				'nel_backup' => 20,
+			),
+			$parziale['riepilogo']['totale'],
+			'Il riepilogo dice di quanti atti parla.'
+		);
+		$this->assertStringContainsString( 'solo gli atti analizzati', $this->testo_di( $parziale['segnalazioni'], 'rapporto_troppo_grande' ) );
 	}
 
 	/**
@@ -1691,6 +1770,7 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$quarto = $this->testo_di( $this->atto( $rapporto, '4' )['segnalazioni'], 'soggetti_senza_posto' );
 		$this->assertSame( 20, substr_count( $quarto, '?' ), 'Si nominano le prime venti persone, qui assenti dal backup.' );
 		$this->assertStringContainsString( 'e altre 5', $quarto );
+		$this->assertStringNotContainsString( 'non si legge per intero', $quarto );
 
 		// L'amministrazione sceglie: il responsabile si mostra ed e' in elenco, l'ufficio si conserva soltanto.
 		$this->assertTrue(
@@ -1715,6 +1795,42 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertSame( 'Comune vicino (si mostra)', $primo['dati'][ DatiProcedimento::etichetta( DatiProcedimento::RICHIEDENTE ) ], 'Il richiedente si mostra quando l\'amministrazione sceglie di usarlo.' );
 		$this->assertStringContainsString( 'Ufficio tecnico', $this->testo_di( $primo['segnalazioni'], 'fuori_elenco' ) );
 		$this->assertStringNotContainsString( 'Rossi Maria', $this->testo_di( $primo['segnalazioni'], 'fuori_elenco' ) );
+
+		// Un elenco di persone enorme si legge una voce alla volta e si ferma: non si espande in memoria.
+		$soggetti = new \ReflectionMethod( AnalisiImportazione::class, 'soggetti' );
+		$soggetti->setAccessible( true );
+
+		$ripetute = $soggetti->invoke( null, 'a:1000000:{' . str_repeat( 'i:0;i:1;', 1000000 ) . '}' );
+		$this->assertSame( array( '1' ), $ripetute['ids'], 'Molte voci uguali danno una persona sola.' );
+		$this->assertTrue( $ripetute['troncato'] );
+
+		$distinte = static function ( int $quante ): string {
+			return 'a:' . $quante . ':{' . implode( '', array_map( fn( $n ) => 'i:' . $n . ';s:' . strlen( (string) ( 1000 + $n ) ) . ':"' . ( 1000 + $n ) . '";', range( 0, $quante - 1 ) ) ) . '}';
+		};
+
+		$molte = $soggetti->invoke( null, $distinte( 3 * AnalisiImportazione::SOGGETTI_LETTI ) );
+		$this->assertCount( AnalisiImportazione::SOGGETTI_LETTI, $molte['ids'], 'Le voci distinte tenute non superano il massimo.' );
+		$this->assertTrue( $molte['troncato'] );
+
+		$giuste = $soggetti->invoke( null, $distinte( AnalisiImportazione::SOGGETTI_LETTI ) );
+		$this->assertCount( AnalisiImportazione::SOGGETTI_LETTI, $giuste['ids'] );
+		$this->assertFalse( $giuste['troncato'], 'Al massimo l\'elenco si legge per intero.' );
+		$this->assertSame( '1000', $giuste['ids'][0] );
+
+		$enorme = $this->temporaneo( '.sql' );
+		file_put_contents(
+			$enorme,
+			$this->sql_vecchio(
+				$this->tabelle_vecchie(
+					array(
+						$this->atto_vecchio( array( 'Soggetti' => $distinte( AnalisiImportazione::SOGGETTI_LETTI + 1 ) ) ),
+					)
+				)
+			)
+		);
+		$testo = $this->testo_di( $this->atto( $this->rapporto_di( $enorme ), '1' )['segnalazioni'], 'soggetti_senza_posto' );
+		$this->assertStringContainsString( 'e altre ' . ( AnalisiImportazione::SOGGETTI_LETTI - AnalisiImportazione::SOGGETTI_NOMINATI ), $testo );
+		$this->assertStringContainsString( 'non si legge per intero', $testo );
 	}
 
 	/**

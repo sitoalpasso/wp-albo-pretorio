@@ -118,7 +118,8 @@ finché le amministrazioni ospitate (ALBO-29) non ci sono. `Data` e `DataOblio` 
 e non servono. Un testo che il nuovo albo non conserverebbe alla lettera, o non in UTF-8, è un
 dubbio; per responsabile, ufficio e richiedente vale anche un carattere di controllo (a capo,
 tabulazione) ai margini, che togliendo gli spazi ai lati si perderebbe. Delle altre persone
-collegate se ne nominano venti e le altre si contano.
+collegate se ne nominano venti e le altre si contano; l'elenco si legge una voce alla volta e
+oltre mille voci la lettura si ferma e lo dice ("e altre ancora").
 
 **Documenti.** Il percorso registrato è completo, sul server di provenienza: vince il file
 dell'archivio il cui nome coincide con la parte finale più lunga del percorso, così si trova
@@ -178,13 +179,19 @@ Il rapporto vive solo nella pagina che lo mostra. Ogni testo esce sfuggito.
   opzioni, i nomi e le colonne delle tabelle dell'albo e delle opzioni, e i nomi delle altre
   tabelle (delle quali le colonne non si tengono). Una riga con più di 4096 valori (il massimo di colonne di una tabella MySQL) si
   ferma mentre si legge, e così una creazione con più di 4096 colonne o più di 8192
-  definizioni, anche di un'altra tabella; un archivio con più di 200000 file si rifiuta prima di guardarli. Le
+  definizioni, anche di un'altra tabella. L'elenco esplicito delle colonne di un inserimento si
+  legge un nome alla volta e si rifiuta alla colonna 4097, a un nome vuoto o a un nome ripetuto,
+  senza costruire il resto dell'elenco; un archivio con più di 200000 file si rifiuta prima di guardarli. Le
   righe delle altre tabelle non si tengono e non contano. Il backup del plugin scrive un'istruzione per record e mysqldump le unisce fino
   a un megabyte circa: i limiti stanno molto sopra un albo vero.
 - Un nome di categoria, amministrazione, persona o ufficio più lungo di 1000 byte si
   ricopierebbe su ogni atto che lo cita: la riga non si usa (conflitto generale) e gli atti la
   trovano assente. Il rapporto si misura atto per atto: oltre 64 MB stimati si ferma, dice
-  quanti atti ha analizzato su quanti, e gli altri non li analizza.
+  quanti atti ha analizzato su quanti, e gli altri non li analizza. Il riepilogo e le categorie
+  contano allora solo gli atti analizzati, e la schermata lo dice sopra i conteggi; la
+  numerazione (ultimo numero usato, proposta di partenza) e i file non citati si calcolano invece
+  su tutti gli atti del backup, perché un risultato parziale presentato come intero sarebbe
+  sbagliato.
 - La numerazione del nuovo albo non risponde, per i numeri usati o per la riga dell'anno con la
   partenza dichiarata: conflitto generale e conflitto su ogni atto di quell'anno, perché non si
   può dire se i numeri sono già stati dati o oltre la partenza. Un anno senza riga non è un

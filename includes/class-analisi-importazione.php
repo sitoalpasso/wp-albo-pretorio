@@ -72,6 +72,13 @@ final class AnalisiImportazione {
 	const SOGGETTI_NOMINATI = 20;
 
 	/**
+	 * Le voci dell'elenco delle altre persone che si leggono al massimo: oltre, l'elenco non e' piu' un elenco vero.
+	 *
+	 * @var int
+	 */
+	const SOGGETTI_LETTI = 1000;
+
+	/**
 	 * Byte stimati oltre i quali il rapporto si ferma: gli atti successivi non si analizzano.
 	 *
 	 * @var int
@@ -388,7 +395,7 @@ final class AnalisiImportazione {
 					'rapporto_troppo_grande',
 					sprintf(
 						/* translators: 1: atti analizzati, 2: atti nel backup. */
-						__( 'Il rapporto e\' diventato troppo grande per essere mostrato: atti analizzati %1$d su %2$d, gli altri no.', 'albo-pretorio-pa' ),
+						__( 'Il rapporto e\' diventato troppo grande per essere mostrato: atti analizzati %1$d su %2$d, gli altri no. Il riepilogo e le categorie contano solo gli atti analizzati; la numerazione e i file non citati si calcolano invece su tutto il backup.', 'albo-pretorio-pa' ),
 						count( $atti ),
 						count( $atti_letti )
 					)
@@ -414,6 +421,23 @@ final class AnalisiImportazione {
 				$file_usati
 			);
 			$misura += strlen( serialize( end( $atti ) ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize -- solo per misurare la grandezza dell'atto nel rapporto.
+		}
+
+		// Gli atti non analizzati contano lo stesso per i file citati: un file di quegli atti non e' un file che nessuno cita.
+		foreach ( array_slice( $atti_letti, count( $atti ) ) as $riga ) {
+			$id = (string) ( $riga['IdAtto'] ?? '' );
+
+			if ( ! $letto['zip'] || self::bozza( $riga ) || isset( $id_doppi[ $id ] ) ) {
+				continue;
+			}
+
+			foreach ( $allegati[ $id ] ?? array() as $allegato ) {
+				$file = self::trova_file( (string) ( $allegato['Allegato'] ?? '' ), $letto['file'] );
+
+				if ( null !== $file['nome'] ) {
+					$file_usati[ $file['nome'] ] = true;
+				}
+			}
 		}
 
 		$ids = array_flip(
@@ -475,8 +499,9 @@ final class AnalisiImportazione {
 			);
 		}
 
-		$numerazione = self::numerazione( $atti, $letto['opzioni'], $contesto, $generali );
-		$riepilogo   = self::riepilogo( $atti );
+		// La numerazione guarda tutti gli atti del backup, anche quelli che il rapporto non ha potuto analizzare.
+		$numerazione = self::numerazione( array_map( array( self::class, 'numero_anno' ), $atti_letti ), $letto['opzioni'], $contesto, $generali );
+		$riepilogo   = self::riepilogo( $atti, count( $atti_letti ) );
 
 		return array(
 			'pacchetto'    => array(
@@ -529,7 +554,7 @@ final class AnalisiImportazione {
 
 		$atto = array(
 			'id'           => $id,
-			'numero'       => ( null !== $numero && $numero > 0 && $numero <= Repertorio::MASSIMO ) ? $numero : 0,
+			'numero'       => self::numero_anno( $riga )['numero'],
 			'scritto'      => null === $grezzo ? 'NULL' : (string) $grezzo,
 			'anno'         => $anno,
 			'oggetto'      => $oggetto,
@@ -548,7 +573,7 @@ final class AnalisiImportazione {
 		);
 
 		// Solo lo zero vero e' una bozza: un numero assente, negativo o illeggibile e' un dato da correggere.
-		if ( null !== $grezzo && '0' === trim( $grezzo ) ) {
+		if ( self::bozza( $riga ) ) {
 			$atto['stato']        = 'bozza';
 			$atto['pubblico']     = __( 'Non si porta: e\' una bozza mai pubblicata. Si chiude prima nel vecchio albo, o si ricrea nel nuovo.', 'albo-pretorio-pa' );
 			$atto['esito']        = self::ESCLUSO;
@@ -1009,7 +1034,8 @@ final class AnalisiImportazione {
 			}
 		}
 
-		$soggetti = self::soggetti( (string) ( $riga['Soggetti'] ?? '' ) );
+		$letti    = self::soggetti( (string) ( $riga['Soggetti'] ?? '' ) );
+		$soggetti = $letti['ids'];
 
 		if ( array() !== $soggetti ) {
 			$nomi = array();
@@ -1024,6 +1050,14 @@ final class AnalisiImportazione {
 					/* translators: %d: numero di altre persone. */
 					__( 'e altre %d', 'albo-pretorio-pa' ),
 					count( $soggetti ) - self::SOGGETTI_NOMINATI
+				);
+			}
+
+			if ( $letti['troncato'] ) {
+				$nomi[] = sprintf(
+					/* translators: %d: numero di voci lette. */
+					__( 'e altre ancora: l\'elenco supera %d voci e non si legge per intero', 'albo-pretorio-pa' ),
+					self::SOGGETTI_LETTI
 				);
 			}
 
@@ -1323,9 +1357,34 @@ final class AnalisiImportazione {
 	}
 
 	/**
+	 * Se una riga degli atti e' una bozza: solo lo zero vero, non un numero assente o illeggibile.
+	 *
+	 * @param array<string, string|null> $riga Riga della tabella degli atti.
+	 * @return bool
+	 */
+	private static function bozza( array $riga ): bool {
+		return null !== ( $riga['Numero'] ?? null ) && '0' === trim( (string) $riga['Numero'] );
+	}
+
+	/**
+	 * Numero di registro e anno di una riga degli atti, come li legge il rapporto: un numero non valido vale zero.
+	 *
+	 * @param array<string, string|null> $riga Riga della tabella degli atti.
+	 * @return array{numero: int, anno: int}
+	 */
+	private static function numero_anno( array $riga ): array {
+		$numero = self::intero( $riga['Numero'] ?? null );
+
+		return array(
+			'numero' => ( null !== $numero && $numero > 0 && $numero <= Repertorio::MASSIMO ) ? $numero : 0,
+			'anno'   => self::intero( $riga['Anno'] ?? null ) ?? 0,
+		);
+	}
+
+	/**
 	 * La numerazione: per anno, il contatore e la proposta di partenza.
 	 *
-	 * @param array<int, array<string, mixed>> $atti     Atti ricostruiti.
+	 * @param array<int, array<string, mixed>> $atti     Numero e anno di tutti gli atti del backup.
 	 * @param array<string, string|null>       $opzioni  Impostazioni del plugin di provenienza.
 	 * @param array<string, mixed>             $contesto Stato del nuovo albo.
 	 * @param array<int, array>                $generali Segnalazioni generali, aggiornate.
@@ -1459,10 +1518,11 @@ final class AnalisiImportazione {
 	/**
 	 * I conteggi del rapporto.
 	 *
-	 * @param array<int, array<string, mixed>> $atti Atti ricostruiti.
+	 * @param array<int, array<string, mixed>> $atti       Atti ricostruiti.
+	 * @param int                              $nel_backup Atti nel backup, analizzati o no.
 	 * @return array<string, array<string, int>>
 	 */
-	private static function riepilogo( array $atti ): array {
+	private static function riepilogo( array $atti, int $nel_backup ): array {
 		$riepilogo = array(
 			'esiti' => array(
 				self::IMPORTABILE => 0,
@@ -1478,7 +1538,10 @@ final class AnalisiImportazione {
 			$riepilogo['stati'][ $atto['stato'] ] = ( $riepilogo['stati'][ $atto['stato'] ] ?? 0 ) + 1;
 		}
 
-		$riepilogo['totale'] = array( 'atti' => count( $atti ) );
+		$riepilogo['totale'] = array(
+			'atti'       => count( $atti ),
+			'nel_backup' => $nel_backup,
+		);
 
 		return $riepilogo;
 	}
@@ -1632,21 +1695,31 @@ final class AnalisiImportazione {
 	 * Il testo non si deserializza: se ne leggono solo i valori numerici
 	 * dell'elenco, chiave per valore.
 	 *
+	 * Le voci si leggono una alla volta e la lettura si ferma alla voce
+	 * SOGGETTI_LETTI: un campo enorme non si espande in memoria.
+	 *
 	 * @param string $testo Valore del campo.
-	 * @return array<int, string>
+	 * @return array{ids: array<int, string>, troncato: bool} Gli identificativi distinti e se l'elenco e' stato letto solo in parte.
 	 */
 	private static function soggetti( string $testo ): array {
-		if ( '' === trim( $testo ) || 0 === preg_match_all( '/i:\d+;(?:i:(\d+)|s:\d+:"(\d+)");/', $testo, $trovati, PREG_SET_ORDER ) ) {
-			return array();
+		$ids    = array();
+		$voci   = 0;
+		$inizio = 0;
+
+		while ( 1 === preg_match( '/i:\d+;(?:i:(\d+)|s:\d+:"(\d+)");/', $testo, $trovato, PREG_OFFSET_CAPTURE, $inizio ) ) {
+			if ( ++$voci > self::SOGGETTI_LETTI ) {
+				break;
+			}
+
+			$ids[ isset( $trovato[2] ) && '' !== $trovato[2][0] ? $trovato[2][0] : $trovato[1][0] ] = true;
+
+			$inizio = $trovato[0][1] + strlen( $trovato[0][0] );
 		}
 
-		$ids = array();
-
-		foreach ( $trovati as $trovato ) {
-			$ids[] = '' !== $trovato[1] ? $trovato[1] : $trovato[2];
-		}
-
-		return array_values( array_unique( $ids ) );
+		return array(
+			'ids'      => array_map( 'strval', array_keys( $ids ) ),
+			'troncato' => $voci > self::SOGGETTI_LETTI,
+		);
 	}
 
 	/**

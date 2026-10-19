@@ -867,11 +867,19 @@ final class LettoreBackup {
 				return self::errore_tabella( $nome );
 			}
 
-			$colonne = array_map(
-				array( self::class, 'nome' ),
-				array_map( 'trim', explode( ',', substr( $resto, 1, $chiusa - 1 ) ) )
-			);
-			$resto   = ltrim( substr( $resto, $chiusa + 1 ) );
+			$colonne = self::colonne_inserimento( substr( $resto, 1, $chiusa - 1 ) );
+
+			if ( null === $colonne ) {
+				return self::errore(
+					sprintf(
+						/* translators: %s: nome della tabella. */
+						__( 'nel file SQL i dati della tabella %s portano un elenco di colonne non valido: vuoto, ripetuto o piu\' lungo di quanto una tabella possa avere.', 'albo-pretorio-pa' ),
+						$nome
+					)
+				);
+			}
+
+			$resto = ltrim( substr( $resto, $chiusa + 1 ) );
 		}
 
 		if ( 1 !== preg_match( '/\AVALUES?\s*/i', $resto, $parti ) ) {
@@ -1215,6 +1223,41 @@ final class LettoreBackup {
 		$colonne[] = self::nome( $parti[1] );
 
 		return count( $colonne ) <= self::COLONNE_MASSIME;
+	}
+
+	/**
+	 * L'elenco esplicito delle colonne di un inserimento, letto una colonna alla volta.
+	 *
+	 * La lettura si ferma alla prima colonna oltre il massimo, senza costruire il resto dell'elenco.
+	 *
+	 * @param string $elenco Testo fra le parentesi.
+	 * @return string[]|null Le colonne, o null se l'elenco ha nomi vuoti, ripetuti o troppi.
+	 */
+	private static function colonne_inserimento( string $elenco ): ?array {
+		$colonne = array();
+		$visti   = array();
+		$inizio  = 0;
+		$lungo   = strlen( $elenco );
+
+		while ( $inizio <= $lungo ) {
+			if ( count( $colonne ) >= self::COLONNE_MASSIME ) {
+				return null;
+			}
+
+			$virgola = strpos( $elenco, ',', $inizio );
+			$fine    = false === $virgola ? $lungo : $virgola;
+			$colonna = self::nome( substr( $elenco, $inizio, $fine - $inizio ) );
+
+			if ( '' === $colonna || isset( $visti[ $colonna ] ) ) {
+				return null;
+			}
+
+			$visti[ $colonna ] = true;
+			$colonne[]         = $colonna;
+			$inizio            = $fine + 1;
+		}
+
+		return $colonne;
 	}
 
 	/**
