@@ -131,7 +131,7 @@ ci sono stanno in una nota sola, con i numeri interni), e la schermata li elenca
 accanto a ogni documento trovato mostra il file dell'archivio scelto.
 
 **Identificativi.** Un numero interno di atto assente o portato da più atti è un conflitto:
-quegli atti non ricevono allegati né etichette, e l'elenco degli identificativi sta una volta
+quegli atti non ricevono allegati né etichette (neppure come nota), e l'elenco degli identificativi sta una volta
 sola fra le segnalazioni generali. Un identificativo ripetuto nelle tabelle di categorie,
 enti, responsabili e uffici è un conflitto generale, e gli atti che lo citano lo trovano
 assente invece di riceverne una riga a caso.
@@ -178,8 +178,10 @@ Il rapporto vive solo nella pagina che lo mostra. Ogni testo esce sfuggito.
   ferma mentre si legge; un archivio con più di 200000 file si rifiuta prima di guardarli. Le
   righe delle altre tabelle non si tengono e non contano. Il backup del plugin scrive un'istruzione per record e mysqldump le unisce fino
   a un megabyte circa: i limiti stanno molto sopra un albo vero.
-- La numerazione del nuovo albo non risponde: conflitto generale, perché non si può dire se i
-  numeri sono già stati dati.
+- La numerazione del nuovo albo non risponde, per i numeri usati o per la riga dell'anno con la
+  partenza dichiarata: conflitto generale e conflitto su ogni atto di quell'anno, perché non si
+  può dire se i numeri sono già stati dati o oltre la partenza. Un anno senza riga non è un
+  guasto: è un anno ancora da numerare.
 
 ## Cosa non fa
 
