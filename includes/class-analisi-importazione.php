@@ -58,6 +58,27 @@ final class AnalisiImportazione {
 	const ESCLUSO = 'escluso';
 
 	/**
+	 * Byte oltre i quali un nome di categoria, amministrazione, persona o ufficio non e' un nome vero.
+	 *
+	 * @var int
+	 */
+	const NOME_MASSIMO = 1000;
+
+	/**
+	 * Le altre persone collegate a un atto che il rapporto nomina; le successive si contano.
+	 *
+	 * @var int
+	 */
+	const SOGGETTI_NOMINATI = 20;
+
+	/**
+	 * Byte stimati oltre i quali il rapporto si ferma: gli atti successivi non si analizzano.
+	 *
+	 * @var int
+	 */
+	const RAPPORTO_MASSIMO = 67108864;
+
+	/**
 	 * Livelli delle segnalazioni, dal piu' grave.
 	 *
 	 * @var array<int, string>
@@ -208,13 +229,21 @@ final class AnalisiImportazione {
 		}
 
 		// Un identificativo che compare due volte non dice quale riga valga: si toglie dall'indice e si segnala, invece di tenere l'ultima.
-		$per_id    = static function ( array $righe, string $chiave, string $tabella ) use ( &$generali, $letto ): array {
+		$per_id    = static function ( array $righe, string $chiave, string $tabella, array $campi ) use ( &$generali, $letto ): array {
 			$indice = array();
 			$doppi  = array();
+			$lunghi = array();
 
 			foreach ( $righe as $riga ) {
 				if ( isset( $riga[ $chiave ] ) ) {
 					$id = (string) $riga[ $chiave ];
+
+					// Un nome piu' lungo di qualunque nome vero si ricopierebbe su ogni atto che lo cita: la riga non si usa.
+					foreach ( $campi as $campo ) {
+						if ( strlen( (string) ( $riga[ $campo ] ?? '' ) ) > self::NOME_MASSIMO ) {
+							$lunghi[ $id ] = true;
+						}
+					}
 
 					if ( isset( $indice[ $id ] ) || isset( $doppi[ $id ] ) ) {
 						$doppi[ $id ] = true;
@@ -222,6 +251,24 @@ final class AnalisiImportazione {
 
 					$indice[ $id ] = $riga;
 				}
+			}
+
+			if ( array() !== $lunghi ) {
+				$indice = array_diff_key( $indice, $lunghi );
+				$elenco = array_keys( $lunghi );
+				sort( $elenco, SORT_NATURAL );
+
+				$generali[] = self::segnalazione(
+					'conflitto',
+					'nome_troppo_lungo',
+					sprintf(
+						/* translators: 1: nome della tabella, 2: identificativi, 3: lunghezza massima. */
+						__( 'Nella tabella %1$s alcune righe hanno un nome piu\' lungo di %3$d caratteri (identificativi %2$s): non si usano, e gli atti che le citano le trovano assenti.', 'albo-pretorio-pa' ),
+						$letto['prefisso'] . $tabella,
+						implode( ', ', $elenco ),
+						self::NOME_MASSIMO
+					)
+				);
 			}
 
 			if ( array() !== $doppi ) {
@@ -243,10 +290,10 @@ final class AnalisiImportazione {
 
 			return $indice;
 		};
-		$categorie = $per_id( $tabelle['albopretorio_categorie'] ?? array(), 'IdCategoria', 'albopretorio_categorie' );
-		$enti      = $per_id( $tabelle['albopretorio_enti'] ?? array(), 'IdEnte', 'albopretorio_enti' );
-		$persone   = $per_id( $tabelle['albopretorio_resprocedura'] ?? array(), 'IdResponsabile', 'albopretorio_resprocedura' );
-		$uffici    = $per_id( $tabelle['albopretorio_unitaorganizzative'] ?? array(), 'IdUO', 'albopretorio_unitaorganizzative' );
+		$categorie = $per_id( $tabelle['albopretorio_categorie'] ?? array(), 'IdCategoria', 'albopretorio_categorie', array( 'Nome' ) );
+		$enti      = $per_id( $tabelle['albopretorio_enti'] ?? array(), 'IdEnte', 'albopretorio_enti', array( 'Nome' ) );
+		$persone   = $per_id( $tabelle['albopretorio_resprocedura'] ?? array(), 'IdResponsabile', 'albopretorio_resprocedura', array( 'Cognome', 'Nome' ) );
+		$uffici    = $per_id( $tabelle['albopretorio_unitaorganizzative'] ?? array(), 'IdUO', 'albopretorio_unitaorganizzative', array( 'Nome' ) );
 		$etichette = array();
 
 		foreach ( $tabelle['albopretorio_attimeta'] ?? array() as $riga ) {
@@ -330,9 +377,26 @@ final class AnalisiImportazione {
 
 		$file_usati = array();
 		$atti       = array();
+		$misura     = 0;
+		$massimo    = (int) ( $contesto['rapporto_massimo'] ?? self::RAPPORTO_MASSIMO );
 
 		foreach ( $atti_letti as $riga ) {
-			$atti[] = self::atto(
+			// Il rapporto si misura atto per atto: oltre il massimo ci si ferma e lo si dice, invece di esaurire la memoria.
+			if ( $misura > $massimo ) {
+				$generali[] = self::segnalazione(
+					'conflitto',
+					'rapporto_troppo_grande',
+					sprintf(
+						/* translators: 1: atti analizzati, 2: atti nel backup. */
+						__( 'Il rapporto e\' diventato troppo grande per essere mostrato: atti analizzati %1$d su %2$d, gli altri no.', 'albo-pretorio-pa' ),
+						count( $atti ),
+						count( $atti_letti )
+					)
+				);
+				break;
+			}
+
+			$atti[]  = self::atto(
 				$riga,
 				array(
 					'categorie' => $categorie,
@@ -349,6 +413,7 @@ final class AnalisiImportazione {
 				$contesto,
 				$file_usati
 			);
+			$misura += strlen( serialize( end( $atti ) ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize -- solo per misurare la grandezza dell'atto nel rapporto.
 		}
 
 		$ids = array_flip(
@@ -872,6 +937,10 @@ final class AnalisiImportazione {
 			DatiProcedimento::UFFICIO      => '',
 			DatiProcedimento::RICHIEDENTE  => trim( (string) ( $riga['Richiedente'] ?? '' ) ),
 		);
+		// Il testo com'e' scritto nel backup, prima di togliere gli spazi ai lati: un carattere di controllo ai margini si perderebbe.
+		$grezzi = array(
+			DatiProcedimento::RICHIEDENTE => (string) ( $riga['Richiedente'] ?? '' ),
+		);
 
 		$responsabile = (string) ( $riga['RespProc'] ?? '' );
 
@@ -882,6 +951,7 @@ final class AnalisiImportazione {
 				$segnala[] = self::segnalazione( 'dubbio', 'responsabile_assente', __( 'Il responsabile del procedimento indicato non c\'e\' fra le persone del backup.', 'albo-pretorio-pa' ) );
 			} else {
 				$valori[ DatiProcedimento::RESPONSABILE ] = self::persona( $persona );
+				$grezzi[ DatiProcedimento::RESPONSABILE ] = (string) ( $persona['Cognome'] ?? '' ) . (string) ( $persona['Nome'] ?? '' );
 			}
 		}
 
@@ -890,6 +960,7 @@ final class AnalisiImportazione {
 		if ( '' !== $ufficio && '0' !== $ufficio ) {
 			if ( isset( $indici['uffici'][ $ufficio ] ) ) {
 				$valori[ DatiProcedimento::UFFICIO ] = trim( (string) ( $indici['uffici'][ $ufficio ]['Nome'] ?? '' ) );
+				$grezzi[ DatiProcedimento::UFFICIO ] = (string) ( $indici['uffici'][ $ufficio ]['Nome'] ?? '' );
 			} else {
 				$segnala[] = self::segnalazione( 'dubbio', 'ufficio_assente', __( 'L\'ufficio indicato non c\'e\' fra gli uffici del backup.', 'albo-pretorio-pa' ) );
 			}
@@ -909,7 +980,7 @@ final class AnalisiImportazione {
 
 			$letto = DatiProcedimento::leggi_elenco( $valore );
 
-			if ( is_wp_error( $letto ) || array( $valore ) !== $letto ) {
+			if ( is_wp_error( $letto ) || array( $valore ) !== $letto || 1 === preg_match( '/[\x00-\x1F\x7F]/', $grezzi[ $dato ] ?? '' ) ) {
 				$segnala[] = self::segnalazione(
 					'dubbio',
 					'nome_non_conservabile',
@@ -943,8 +1014,17 @@ final class AnalisiImportazione {
 		if ( array() !== $soggetti ) {
 			$nomi = array();
 
-			foreach ( $soggetti as $soggetto ) {
+			// Si nominano le prime persone e si contano le altre: il rapporto non ricopia un elenco senza fine su ogni atto.
+			foreach ( array_slice( $soggetti, 0, self::SOGGETTI_NOMINATI ) as $soggetto ) {
 				$nomi[] = isset( $indici['persone'][ $soggetto ] ) ? self::persona( $indici['persone'][ $soggetto ] ) : '?';
+			}
+
+			if ( count( $soggetti ) > self::SOGGETTI_NOMINATI ) {
+				$nomi[] = sprintf(
+					/* translators: %d: numero di altre persone. */
+					__( 'e altre %d', 'albo-pretorio-pa' ),
+					count( $soggetti ) - self::SOGGETTI_NOMINATI
+				);
 			}
 
 			$segnala[] = self::segnalazione(

@@ -529,6 +529,23 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$letto = LettoreBackup::leggi_sql( array( $tante . implode( ',', $righe ) . ';' ), array( 'dati' => 100 * 3 * LettoreBackup::VALORE_COSTO ) );
 		$this->assertStringContainsString( 'troppi', $letto->get_error_message(), 'Molte impostazioni contano anche loro.' );
 
+		// Una creazione con piu' colonne di quante una tabella possa averne si ferma mentre si legge, anche per un'altra tabella.
+		$larghe = static function ( string $tabella, int $quante ): string {
+			return 'CREATE TABLE `' . $tabella . '` (' . implode( ',', array_map( fn( $n ) => '`c' . $n . '` int', range( 1, $quante ) ) ) . ');';
+		};
+
+		$this->assertIsArray( LettoreBackup::leggi_sql( array( $creazione . $larghe( 'altra', LettoreBackup::COLONNE_MASSIME ) ) ), 'Al massimo si legge.' );
+
+		foreach ( array( 'l_albopretorio_allegati', 'altra' ) as $tabella ) {
+			$letto = LettoreBackup::leggi_sql( array( $creazione . $larghe( $tabella, LettoreBackup::COLONNE_MASSIME + 1 ) ) );
+			$this->assertWPError( $letto, $tabella );
+			$this->assertStringContainsString( 'piu\' colonne', $letto->get_error_message(), $tabella );
+		}
+
+		// Anche le definizioni che non sono colonne hanno un limite.
+		$indici = 'CREATE TABLE `altra` (`a` int,' . implode( ',', array_fill( 0, 2 * LettoreBackup::COLONNE_MASSIME, 'KEY (`a`)' ) ) . ');';
+		$this->assertStringContainsString( 'piu\' colonne', LettoreBackup::leggi_sql( array( $creazione . $indici ) )->get_error_message() );
+
 		// Le creazioni contano anche loro, senza nessun inserimento: quelle delle altre tabelle per il nome, quelle dell'albo per nome e colonne.
 		$estranee = '';
 
@@ -1459,6 +1476,49 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertSame( 'conflitto', $this->codici( $rapporto['segnalazioni'] )['id_doppio_tabella'] ?? null );
 		$this->assertStringContainsString( 'wp_albopretorio_categorie', $this->testo_di( $rapporto['segnalazioni'], 'id_doppio_tabella' ) );
 		$this->assertSame( 'conflitto', $this->codici( $this->atto( $rapporto, '1' )['segnalazioni'] )['categoria_assente'] ?? null, 'L\'atto non riceve una delle due a caso.' );
+
+		// Un nome di categoria lungo quanto nessun nome vero: la riga non si usa, e non si ricopia su ogni atto.
+		$molti = array();
+
+		for ( $n = 1; $n <= 20; $n++ ) {
+			$molti[] = $this->atto_vecchio(
+				array(
+					'IdAtto' => $n,
+					'Numero' => $n,
+				)
+			);
+		}
+
+		$tabelle                                      = $this->tabelle_vecchie( $molti );
+		$tabelle['albopretorio_categorie'][0]['Nome'] = str_repeat( 'n', AnalisiImportazione::NOME_MASSIMO + 1 );
+		$percorso                                     = $this->temporaneo( '.sql' );
+		file_put_contents( $percorso, $this->sql_vecchio( $tabelle ) );
+		$rapporto = $this->rapporto_di( $percorso );
+
+		$this->assertSame( 'conflitto', $this->codici( $rapporto['segnalazioni'] )['nome_troppo_lungo'] ?? null );
+		$this->assertSame( 'conflitto', $this->codici( $this->atto( $rapporto, '1' )['segnalazioni'] )['categoria_assente'] ?? null );
+		$lungo                                        = strlen( (string) wp_json_encode( $rapporto['atti'] ) );
+		$tabelle['albopretorio_categorie'][0]['Nome'] = 'n';
+		file_put_contents( $percorso, $this->sql_vecchio( $tabelle ) );
+		$this->assertLessThan( strlen( (string) wp_json_encode( $this->rapporto_di( $percorso )['atti'] ) ) + AnalisiImportazione::NOME_MASSIMO, $lungo, 'Il nome lungo non e\' ricopiato sugli atti.' );
+
+		// Al nome massimo la categoria si usa.
+		$tabelle['albopretorio_categorie'][0]['Nome'] = str_repeat( 'n', AnalisiImportazione::NOME_MASSIMO );
+		file_put_contents( $percorso, $this->sql_vecchio( $tabelle ) );
+		$this->assertArrayNotHasKey( 'nome_troppo_lungo', $this->codici( $this->rapporto_di( $percorso )['segnalazioni'] ) );
+
+		// Il rapporto si misura mentre si costruisce: oltre il massimo si ferma, e lo dice.
+		$letto    = LettoreBackup::leggi( $percorso );
+		$contesto = AnalisiImportazione::contesto( AnalisiImportazione::anni( $letto ), Passaggi::ora() );
+
+		$this->assertCount( 20, AnalisiImportazione::rapporto( $letto, $contesto )['atti'] );
+
+		$contesto['rapporto_massimo'] = 1;
+		$fermato                      = AnalisiImportazione::rapporto( $letto, $contesto );
+
+		$this->assertCount( 1, $fermato['atti'], 'Il primo atto supera gia\' il massimo: il secondo non si analizza.' );
+		$this->assertSame( 'conflitto', $this->codici( $fermato['segnalazioni'] )['rapporto_troppo_grande'] ?? null );
+		$this->assertStringContainsString( '1 su 20', $this->testo_di( $fermato['segnalazioni'], 'rapporto_troppo_grande' ) );
 	}
 
 	/**
@@ -1492,6 +1552,24 @@ class ImportazioneTest extends \WP_UnitTestCase {
 					'Oggetto'     => "Oggetto \xC0\xAF non leggibile",
 				)
 			),
+			// Caratteri di controllo ai margini: togliendoli il testo cambierebbe, quindi non si conserva alla lettera.
+			$this->atto_vecchio(
+				array(
+					'IdAtto'               => 3,
+					'Numero'               => 3,
+					'RespProc'             => 8,
+					'IdUnitaOrganizzativa' => 4,
+					'Richiedente'          => "\nComune vicino",
+				)
+			),
+			// Molte persone collegate: se ne nominano le prime e si contano le altre.
+			$this->atto_vecchio(
+				array(
+					'IdAtto'   => 4,
+					'Numero'   => 4,
+					'Soggetti' => 'a:25:{' . implode( '', array_map( fn( $n ) => 'i:' . $n . ';i:' . ( 1000 + $n ) . ';', range( 0, 24 ) ) ) . '}',
+				)
+			),
 		);
 
 		$tabelle                                    = $this->tabelle_vecchie( $atti );
@@ -1516,11 +1594,32 @@ class ImportazioneTest extends \WP_UnitTestCase {
 				'Note'           => '',
 				'Funzione'       => 'OP',
 			),
+			array(
+				'IdResponsabile' => 8,
+				'Cognome'        => "Verdi\r",
+				'Nome'           => 'Anna',
+				'Email'          => '',
+				'Telefono'       => '',
+				'Orario'         => '',
+				'Note'           => '',
+				'Funzione'       => 'RP',
+			),
 		);
 		$tabelle['albopretorio_unitaorganizzative'] = array(
 			array(
 				'IdUO'      => 2,
 				'Nome'      => 'Ufficio tecnico',
+				'Indirizzo' => '',
+				'Url'       => '',
+				'Email'     => '',
+				'Pec'       => '',
+				'Telefono'  => '',
+				'Fax'       => '',
+				'Note'      => '',
+			),
+			array(
+				'IdUO'      => 4,
+				'Nome'      => "\tUfficio legale",
 				'Indirizzo' => '',
 				'Url'       => '',
 				'Email'     => '',
@@ -1579,6 +1678,19 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertSame( 'dubbio', $secondo['altra_amministrazione'] ?? null );
 		$this->assertStringContainsString( 'Amministrazione ospitata di prova', $this->testo_di( $this->atto( $rapporto, '2' )['segnalazioni'], 'altra_amministrazione' ) );
 		$this->assertSame( 'dubbio', $secondo['testo_non_leggibile'] ?? null );
+
+		$this->assertArrayNotHasKey( 'nome_non_conservabile', $codici, 'I nomi puliti si conservano.' );
+
+		$terzo = array_values( wp_list_filter( $this->atto( $rapporto, '3' )['segnalazioni'], array( 'codice' => 'nome_non_conservabile' ) ) );
+		$this->assertCount( 3, $terzo, 'Richiedente, responsabile e ufficio con un carattere di controllo ai margini.' );
+
+		foreach ( array( DatiProcedimento::RESPONSABILE, DatiProcedimento::UFFICIO, DatiProcedimento::RICHIEDENTE ) as $indice => $dato ) {
+			$this->assertStringStartsWith( DatiProcedimento::etichetta( $dato ), wp_list_pluck( $terzo, 'testo' )[ $indice ] ?? '' );
+		}
+
+		$quarto = $this->testo_di( $this->atto( $rapporto, '4' )['segnalazioni'], 'soggetti_senza_posto' );
+		$this->assertSame( 20, substr_count( $quarto, '?' ), 'Si nominano le prime venti persone, qui assenti dal backup.' );
+		$this->assertStringContainsString( 'e altre 5', $quarto );
 
 		// L'amministrazione sceglie: il responsabile si mostra ed e' in elenco, l'ufficio si conserva soltanto.
 		$this->assertTrue(

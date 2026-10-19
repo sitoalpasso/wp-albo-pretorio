@@ -689,6 +689,16 @@ final class LettoreBackup {
 				return self::troncato();
 			}
 
+			if ( false === $colonne ) {
+				return self::errore(
+					sprintf(
+						/* translators: %s: nome della tabella. */
+						__( 'la creazione della tabella %s ha piu\' colonne di quante una tabella ne possa avere.', 'albo-pretorio-pa' ),
+						$nome
+					)
+				);
+			}
+
 			// Delle altre tabelle si tiene solo il nome; le colonne si tengono, e si contano, solo per le tabelle che servono.
 			if ( null === self::nota_tabella( $nome, $stato ) ) {
 				return self::ignora( $nome, $stato );
@@ -1117,10 +1127,11 @@ final class LettoreBackup {
 	 * cominciano con una parola chiave di indice o vincolo non sono colonne.
 	 *
 	 * @param string $corpo Testo dopo la parentesi aperta.
-	 * @return array<int, string>|null Nullo se la parentesi della creazione non si chiude: istruzione troncata.
+	 * @return array<int, string>|null|false Nullo se la parentesi della creazione non si chiude (istruzione troncata), falso oltre il massimo di colonne.
 	 */
-	private static function colonne_create( string $corpo ): ?array {
-		$definizioni = array();
+	private static function colonne_create( string $corpo ) {
+		$colonne     = array();
+		$definizioni = 0;
 		$corrente    = '';
 		$livello     = 0;
 		$apice       = '';
@@ -1158,8 +1169,12 @@ final class LettoreBackup {
 				}
 				--$livello;
 			} elseif ( ',' === $carattere && 0 === $livello ) {
-				$definizioni[] = $corrente;
-				$corrente      = '';
+				// Ogni definizione si guarda appena finisce: oltre il massimo la lettura si ferma, senza accumulare.
+				if ( ! self::definizione( $corrente, $colonne, $definizioni ) ) {
+					return false;
+				}
+
+				$corrente = '';
 				continue;
 			}
 
@@ -1170,24 +1185,36 @@ final class LettoreBackup {
 			return null;
 		}
 
-		$definizioni[] = $corrente;
-		$colonne       = array();
+		return self::definizione( $corrente, $colonne, $definizioni ) ? $colonne : false;
+	}
 
-		foreach ( $definizioni as $definizione ) {
-			$definizione = trim( $definizione );
-
-			if ( 1 !== preg_match( '/\A(`[^`]+`|[A-Za-z0-9_$]+)/', $definizione, $parti ) ) {
-				continue;
-			}
-
-			if ( '`' !== $parti[1][0] && in_array( strtoupper( $parti[1] ), array( 'PRIMARY', 'KEY', 'UNIQUE', 'INDEX', 'CONSTRAINT', 'FULLTEXT', 'SPATIAL', 'CHECK', 'FOREIGN' ), true ) ) {
-				continue;
-			}
-
-			$colonne[] = self::nome( $parti[1] );
+	/**
+	 * Una definizione della creazione: se e' una colonna, il suo nome si aggiunge.
+	 *
+	 * @param string             $definizione Testo della definizione.
+	 * @param array<int, string> $colonne     Colonne trovate, aggiornate.
+	 * @param int                $definizioni Definizioni viste, aggiornate.
+	 * @return bool Falso oltre il massimo di colonne o di definizioni.
+	 */
+	private static function definizione( string $definizione, array &$colonne, int &$definizioni ): bool {
+		// Indici e vincoli si aggiungono alle colonne: il doppio del massimo di colonne e' gia' oltre ogni tabella vera.
+		if ( ++$definizioni > 2 * self::COLONNE_MASSIME ) {
+			return false;
 		}
 
-		return $colonne;
+		$definizione = trim( $definizione );
+
+		if ( 1 !== preg_match( '/\A(`[^`]+`|[A-Za-z0-9_$]+)/', $definizione, $parti ) ) {
+			return true;
+		}
+
+		if ( '`' !== $parti[1][0] && in_array( strtoupper( $parti[1] ), array( 'PRIMARY', 'KEY', 'UNIQUE', 'INDEX', 'CONSTRAINT', 'FULLTEXT', 'SPATIAL', 'CHECK', 'FOREIGN' ), true ) ) {
+			return true;
+		}
+
+		$colonne[] = self::nome( $parti[1] );
+
+		return count( $colonne ) <= self::COLONNE_MASSIME;
 	}
 
 	/**
