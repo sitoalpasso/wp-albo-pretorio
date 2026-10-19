@@ -49,7 +49,7 @@ predefinito della colonna, o `NULL`. Le impostazioni valgono solo se stanno nell
 opzioni con lo stesso prefisso delle tabelle dell'albo: in una copia intera di più siti, quelle
 degli altri non entrano. L'ultima istruzione può mancare del punto e virgola (il backup del
 plugin finisce così) e allora si accetta solo se è intera. Il file si rifiuta, con il motivo, se: non c'è il file SQL alla radice o ce n'è più
-d'uno; due file dell'archivio hanno lo stesso nome; il testo finisce a metà di un valore o di
+d'uno; due file dell'archivio hanno lo stesso nome e contenuto diverso (lo stesso file aggiunto due volte, come fa il plugin di provenienza quando due allegati lo citano, si tiene una volta sola); il testo finisce a metà di un valore o di
 un'istruzione (una creazione senza la parentesi che la chiude, un aggiornamento delle
 impostazioni che non arriva alla condizione); una riga ha più o meno valori delle colonne; i
 dati di una tabella arrivano senza colonne note; ci sono le tabelle dell'albo di due siti.
@@ -121,8 +121,10 @@ anche se il sito è stato spostato. Altrimenti un file con lo stesso nome in un'
 purché uno solo (nota). Con l'impronta registrata si dice se il file è quello caricato. Un
 file mancante o diverso è un conflitto su un atto visibile e un dubbio sugli altri. Natura `D`
 è documento, `A` allegato: zero o più documenti sono un dubbio, perché il principale è uno e
-lo sceglie chi importa. "Pubblicato per estratto" non ha posto: dubbio. I file dell'archivio
-non citati da nessun allegato di un atto restano fuori, e la schermata li elenca per nome;
+lo sceglie chi importa. Le versioni precedenti non hanno la colonna `Natura`: un atto con un solo file
+ha quel file come documento principale (nota), con più file il principale lo sceglie chi importa. "Pubblicato per estratto" non ha posto: dubbio. I file dell'archivio
+non citati da nessun allegato di un atto restano fuori (gli allegati di atti che nel backup non
+ci sono stanno in una nota sola, con i numeri interni), e la schermata li elenca per nome;
 accanto a ogni documento trovato mostra il file dell'archivio scelto.
 
 **Campi.** Ogni colonna fuori dall'elenco conosciuto è "non riconosciuta", con il numero di
