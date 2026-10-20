@@ -10,6 +10,7 @@ numero, date, durata, tipo, dati, documenti, se arriverebbe visibile al pubblico
 conflitti e i dubbi da risolvere prima. Poi categorie, numerazione, campi non riconosciuti e
 file. **Non scrive niente**: né atti, né tipi, né numeri, né file, né impostazioni. È il passo
 che precede l'importazione vera, e serve anche da solo, perché mostra lo stato dei dati.
+La scrittura vera, dopo il rapporto, è un passo a sé: [`importazione-vera.md`](importazione-vera.md).
 
 ## Il formato letto
 
