@@ -1,14 +1,19 @@
 <?php
 /**
- * La schermata dell'importazione a secco (ALBO-35).
+ * La schermata dell'importazione dal vecchio albo (ALBO-35).
  *
  * Chi pubblica sceglie un backup del plugin "Albo Pretorio On line", fra quelli
  * che quel plugin ha lasciato nella sua cartella sul server oppure caricandolo
  * dal proprio computer, e legge il rapporto di cosa si porterebbe nel nuovo
- * albo. **Non si scrive niente**: ne' atti, ne' tipi, ne' numeri, ne' file. Il
- * file caricato si legge dal posto temporaneo in cui lo mette PHP, che lo
- * cancella da se' alla fine della richiesta, e il rapporto vive solo nella
+ * albo. La lettura **non scrive niente**: ne' atti, ne' tipi, ne' numeri, ne'
+ * file. Il file caricato si legge dal posto temporaneo in cui lo mette PHP, che
+ * lo cancella da se' alla fine della richiesta, e il rapporto vive solo nella
  * pagina che lo mostra.
+ *
+ * Sotto il rapporto di un backup della cartella c'e' il modulo
+ * dell'importazione vera, con la sua conferma esplicita: il lavoro lo fa
+ * `Importazione`, a blocchi, e la schermata ne mostra l'avanzamento e il
+ * rapporto finale.
  *
  * @package AlboPretorioPa
  */
@@ -67,6 +72,62 @@ final class SchermataImportazione {
 	const CARTELLA = 'AlboOnLine/BackupDatiAlbo';
 
 	/**
+	 * Azione del gettone di sicurezza dell'importazione vera.
+	 *
+	 * @var string
+	 */
+	const AZIONE_IMPORTA = 'albo_pretorio_importazione_vera';
+
+	/**
+	 * Nome del campo del gettone dell'importazione vera.
+	 *
+	 * @var string
+	 */
+	const CAMPO_GETTONE_IMPORTA = 'albo_pretorio_importazione_vera_gettone';
+
+	/**
+	 * Nome del campo con l'operazione: avvia, continua o interrompi.
+	 *
+	 * @var string
+	 */
+	const CAMPO_OPERAZIONE = 'albo_pretorio_importazione_operazione';
+
+	/**
+	 * Nome del campo con l'impronta del backup letto.
+	 *
+	 * @var string
+	 */
+	const CAMPO_IMPRONTA = 'albo_pretorio_importazione_impronta';
+
+	/**
+	 * Nome del campo con il numero di atti che chi importa ha visto.
+	 *
+	 * @var string
+	 */
+	const CAMPO_ATTI = 'albo_pretorio_importazione_atti';
+
+	/**
+	 * Nome del campo con il numero di atti visibili che chi importa ha visto.
+	 *
+	 * @var string
+	 */
+	const CAMPO_VISIBILI = 'albo_pretorio_importazione_in_vista';
+
+	/**
+	 * Nome della casella di conferma dell'importazione.
+	 *
+	 * @var string
+	 */
+	const CAMPO_CONFERMA = 'albo_pretorio_importazione_conferma';
+
+	/**
+	 * Nome della casella di conferma sui dati personali degli atti visibili.
+	 *
+	 * @var string
+	 */
+	const CAMPO_CONFERMA_VISIBILI = 'albo_pretorio_importazione_conferma_in_vista';
+
+	/**
 	 * I due permessi che aprono la schermata: pubblicare atti e consultare gli scaduti.
 	 *
 	 * Il rapporto mostra gli oggetti di tutti gli atti del backup, scaduti
@@ -107,8 +168,8 @@ final class SchermataImportazione {
 
 		add_submenu_page(
 			'edit.php?post_type=' . TIPO,
-			__( 'Importazione a secco', 'albo-pretorio-pa' ),
-			__( 'Importazione a secco', 'albo-pretorio-pa' ),
+			__( 'Importazione dal vecchio albo', 'albo-pretorio-pa' ),
+			__( 'Importazione dal vecchio albo', 'albo-pretorio-pa' ),
 			$permessi[0],
 			self::PAGINA,
 			array( self::class, 'mostra' )
@@ -224,6 +285,110 @@ final class SchermataImportazione {
 	}
 
 	/**
+	 * Il nome del backup della cartella scelto dall'invio, o nulla se l'invio porta un file caricato.
+	 *
+	 * Solo un backup della cartella si importa: i blocchi successivi devono
+	 * rileggere lo stesso file, e un caricamento sparisce alla fine della richiesta.
+	 *
+	 * @param array<string, mixed> $invio Campi inviati.
+	 * @param array<string, mixed> $file  File caricati.
+	 * @return string|null
+	 */
+	private static function nome_dalla_cartella( array $invio, array $file ): ?string {
+		$caricato = $file[ self::CAMPO_FILE ] ?? null;
+
+		if ( is_array( $caricato ) && isset( $caricato['error'] ) && UPLOAD_ERR_NO_FILE !== (int) $caricato['error'] ) {
+			return null;
+		}
+
+		$nome = isset( $invio[ self::CAMPO_PRESENTE ] ) && is_string( $invio[ self::CAMPO_PRESENTE ] ) ? wp_unslash( $invio[ self::CAMPO_PRESENTE ] ) : '';
+
+		return '' !== $nome && array_key_exists( $nome, self::presenti() ) ? $nome : null;
+	}
+
+	/**
+	 * Esegue l'operazione dell'importazione vera chiesta dall'invio.
+	 *
+	 * Il gettone e i permessi si controllano qui. Il backup si accetta solo per
+	 * nome e solo fra quelli della cartella; l'avvio porta subito il primo blocco.
+	 *
+	 * @param array<string, mixed> $invio Campi inviati.
+	 * @return array<string, mixed>|\WP_Error Lo stato dell'importazione.
+	 */
+	public static function importazione_da_invio( array $invio ) {
+		if ( ! self::permessa() ) {
+			return new \WP_Error( 'albo_importazione_permesso', __( 'Non si possiede il permesso di importare gli atti del vecchio albo.', 'albo-pretorio-pa' ) );
+		}
+
+		$gettone = isset( $invio[ self::CAMPO_GETTONE_IMPORTA ] ) && is_string( $invio[ self::CAMPO_GETTONE_IMPORTA ] ) ? sanitize_text_field( wp_unslash( $invio[ self::CAMPO_GETTONE_IMPORTA ] ) ) : '';
+
+		if ( false === wp_verify_nonce( $gettone, self::AZIONE_IMPORTA ) ) {
+			return new \WP_Error( 'albo_importazione_gettone', __( 'Il modulo e\' scaduto: rileggere il backup e ripetere la conferma.', 'albo-pretorio-pa' ) );
+		}
+
+		$operazione = isset( $invio[ self::CAMPO_OPERAZIONE ] ) && is_string( $invio[ self::CAMPO_OPERAZIONE ] ) ? sanitize_key( wp_unslash( $invio[ self::CAMPO_OPERAZIONE ] ) ) : '';
+
+		if ( 'continua' === $operazione ) {
+			return Importazione::prosegui( Importazione::ATTI_PER_BLOCCO, self::scadenza() );
+		}
+
+		if ( 'interrompi' === $operazione ) {
+			return Importazione::interrompi();
+		}
+
+		if ( 'avvia' !== $operazione ) {
+			return new \WP_Error( 'albo_importazione_operazione', __( 'Operazione dell\'importazione non riconosciuta.', 'albo-pretorio-pa' ) );
+		}
+
+		$nome = self::nome_dalla_cartella( $invio, array() );
+
+		if ( null === $nome ) {
+			return new \WP_Error( 'albo_importazione_nessuno', __( 'Il backup scelto non e\' fra quelli presenti nella cartella.', 'albo-pretorio-pa' ) );
+		}
+
+		$impronta = isset( $invio[ self::CAMPO_IMPRONTA ] ) && is_string( $invio[ self::CAMPO_IMPRONTA ] ) ? strtolower( sanitize_text_field( wp_unslash( $invio[ self::CAMPO_IMPRONTA ] ) ) ) : '';
+		$attese   = array(
+			'impronta' => 1 === preg_match( '/\A[0-9a-f]{64}\z/', $impronta ) ? $impronta : '',
+			'atti'     => isset( $invio[ self::CAMPO_ATTI ] ) && is_scalar( $invio[ self::CAMPO_ATTI ] ) ? absint( $invio[ self::CAMPO_ATTI ] ) : -1,
+			'in_vista' => isset( $invio[ self::CAMPO_VISIBILI ] ) && is_scalar( $invio[ self::CAMPO_VISIBILI ] ) ? absint( $invio[ self::CAMPO_VISIBILI ] ) : -1,
+		);
+
+		$stato = Importazione::avvia(
+			self::cartella() . '/' . $nome,
+			$nome,
+			$attese,
+			! empty( $invio[ self::CAMPO_CONFERMA ] ),
+			! empty( $invio[ self::CAMPO_CONFERMA_VISIBILI ] )
+		);
+
+		if ( is_wp_error( $stato ) ) {
+			return $stato;
+		}
+
+		return Importazione::prosegui( Importazione::ATTI_PER_BLOCCO, self::scadenza() );
+	}
+
+	/**
+	 * L'istante dopo il quale il blocco di questa richiesta non comincia un altro atto.
+	 *
+	 * Al piu' i secondi fissati, e mai oltre meta' del tempo che il server
+	 * concede alla richiesta, contato da quando la richiesta e' arrivata.
+	 *
+	 * @return float
+	 */
+	public static function scadenza(): float {
+		$inizio  = isset( $_SERVER['REQUEST_TIME_FLOAT'] ) ? (float) $_SERVER['REQUEST_TIME_FLOAT'] : microtime( true );
+		$secondi = (float) Importazione::SECONDI_PER_BLOCCO;
+		$limite  = (int) ini_get( 'max_execution_time' );
+
+		if ( $limite > 0 ) {
+			$secondi = min( $secondi, $limite / 2 );
+		}
+
+		return $inizio + $secondi;
+	}
+
+	/**
 	 * Il contenuto della schermata.
 	 */
 	public static function mostra(): void {
@@ -231,22 +396,37 @@ final class SchermataImportazione {
 			wp_die( esc_html__( 'Non si possiede il permesso di leggere i backup dell\'albo.', 'albo-pretorio-pa' ), 403 );
 		}
 
-		$esito = null;
+		$esito          = null;
+		$importa        = null;
+		$dalla_cartella = null;
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- il gettone lo verifica da_invio().
-		if ( isset( $_POST[ self::CAMPO_GETTONE ] ) ) {
-			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- il gettone lo verifica da_invio().
-			$esito = self::da_invio( $_POST, $_FILES );
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- i gettoni li verificano da_invio() e importazione_da_invio().
+		if ( isset( $_POST[ self::CAMPO_GETTONE_IMPORTA ] ) ) {
+			$importa = self::importazione_da_invio( $_POST );
+		} elseif ( isset( $_POST[ self::CAMPO_GETTONE ] ) ) {
+			$esito          = self::da_invio( $_POST, $_FILES );
+			$dalla_cartella = self::nome_dalla_cartella( $_POST, $_FILES );
 		} elseif ( self::invio_perso() ) {
 			$esito = new \WP_Error( 'albo_importazione_caricamento', self::troppo_grande() );
 		}
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
 		echo '<div class="wrap albo-pretorio-importazione">';
-		printf( '<h1>%s</h1>', esc_html__( 'Importazione a secco dal vecchio albo', 'albo-pretorio-pa' ) );
+		printf( '<h1>%s</h1>', esc_html__( 'Importazione dal vecchio albo', 'albo-pretorio-pa' ) );
 		printf(
 			'<p>%s</p>',
-			esc_html__( 'Legge il backup del plugin "Albo Pretorio On line" (menu Albo, Utility, Backup) e mostra cosa si porterebbe nel nuovo albo: atti, date, numeri, documenti, conflitti e dubbi. Non scrive niente: ne\' atti, ne\' tipi, ne\' numeri, ne\' file.', 'albo-pretorio-pa' )
+			esc_html__( 'Legge il backup del plugin "Albo Pretorio On line" (menu Albo, Utility, Backup) e mostra cosa si porterebbe nel nuovo albo: atti, date, numeri, documenti, conflitti e dubbi. La lettura non scrive niente: ne\' atti, ne\' tipi, ne\' numeri, ne\' file. L\'importazione vera si avvia dopo, sotto il rapporto, con una conferma esplicita.', 'albo-pretorio-pa' )
 		);
+
+		if ( is_wp_error( $importa ) ) {
+			printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html( $importa->get_error_message() ) );
+		}
+
+		$stato = Importazione::stato();
+
+		if ( null !== $stato ) {
+			self::stampa_importazione( $stato );
+		}
 
 		self::modulo();
 
@@ -254,9 +434,269 @@ final class SchermataImportazione {
 			printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html( $esito->get_error_message() ) );
 		} elseif ( is_array( $esito ) ) {
 			self::stampa( $esito );
+
+			if ( null !== $dalla_cartella ) {
+				self::modulo_importa( $esito, $dalla_cartella );
+			}
 		}
 
 		echo '</div>';
+	}
+
+	/**
+	 * L'indirizzo della schermata, a cui tornano i moduli.
+	 *
+	 * @return string
+	 */
+	private static function indirizzo(): string {
+		return add_query_arg(
+			array(
+				'post_type' => TIPO,
+				'page'      => self::PAGINA,
+			),
+			admin_url( 'edit.php' )
+		);
+	}
+
+	/**
+	 * I campi nascosti comuni ai moduli dell'importazione vera.
+	 *
+	 * @param string $operazione Operazione.
+	 */
+	private static function campi_importa( string $operazione ): void {
+		wp_nonce_field( self::AZIONE_IMPORTA, self::CAMPO_GETTONE_IMPORTA, false );
+		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::CAMPO_OPERAZIONE ), esc_attr( $operazione ) );
+	}
+
+	/**
+	 * Il modulo dell'importazione vera, sotto il rapporto di un backup della cartella.
+	 *
+	 * Mostra quanti atti si porterebbero e chiede la conferma esplicita; la
+	 * seconda casella, separata, riguarda gli atti che arriverebbero visibili.
+	 * I numeri mostrati viaggiano con l'invio: l'avvio li confronta con un
+	 * rapporto rifatto, e se sono cambiati non parte.
+	 *
+	 * @param array<string, mixed> $rapporto Rapporto del backup.
+	 * @param string               $nome     Nome del backup nella cartella.
+	 */
+	private static function modulo_importa( array $rapporto, string $nome ): void {
+		printf( '<h2 id="albo-pretorio-importa">%s</h2>', esc_html__( 'Importa nel nuovo albo', 'albo-pretorio-pa' ) );
+
+		if ( ! $rapporto['pacchetto']['zip'] ) {
+			printf( '<p>%s</p>', esc_html__( 'Si importa solo da un archivio zip, che porta i documenti: il solo file SQL non porta nessun atto.', 'albo-pretorio-pa' ) );
+			return;
+		}
+
+		if ( Importazione::in_corso() ) {
+			printf( '<p>%s</p>', esc_html__( 'C\'e\' gia\' un\'importazione in corso: si continua o si interrompe quella, qui sopra.', 'albo-pretorio-pa' ) );
+			return;
+		}
+
+		$senza    = Importazione::selezione( $rapporto, false );
+		$con      = Importazione::selezione( $rapporto, true );
+		$visibili = $con['in_vista'];
+		$impronta = Importazione::impronta_backup( self::cartella() . '/' . $nome );
+
+		if ( array() === $con['atti'] || null === $impronta ) {
+			printf( '<p>%s</p>', esc_html__( 'Nel rapporto non c\'e\' nessun atto che si porti.', 'albo-pretorio-pa' ) );
+			return;
+		}
+
+		printf(
+			'<p class="albo-pretorio-da-importare" data-atti="%1$d" data-in-vista="%2$d">%3$s</p>',
+			count( $senza['atti'] ),
+			(int) $visibili,
+			esc_html(
+				sprintf(
+					/* translators: 1: atti che si porterebbero, 2: atti nel backup, 3: atti con il documento principale da scegliere. */
+					__( 'Si porterebbero %1$d atti su %2$d del backup, pubblicati e con la pubblicazione gia\' finita: non si vedranno sul sito e si consultano dalla schermata degli atti scaduti. Di questi, %3$d arrivano con il documento principale da scegliere. Gli altri atti e il motivo per cui restano fuori sono nel rapporto qui sopra.', 'albo-pretorio-pa' ),
+					count( $senza['atti'] ),
+					$rapporto['riepilogo']['totale']['nel_backup'],
+					$senza['principale_da_scegliere']
+				)
+			)
+		);
+
+		echo '<form method="post" action="' . esc_url( self::indirizzo() . '#albo-pretorio-importa' ) . '">';
+		self::campi_importa( 'avvia' );
+
+		foreach ( array(
+			self::CAMPO_PRESENTE => $nome,
+			self::CAMPO_IMPRONTA => $impronta,
+			self::CAMPO_ATTI     => (string) count( $senza['atti'] ),
+			self::CAMPO_VISIBILI => (string) $visibili,
+		) as $campo => $valore ) {
+			printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( $campo ), esc_attr( $valore ) );
+		}
+
+		printf(
+			'<p><label><input type="checkbox" name="%1$s" value="1" /> %2$s</label></p>',
+			esc_attr( self::CAMPO_CONFERMA ),
+			esc_html(
+				sprintf(
+					/* translators: %s: nome del backup. */
+					__( 'Confermo l\'importazione degli atti del backup %s. Gli atti importati non si tolgono con un clic: restano nel nuovo albo con il loro numero e la loro voce di registro.', 'albo-pretorio-pa' ),
+					$nome
+				)
+			)
+		);
+
+		if ( $visibili > 0 ) {
+			printf(
+				'<p><label><input type="checkbox" name="%1$s" value="1" /> %2$s</label></p>',
+				esc_attr( self::CAMPO_CONFERMA_VISIBILI ),
+				esc_html(
+					sprintf(
+						/* translators: %d: atti ancora in pubblicazione. */
+						_n(
+							'Porta anche %d atto ancora in pubblicazione, che arriva visibile sul sito fino a tutto il suo giorno di fine. Confermo, come responsabile, di averne guardato i documenti e che non diffondono dati personali oltre quanto la norma consente.',
+							'Porta anche i %d atti ancora in pubblicazione, che arrivano visibili sul sito fino a tutto il loro giorno di fine. Confermo, come responsabile, di averne guardato i documenti e che non diffondono dati personali oltre quanto la norma consente.',
+							$visibili,
+							'albo-pretorio-pa'
+						),
+						$visibili
+					)
+				)
+			);
+		}
+
+		submit_button( __( 'Importa', 'albo-pretorio-pa' ), 'primary', 'submit', false );
+		echo '</form>';
+	}
+
+	/**
+	 * L'avanzamento e il rapporto finale dell'importazione in corso o dell'ultima.
+	 *
+	 * @param array<string, mixed> $stato Stato dell'importazione.
+	 */
+	public static function stampa_importazione( array $stato ): void {
+		$titoli = array(
+			'in_corso'   => __( 'Importazione in corso', 'albo-pretorio-pa' ),
+			'finita'     => __( 'Ultima importazione: finita', 'albo-pretorio-pa' ),
+			'interrotta' => __( 'Ultima importazione: interrotta', 'albo-pretorio-pa' ),
+		);
+
+		$importati = count( (array) $stato['importati'] );
+
+		printf( '<div class="albo-pretorio-stato-importazione" data-stato="%1$s"><h2>%2$s</h2>', esc_attr( (string) $stato['stato'] ), esc_html( $titoli[ $stato['stato'] ] ?? (string) $stato['stato'] ) );
+		printf(
+			'<p>%s</p>',
+			esc_html(
+				sprintf(
+					/* translators: 1: nome del backup, 2: data e ora dell'avvio. */
+					__( 'Backup %1$s, avviata il %2$s.', 'albo-pretorio-pa' ),
+					(string) $stato['backup'],
+					wp_date( 'd/m/Y H:i', (int) strtotime( (string) $stato['avviata'] . ' UTC' ) )
+				)
+			)
+		);
+		printf(
+			'<p class="albo-pretorio-importati" data-importati="%1$d" data-nel-backup="%2$d"><strong>%3$s</strong></p>',
+			(int) $importati,
+			(int) $stato['nel_backup'],
+			esc_html(
+				sprintf(
+					/* translators: 1: atti importati, 2: atti nel backup. */
+					__( 'Importati %1$d atti su %2$d del backup.', 'albo-pretorio-pa' ),
+					$importati,
+					(int) $stato['nel_backup']
+				)
+			)
+		);
+
+		if ( (int) $stato['analizzati'] !== (int) $stato['nel_backup'] ) {
+			printf(
+				'<p><strong>%s</strong></p>',
+				esc_html(
+					sprintf(
+						/* translators: 1: atti analizzati, 2: atti nel backup. */
+						__( 'Rapporto parziale: il backup e\' stato analizzato per %1$d atti su %2$d; gli altri non sono stati considerati.', 'albo-pretorio-pa' ),
+						(int) $stato['analizzati'],
+						(int) $stato['nel_backup']
+					)
+				)
+			);
+		}
+
+		if ( 'in_corso' === $stato['stato'] ) {
+			printf(
+				'<p>%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: 1: atti esaminati, 2: atti da esaminare. */
+						__( 'Esaminati %1$d atti su %2$d da portare. Si continua con il pulsante qui sotto: ogni clic porta un blocco di atti.', 'albo-pretorio-pa' ),
+						(int) $stato['posizione'],
+						count( (array) $stato['selezione'] )
+					)
+				)
+			);
+
+			foreach ( array(
+				'continua'   => __( 'Continua', 'albo-pretorio-pa' ),
+				'interrompi' => __( 'Interrompi', 'albo-pretorio-pa' ),
+			) as $operazione => $etichetta ) {
+				echo '<form method="post" style="display:inline-block;margin-right:1em" action="' . esc_url( self::indirizzo() ) . '">';
+				self::campi_importa( $operazione );
+				submit_button( $etichetta, 'continua' === $operazione ? 'primary' : 'secondary', 'submit', false );
+				echo '</form>';
+			}
+		}
+
+		if ( (int) $stato['gia_importati'] > 0 ) {
+			printf(
+				'<p>%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: %d: atti importati da un'importazione precedente. */
+						__( 'Atti gia\' importati prima di questa importazione, e non toccati: %d.', 'albo-pretorio-pa' ),
+						(int) $stato['gia_importati']
+					)
+				)
+			);
+		}
+
+		self::elenco_numeri( 'da_scegliere', __( 'Atti con il documento principale da scegliere: tutti i file sono arrivati come allegati', 'albo-pretorio-pa' ), (array) $stato['da_scegliere'] );
+
+		if ( array() !== $stato['non_riusciti'] ) {
+			printf( '<details class="albo-pretorio-non-riusciti" open><summary><strong>%1$s (%2$d)</strong></summary><ul>', esc_html__( 'Atti non riusciti: non esistono nel nuovo albo, si riprovano rilanciando', 'albo-pretorio-pa' ), count( (array) $stato['non_riusciti'] ) );
+
+			foreach ( (array) $stato['non_riusciti'] as $fallito ) {
+				printf( '<li data-codice="%1$s">%2$s: %3$s</li>', esc_attr( (string) $fallito['codice'] ), esc_html( (string) $fallito['numero'] ), esc_html( (string) $fallito['testo'] ) );
+			}
+
+			echo '</ul></details>';
+		}
+
+		if ( array() !== $stato['non_portati'] ) {
+			printf( '<h3>%s</h3>', esc_html__( 'Atti del backup non portati, per motivo', 'albo-pretorio-pa' ) );
+
+			foreach ( (array) $stato['non_portati'] as $chiave => $gruppo ) {
+				self::elenco_numeri( strtok( (string) $chiave, ':' ), (string) $gruppo['testo'], (array) $gruppo['atti'] );
+			}
+		}
+
+		echo '</div>';
+	}
+
+	/**
+	 * Un gruppo di atti, per numero, chiuso in un riquadro che si apre.
+	 *
+	 * @param string             $codice Codice del gruppo.
+	 * @param string             $titolo Titolo.
+	 * @param array<int, string> $numeri Numeri degli atti.
+	 */
+	private static function elenco_numeri( string $codice, string $titolo, array $numeri ): void {
+		if ( array() === $numeri ) {
+			return;
+		}
+
+		printf(
+			'<details class="albo-pretorio-gruppo-importazione" data-codice="%1$s"><summary>%2$s: <strong>%3$d</strong></summary><p>%4$s</p></details>',
+			esc_attr( $codice ),
+			esc_html( $titolo ),
+			count( $numeri ),
+			esc_html( implode( ', ', $numeri ) )
+		);
 	}
 
 	/**
@@ -287,15 +727,7 @@ final class SchermataImportazione {
 	private static function modulo(): void {
 		$presenti = self::presenti();
 
-		echo '<form method="post" enctype="multipart/form-data" action="' . esc_url(
-			add_query_arg(
-				array(
-					'post_type' => TIPO,
-					'page'      => self::PAGINA,
-				),
-				admin_url( 'edit.php' )
-			)
-		) . '">';
+		echo '<form method="post" enctype="multipart/form-data" action="' . esc_url( self::indirizzo() ) . '">';
 		wp_nonce_field( self::AZIONE, self::CAMPO_GETTONE, false );
 
 		if ( array() === $presenti ) {
@@ -345,6 +777,7 @@ final class SchermataImportazione {
 			AnalisiImportazione::DA_DECIDERE => __( 'Atti da decidere: si porterebbero dopo una scelta di chi importa', 'albo-pretorio-pa' ),
 			AnalisiImportazione::IMPORTABILE => __( 'Atti che si porterebbero cosi\' come sono', 'albo-pretorio-pa' ),
 			AnalisiImportazione::ESCLUSO     => __( 'Bozze: non si portano', 'albo-pretorio-pa' ),
+			AnalisiImportazione::IMPORTATO   => __( 'Atti gia\' importati: non si toccano piu\'', 'albo-pretorio-pa' ),
 		);
 
 		printf( '<h2>%s</h2>', esc_html__( 'Rapporto', 'albo-pretorio-pa' ) );
