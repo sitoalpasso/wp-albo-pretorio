@@ -408,6 +408,39 @@ final class Repertorio {
 
 		$anno = self::anno_di( $ora );
 
+		/*
+		 * Un numero importato dal vecchio albo e' gia' stato usato: una partenza
+		 * piu' bassa farebbe ridare quel numero al prossimo atto pubblicato.
+		 * Finche' l'anno non ha dato numeri, gli unici numeri registrati sono
+		 * quelli importati; dopo, la dichiarazione e' comunque bloccata, e lo
+		 * dice il controllo piu' sotto.
+		 */
+		$dichiarato = self::anno( $anno );
+		$importato  = array( array( 'n' => 0 ) );
+
+		if ( null === $dichiarato || $dichiarato['ultimo'] === $dichiarato['partenza'] ) {
+			$importato = Lettura::righe(
+				$wpdb->prepare( 'SELECT COALESCE( MAX( numero ), 0 ) AS n FROM %i WHERE anno = %d', self::tabella_assegnazioni(), $anno ),
+				array( 'n' )
+			);
+		}
+
+		if ( null === $importato || 1 !== count( $importato ) ) {
+			return self::errore_lettura();
+		}
+
+		if ( (int) $importato[0]['n'] > $valore ) {
+			return new \WP_Error(
+				'albo_repertorio_partenza_sotto_importati',
+				sprintf(
+					/* translators: 1: numero/anno gia' presente, 2: anno. */
+					__( 'Partenza non dichiarata: il numero %1$s e\' gia\' registrato, importato dal vecchio albo, e la partenza del %2$d non puo\' essere piu\' bassa.', 'albo-pretorio-pa' ),
+					(int) $importato[0]['n'] . '/' . $anno,
+					$anno
+				)
+			);
+		}
+
 		if ( self::anni_precedenti( $anno ) ) {
 			return new \WP_Error(
 				'albo_repertorio_partenza_non_dichiarabile',
@@ -441,20 +474,24 @@ final class Repertorio {
 		if ( 1 !== $inserite ) {
 			/*
 			 * La riga c'era: la correzione si fa solo se nessun numero e' stato
-			 * assegnato, e la condizione sta nell'istruzione stessa, non in una
-			 * lettura fatta prima, cosi' un'assegnazione che arriva nel frattempo
-			 * non puo' passare in mezzo.
+			 * assegnato e nessun numero importato supera il nuovo valore, e le
+			 * condizioni stanno nell'istruzione stessa, non in una lettura fatta
+			 * prima, cosi' un'assegnazione o un'importazione che arriva nel
+			 * frattempo non puo' passare in mezzo.
 			 */
 			$wpdb->query(
 				$wpdb->prepare(
-					'UPDATE %i SET ultimo = %d, partenza = %d, dichiarato_da = %d, dichiarato_il = %s WHERE anno = %d AND apertura = %s AND ultimo = partenza',
+					'UPDATE %i SET ultimo = %d, partenza = %d, dichiarato_da = %d, dichiarato_il = %s WHERE anno = %d AND apertura = %s AND ultimo = partenza AND NOT EXISTS ( SELECT 1 FROM %i WHERE anno = %d AND numero > %d )',
 					self::tabella_anni(),
 					$valore,
 					$valore,
 					$utente_id,
 					$quando,
 					$anno,
-					self::APERTURA_DICHIARAZIONE
+					self::APERTURA_DICHIARAZIONE,
+					self::tabella_assegnazioni(),
+					$anno,
+					$valore
 				)
 			);
 		}
@@ -608,6 +645,114 @@ final class Repertorio {
 		}
 
 		return $assegnato;
+	}
+
+	/**
+	 * Registra il numero che un atto importato aveva nel vecchio albo (ALBO-35).
+	 *
+	 * **La riga dell'anno non si tocca.** Un anno con una riga e' un anno di
+	 * cui il nuovo albo crede di aver tenuto la numerazione: una riga scritta
+	 * per un anno passato farebbe ripartire da 1 l'anno nuovo, senza
+	 * dichiarazione. Il numero va solo fra le assegnazioni, e se l'anno ha gia'
+	 * una riga non puo' superarne la partenza, cioe' l'ultimo numero del vecchio
+	 * registro dichiarato: oltre, il numero sarebbe del nuovo albo. La riga si
+	 * legge bloccandola, cosi' che una dichiarazione non cambi la partenza fra
+	 * il controllo e la scrittura; per questo va chiamata dentro la transazione
+	 * di chi importa.
+	 *
+	 * @param int $atto_id Atto importato, ancora senza numero.
+	 * @param int $anno    Anno del numero.
+	 * @param int $numero  Numero.
+	 * @return true|\WP_Error
+	 */
+	public static function registra_importato( int $atto_id, int $anno, int $numero ) {
+		global $wpdb;
+
+		if ( $anno < 1 || $anno > 9999 || $numero < 1 || $numero > self::MASSIMO ) {
+			return new \WP_Error(
+				'albo_repertorio_importato_non_valido',
+				__( 'Numero non registrato: il numero o l\'anno del vecchio albo non sono validi.', 'albo-pretorio-pa' )
+			);
+		}
+
+		if ( ! self::tabelle_presenti() ) {
+			return self::errore_tabelle();
+		}
+
+		$gia = self::assegnazione( $atto_id );
+
+		if ( false === $gia ) {
+			return self::errore_lettura();
+		}
+
+		if ( null !== $gia ) {
+			return new \WP_Error(
+				'albo_repertorio_importato_gia_numerato',
+				__( 'Numero non registrato: l\'atto ha gia\' un numero.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$riga = Lettura::righe(
+			$wpdb->prepare( 'SELECT partenza FROM %i WHERE anno = %d FOR UPDATE', self::tabella_anni(), $anno ),
+			array( 'partenza' )
+		);
+
+		if ( null === $riga ) {
+			return self::errore_lettura();
+		}
+
+		if ( array() !== $riga && $numero > (int) $riga[0]['partenza'] ) {
+			return new \WP_Error(
+				'albo_repertorio_importato_oltre_partenza',
+				sprintf(
+					/* translators: 1: numero/anno, 2: ultimo numero del vecchio registro dichiarato. */
+					__( 'Numero non registrato: %1$s viene dopo l\'ultimo numero del vecchio registro dichiarato nel nuovo albo (%2$d).', 'albo-pretorio-pa' ),
+					$numero . '/' . $anno,
+					(int) $riga[0]['partenza']
+				)
+			);
+		}
+
+		$inserite = $wpdb->query(
+			$wpdb->prepare(
+				'INSERT IGNORE INTO %i (anno, numero, atto_id, assegnato_il) VALUES (%d, %d, %d, %s)',
+				self::tabella_assegnazioni(),
+				$anno,
+				$numero,
+				$atto_id,
+				gmdate( 'Y-m-d H:i:s' )
+			)
+		);
+
+		if ( false === $inserite ) {
+			return new \WP_Error(
+				'albo_repertorio_importato_non_scritto',
+				__( 'Numero non registrato: la banca dati ha rifiutato la scrittura.', 'albo-pretorio-pa' )
+			);
+		}
+
+		// Si rilegge: se il numero era gia' di un altro atto il vincolo ha scartato la riga.
+		$assegnato = self::assegnazione( $atto_id );
+
+		if ( false === $assegnato ) {
+			return self::errore_lettura();
+		}
+
+		if ( array(
+			'anno'   => $anno,
+			'numero' => $numero,
+		) !== $assegnato ) {
+			return new \WP_Error(
+				'albo_repertorio_importato_gia_dato',
+				sprintf(
+					/* translators: %s: numero/anno. */
+					__( 'Numero non registrato: %s e\' gia\' di un altro atto del nuovo albo.', 'albo-pretorio-pa' ),
+					$numero . '/' . $anno
+				)
+			);
+		}
+
+		return true;
 	}
 
 	/**
