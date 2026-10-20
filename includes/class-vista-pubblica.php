@@ -121,7 +121,16 @@ final class VistaPubblica {
 	public static function ricerca( array $richiesta ): array {
 		$errori = array();
 
-		$testo_di = static function ( string $campo ) use ( $richiesta, &$errori ): string {
+		/*
+		 * Si guarda prima il valore com'e' arrivato, e solo dopo lo si ripulisce:
+		 * ripulito, un valore fatto di soli segni come `<b></b>` diventerebbe
+		 * un campo vuoto, e un campo vuoto non restringe, quindi la pagina
+		 * mostrerebbe l'elenco intero al posto del rifiuto (A-199). Vuoto e'
+		 * solo cio' che e' vuoto gia' prima. I campi rigidi (numeri e date) non
+		 * si ripuliscono affatto: si controllano cosi' come sono, e un valore
+		 * fuori dalla forma e' un errore.
+		 */
+		$testo_di = static function ( string $campo, bool $rigido = false ) use ( $richiesta, &$errori ): string {
 			if ( ! isset( $richiesta[ $campo ] ) ) {
 				return '';
 			}
@@ -131,11 +140,23 @@ final class VistaPubblica {
 				return '';
 			}
 
-			return trim( sanitize_text_field( wp_unslash( (string) $richiesta[ $campo ] ) ) );
+			$grezzo = trim( wp_unslash( (string) $richiesta[ $campo ] ) );
+
+			if ( $rigido || '' === $grezzo ) {
+				return $grezzo;
+			}
+
+			$pulito = trim( sanitize_text_field( $grezzo ) );
+
+			if ( '' === $pulito ) {
+				$errori[ $campo ] = '';
+			}
+
+			return $pulito;
 		};
 
 		$voce = static function ( string $campo, string $tassonomia ) use ( $testo_di, &$errori ): ?int {
-			$testo = $testo_di( $campo );
+			$testo = $testo_di( $campo, true );
 
 			if ( '' === $testo ) {
 				return null;
@@ -155,7 +176,7 @@ final class VistaPubblica {
 		};
 
 		$data = static function ( string $campo ) use ( $testo_di, &$errori ): string {
-			$testo = $testo_di( $campo );
+			$testo = $testo_di( $campo, true );
 
 			if ( '' === $testo ) {
 				return '';
@@ -186,7 +207,7 @@ final class VistaPubblica {
 			}
 		}
 
-		$pagina = $testo_di( self::CAMPO_PAGINA );
+		$pagina = $testo_di( self::CAMPO_PAGINA, true );
 
 		if ( '' !== $pagina && 1 !== preg_match( '/^[1-9][0-9]{0,8}$/', $pagina ) ) {
 			$errori[ self::CAMPO_PAGINA ] = '';

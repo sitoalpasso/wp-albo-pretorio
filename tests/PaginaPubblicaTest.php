@@ -667,6 +667,13 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			'organo di altro elenco' => array( VistaPubblica::CAMPO_ORGANO, (string) $this->voci['normativo'] ),
 			'data impossibile'       => array( VistaPubblica::CAMPO_DAL, '2041-02-30' ),
 			'data in altro formato'  => array( VistaPubblica::CAMPO_DAL, '01/10/2041' ),
+			// Valori che ripuliti diventerebbero vuoti, o validi: non sono un campo vuoto.
+			'tipo di soli segni'     => array( VistaPubblica::CAMPO_TIPO, '<b></b>' ),
+			'tipo con un segno'      => array( VistaPubblica::CAMPO_TIPO, $this->voci['normativo'] . '<b>' ),
+			'organo di soli segni'   => array( VistaPubblica::CAMPO_ORGANO, '<b></b>' ),
+			'dal di soli segni'      => array( VistaPubblica::CAMPO_DAL, '<b></b>' ),
+			'al di soli segni'       => array( VistaPubblica::CAMPO_AL, '<b></b>' ),
+			'oggetto di soli segni'  => array( VistaPubblica::CAMPO_TESTO, '<b></b>' ),
 		) as $caso => list( $campo, $valore ) ) {
 			$html = (string) $this->pagina_disegnata( $this->indirizzo( array( $campo => $valore ) ) );
 
@@ -686,7 +693,13 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 		$this->assertSame( array(), $this->atti_elencati( $html ), 'Fine prima dell\'inizio: nessun atto.' );
 		$this->assertStringContainsString( 'viene prima della data', $html, 'Fine prima dell\'inizio: il messaggio lo dice.' );
 
+		// La pagina non e' un campo del modulo: niente da segnare, ma niente elenco intero.
+		$html = (string) $this->pagina_disegnata( $this->indirizzo( array( VistaPubblica::CAMPO_PAGINA => '<b></b>' ) ) );
+		$this->assertSame( array(), $this->atti_elencati( $html ), 'Pagina di soli segni: nessun atto.' );
+		$this->assertStringContainsString( 'La ricerca non è stata fatta.', $html, 'Pagina di soli segni: c\'e\' il messaggio.' );
+
 		$this->assertSame( array( $atto ), $this->atti_elencati( (string) $this->pagina_disegnata( $this->indirizzo( array( VistaPubblica::CAMPO_TESTO => 'Avviso' ) ) ) ), 'Controllo positivo: la stessa pagina trova l\'atto con un campo giusto.' );
+		$this->assertSame( array( $atto ), $this->atti_elencati( (string) $this->pagina_disegnata( $this->indirizzo( array( VistaPubblica::CAMPO_TIPO => '' ) ) ) ), 'Controllo positivo: un campo davvero vuoto non restringe.' );
 
 		// Le pagine conservano la ricerca: ventuno atti con la stessa parola e uno senza.
 		$attesi = array();
