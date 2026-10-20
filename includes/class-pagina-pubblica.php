@@ -521,6 +521,19 @@ final class PaginaPubblica {
 		self::$scheda_negata = true;
 
 		$interrogazione->set_404();
+
+		/*
+		 * `set_404()` non toglie i risultati: la pagina dell'albo resterebbe
+		 * nell'interrogazione, e un modello 404 che li percorre la
+		 * disegnerebbe. Una "non trovata" vera non ha risultati (A-196).
+		 */
+		$interrogazione->posts         = array();
+		$interrogazione->post          = null;
+		$interrogazione->post_count    = 0;
+		$interrogazione->found_posts   = 0;
+		$interrogazione->max_num_pages = 0;
+		$interrogazione->current_post  = -1;
+
 		status_header( 404 );
 		nocache_headers();
 
