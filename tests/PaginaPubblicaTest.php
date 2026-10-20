@@ -674,6 +674,9 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			'dal di soli segni'      => array( VistaPubblica::CAMPO_DAL, '<b></b>' ),
 			'al di soli segni'       => array( VistaPubblica::CAMPO_AL, '<b></b>' ),
 			'oggetto di soli segni'  => array( VistaPubblica::CAMPO_TESTO, '<b></b>' ),
+			// Un carattere nullo dentro la data: la pagina non si interrompe.
+			'dal con un nullo'       => array( VistaPubblica::CAMPO_DAL, '2041-10%0001' ),
+			'al con un nullo'        => array( VistaPubblica::CAMPO_AL, '2041-10%0001' ),
 		) as $caso => list( $campo, $valore ) ) {
 			$html = (string) $this->pagina_disegnata( $this->indirizzo( array( $campo => $valore ) ) );
 
@@ -700,6 +703,7 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 
 		$this->assertSame( array( $atto ), $this->atti_elencati( (string) $this->pagina_disegnata( $this->indirizzo( array( VistaPubblica::CAMPO_TESTO => 'Avviso' ) ) ) ), 'Controllo positivo: la stessa pagina trova l\'atto con un campo giusto.' );
 		$this->assertSame( array( $atto ), $this->atti_elencati( (string) $this->pagina_disegnata( $this->indirizzo( array( VistaPubblica::CAMPO_TIPO => '' ) ) ) ), 'Controllo positivo: un campo davvero vuoto non restringe.' );
+		$this->assertSame( array( $atto ), $this->atti_elencati( (string) $this->pagina_disegnata( $this->indirizzo( array( VistaPubblica::CAMPO_DAL => '2041-10-01' ) ) ) ), 'Controllo positivo: una data giusta trova l\'atto.' );
 
 		// Le pagine conservano la ricerca: ventuno atti con la stessa parola e uno senza.
 		$attesi = array();

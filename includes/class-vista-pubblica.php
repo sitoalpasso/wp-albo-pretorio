@@ -182,6 +182,18 @@ final class VistaPubblica {
 				return '';
 			}
 
+			/*
+			 * Prima la forma, poi la lettura: un valore con un carattere nullo
+			 * dentro fa sollevare un'eccezione alla lettura della data, e la
+			 * pagina si interromperebbe invece di dire che la ricerca e' scritta
+			 * male (A-199).
+			 */
+			if ( 1 !== preg_match( '/\A[0-9]{4}-[0-9]{2}-[0-9]{2}\z/', $testo ) ) {
+				$errori[ $campo ] = '';
+
+				return '';
+			}
+
 			$letta = \DateTimeImmutable::createFromFormat( '!Y-m-d', $testo, wp_timezone() );
 
 			if ( false !== $letta && $letta->format( 'Y-m-d' ) === $testo ) {
