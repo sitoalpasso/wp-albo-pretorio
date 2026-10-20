@@ -57,6 +57,37 @@ final class VistaPubblica {
 	const ID_ERRORE = 'albo-pretorio-errore-ricerca';
 
 	/**
+	 * Lo stesso codice con gli identificativi di un'altra istanza.
+	 *
+	 * Ogni identificativo, e ogni riferimento a un identificativo (etichette,
+	 * descrizioni, titoli di regione), prende in coda il numero dell'istanza.
+	 * Gli identificativi li scrive solo questa classe, e solo in questi
+	 * quattro attributi; i nomi dei campi non cambiano, quindi il modulo manda
+	 * la stessa ricerca (A-207).
+	 *
+	 * @param string $html     Codice disegnato.
+	 * @param int    $istanza  Numero dell'istanza, dal secondo.
+	 * @return string
+	 */
+	public static function distingui( string $html, int $istanza ): string {
+		return (string) preg_replace_callback(
+			'/ (id|for|aria-describedby|aria-labelledby)="([^"]*)"/',
+			static function ( array $parti ) use ( $istanza ): string {
+				$voci = preg_split( '/\s+/', trim( $parti[2] ), -1, PREG_SPLIT_NO_EMPTY );
+				$voci = array_map(
+					static function ( string $voce ) use ( $istanza ): string {
+						return $voce . '-' . $istanza;
+					},
+					false === $voci ? array() : $voci
+				);
+
+				return ' ' . $parti[1] . '="' . esc_attr( implode( ' ', $voci ) ) . '"';
+			},
+			$html
+		);
+	}
+
+	/**
 	 * La pagina, per la richiesta indicata.
 	 *
 	 * @param array<string, mixed> $richiesta Parametri della richiesta.
