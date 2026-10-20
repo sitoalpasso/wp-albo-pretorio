@@ -347,9 +347,31 @@ final class VistaPubblica {
 			}
 		}
 
+		$totale = (int) $interrogazione->found_posts;
+
+		/*
+		 * Oltre l'ultima pagina WordPress non conta niente: senza atti nella
+		 * pagina il totale resta zero. Si conta di nuovo dalla prima, cosi'
+		 * una pagina che non c'e' piu', per esempio salvata prima che un atto
+		 * scadesse, non si legge come un albo vuoto (A-208).
+		 */
+		if ( array() === $interrogazione->posts && $argomenti['paged'] > 1 ) {
+			$conta  = new \WP_Query(
+				array_merge(
+					$argomenti,
+					array(
+						'paged'          => 1,
+						'posts_per_page' => 1,
+						'fields'         => 'ids',
+					)
+				)
+			);
+			$totale = (int) $conta->found_posts;
+		}
+
 		return array(
 			'atti'   => $atti,
-			'totale' => (int) $interrogazione->found_posts,
+			'totale' => $totale,
 		);
 	}
 
@@ -505,6 +527,19 @@ final class VistaPubblica {
 			$html .= '<p id="' . esc_attr( self::ID_ERRORE ) . '" class="albo-pretorio__avviso" role="alert">' . esc_html__( 'La ricerca non è stata fatta.', 'albo-pretorio-pa' ) . ' ' . esc_html( $esito->get_error_message() ) . '</p>';
 
 			return $html . '</section>';
+		}
+
+		if ( array() === $esito['atti'] && $esito['totale'] > 0 ) {
+			$html .= '<p class="albo-pretorio__conteggio">' . esc_html(
+				sprintf(
+					/* translators: %s: numero degli atti. */
+					_n( 'In questa pagina dell\'elenco non ci sono atti: l\'elenco ne ha %s.', 'In questa pagina dell\'elenco non ci sono atti: l\'elenco ne ha %s.', $esito['totale'], 'albo-pretorio-pa' ),
+					number_format_i18n( $esito['totale'] )
+				)
+			) . '</p>';
+			$html .= '<p class="albo-pretorio__torna"><a class="albo-pretorio__collegamento" href="' . esc_url( add_query_arg( self::parametri( $ricerca ), (string) PaginaPubblica::indirizzo() ) ) . '">' . esc_html__( 'Vai alla prima pagina', 'albo-pretorio-pa' ) . '</a></p>';
+
+			return $html . self::pagine( $ricerca, $esito['totale'] ) . '</section>';
 		}
 
 		if ( array() === $esito['atti'] ) {
@@ -750,21 +785,9 @@ final class VistaPubblica {
 			return '';
 		}
 
-		$parametri = array_filter(
-			array(
-				self::CAMPO_TESTO  => '' === $ricerca['testo'] ? null : rawurlencode( $ricerca['testo'] ),
-				self::CAMPO_TIPO   => $ricerca['tipo'],
-				self::CAMPO_ORGANO => $ricerca['organo'],
-				self::CAMPO_DAL    => '' === $ricerca['dal'] ? null : $ricerca['dal'],
-				self::CAMPO_AL     => '' === $ricerca['al'] ? null : $ricerca['al'],
-			),
-			static function ( $valore ): bool {
-				return null !== $valore;
-			}
-		);
-
-		$base = (string) PaginaPubblica::indirizzo();
-		$html = '<nav class="albo-pretorio__pagine" aria-label="' . esc_attr__( 'Pagine dell\'elenco', 'albo-pretorio-pa' ) . '"><ul class="albo-pretorio__numeri">';
+		$parametri = self::parametri( $ricerca );
+		$base      = (string) PaginaPubblica::indirizzo();
+		$html      = '<nav class="albo-pretorio__pagine" aria-label="' . esc_attr__( 'Pagine dell\'elenco', 'albo-pretorio-pa' ) . '"><ul class="albo-pretorio__numeri">';
 
 		for ( $pagina = 1; $pagina <= $quante; $pagina++ ) {
 			/* translators: %d: numero della pagina. */
@@ -782,6 +805,27 @@ final class VistaPubblica {
 		}
 
 		return $html . '</ul></nav>';
+	}
+
+	/**
+	 * I parametri della ricerca, senza la pagina, per i collegamenti dell'elenco.
+	 *
+	 * @param array<string, mixed> $ricerca Ricerca ripulita.
+	 * @return array<string, mixed>
+	 */
+	private static function parametri( array $ricerca ): array {
+		return array_filter(
+			array(
+				self::CAMPO_TESTO  => '' === $ricerca['testo'] ? null : rawurlencode( $ricerca['testo'] ),
+				self::CAMPO_TIPO   => $ricerca['tipo'],
+				self::CAMPO_ORGANO => $ricerca['organo'],
+				self::CAMPO_DAL    => '' === $ricerca['dal'] ? null : $ricerca['dal'],
+				self::CAMPO_AL     => '' === $ricerca['al'] ? null : $ricerca['al'],
+			),
+			static function ( $valore ): bool {
+				return null !== $valore;
+			}
+		);
 	}
 
 	/**

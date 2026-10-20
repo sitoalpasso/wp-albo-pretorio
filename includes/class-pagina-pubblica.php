@@ -428,7 +428,13 @@ final class PaginaPubblica {
 			return;
 		}
 
-		$atto = is_numeric( $wp->query_vars[ $chiave ] ) ? (int) $wp->query_vars[ $chiave ] : 0;
+		/*
+		 * Lo stesso atto che leggera' il punto di consegna, con la stessa
+		 * conversione: `123x` per lui e' l'atto 123, e un controllo che
+		 * leggesse il valore in un altro modo guarderebbe un atto diverso da
+		 * quello consegnato (A-204).
+		 */
+		$atto = (int) $wp->query_vars[ $chiave ];
 
 		if ( $atto > 0 && TIPO === get_post_type( $atto ) && ! self::in_pubblicazione( $atto ) ) {
 			self::$consegna_negata = true;
