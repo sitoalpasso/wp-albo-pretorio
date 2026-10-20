@@ -54,4 +54,4 @@ Schede presenti:
   di collaudo A-186..A-194.
 - [`pagina-pubblica.md`](pagina-pubblica.md): la pagina pubblica dell'albo con il codice breve
   `[albo_pretorio]`: elenco, scheda, ricerca, divieto ai motori, accessibilità del codice
-  prodotto. Righe di collaudo A-195..A-207.
+  prodotto. Righe di collaudo A-195..A-209.

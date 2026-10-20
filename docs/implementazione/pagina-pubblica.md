@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro
 com'è andata davvero.
 
 **Stato: costruita, in attesa di revisione.** Requisiti ALBO-06, ALBO-16 e ALBO-28, righe di
-collaudo A-195..A-207.
+collaudo A-195..A-209.
 Nessuna versione nuova del meccanismo comune: basta la 1.7.0.
 
 ## In tre paragrafi
@@ -124,7 +124,7 @@ anteprime (A-196).
 
 ### 7. Test aggiunti
 
-Righe A-195..A-207 di `collaudo.md`, in `tests/PaginaPubblicaTest.php`.
+Righe A-195..A-209 di `collaudo.md`, in `tests/PaginaPubblicaTest.php`.
 
 ### 8. Che cosa non fa
 
@@ -243,3 +243,25 @@ Guasti introdotti dopo le correzioni: ventisei, i diciotto di prima e otto nuovi
 senza il controllo della pagina, "non trovata" dimenticata, senza la riga generale propria,
 valore per un motore preso per generale o con il divieto in coda, identificativi uguali,
 senza il controllo sull'interfaccia, costante solo sulla pagina). Tutti visti.
+
+### La seconda revisione indipendente
+
+Le cinque correzioni del primo giro reggono. Tre rilievi nuovi, ciascuno con una causa
+propria:
+
+- **L'atto si leggeva in due modi.** Il controllo dell'albo scartava `123x` come valore non
+  numerico, mentre il punto di consegna lo legge come l'atto 123: con un indirizzo storpiato
+  il documento di un atto senza numero tornava scaricabile. Ora l'albo legge l'atto con la
+  stessa conversione del punto di consegna. Riga A-204, estesa.
+- **Una pagina dell'elenco oltre l'ultima** diceva che l'albo era vuoto, perché oltre
+  l'ultima pagina WordPress non conta gli atti. Succede con un collegamento salvato alla
+  seconda pagina quando un atto scade. Ora si conta dalla prima pagina, e la pagina dice
+  quanti atti ha l'elenco, con il collegamento alla prima pagina che conserva la ricerca.
+  Riga A-208.
+- **Le prove azzeravano a mano la memoria delle pagine dell'albo**, quindi sarebbero
+  rimaste verdi anche senza gli agganci che la svuotano. Gli azzeramenti sono tolti, e una
+  prova segue la pagina dalla creazione alla ripubblicazione, passando per codice tolto e
+  rimesso, password, cestino e ripristino. Riga A-209.
+
+Guasti nuovi: tre (atto letto in un altro modo, conteggio mancante oltre l'ultima pagina,
+memoria svuotata solo dal cestino), tutti visti.
