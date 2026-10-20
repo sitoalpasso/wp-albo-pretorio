@@ -279,3 +279,12 @@ rilievi sulle prove, ciascuno con un difetto dietro:
   con la parola solo nel testo e solo nell'estratto, e non devono comparire.
 
 Guasti nuovi: due (risultati lasciati nella "non trovata", ricerca estesa al testo), visti.
+
+### La quarta revisione indipendente
+
+Le correzioni del terzo giro reggono. Un rilievo: un valore fatto di soli segni, come
+`<b></b>`, veniva ripulito prima di essere controllato, diventava un campo vuoto e la pagina
+mostrava l'elenco intero invece di dire che la ricerca era scritta male. Ora si controlla il
+valore com'è arrivato: tipo, organo, date e pagina non si ripuliscono affatto e devono avere
+la loro forma, e l'oggetto è vuoto solo se lo era già prima. Riga A-199, estesa. Guasti
+nuovi: due (campi rigidi ripuliti, valore svuotato preso per vuoto), visti.
