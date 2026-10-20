@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro
 com'è andata davvero.
 
 **Stato: costruita, in attesa di revisione.** Requisiti ALBO-06, ALBO-16 e ALBO-28, righe di
-collaudo A-195..A-203.
+collaudo A-195..A-207.
 Nessuna versione nuova del meccanismo comune: basta la 1.7.0.
 
 ## In tre paragrafi
@@ -124,7 +124,7 @@ anteprime (A-196).
 
 ### 7. Test aggiunti
 
-Righe A-195..A-203 di `collaudo.md`, in `tests/PaginaPubblicaTest.php`.
+Righe A-195..A-207 di `collaudo.md`, in `tests/PaginaPubblicaTest.php`.
 
 ### 8. Che cosa non fa
 
@@ -210,3 +210,36 @@ Tre cose imparate scrivendo:
   Con uno spazio davanti o uno zero, la scheda risponde "non trovata": ripulito, sarebbe
   stato un secondo indirizzo della stessa scheda.
 
+
+### La prima revisione indipendente
+
+Cinque rilievi, tutti veri, con una sola causa comune: le condizioni del documento e della
+scheda non erano le stesse. Trattati così:
+
+- **Il documento di un atto che la pagina non mostra si scaricava.** Il punto di consegna
+  guarda pubblicazione, password e scadenza, non il numero di registro, e una password data
+  con il biscotto di WordPress gli basta. Ora, nella richiesta del documento di un atto che
+  non è in pubblicazione, l'albo non apre il tipo, e il punto di consegna risponde con il suo
+  rifiuto, uguale a quello per uno scaduto. Se il tipo lo ha aperto un altro componente
+  resta la sua scelta, come per l'anteprima (A-175, A-177). Riga A-204.
+- **La "non trovata" di una scheda perdeva il divieto ai motori e alle memorie**: dopo la
+  trasformazione la richiesta non è più una pagina singola, e guardarla di nuovo non la
+  riconosceva. Ora la trasformazione si ricorda per la richiesta. La costante delle memorie
+  di pagina si prova in un avvio separato, perché una costante già definita da un'altra
+  prova renderebbe la riga verde per il motivo sbagliato. Riga A-205.
+- **Un divieto rivolto a un solo motore**, scritto da altri, riceveva il `noindex` in coda,
+  dove vale solo per quel motore. Ora quel valore esce intero su una riga propria e una riga
+  generale `X-Robots-Tag: noindex` esce sempre, come fa il meccanismo comune per le sezioni
+  vietate. Riga A-206.
+- **Due codici brevi nella stessa pagina** davano identificativi doppi. Dal secondo, gli
+  identificativi prendono il numero dell'istanza. Non si disegna una volta sola: un'estensione
+  che legge il contenuto prima del tema consumerebbe l'unica istanza. Riga A-207.
+- **La prova sull'interfaccia per programmi** passava anche senza il controllo, perché la
+  richiesta precedente era un'anteprima. Ora la richiesta principale è la pagina dell'albo,
+  così l'unica condizione che manca è l'interfaccia, e il controllo è `wp_is_rest_endpoint()`,
+  che risponde anche per una lettura fatta da dentro una pagina. Riga A-200.
+
+Guasti introdotti dopo le correzioni: ventisei, i diciotto di prima e otto nuovi (consegna
+senza il controllo della pagina, "non trovata" dimenticata, senza la riga generale propria,
+valore per un motore preso per generale o con il divieto in coda, identificativi uguali,
+senza il controllo sull'interfaccia, costante solo sulla pagina). Tutti visti.
