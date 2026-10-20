@@ -36,9 +36,9 @@ altri proseguono. Un'importazione alla volta: finché una è in corso non se ne 
 e due "Continua" insieme non lavorano mai contemporaneamente.
 
 **Come si prova che funziona, e come si prova che il test è vero.** Un backup di prova con
-uno scaduto, uno in corso, uno con due allegati e nessun documento, un annullato, uno di
-durata più corta della categoria, più gli atti che non si portano (conflitto, bozza, tipo da
-creare, file mancante, senza documenti, inizio futuro): dopo l'importazione esistono solo i
+uno scaduto, uno in corso, uno con due allegati e nessun documento, uno con un file solo
+segnato come allegato, un annullato, uno di durata più corta della categoria, più gli atti che non si portano (conflitto, bozza, tipo da
+creare, file mancante, senza documenti, inizio futuro, annullato ancora in pubblicazione): dopo l'importazione esistono solo i
 primi, con i valori scritti per esteso nelle prove (numero, date, impronta dei file uguale a
 quella dell'archivio), lo scaduto non si vede e quello in corso sì. Rilanciata, non crea
 niente. Con un guasto iniettato nel passaggio di pubblicazione dell'atto, quell'atto non
@@ -126,8 +126,30 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
   dicendolo. "Interrompi" chiude un'importazione lasciata a metà; gli atti già importati
   restano.
 - Un blocco interrotto a metà (tempo scaduto, errore fatale) può lasciare una bozza
-  preparata e non pubblicata: ha il ricordo dell'origine, e il rilancio la cancella con i
-  suoi file prima di rifarla.
+  preparata e non pubblicata. La bozza nasce con un nome nell'indirizzo che contiene
+  l'identificativo d'origine, scritto insieme alla bozza stessa, e poco dopo riceve anche il
+  ricordo dell'origine: il rilancio la ritrova dall'uno o dall'altro e la cancella con i suoi
+  file prima di rifarla, anche se il blocco si è fermato prima del ricordo.
+- Il passaggio a pubblicato senza verifica si concede soltanto alla bozza che l'importazione
+  sta scrivendo in quel momento, a chi ha i permessi dell'importazione, e solo se l'atto che
+  arriva visibile ha la conferma sui dati personali. Una bozza qualunque, anche con il
+  ricordo dell'origine scritto a mano, non passa.
+- Prima di scrivere si controlla che tutte le tabelle toccate annullino, comprese le due
+  della numerazione: altrimenti un guasto dopo la scrittura del numero lo lascerebbe
+  occupato senza atto.
+- Ogni atto ha uno di tre esiti: **confermato** (pubblicato con il suo numero, anche se un
+  altro componente solleva un'eccezione subito dopo la conferma), **annullato** (la bozza è
+  cancellata e si è verificato che non c'è più) o **incerto** (la bozza non si cancella, o il
+  numero risulta senza l'atto pubblicato). Un esito incerto ferma il blocco su quell'atto e
+  lo dice; si guarda l'atto prima di continuare.
+- Se la richiesta si ferma fra la conferma di un atto e il salvataggio dello stato,
+  "Continua" ritrova l'atto fra quelli importati da questa importazione e ne ricostruisce
+  l'esito dalla voce di registro, compreso il documento principale da scegliere. Se la banca
+  dati non salva lo stato, il blocco si ferma e lo dice.
+- La dichiarazione della partenza e l'importazione di un numero dello stesso anno non si
+  scavalcano: la condizione "nessun numero importato oltre la partenza" sta dentro la
+  scrittura della dichiarazione, sia quando la riga dell'anno c'è sia quando manca, e il
+  controllo dopo la scrittura rilegge i numeri confermati nel frattempo.
 - Il backup si riconosce dalla sua impronta: se fra un blocco e l'altro il file cambia,
   l'importazione si ferma e lo dice.
 - Ogni blocco si ferma dopo un tempo fisso o un numero di atti, il primo che arriva, e porta
@@ -162,6 +184,18 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
   bozza la lasciava a metà (ora si cancella subito; il rilancio l'avrebbe comunque tolta), e un
   rifiuto della banca dati nella scrittura del numero si leggeva come "numero già dato".
 - Le tre mutazioni della scheda rendono rosse le loro righe.
+- La prima revisione esterna ha chiesto sette correzioni, fatte: il passaggio di importazione
+  era pubblico e bastava una bozza qualunque (ora solo la bozza in lavorazione, con i
+  permessi e la conferma sui dati personali); il controllo delle tabelle che annullano non
+  comprendeva quelle della numerazione; la prima dichiarazione di un anno senza riga poteva
+  passare in mezzo a un'importazione; una bozza fermata prima del ricordo dell'origine non
+  si ritrovava; un'eccezione dopo la conferma faceva dire "non riuscito" a un atto
+  importato, e una cancellazione non riuscita non fermava niente; la ripresa dopo una
+  fermata fra atto e stato perdeva l'atto dal conteggio. Le prove coprono ora ciascun caso,
+  e le mutazioni corrispondenti (togliere la ripresa, la distinzione degli esiti, la
+  concessione legata alla bozza, la conferma, il controllo delle tabelle, la condizione
+  nella dichiarazione, la fermata sull'incerto, il nome della bozza, lo sfuggire dei
+  messaggi, la scrittura dei dati del procedimento) rendono rossa la loro riga.
 - La riga A-193 dell'importazione a secco fallisce in questo ambiente di prova anche sul ramo
   principale, per la versione di `iconv`: non dipende da questo lavoro.
 
