@@ -413,32 +413,17 @@ final class Repertorio {
 		 * piu' bassa farebbe ridare quel numero al prossimo atto pubblicato.
 		 * Finche' l'anno non ha dato numeri, gli unici numeri registrati sono
 		 * quelli importati; dopo, la dichiarazione e' comunque bloccata, e lo
-		 * dice il controllo piu' sotto.
+		 * dice il controllo piu' sotto. Questa lettura serve al messaggio: la
+		 * condizione vera sta dentro le due scritture, piu' sotto.
 		 */
 		$dichiarato = self::anno( $anno );
-		$importato  = array( array( 'n' => 0 ) );
 
 		if ( null === $dichiarato || $dichiarato['ultimo'] === $dichiarato['partenza'] ) {
-			$importato = Lettura::righe(
-				$wpdb->prepare( 'SELECT COALESCE( MAX( numero ), 0 ) AS n FROM %i WHERE anno = %d', self::tabella_assegnazioni(), $anno ),
-				array( 'n' )
-			);
-		}
+			$sotto = self::sotto_importati( $anno, $valore );
 
-		if ( null === $importato || 1 !== count( $importato ) ) {
-			return self::errore_lettura();
-		}
-
-		if ( (int) $importato[0]['n'] > $valore ) {
-			return new \WP_Error(
-				'albo_repertorio_partenza_sotto_importati',
-				sprintf(
-					/* translators: 1: numero/anno gia' presente, 2: anno. */
-					__( 'Partenza non dichiarata: il numero %1$s e\' gia\' registrato, importato dal vecchio albo, e la partenza del %2$d non puo\' essere piu\' bassa.', 'albo-pretorio-pa' ),
-					(int) $importato[0]['n'] . '/' . $anno,
-					$anno
-				)
-			);
+			if ( null !== $sotto ) {
+				return $sotto;
+			}
 		}
 
 		if ( self::anni_precedenti( $anno ) ) {
@@ -456,18 +441,23 @@ final class Repertorio {
 
 		/*
 		 * Prima l'anno nuovo, con un inserimento che non sovrascrive: se la riga
-		 * c'e' gia', non tocca niente.
+		 * c'e' gia', non tocca niente. La condizione sui numeri importati sta
+		 * nell'istruzione: un'importazione che registra un numero fra la lettura
+		 * qui sopra e questa scrittura la fa fallire, invece di passare.
 		 */
 		$inserite = $wpdb->query(
 			$wpdb->prepare(
-				'INSERT IGNORE INTO %i (anno, ultimo, partenza, apertura, dichiarato_da, dichiarato_il) VALUES (%d, %d, %d, %s, %d, %s)',
+				'INSERT IGNORE INTO %i (anno, ultimo, partenza, apertura, dichiarato_da, dichiarato_il) SELECT %d, %d, %d, %s, %d, %s FROM DUAL WHERE NOT EXISTS ( SELECT 1 FROM %i WHERE anno = %d AND numero > %d )',
 				self::tabella_anni(),
 				$anno,
 				$valore,
 				$valore,
 				self::APERTURA_DICHIARAZIONE,
 				$utente_id,
-				$quando
+				$quando,
+				self::tabella_assegnazioni(),
+				$anno,
+				$valore
 			)
 		);
 
@@ -497,6 +487,14 @@ final class Repertorio {
 		}
 
 		$riga = self::anno( $anno );
+
+		if ( null === $riga || ( $riga['ultimo'] === $riga['partenza'] && $valore !== $riga['partenza'] ) ) {
+			$sotto = self::sotto_importati( $anno, $valore, true );
+
+			if ( null !== $sotto ) {
+				return $sotto;
+			}
+		}
 
 		if ( null === $riga
 			|| self::APERTURA_DICHIARAZIONE !== $riga['apertura']
@@ -701,6 +699,21 @@ final class Repertorio {
 			return self::errore_lettura();
 		}
 
+		/*
+		 * Un anno senza riga che segue anni tenuti qui riparte da 1 senza
+		 * dichiarazione: un numero importato in quell'anno sarebbe ridato.
+		 */
+		if ( array() === $riga && self::anni_precedenti( $anno ) ) {
+			return new \WP_Error(
+				'albo_repertorio_importato_anno_tenuto_qui',
+				sprintf(
+					/* translators: %d: anno. */
+					__( 'Numero non registrato: la numerazione del %d prosegue quella tenuta qui negli anni precedenti e riparte da 1, e un numero importato verrebbe ridato.', 'albo-pretorio-pa' ),
+					$anno
+				)
+			);
+		}
+
 		if ( array() !== $riga && $numero > (int) $riga[0]['partenza'] ) {
 			return new \WP_Error(
 				'albo_repertorio_importato_oltre_partenza',
@@ -753,6 +766,44 @@ final class Repertorio {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Il rifiuto di una partenza piu' bassa di un numero gia' registrato nell'anno, o nulla.
+	 *
+	 * @param int  $anno      Anno.
+	 * @param int  $valore    Partenza chiesta.
+	 * @param bool $bloccante Lettura bloccante, per il controllo dopo la scrittura.
+	 * @return \WP_Error|null
+	 */
+	private static function sotto_importati( int $anno, int $valore, bool $bloccante = false ): ?\WP_Error {
+		global $wpdb;
+
+		// La lettura bloccante vede i numeri confermati da altre richieste anche dentro una transazione gia' aperta.
+		$massimo = Lettura::righe(
+			$bloccante
+				? $wpdb->prepare( 'SELECT COALESCE( MAX( numero ), 0 ) AS n FROM %i WHERE anno = %d LOCK IN SHARE MODE', self::tabella_assegnazioni(), $anno )
+				: $wpdb->prepare( 'SELECT COALESCE( MAX( numero ), 0 ) AS n FROM %i WHERE anno = %d', self::tabella_assegnazioni(), $anno ),
+			array( 'n' )
+		);
+
+		if ( null === $massimo || 1 !== count( $massimo ) ) {
+			return self::errore_lettura();
+		}
+
+		if ( (int) $massimo[0]['n'] <= $valore ) {
+			return null;
+		}
+
+		return new \WP_Error(
+			'albo_repertorio_partenza_sotto_importati',
+			sprintf(
+				/* translators: 1: numero/anno gia' presente, 2: anno. */
+				__( 'Partenza non dichiarata: il numero %1$s e\' gia\' registrato, importato dal vecchio albo, e la partenza del %2$d non puo\' essere piu\' bassa.', 'albo-pretorio-pa' ),
+				(int) $massimo[0]['n'] . '/' . $anno,
+				$anno
+			)
+		);
 	}
 
 	/**
