@@ -246,9 +246,59 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	 * @return array<int, int>
 	 */
 	private function atti_elencati( string $html ): array {
-		preg_match_all( '/<li class="albo-pretorio__atto" data-atto="([0-9]+)"/', $html, $trovati );
+		preg_match_all( '/<tr class="albo-pretorio__atto" role="row" data-atto="([0-9]+)"/', $html, $trovati );
 
 		return array_map( 'intval', $trovati[1] );
+	}
+
+	/**
+	 * Le celle della riga di un atto, per intestazione di colonna, come le legge un lettore di schermo.
+	 *
+	 * Il nome della colonna scritto davanti al dato e' nascosto ai lettori di
+	 * schermo e qui non si legge: il dato lo prende dall'intestazione.
+	 *
+	 * @param string $html Codice disegnato.
+	 * @param int    $atto Atto.
+	 * @return array<string, string>
+	 */
+	private function celle( string $html, int $atto ): array {
+		$xpath        = $this->leggi( $html );
+		$intestazioni = array();
+
+		foreach ( $xpath->query( '//table//thead//th' ) as $intestazione ) {
+			$intestazioni[] = $this->testo( $intestazione );
+		}
+
+		$righe = $xpath->query( '//tr[@data-atto="' . $atto . '"]' );
+		$this->assertSame( 1, $righe->length, 'Precondizione: la riga dell\'atto ' . $atto . ' c\'e\' una volta.' );
+
+		$celle = array();
+
+		foreach ( $xpath->query( './th | ./td', $righe->item( 0 ) ) as $posizione => $cella ) {
+			foreach ( $xpath->query( './/*[@aria-hidden="true"]', $cella ) as $nascosto ) {
+				$nascosto->parentNode->removeChild( $nascosto ); // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- proprieta' di DOMNode.
+			}
+
+			$celle[ $intestazioni[ $posizione ] ?? (string) $posizione ] = trim( (string) preg_replace( '/\s+/u', ' ', $this->testo( $cella ) ) );
+		}
+
+		return $celle;
+	}
+
+	/**
+	 * Un codice disegnato, aperto per le interrogazioni.
+	 *
+	 * @param string $html Codice disegnato.
+	 * @return \DOMXPath
+	 */
+	private function leggi( string $html ): \DOMXPath {
+		$documento = new \DOMDocument();
+		$vecchio   = libxml_use_internal_errors( true );
+		$documento->loadHTML( '<?xml encoding="UTF-8"><html><body>' . $html . '</body></html>' );
+		libxml_clear_errors();
+		libxml_use_internal_errors( $vecchio );
+
+		return new \DOMXPath( $documento );
 	}
 
 	/**
@@ -357,11 +407,20 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			$this->assertStringContainsString( '<h2 id="albo-pretorio-titolo-elenco" class="albo-pretorio__titolo">Atti in pubblicazione</h2>', $html, $chi );
 			$this->assertStringContainsString( '<p class="albo-pretorio__conteggio">2 atti</p>', $html, $chi );
 			$this->assertStringContainsString( 'href="' . esc_url( home_url( '/albo-pretorio/?albo_atto=' . $primo ) ) . '">' . get_the_title( $primo ) . '</a>', $html, $chi . ': l\'oggetto apre la scheda.' );
-			$this->assertStringContainsString( '<dt>Numero di registro</dt><dd>' . $numero['numero'] . '/2041</dd>', $html, $chi );
-			$this->assertStringContainsString( '<dt>Tipo</dt><dd>Deliberazione</dd>', $html, $chi );
-			$this->assertStringContainsString( '<dt>Organo</dt><dd>Giunta</dd>', $html, $chi );
-			$this->assertStringContainsString( '<dt>In pubblicazione</dt><dd>dal 01/10/2041 al 16/10/2041</dd>', $html, $chi );
-			$this->assertStringContainsString( '<dt>In pubblicazione</dt><dd>dal 03/10/2041 al 13/10/2041</dd>', $html, $chi );
+			$this->assertSame(
+				array(
+					'Numero'         => $numero['numero'] . '/2041',
+					'Tipo'           => 'Deliberazione',
+					'Oggetto'        => html_entity_decode( get_the_title( $primo ), ENT_QUOTES, 'UTF-8' ) . ' Giunta',
+					'Pubblicato dal' => '01/10/2041',
+					'Fino al'        => '16/10/2041',
+					'Documenti'      => '1 documento',
+				),
+				$this->celle( $html, $primo ),
+				$chi . ': la riga del primo, colonna per colonna.'
+			);
+			$this->assertSame( '03/10/2041', $this->celle( $html, $secondo )['Pubblicato dal'], $chi );
+			$this->assertSame( '13/10/2041', $this->celle( $html, $secondo )['Fino al'], $chi );
 			$this->assertStringContainsString( 'Gli atti in pubblicazione.', $html, $chi . ': il testo della pagina resta.' );
 		}
 
@@ -418,10 +477,10 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( '<h2 id="albo-pretorio-titolo-atto" class="albo-pretorio__titolo">Deliberazione con allegati</h2>', $html );
 		$this->assertStringContainsString( '<dt>Numero di registro</dt><dd>' . $numero['numero'] . '/2041</dd>', $html );
 		$this->assertStringContainsString( '<dt>Data di adozione</dt><dd>10/09/2041</dd>', $html );
-		$this->assertStringContainsString( '<dt>In pubblicazione</dt><dd>dal 01/10/2041 al 16/10/2041</dd>', $html );
+		$this->assertStringContainsString( '<dt>Pubblicato dal</dt><dd>01/10/2041</dd></div><div class="albo-pretorio__dato"><dt>Fino al</dt><dd>16/10/2041</dd>', $html );
 		$this->assertStringContainsString( 'Torna all&#039;elenco degli atti', $html );
 		$this->assertStringNotContainsString( 'Mario-Rossi', $html, 'Il nome del file caricato non compare.' );
-		$this->assertStringNotContainsString( 'albo-pretorio__elenco', $html, 'La scheda non porta l\'elenco.' );
+		$this->assertStringNotContainsString( 'albo-pretorio__tabella', $html, 'La scheda non porta l\'elenco.' );
 		$this->assertSame( 'Atto ' . $numero['numero'] . '/2041 &#8211; ' . get_bloginfo( 'name', 'display' ), wp_get_document_title(), 'Il titolo della finestra porta il numero, non l\'oggetto.' );
 
 		$documenti = array_merge( array( DocumentiAtto::principale( $atto ) ), DocumentiAtto::ulteriori( $atto ) );
@@ -943,6 +1002,13 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			}
 		}
 
+		// Un testo nascosto ai lettori di schermo non lascia vuoto il suo contenitore.
+		foreach ( $xpath->query( './/*[@aria-hidden="true"]', $radice ) as $nascosto ) {
+			$contenitore = $nascosto->parentNode; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- proprieta' di DOMNode.
+			$rimasto     = str_replace( $this->testo( $nascosto ), '', $this->testo( $contenitore ) );
+			$this->assertNotSame( '', trim( $rimasto ), $quale . ': accanto al testo nascosto "' . $this->testo( $nascosto ) . '" resta un testo per i lettori di schermo.' );
+		}
+
 		// La pagina corrente dell'elenco e' dichiarata, al massimo una volta.
 		$this->assertLessThanOrEqual( 1, $xpath->query( './/*[@aria-current]', $radice )->length, $quale );
 
@@ -952,6 +1018,179 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			$this->assertSame( 'get', $modulo->getAttribute( 'method' ), $quale . ': la ricerca e\' un indirizzo.' );
 			$this->assertSame( 1, $xpath->query( './/button[@type="submit" and normalize-space(.) != ""]', $modulo )->length, $quale . ': un pulsante per cercare.' );
 		}
+	}
+
+	/**
+	 * A-204: la tabella degli atti resta una tabella per i lettori di schermo, su ogni schermo.
+	 */
+	public function test_a204_tabella_degli_atti(): void {
+		$this->pagina_albo();
+
+		$con_allegati = $this->pubblicato_il( '2041-10-01 09:30:00', 'Atto con due allegati', 'normativo', array( 'primo.pdf', 'secondo.pdf' ) );
+		$solo         = $this->pubblicato_il( '2041-10-02 09:30:00', 'Atto con il solo documento' );
+
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+
+		$html  = (string) $this->pagina_disegnata( $this->indirizzo() );
+		$xpath = $this->leggi( $html );
+		$stile = (string) file_get_contents( dirname( __DIR__ ) . '/assets/css/albo-pretorio-pubblico.css' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- lettura del foglio di stile del componente.
+
+		$tabelle = $xpath->query( '//table' );
+		$this->assertSame( 1, $tabelle->length, 'Una tabella sola.' );
+		$tabella = $tabelle->item( 0 );
+
+		$this->assertSame( 'table', $tabella->getAttribute( 'role' ), 'La tabella dichiara il suo ruolo.' );
+		$this->assertSame( 'albo-pretorio-titolo-elenco', $tabella->getAttribute( 'aria-labelledby' ), 'La tabella prende il nome dal titolo dell\'elenco.' );
+
+		$colonne = array( 'Numero', 'Tipo', 'Oggetto', 'Pubblicato dal', 'Fino al', 'Documenti' );
+		$testata = array();
+
+		foreach ( $xpath->query( './thead/tr/th', $tabella ) as $intestazione ) {
+			$this->assertSame( 'col', $intestazione->getAttribute( 'scope' ), 'Intestazione di colonna.' );
+			$this->assertSame( 'columnheader', $intestazione->getAttribute( 'role' ), 'L\'intestazione di colonna dichiara il suo ruolo.' );
+			$testata[] = $this->testo( $intestazione );
+		}
+
+		$this->assertSame( $colonne, $testata, 'Sei colonne, nell\'ordine.' );
+
+		foreach ( array( './thead', './tbody' ) as $gruppo ) {
+			$this->assertSame( 'rowgroup', $xpath->query( $gruppo, $tabella )->item( 0 )->getAttribute( 'role' ), $gruppo . ': il gruppo di righe dichiara il suo ruolo.' );
+		}
+
+		$this->assertSame( 'row', $xpath->query( './thead/tr', $tabella )->item( 0 )->getAttribute( 'role' ), 'La riga delle intestazioni dichiara il suo ruolo.' );
+
+		$righe = $xpath->query( './tbody/tr', $tabella );
+		$this->assertSame( 2, $righe->length, 'Una riga per atto.' );
+
+		foreach ( $righe as $riga ) {
+			$this->assertSame( 'row', $riga->getAttribute( 'role' ), 'La riga dichiara il suo ruolo.' );
+
+			$celle = $xpath->query( './th | ./td', $riga );
+			$this->assertSame( 6, $celle->length, 'Sei celle per riga.' );
+
+			foreach ( $celle as $posizione => $cella ) {
+				if ( 2 === $posizione ) {
+					$this->assertSame( 'th', $this->elemento( $cella ), 'L\'oggetto e\' l\'intestazione della riga.' );
+					$this->assertSame( 'row', $cella->getAttribute( 'scope' ), 'L\'oggetto intesta la riga.' );
+					$this->assertSame( 'rowheader', $cella->getAttribute( 'role' ), 'L\'intestazione di riga dichiara il suo ruolo.' );
+					$this->assertSame( 1, $xpath->query( './a[contains(@href, "albo_atto=")]', $cella )->length, 'L\'oggetto apre la scheda.' );
+					continue;
+				}
+
+				$this->assertSame( 'td', $this->elemento( $cella ), 'Il dato e\' una cella.' );
+				$this->assertSame( 'cell', $cella->getAttribute( 'role' ), 'La cella dichiara il suo ruolo.' );
+
+				$nomi = $xpath->query( './*[contains(concat(" ", normalize-space(@class), " "), " albo-pretorio__etichetta ")]', $cella );
+				$this->assertSame( 1, $nomi->length, $colonne[ $posizione ] . ': il nome della colonna davanti al dato.' );
+				$this->assertSame( $colonne[ $posizione ], $this->testo( $nomi->item( 0 ) ), 'Il nome davanti al dato e\' quello dell\'intestazione.' );
+				$this->assertSame( 'true', $nomi->item( 0 )->getAttribute( 'aria-hidden' ), $colonne[ $posizione ] . ': il nome davanti al dato e\' nascosto ai lettori di schermo.' );
+			}
+		}
+
+		$this->assertSame( '3 documenti', $this->celle( $html, $con_allegati )['Documenti'], 'Documento principale e due allegati.' );
+		$this->assertSame( '1 documento', $this->celle( $html, $solo )['Documenti'], 'Il solo documento principale.' );
+
+		$this->assertMatchesRegularExpression( '/\.albo-pretorio__etichetta\s*\{[^}]*display:\s*none/s', $stile, 'Su schermo largo il nome davanti al dato non si vede.' );
+		$this->assertMatchesRegularExpression( '/@media[^{]*max-width:\s*40em[^{]*\{.*\.albo-pretorio__etichetta\s*\{[^}]*display:\s*block/s', $stile, 'Su schermo stretto il nome davanti al dato si vede.' );
+		$this->assertMatchesRegularExpression( '/@media[^{]*max-width:\s*40em[^{]*\{.*\.albo-pretorio__tabella tr\s*\{[^}]*display:\s*block/s', $stile, 'Su schermo stretto ogni riga diventa un riquadro.' );
+	}
+
+	/**
+	 * A-205: la funzione per il tema dice la pagina dell'albo e l'atto in vista, solo se in pubblicazione.
+	 */
+	public function test_a205_funzione_per_il_tema(): void {
+		$this->assertTrue( function_exists( 'albo_pretorio_vista_corrente' ), 'Precondizione: la funzione esiste.' );
+
+		$articolo = self::factory()->post->create(
+			array(
+				'post_status'  => 'publish',
+				'post_title'   => 'Articolo ordinario',
+				'post_content' => 'Si parla di albo_pretorio senza il codice breve.',
+			)
+		);
+		$parola   = self::factory()->post->create(
+			array(
+				'post_type'    => 'page',
+				'post_status'  => 'publish',
+				'post_title'   => 'Pagina che nomina il codice',
+				'post_content' => 'Il codice breve si chiama albo_pretorio.',
+			)
+		);
+
+		$this->go_to( (string) get_permalink( $articolo ) );
+		$this->assertNull( albo_pretorio_vista_corrente(), 'Senza pagina dell\'albo: nullo.' );
+
+		$this->pagina_albo();
+
+		$atto     = $this->pubblicato_il( '2041-10-01 09:30:00', 'Atto con un oggetto da non ripetere' );
+		$bozza    = $this->atto_completo( 'normativo', array( 'post_title' => 'Bozza di prova' ) );
+		$verif    = $this->atto_in_verifica( 'normativo', array( 'post_title' => 'Atto in verifica di prova' ) );
+		$scav     = $this->scavalcato();
+		$numero   = Repertorio::di( $atto );
+		$elenco   = (string) get_permalink( $this->pagina );
+		$scheda   = $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $atto ) );
+		$in_vista = array(
+			'elenco' => $elenco,
+			'atto'   => array(
+				'numero' => $numero['numero'] . '/2041',
+				'tipo'   => 'Deliberazione',
+			),
+		);
+
+		$this->fissa_orologi( self::ULTIMO_ISTANTE );
+
+		foreach ( array( $articolo, $parola ) as $altrove ) {
+			$this->richiesta_pubblica( (string) get_permalink( $altrove ) );
+			$this->assertNull( albo_pretorio_vista_corrente(), 'Fuori dalla pagina dell\'albo: nullo (' . $altrove . ').' );
+		}
+
+		$this->richiesta_pubblica( $elenco );
+		$this->assertSame(
+			array(
+				'elenco' => $elenco,
+				'atto'   => null,
+			),
+			albo_pretorio_vista_corrente(),
+			'Sull\'elenco: l\'indirizzo e nessun atto.'
+		);
+
+		$this->richiesta_pubblica( $scheda );
+		$this->assertSame( $in_vista, albo_pretorio_vista_corrente(), 'Ultimo secondo: la scheda in corso ha numero e tipo.' );
+		$this->assertStringNotContainsString( 'oggetto da non ripetere', (string) wp_json_encode( albo_pretorio_vista_corrente() ), 'L\'oggetto non esce.' );
+
+		$this->fissa_orologi( self::PRIMO_ISTANTE_SCADUTO );
+
+		$casi = array(
+			'scaduto'      => $atto,
+			'bozza'        => $bozza,
+			'in verifica'  => $verif,
+			'senza numero' => $scav,
+			'mai dato'     => 999999999,
+		);
+
+		foreach ( $casi as $caso => $chiesto ) {
+			$this->richiesta_pubblica( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $chiesto ) ) );
+			$this->assertTrue( is_404(), $caso . ': precondizione, la scheda risponde "non trovata".' );
+			$this->assertNull( albo_pretorio_vista_corrente(), $caso . ': nullo, come ogni pagina "non trovata".' );
+		}
+
+		// Anche se un altro componente togliesse la risposta "non trovata", il numero non esce.
+		remove_filter( 'pre_handle_404', array( PaginaPubblica::class, 'da_pre_handle_404' ), 10 );
+
+		foreach ( $casi as $caso => $chiesto ) {
+			$this->richiesta_pubblica( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $chiesto ) ) );
+			$this->assertFalse( is_404(), $caso . ': precondizione, la pagina si apre senza la risposta "non trovata".' );
+			$this->assertSame(
+				array(
+					'elenco' => $elenco,
+					'atto'   => null,
+				),
+				albo_pretorio_vista_corrente(),
+				$caso . ': senza la risposta "non trovata", nessun atto.'
+			);
+		}
+
+		add_filter( 'pre_handle_404', array( PaginaPubblica::class, 'da_pre_handle_404' ), 10, 2 );
 	}
 
 	/**

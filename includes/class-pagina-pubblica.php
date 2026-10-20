@@ -488,18 +488,12 @@ final class PaginaPubblica {
 	 * @return mixed
 	 */
 	public static function da_document_title_parts( $parti ) {
-		if ( ! is_array( $parti ) || ! self::richiesta_dell_albo() ) {
+		if ( ! is_array( $parti ) ) {
 			return $parti;
 		}
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- lettura pubblica, nessuna modifica.
-		$atto = self::atto_chiesto( $_GET );
-
-		if ( false === $atto || ! self::in_pubblicazione( $atto ) ) {
-			return $parti;
-		}
-
-		$numero = Repertorio::di( $atto );
+		$atto   = self::atto_in_vista();
+		$numero = null === $atto ? null : Repertorio::di( $atto );
 
 		if ( null !== $numero ) {
 			$parti['title'] = sprintf(
@@ -510,6 +504,64 @@ final class PaginaPubblica {
 		}
 
 		return $parti;
+	}
+
+	/**
+	 * L'atto della scheda aperta, se la richiesta e' la pagina dell'albo e l'atto e' in pubblicazione.
+	 *
+	 * @return int|null
+	 */
+	public static function atto_in_vista(): ?int {
+		if ( ! self::richiesta_dell_albo() ) {
+			return null;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- lettura pubblica, nessuna modifica.
+		$atto = self::atto_chiesto( $_GET );
+
+		return false !== $atto && self::in_pubblicazione( $atto ) ? $atto : null;
+	}
+
+	/**
+	 * Quello che un tema puo' sapere della pagina in corso, per la sua testata (A-205).
+	 *
+	 * Nullo fuori dalla pagina dell'albo, e su una pagina "non trovata". Sulla
+	 * pagina: l'indirizzo dell'elenco e, se c'e' una scheda aperta di un atto in
+	 * pubblicazione, il numero di registro e il tipo. Mai l'oggetto, che resta
+	 * nella scheda come il titolo della finestra.
+	 *
+	 * @return array{elenco: string, atto: array{numero: string, tipo: string}|null}|null
+	 */
+	public static function vista(): ?array {
+		if ( ! self::albo_attivo() || ! self::richiesta_dell_albo() ) {
+			return null;
+		}
+
+		$elenco = self::indirizzo();
+
+		if ( null === $elenco ) {
+			return null;
+		}
+
+		$atto   = self::atto_in_vista();
+		$numero = null === $atto ? null : Repertorio::di( $atto );
+
+		if ( null === $numero ) {
+			return array(
+				'elenco' => $elenco,
+				'atto'   => null,
+			);
+		}
+
+		$tipo = DatiAtto::tipo( (int) $atto );
+
+		return array(
+			'elenco' => $elenco,
+			'atto'   => array(
+				'numero' => $numero['numero'] . '/' . $numero['anno'],
+				'tipo'   => null === $tipo ? '' : $tipo->name,
+			),
+		);
 	}
 
 	/**
