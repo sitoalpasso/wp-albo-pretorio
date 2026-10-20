@@ -438,9 +438,12 @@ final class ChiusuraPubblicazione {
 		/*
 		 * Durante un passaggio l'atto e' fermo qualunque sia il suo stato: dopo
 		 * la scrittura del rimando e' gia' in bozza, ma gli agganci che
-		 * WordPress chiama subito dopo non devono poterlo cambiare.
+		 * WordPress chiama subito dopo non devono poterlo cambiare. La
+		 * concessione si da' a un atto in verifica, o alla bozza che
+		 * l'importazione dal vecchio albo porta a pubblicato.
 		 */
-		if ( self::IN_VERIFICA === $stato && Passaggi::in_corso( $atto_id ) && null !== self::consuma_concessione( $atto_id, $postarr ) ) {
+		if ( ( self::IN_VERIFICA === $stato || ( 'draft' === $stato && Passaggi::importazione_in_corso( $atto_id ) ) )
+			&& Passaggi::in_corso( $atto_id ) && null !== self::consuma_concessione( $atto_id, $postarr ) ) {
 			return $vuoto;
 		}
 
