@@ -1197,7 +1197,21 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 
 		add_filter( 'query', $guasto );
 		add_filter( 'pre_delete_post', $trattiene, 10, 2 );
-		$fermo = SchermataImportazione::importazione_da_invio( $this->invio_avvia( $percorso ) );
+		// Avvio e blocco chiamati direttamente: il tempo del blocco dalla schermata parte con la richiesta, cioe' con l'intera suite di prove.
+		$this->assertIsArray(
+			Importazione::avvia(
+				$percorso,
+				'backup.zip',
+				array(
+					'impronta' => hash_file( 'sha256', $percorso ),
+					'atti'     => 6,
+					'in_vista' => 1,
+				),
+				true,
+				false
+			)
+		);
+		$fermo = Importazione::prosegui( 50, microtime( true ) + 60 );
 		remove_filter( 'query', $guasto );
 		remove_filter( 'pre_delete_post', $trattiene, 10 );
 
