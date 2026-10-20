@@ -158,17 +158,18 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	/**
 	 * Un atto pubblicato con il passaggio vero all'istante indicato.
 	 *
-	 * @param string             $istante Data e ora nel fuso del sito.
-	 * @param string             $oggetto Oggetto.
-	 * @param string             $tipo    Nome breve del tipo.
-	 * @param array<int, string> $allegati Nomi dei file degli allegati ulteriori.
-	 * @param int|null           $organo  Organo al posto di quello comune.
+	 * @param string               $istante Data e ora nel fuso del sito.
+	 * @param string               $oggetto Oggetto.
+	 * @param string               $tipo    Nome breve del tipo.
+	 * @param array<int, string>   $allegati Nomi dei file degli allegati ulteriori.
+	 * @param int|null             $organo  Organo al posto di quello comune.
+	 * @param array<string, mixed> $campi Altri campi della riga, come testo ed estratto.
 	 * @return int
 	 */
-	private function pubblicato_il( string $istante, string $oggetto, string $tipo = 'normativo', array $allegati = array(), ?int $organo = null ): int {
+	private function pubblicato_il( string $istante, string $oggetto, string $tipo = 'normativo', array $allegati = array(), ?int $organo = null, array $campi = array() ): int {
 		$this->fissa_orologi( $istante );
 
-		$id = $this->atto_completo( $tipo, array( 'post_title' => $oggetto ) );
+		$id = $this->atto_completo( $tipo, array( 'post_title' => $oggetto ) + $campi );
 
 		if ( null !== $organo ) {
 			wp_set_object_terms( $id, array( $organo ), TASSONOMIA_ORGANO );
@@ -290,9 +291,29 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			'righe'        => $this->righe,
 			'risultati'    => wp_list_pluck( (array) $GLOBALS['wp_query']->posts, 'ID' ),
 			'titolo'       => wp_get_document_title(),
+			'corpo'        => $this->corpo_del_modello(),
 			'intestazioni' => apply_filters( 'wp_headers', array(), $GLOBALS['wp'] ),
 			'robot'        => $this->robot_stampati(),
 		);
+	}
+
+	/**
+	 * Quello che disegna un modello che percorre i risultati, come fanno molti modelli 404.
+	 *
+	 * @return string
+	 */
+	private function corpo_del_modello(): string {
+		ob_start();
+
+		while ( have_posts() ) {
+			the_post();
+			echo esc_html( get_the_title() );
+			the_content();
+		}
+
+		wp_reset_postdata();
+
+		return trim( (string) ob_get_clean() );
 	}
 
 	/**
@@ -502,6 +523,8 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			$mai = $this->risposta( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => 999999999 ) ) );
 			$this->assertTrue( $mai['non trovata'], $chi . ': precondizione, un numero mai dato risponde "non trovata".' );
 			$this->assertSame( array( 404 ), $mai['stati'], $chi . ': precondizione, con lo stato 404.' );
+			$this->assertSame( array(), $mai['risultati'], $chi . ': la "non trovata" non ha risultati.' );
+			$this->assertSame( '', $mai['corpo'], $chi . ': un modello che percorre i risultati non disegna niente.' );
 
 			foreach ( array(
 				'scaduto'            => $scaduto,
@@ -569,6 +592,10 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 		$primo   = $this->pubblicato_il( '2041-10-01 09:30:00', 'Deliberazione sulla viabilita\' di via Roma' );
 		$secondo = $this->pubblicato_il( '2041-10-03 11:00:00', 'Avviso di gara', 'scelto', array(), $consiglio );
 
+		// La parola dell'oggetto, ma solo nel testo o solo nell'estratto: la ricerca e' nell'oggetto.
+		$nel_testo     = $this->pubblicato_il( '2041-10-04 09:00:00', 'Ordinanza di prova', 'normativo', array(), null, array( 'post_content' => 'Interventi sulla viabilita\' del quartiere.' ) );
+		$nell_estratto = $this->pubblicato_il( '2041-10-04 10:00:00', 'Determinazione di prova', 'normativo', array(), null, array( 'post_excerpt' => 'Sulla viabilita\' del quartiere.' ) );
+
 		$this->fissa_orologi( '2041-10-05 10:00:00' );
 
 		$numero_secondo = Repertorio::di( $secondo );
@@ -576,7 +603,9 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 		$this->assertIsArray( $numero_secondo );
 		$this->assertIsArray( $numero_vecchio );
 
-		$this->assertSame( array( $secondo, $primo ), $this->atti_elencati( (string) $this->pagina_disegnata( $this->indirizzo() ) ), 'Precondizione: senza ricerca ci sono tutti e due.' );
+		$this->assertSame( array( $nell_estratto, $nel_testo, $secondo, $primo ), $this->atti_elencati( (string) $this->pagina_disegnata( $this->indirizzo() ) ), 'Precondizione: senza ricerca ci sono tutti e quattro.' );
+		$this->assertStringContainsString( 'viabilita', get_post( $nel_testo )->post_content, 'Precondizione: la parola e\' nel testo.' );
+		$this->assertStringContainsString( 'viabilita', get_post( $nell_estratto )->post_excerpt, 'Precondizione: la parola e\' nell\'estratto.' );
 
 		foreach ( array(
 			'parola dell\'oggetto'       => array( array( VistaPubblica::CAMPO_TESTO => 'viabilita\'' ), array( $primo ) ),
@@ -587,7 +616,7 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			'numero mai dato'            => array( array( VistaPubblica::CAMPO_TESTO => '9999/2041' ), array() ),
 			'tipo'                       => array( array( VistaPubblica::CAMPO_TIPO => $this->voci['scelto'] ), array( $secondo ) ),
 			'organo'                     => array( array( VistaPubblica::CAMPO_ORGANO => $consiglio ), array( $secondo ) ),
-			'dal'                        => array( array( VistaPubblica::CAMPO_DAL => '2041-10-02' ), array( $secondo ) ),
+			'dal'                        => array( array( VistaPubblica::CAMPO_DAL => '2041-10-02' ), array( $nell_estratto, $nel_testo, $secondo ) ),
 			'fino al'                    => array( array( VistaPubblica::CAMPO_AL => '2041-10-02' ), array( $primo ) ),
 			'un giorno solo'             => array(
 				array(
