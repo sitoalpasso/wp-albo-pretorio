@@ -1,6 +1,6 @@
 <?php
 /**
- * La pagina pubblica dell'albo: righe A-195..A-207 (ALBO-06, ALBO-16, ALBO-28).
+ * La pagina pubblica dell'albo: righe A-195..A-209 (ALBO-06, ALBO-16, ALBO-28).
  *
  * Le prove fanno richieste vere alla pagina che contiene il codice breve, con
  * gli atti portati a pubblicato dal passaggio vero e l'orologio fissato. Il
@@ -149,8 +149,6 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 				'post_content' => '<p>Gli atti in pubblicazione.</p>' . "\n\n" . '[albo_pretorio]',
 			)
 		);
-
-		PaginaPubblica::azzera();
 
 		$this->assertSame( array( $this->pagina ), PaginaPubblica::pagine(), 'Precondizione: la pagina dell\'albo e\' riconosciuta.' );
 
@@ -307,6 +305,22 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 		$this->consegne = array();
 
 		$this->go_to( (string) conformita_core_indirizzo_consegna( $documento ) );
+
+		return $this->consegne;
+	}
+
+	/**
+	 * Come `consegna()`, con l'identificativo dell'atto seguito da lettere.
+	 *
+	 * @param int $documento Documento.
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function consegna_storpiata( int $documento ): array {
+		$indirizzo = (string) conformita_core_indirizzo_consegna( $documento );
+		$atto      = (int) get_post( $documento )->post_parent;
+
+		$this->consegne = array();
+		$this->go_to( add_query_arg( \Conformita_Core_Consegna::VAR_ATTO, $atto . 'x', $indirizzo ) );
 
 		return $this->consegne;
 	}
@@ -688,7 +702,6 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 				'post_content' => '[albo_pretorio]',
 			)
 		);
-		PaginaPubblica::azzera();
 
 		$this->richiesta_pubblica( home_url( '/' ) );
 		$this->assertTrue( is_home(), 'Precondizione: l\'elenco degli articoli si apre.' );
@@ -761,7 +774,6 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 				'post_content'  => '[albo_pretorio]',
 			)
 		);
-		PaginaPubblica::azzera();
 
 		$this->assertNotContains( $bozza, PaginaPubblica::pagine(), 'Una bozza non e\' una pagina dell\'albo.' );
 		$this->assertNotContains( $chiusa, PaginaPubblica::pagine(), 'Una pagina con password non e\' una pagina dell\'albo.' );
@@ -958,6 +970,8 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 
 			$this->assertTrue( $this->consegnato( $this->consegna( (int) DocumentiAtto::principale( $controllo ) ) ), $quale . ': controllo positivo, prima il documento in corso si scarica.' );
 			$this->assertSame( $rifiuto, $this->consegna( (int) DocumentiAtto::principale( $atto ) ), $quale . ': il documento non si scarica, con la risposta dello scaduto.' );
+			$this->assertSame( $rifiuto, $this->consegna_storpiata( (int) DocumentiAtto::principale( $atto ) ), $quale . ': nemmeno con l\'atto seguito da lettere.' );
+			$this->assertTrue( $this->consegnato( $this->consegna_storpiata( (int) DocumentiAtto::principale( $controllo ) ) ), $quale . ': controllo positivo, con le lettere il punto di consegna legge lo stesso atto.' );
 			$this->assertTrue( $this->consegnato( $this->consegna( (int) DocumentiAtto::principale( $controllo ) ) ), $quale . ': controllo positivo, dopo il documento in corso si scarica.' );
 		}
 	}
@@ -1073,7 +1087,6 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 				'post_content' => '[albo_pretorio]' . "\n\n" . '[albo_pretorio]',
 			)
 		);
-		PaginaPubblica::azzera();
 
 		$due = $this->riferimenti( (string) $this->pagina_disegnata( $dove ) );
 		$this->assertCount( 2, $due, 'Precondizione: con due codici brevi, due moduli.' );
@@ -1092,6 +1105,152 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 		}
 
 		$this->assertSame( $una[0]['id'], $due[0]['id'], 'Il primo modulo ha gli identificativi di sempre.' );
+	}
+
+	/**
+	 * A-208: una pagina dell'elenco oltre l'ultima non si legge come un albo vuoto.
+	 */
+	public function test_a208_pagina_oltre_l_ultima(): void {
+		$this->pagina_albo();
+
+		$this->pubblicato_il( '2041-09-25 09:00:00', 'Atto che scade prima' );
+
+		for ( $i = 0; $i < 20; $i++ ) {
+			$this->pubblicato_il( sprintf( '2041-10-01 09:%02d:00', $i ), 'Atto numero ' . $i );
+		}
+
+		wp_set_current_user( 0 );
+
+		$tipo = $this->voci['normativo'];
+
+		foreach ( array(
+			'terza pagina'                  => array( '2041-10-05 10:00:00', array( VistaPubblica::CAMPO_PAGINA => 3 ), '21', array() ),
+			'terza pagina, con il tipo'     => array(
+				'2041-10-05 10:00:00',
+				array(
+					VistaPubblica::CAMPO_TIPO   => $tipo,
+					VistaPubblica::CAMPO_PAGINA => 3,
+				),
+				'21',
+				array( VistaPubblica::CAMPO_TIPO => $tipo ),
+			),
+			'seconda pagina, dopo una fine' => array( '2041-10-12 10:00:00', array( VistaPubblica::CAMPO_PAGINA => 2 ), '20', array() ),
+		) as $quale => list( $istante, $parametri, $quanti, $conservati ) ) {
+			$this->fissa_orologi( $istante );
+
+			$html = (string) $this->pagina_disegnata( $this->indirizzo( $parametri ) );
+
+			$this->assertSame( array(), $this->atti_elencati( $html ), $quale . ': precondizione, nella pagina non ci sono atti.' );
+			$this->assertStringContainsString( esc_html( 'In questa pagina dell\'elenco non ci sono atti: l\'elenco ne ha ' . $quanti . '.' ), $html, $quale . ': dice quanti atti ha l\'elenco.' );
+			$this->assertStringNotContainsString( 'non ci sono atti in pubblicazione', $html, $quale . ': non dice che l\'albo e\' vuoto.' );
+			$this->assertStringNotContainsString( 'risponde alla ricerca', $html, $quale . ': non dice che la ricerca non trova niente.' );
+
+			$prima = esc_url( add_query_arg( $conservati, (string) get_permalink( $this->pagina ) ) );
+			$this->assertStringContainsString( 'href="' . $prima . '">Vai alla prima pagina</a>', $html, $quale . ': il collegamento alla prima pagina conserva la ricerca.' );
+			// Con ventuno atti le pagine sono due e si elencano; con venti ce n'e' una sola, e l'elenco delle pagine non c'e'.
+			$this->assertSame( '21' === $quanti, str_contains( $html, 'aria-label="Pagina 2"' ), $quale . ': le pagine che ci sono.' );
+		}
+	}
+
+	/**
+	 * A-209: le pagine dell'albo riconosciute seguono la vita della pagina, da sole.
+	 *
+	 * Nessun azzeramento a mano: la memoria la svuotano gli agganci di
+	 * WordPress, ed e' quello che la riga guarda.
+	 */
+	public function test_a209_pagine_riconosciute_lungo_la_vita_della_pagina(): void {
+		$this->assertSame( array(), PaginaPubblica::pagine(), 'Precondizione: nessuna pagina dell\'albo, e la domanda e\' gia\' stata fatta.' );
+		$this->assertFalse( is_post_type_viewable( TIPO ), 'Precondizione: senza pagina il tipo non e\' consultabile.' );
+
+		$pagina = wp_insert_post(
+			array(
+				'post_type'    => 'page',
+				'post_status'  => 'publish',
+				'post_title'   => 'Albo',
+				'post_content' => '[albo_pretorio]',
+			)
+		);
+		$this->assertIsInt( $pagina );
+
+		$passi = array(
+			'creata con il codice breve' => array(
+				static function () {},
+				true,
+			),
+			'senza il codice breve'      => array(
+				static function () use ( $pagina ) {
+					wp_update_post(
+						array(
+							'ID'           => $pagina,
+							'post_content' => 'Nessun codice.',
+						)
+					);
+				},
+				false,
+			),
+			'con il codice rimesso'      => array(
+				static function () use ( $pagina ) {
+					wp_update_post(
+						array(
+							'ID'           => $pagina,
+							'post_content' => '[albo_pretorio]',
+						)
+					);
+				},
+				true,
+			),
+			'con una password'           => array(
+				static function () use ( $pagina ) {
+					wp_update_post(
+						array(
+							'ID'            => $pagina,
+							'post_password' => 'segreta',
+						)
+					);
+				},
+				false,
+			),
+			'senza la password'          => array(
+				static function () use ( $pagina ) {
+					wp_update_post(
+						array(
+							'ID'            => $pagina,
+							'post_password' => '',
+						)
+					);
+				},
+				true,
+			),
+			'nel cestino'                => array(
+				static function () use ( $pagina ) {
+					wp_trash_post( $pagina );
+				},
+				false,
+			),
+			'ripristinata'               => array(
+				static function () use ( $pagina ) {
+					wp_untrash_post( $pagina );
+				},
+				false,
+			),
+			'ripubblicata'               => array(
+				static function () use ( $pagina ) {
+					wp_publish_post( $pagina );
+				},
+				true,
+			),
+		);
+
+		foreach ( $passi as $quale => list( $passo, $atteso ) ) {
+			$passo();
+
+			if ( 'ripristinata' === $quale ) {
+				$this->assertNotSame( 'publish', get_post_status( $pagina ), 'Precondizione: ripristinata, la pagina non e\' pubblicata.' );
+			}
+
+			$this->assertSame( $atteso ? array( $pagina ) : array(), PaginaPubblica::pagine(), $quale . ': le pagine dell\'albo.' );
+			$this->assertSame( $atteso, is_post_type_viewable( TIPO ), $quale . ': la consultabilita\' del tipo.' );
+		}
 	}
 
 	/**
