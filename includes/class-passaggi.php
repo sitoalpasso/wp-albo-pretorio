@@ -558,7 +558,19 @@ final class Passaggi {
 			);
 		}
 
-		if ( ! current_user_can( 'publish_post', $atto_id ) ) {
+		/*
+		 * Il passaggio salta la verifica: lo si concede solo alla bozza che
+		 * l'importazione sta scrivendo in questo momento, che porta il ricordo
+		 * dell'origine, a chi puo' importare. Una bozza qualunque non passa.
+		 */
+		if ( ! Importazione::in_lavorazione( $atto_id ) || '' === (string) get_post_meta( $atto_id, META_ORIGINE_IMPORTAZIONE, true ) ) {
+			return new \WP_Error(
+				'albo_importazione_non_una_bozza',
+				__( 'L\'atto non si importa: si porta a pubblicato soltanto la bozza preparata dall\'importazione.', 'albo-pretorio-pa' )
+			);
+		}
+
+		if ( ! current_user_can( 'publish_post', $atto_id ) || ! SchermataImportazione::permessa() ) {
 			return new \WP_Error(
 				'albo_pubblicazione_non_permessa',
 				__( 'L\'atto non si importa: non si possiede il permesso di pubblicare questo atto.', 'albo-pretorio-pa' )
@@ -584,7 +596,15 @@ final class Passaggi {
 			return self::errore_programmazione( $inizio->format( 'Y-m-d H:i:s' ) );
 		}
 
-		$tabelle = self::tabelle_senza_transazioni();
+		// Un atto che arriva visibile ha bisogno della conferma sui dati personali, come ogni pubblicazione (ALBO-11).
+		if ( $fine >= $oggi && true !== ( $dati['dettagli']['conferma_dati_personali'] ?? null ) ) {
+			return new \WP_Error(
+				'albo_importazione_conferma_mancante',
+				__( 'L\'atto non si importa: e\' ancora in pubblicazione e arriverebbe visibile, ma manca la conferma sui dati personali.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$tabelle = self::tabelle_senza_transazioni( true );
 
 		if ( array() !== $tabelle ) {
 			return self::errore_tabelle( $tabelle );
@@ -1819,12 +1839,20 @@ final class Passaggi {
 	 * che non lo espone: e' l'unico punto in cui l'albo lo conosce, e una
 	 * prova verifica che la tabella esista con quel nome.
 	 *
+	 * @param bool $con_repertorio Anche le tabelle del repertorio, per il passaggio che vi scrive dentro la transazione.
 	 * @return array<int, string> Nomi delle tabelle, vuoto se sono tutte transazionali.
 	 */
-	public static function tabelle_senza_transazioni(): array {
+	public static function tabelle_senza_transazioni( bool $con_repertorio = false ): array {
 		global $wpdb;
 
-		$tabelle    = array( $wpdb->posts, $wpdb->postmeta, $wpdb->term_relationships, $wpdb->term_taxonomy, $wpdb->prefix . 'conformita_core_registro' );
+		$tabelle = array( $wpdb->posts, $wpdb->postmeta, $wpdb->term_relationships, $wpdb->term_taxonomy, $wpdb->prefix . 'conformita_core_registro' );
+
+		// L'importazione scrive il numero dentro la transazione: anche le tabelle del repertorio devono annullare.
+		if ( $con_repertorio ) {
+			$tabelle[] = Repertorio::tabella_anni();
+			$tabelle[] = Repertorio::tabella_assegnazioni();
+		}
+
 		$segnaposto = implode( ', ', array_fill( 0, count( $tabelle ), '%s' ) );
 
 		$transazionali = $wpdb->get_col(
