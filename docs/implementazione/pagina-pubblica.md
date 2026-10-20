@@ -163,7 +163,9 @@ Scelte di default, dette in una riga e da confermare guardando la pagina sulla c
 1. **Dove sta la pagina**: in una pagina del sito con il codice breve, così ha la testata e
    il piè di pagina del sito e nessuna impostazione nuova.
 2. **Elenco a righe, non a tabella**: su un telefono una tabella con cinque colonne non si
-   legge, e un elenco con titolo e dati sotto resta lo stesso su ogni schermo.
+   legge, e un elenco con titolo e dati sotto resta lo stesso su ogni schermo. **Superata**
+   da [`elenco-in-tabella.md`](elenco-in-tabella.md): l'elenco è una tabella, che su
+   schermo stretto diventa un riquadro per atto.
 3. **Documenti senza il nome del file caricato**: "Documento principale", "Allegato 1",
    con formato e dimensione.
 4. **Ricerca per numero dentro il campo di testo**: chi scrive `71/2026` trova l'atto 71 del
