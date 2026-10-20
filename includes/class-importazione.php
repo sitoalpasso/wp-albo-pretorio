@@ -86,6 +86,38 @@ final class Importazione {
 	const DUBBI_PORTATI = array( 'principale_assente', 'principali_multipli', 'durata_breve', 'durata_lunga', 'anno_diverso', 'responsabile_assente', 'ufficio_assente' );
 
 	/**
+	 * La bozza che l'importazione sta portando a pubblicato in questo momento, o zero.
+	 *
+	 * @var int
+	 */
+	private static $in_lavorazione = 0;
+
+	/**
+	 * Se l'importazione sta portando a pubblicato questa bozza, in questo momento.
+	 *
+	 * Il passaggio di importazione salta la verifica, e lo concede solo qui.
+	 *
+	 * @param int $atto_id Bozza.
+	 * @return bool
+	 */
+	public static function in_lavorazione( int $atto_id ): bool {
+		return $atto_id > 0 && self::$in_lavorazione === $atto_id;
+	}
+
+	/**
+	 * Il nome nell'indirizzo della bozza preparata per un atto del vecchio albo.
+	 *
+	 * Si scrive insieme alla bozza, nella stessa istruzione: una bozza rimasta
+	 * prima che il ricordo dell'origine fosse scritto si riconosce lo stesso.
+	 *
+	 * @param string $id Identificativo nel vecchio albo.
+	 * @return string
+	 */
+	public static function nome_bozza( string $id ): string {
+		return 'albo-importazione-' . sanitize_title( $id );
+	}
+
+	/**
 	 * Il nome del turno nella banca dati, uno per sito.
 	 *
 	 * @return string
@@ -518,16 +550,24 @@ final class Importazione {
 				break;
 			}
 
-			$id   = (string) $stato['selezione'][ $stato['posizione'] ];
-			$atto = $indice[ $id ] ?? null;
+			$id     = (string) $stato['selezione'][ $stato['posizione'] ];
+			$atto   = $indice[ $id ] ?? null;
+			$fermo  = false;
+			$motivo = null === $atto ? self::motivo_di( 'non_nel_rapporto', '' ) : self::motivo( $atto, (bool) $stato['conferma_in_vista'] );
 
-			if ( null === $atto ) {
-				$stato = self::annota_non_portato( $stato, self::motivo_di( 'non_nel_rapporto', '' ), $id );
+			if ( null !== $atto && null !== $motivo && 'gia_importato' === $motivo['codice'] && ! isset( $stato['importati'][ $id ] ) ) {
+				/*
+				 * Importato da questa importazione, ma lo stato non lo sa: la
+				 * richiesta si e' fermata fra la conferma dell'atto e il
+				 * salvataggio. Si ricostruisce l'esito dal registro.
+				 */
+				$stato = self::annota_importazione( $stato, $atto, self::esito_dal_registro( (int) $atto['atto_id'] ) );
+			} elseif ( null === $motivo ) {
+				$esito = self::importa_atto( $atto, $letto, $stato );
+				$fermo = is_wp_error( $esito ) && ! empty( $esito->get_error_data()['incerto'] );
+				$stato = self::annota_importazione( $stato, $atto, $esito );
 			} else {
-				$motivo = self::motivo( $atto, (bool) $stato['conferma_in_vista'] );
-				$stato  = null === $motivo
-					? self::annota_importazione( $stato, $atto, self::importa_atto( $atto, $letto, $stato ) )
-					: self::annota_non_portato( $stato, $motivo, self::numero( $atto ) );
+				$stato = self::annota_non_portato( $stato, $motivo, null === $atto ? $id : self::numero( $atto ) );
 			}
 
 			++$stato['posizione'];
@@ -539,7 +579,14 @@ final class Importazione {
 			}
 
 			// Dopo ogni atto: un blocco interrotto riprende da qui, non da capo.
-			update_option( self::OPZIONE, $stato, false );
+			if ( ! update_option( self::OPZIONE, $stato, false ) ) {
+				return new \WP_Error( 'albo_importazione_stato_non_salvato', __( 'L\'importazione si e\' fermata: la banca dati non ha salvato a che punto e\' arrivata. Con "Continua" riprende, e gli atti gia\' scritti si riconoscono.', 'albo-pretorio-pa' ) );
+			}
+
+			// Uno stato incerto non si supera da soli: chi importa guarda prima l'atto.
+			if ( $fermo ) {
+				break;
+			}
 		}
 
 		return $stato;
@@ -590,6 +637,31 @@ final class Importazione {
 		}
 
 		return $stato;
+	}
+
+	/**
+	 * L'esito di un atto gia' importato, ricostruito dalla sua voce di registro.
+	 *
+	 * @param int $atto_id Atto importato.
+	 * @return array{atto_id: int, da_scegliere: bool}|\WP_Error
+	 */
+	private static function esito_dal_registro( int $atto_id ) {
+		$voci = conformita_core_voci_registro(
+			array(
+				'contenuto' => $atto_id,
+				'sezione'   => SEZIONE,
+				'azione'    => Passaggi::AZIONE_IMPORTAZIONE,
+			)
+		);
+
+		if ( ! is_array( $voci ) || 1 !== count( $voci ) ) {
+			return new \WP_Error( 'albo_importazione_registro_non_letto', __( 'L\'atto risulta importato, ma la sua voce di registro non si legge: si controlla dalla schermata degli atti.', 'albo-pretorio-pa' ) );
+		}
+
+		return array(
+			'atto_id'      => $atto_id,
+			'da_scegliere' => true === ( $voci[0]['dettagli']['principale_da_scegliere'] ?? null ),
+		);
 	}
 
 	/**
@@ -645,19 +717,27 @@ final class Importazione {
 	/**
 	 * Importa un atto: la bozza con dati e documenti, poi il passaggio a pubblicato.
 	 *
+	 * Un'eccezione non dice da se' a che punto si e' fermata la scrittura: si
+	 * guarda la banca dati. Atto pubblicato con il suo numero: importato.
+	 * Bozza rimasta: si cancella. Se la cancellazione non riesce, o il numero
+	 * e' registrato senza l'atto pubblicato, lo stato e' incerto e il blocco
+	 * si ferma.
+	 *
 	 * @param array<string, mixed> $atto  Atto del rapporto, portabile.
 	 * @param array<string, mixed> $letto Backup letto.
 	 * @param array<string, mixed> $stato Stato dell'importazione.
 	 * @return array{atto_id: int, da_scegliere: bool}|\WP_Error
 	 */
 	private static function importa_atto( array $atto, array $letto, array $stato ) {
-		$id      = (string) $atto['id'];
-		$tolte   = self::togli_bozze_lasciate( $id );
-		$atto_id = 0;
+		$id    = (string) $atto['id'];
+		$tolte = self::togli_bozze_lasciate( $id );
 
 		if ( is_wp_error( $tolte ) ) {
 			return $tolte;
 		}
+
+		$atto_id   = 0;
+		$documenti = null;
 
 		try {
 			$atto_id = self::prepara_bozza( $atto );
@@ -669,9 +749,7 @@ final class Importazione {
 			$documenti = self::deposita_documenti( $atto_id, $atto, (string) $stato['percorso'], $letto );
 
 			if ( is_wp_error( $documenti ) ) {
-				self::togli_bozza( $atto_id );
-
-				return $documenti;
+				return self::dopo_il_fallimento( $id, $atto_id, $atto, $documenti );
 			}
 
 			$portati = array();
@@ -682,58 +760,121 @@ final class Importazione {
 				}
 			}
 
-			$esito = Passaggi::importa(
-				$atto_id,
-				array(
-					'anno'     => (int) $atto['anno'],
-					'numero'   => (int) $atto['numero'],
-					'inizio'   => (string) $atto['inizio'],
-					'fine'     => (string) $atto['fine'],
-					'dettagli' => array(
-						'origine'                 => $id,
-						'backup'                  => (string) $stato['backup'],
-						'impronta_backup'         => (string) $stato['impronta'],
-						'durata_giorni'           => (int) $atto['giorni'],
-						'origine_durata'          => self::ORIGINE_DURATA,
-						'annullamento'            => $atto['scrittura']['annullamento'],
-						'motivo_annullamento'     => (string) $atto['scrittura']['motivo'],
-						'dubbi_portati'           => array_values( array_unique( $portati ) ),
-						'conferma_dati_personali' => true === $atto['in_vista'],
-						'principale_da_scegliere' => null === $documenti['principale'],
-						'documenti_titoli'        => $documenti['titoli'],
-						'documenti_ruoli'         => $documenti['ruoli'],
-						'documenti_impronte'      => $documenti['impronte'],
-					),
-				)
-			);
-		} catch ( \Throwable $errore ) {
-			if ( $atto_id > 0 ) {
-				self::togli_bozza( $atto_id );
-			}
+			self::$in_lavorazione = $atto_id;
 
-			return new \WP_Error(
-				'albo_importazione_eccezione',
-				sprintf(
-					/* translators: %s: messaggio dell'eccezione. */
-					__( 'L\'atto non e\' stato importato: un errore inatteso ha fermato la scrittura (%s).', 'albo-pretorio-pa' ),
-					$errore->getMessage()
-				)
+			try {
+				$esito = Passaggi::importa(
+					$atto_id,
+					array(
+						'anno'     => (int) $atto['anno'],
+						'numero'   => (int) $atto['numero'],
+						'inizio'   => (string) $atto['inizio'],
+						'fine'     => (string) $atto['fine'],
+						'dettagli' => array(
+							'origine'                 => $id,
+							'backup'                  => (string) $stato['backup'],
+							'impronta_backup'         => (string) $stato['impronta'],
+							'durata_giorni'           => (int) $atto['giorni'],
+							'origine_durata'          => self::ORIGINE_DURATA,
+							'annullamento'            => $atto['scrittura']['annullamento'],
+							'motivo_annullamento'     => (string) $atto['scrittura']['motivo'],
+							'dubbi_portati'           => array_values( array_unique( $portati ) ),
+							'conferma_dati_personali' => true === $atto['in_vista'] && true === $stato['conferma_in_vista'],
+							'principale_da_scegliere' => null === $documenti['principale'],
+							'documenti_titoli'        => $documenti['titoli'],
+							'documenti_ruoli'         => $documenti['ruoli'],
+							'documenti_impronte'      => $documenti['impronte'],
+						),
+					)
+				);
+			} finally {
+				self::$in_lavorazione = 0;
+			}
+		} catch ( \Throwable $errore ) {
+			return self::dopo_il_fallimento(
+				$id,
+				$atto_id,
+				$atto,
+				new \WP_Error(
+					'albo_importazione_eccezione',
+					sprintf(
+						/* translators: %s: messaggio dell'eccezione. */
+						__( 'L\'atto non e\' stato importato: un errore inatteso ha fermato la scrittura (%s).', 'albo-pretorio-pa' ),
+						$errore->getMessage()
+					)
+				),
+				is_array( $documenti ) ? null === $documenti['principale'] : null
 			);
 		}
 
 		if ( is_wp_error( $esito ) ) {
-			self::togli_bozza( $atto_id );
-
-			// I messaggi del passaggio parlano di un atto in verifica: qui l'atto non esiste piu'.
-			return new \WP_Error(
-				(string) $esito->get_error_code(),
-				__( 'L\'atto non e\' stato importato: il passaggio a pubblicato non e\' riuscito, tutto e\' stato annullato e la bozza cancellata. Il codice dice il motivo.', 'albo-pretorio-pa' )
+			// I messaggi del passaggio parlano di un atto in verifica: qui l'atto non c'e' piu'.
+			return self::dopo_il_fallimento(
+				$id,
+				$atto_id,
+				$atto,
+				new \WP_Error(
+					(string) $esito->get_error_code(),
+					__( 'L\'atto non e\' stato importato: il passaggio a pubblicato non e\' riuscito, tutto e\' stato annullato e la bozza cancellata. Il codice dice il motivo.', 'albo-pretorio-pa' )
+				)
 			);
 		}
 
 		return array(
 			'atto_id'      => $atto_id,
 			'da_scegliere' => null === $documenti['principale'],
+		);
+	}
+
+	/**
+	 * Cosa resta di un atto la cui importazione non e' andata come previsto, guardando la banca dati.
+	 *
+	 * @param string    $id           Identificativo nel vecchio albo.
+	 * @param int       $atto_id      Bozza, se si conosce.
+	 * @param array     $atto         Atto del rapporto.
+	 * @param \WP_Error $errore       Il motivo.
+	 * @param bool|null $da_scegliere Principale da scegliere, se i documenti sono stati depositati.
+	 * @return array{atto_id: int, da_scegliere: bool}|\WP_Error
+	 */
+	private static function dopo_il_fallimento( string $id, int $atto_id, array $atto, \WP_Error $errore, ?bool $da_scegliere = null ) {
+		if ( $atto_id > 0 ) {
+			clean_post_cache( $atto_id );
+
+			$numero = Repertorio::di( $atto_id );
+
+			// Confermato nella banca dati prima dell'eccezione: l'atto c'e', pubblicato e numerato.
+			if ( 'publish' === get_post_status( $atto_id ) && array(
+				'anno'   => (int) $atto['anno'],
+				'numero' => (int) $atto['numero'],
+			) === $numero ) {
+				return null === $da_scegliere ? self::esito_dal_registro( $atto_id ) : array(
+					'atto_id'      => $atto_id,
+					'da_scegliere' => $da_scegliere,
+				);
+			}
+
+			if ( null !== $numero || ! in_array( get_post_status( $atto_id ), array( false, 'draft', 'auto-draft' ), true ) ) {
+				return self::incerto( $errore );
+			}
+		}
+
+		// Anche la bozza di cui non si conosce il numero: la si riconosce dal nome.
+		$tolte = self::togli_bozze_lasciate( $id );
+
+		return is_wp_error( $tolte ) ? self::incerto( $errore ) : $errore;
+	}
+
+	/**
+	 * Il rifiuto con lo stato incerto, che ferma il blocco.
+	 *
+	 * @param \WP_Error $errore Il motivo.
+	 * @return \WP_Error
+	 */
+	private static function incerto( \WP_Error $errore ): \WP_Error {
+		return new \WP_Error(
+			(string) $errore->get_error_code(),
+			$errore->get_error_message() . ' ' . __( 'Stato incerto: l\'atto o il suo numero potrebbero essere rimasti a meta\'. L\'importazione si e\' fermata; si controlla l\'atto prima di continuare.', 'albo-pretorio-pa' ),
+			array( 'incerto' => true )
 		);
 	}
 
@@ -748,14 +889,15 @@ final class Importazione {
 
 		$righe = Lettura::righe(
 			$wpdb->prepare(
-				'SELECT p.ID FROM %i m JOIN %i p ON p.ID = m.post_id WHERE m.meta_key = %s AND m.meta_value = %s AND p.post_type = %s AND p.post_status IN ( %s, %s )',
-				$wpdb->postmeta,
+				'SELECT DISTINCT p.ID FROM %i p LEFT JOIN %i m ON m.post_id = p.ID AND m.meta_key = %s WHERE p.post_type = %s AND p.post_status IN ( %s, %s ) AND ( m.meta_value = %s OR p.post_name = %s )',
 				$wpdb->posts,
+				$wpdb->postmeta,
 				META_ORIGINE_IMPORTAZIONE,
-				$id,
 				TIPO,
 				'draft',
-				'auto-draft'
+				'auto-draft',
+				$id,
+				self::nome_bozza( $id )
 			),
 			array( 'ID' )
 		);
@@ -803,6 +945,7 @@ final class Importazione {
 					'post_type'    => TIPO,
 					'post_status'  => 'draft',
 					'post_title'   => (string) $atto['oggetto'],
+					'post_name'    => self::nome_bozza( (string) $atto['id'] ),
 					'post_content' => '',
 					'post_author'  => get_current_user_id(),
 				)
