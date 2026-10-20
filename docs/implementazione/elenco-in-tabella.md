@@ -156,6 +156,10 @@ tema parta, e la funzione restituisce nullo per quella ragione. La prova toglie 
 risposta "non trovata", come farebbe un altro componente che la scavalca, e solo così il
 controllo della funzione diventa visibile.
 
-Il motore automatico di verifica dell'accessibilità non è stato fatto girare su questa
-versione: resta il passo a mano di [`pagina-pubblica.md`](pagina-pubblica.md), da ripetere
-sulla tabella prima di unire.
+Fatto girare a mano il 20 ottobre 2026 su elenco e scheda disegnati dalle prove, con il solo
+foglio di stile dell'albo e nessun tema, il motore automatico (axe 4.10, regole WCAG 2.0, 2.1
+e 2.2 di livello A e AA, in Chromium) non trova violazioni né a 1280 né a 375 pixel di
+larghezza, e a 375 pixel la pagina non scorre di lato. Il controllo di realtà regge: sulla
+pagina costruita apposta trova l'immagine senza testo alternativo e il campo senza etichetta.
+La prova sul tema predefinito di WordPress resta quella a mano di
+[`pagina-pubblica.md`](pagina-pubblica.md), da ripetere sulla tabella prima di unire.
