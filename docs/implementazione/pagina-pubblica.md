@@ -288,3 +288,11 @@ mostrava l'elenco intero invece di dire che la ricerca era scritta male. Ora si 
 valore com'è arrivato: tipo, organo, date e pagina non si ripuliscono affatto e devono avere
 la loro forma, e l'oggetto è vuoto solo se lo era già prima. Riga A-199, estesa. Guasti
 nuovi: due (campi rigidi ripuliti, valore svuotato preso per vuoto), visti.
+
+### La quinta revisione indipendente
+
+La correzione del quarto giro regge. Un rilievo: una data con un carattere nullo dentro
+arrivava alla lettura della data, che solleva un'eccezione, e la pagina si interrompeva
+invece di dire che la ricerca era scritta male. Ora la data deve avere la forma AAAA-MM-GG
+prima di essere letta. Riga A-199, estesa; la prova senza la correzione si ferma con
+l'eccezione.
