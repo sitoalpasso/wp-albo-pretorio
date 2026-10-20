@@ -265,3 +265,17 @@ propria:
 
 Guasti nuovi: tre (atto letto in un altro modo, conteggio mancante oltre l'ultima pagina,
 memoria svuotata solo dal cestino), tutti visti.
+
+### La terza revisione indipendente
+
+Le correzioni del secondo giro reggono, e nessun nuovo modo di scaricare un documento. Due
+rilievi sulle prove, ciascuno con un difetto dietro:
+
+- **La "non trovata" di una scheda conservava la pagina dell'albo fra i risultati**:
+  `set_404()` non li toglie, e un modello 404 che li percorre l'avrebbe disegnata. La prova
+  confrontava due risposte che avevano lo stesso difetto. Ora i risultati si svuotano, e
+  A-196 pretende nessun risultato e niente disegnato da un modello che li percorre.
+- **A-198 non distingueva la ricerca nell'oggetto da quella nel testo**: ora ci sono due atti
+  con la parola solo nel testo e solo nell'estratto, e non devono comparire.
+
+Guasti nuovi: due (risultati lasciati nella "non trovata", ricerca estesa al testo), visti.
