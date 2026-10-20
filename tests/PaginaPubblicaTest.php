@@ -1,6 +1,6 @@
 <?php
 /**
- * La pagina pubblica dell'albo: righe A-195..A-203 (ALBO-06, ALBO-16, ALBO-28).
+ * La pagina pubblica dell'albo: righe A-195..A-207 (ALBO-06, ALBO-16, ALBO-28).
  *
  * Le prove fanno richieste vere alla pagina che contiene il codice breve, con
  * gli atti portati a pubblicato dal passaggio vero e l'orologio fissato. Il
@@ -60,6 +60,13 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	private array $stati = array();
 
 	/**
+	 * Le righe di intestazione che la pagina dell'albo manda per conto suo.
+	 *
+	 * @var array<int, string>
+	 */
+	private array $righe = array();
+
+	/**
 	 * La pagina dell'albo, creata dalle prove che la vogliono.
 	 *
 	 * @var int
@@ -81,7 +88,21 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			}
 		);
 
+		PaginaPubblica::fissa_emettitore(
+			function ( string $riga ) {
+				$this->righe[] = $riga;
+			}
+		);
+
 		add_filter( 'status_header', array( $this, 'osserva_stato' ), 10, 2 );
+		add_action( 'parse_request', array( $this, 'dimentica_righe' ), 1 );
+	}
+
+	/**
+	 * Le righe contano per l'ultima richiesta soltanto.
+	 */
+	public function dimentica_righe(): void {
+		$this->righe = array();
 	}
 
 	/**
@@ -89,7 +110,10 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	 */
 	public function tear_down(): void {
 		remove_filter( 'status_header', array( $this, 'osserva_stato' ), 10 );
+		remove_action( 'parse_request', array( $this, 'dimentica_righe' ), 1 );
 		\Conformita_Core_Consegna::azzera_emettitore();
+		PaginaPubblica::fissa_emettitore( null );
+		unset( $_COOKIE[ 'wp-postpass_' . COOKIEHASH ] );
 
 		$this->smonta_flusso();
 		unset( $GLOBALS['post'] );
@@ -259,11 +283,13 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	 */
 	private function risposta( string $indirizzo ): array {
 		$this->stati = array();
+		$this->righe = array();
 		$this->richiesta_pubblica( $indirizzo );
 
 		return array(
 			'non trovata'  => is_404(),
 			'stati'        => array_values( array_unique( $this->stati ) ),
+			'righe'        => $this->righe,
 			'risultati'    => wp_list_pluck( (array) $GLOBALS['wp_query']->posts, 'ID' ),
 			'titolo'       => wp_get_document_title(),
 			'intestazioni' => apply_filters( 'wp_headers', array(), $GLOBALS['wp'] ),
@@ -691,11 +717,33 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 		setup_postdata( $GLOBALS['post'] );
 		$this->assertSame( '', do_shortcode( '[albo_pretorio]' ), 'Nell\'anteprima incorporata non disegna niente.' );
 
-		$GLOBALS['wp_rest_server'] = null;
-		$risposta                  = rest_do_request( new \WP_REST_Request( 'GET', '/wp/v2/pages/' . $this->pagina ) );
-		$this->assertSame( 200, $risposta->get_status(), 'Precondizione: l\'interfaccia per programmi risponde.' );
-		$this->assertStringNotContainsString( 'Oggetto da non vedere fuori', (string) wp_json_encode( $risposta->get_data() ), 'Nell\'interfaccia per programmi non disegna niente.' );
-		$GLOBALS['wp_rest_server'] = null;
+		/*
+		 * L'interfaccia per programmi, due volte. Prima come in una richiesta
+		 * vera, con la richiesta principale che non e' la pagina dell'albo;
+		 * poi con la richiesta principale proprio sulla pagina dell'albo, cosi'
+		 * che ogni altra condizione per disegnare sia vera e a fermare il
+		 * codice breve resti soltanto il controllo sull'interfaccia.
+		 */
+		foreach ( array(
+			'richiesta principale altrove'      => home_url( '/' ),
+			'richiesta principale sulla pagina' => $this->indirizzo(),
+		) as $come => $dove ) {
+			$this->richiesta_pubblica( $dove );
+			$GLOBALS['post'] = get_post( $this->pagina );
+			setup_postdata( $GLOBALS['post'] );
+
+			if ( $this->indirizzo() === $dove ) {
+				$this->assertTrue( PaginaPubblica::richiesta_dell_albo(), $come . ': precondizione, la richiesta principale e\' la pagina dell\'albo.' );
+				$this->assertStringContainsString( 'Oggetto da non vedere fuori', do_shortcode( '[albo_pretorio]' ), $come . ': precondizione, fuori dall\'interfaccia disegna.' );
+			}
+
+			$GLOBALS['wp_rest_server'] = null;
+			$risposta                  = rest_do_request( new \WP_REST_Request( 'GET', '/wp/v2/pages/' . $this->pagina ) );
+			$this->assertSame( 200, $risposta->get_status(), $come . ': precondizione, l\'interfaccia per programmi risponde.' );
+			$this->assertStringContainsString( 'Gli atti in pubblicazione.', (string) wp_json_encode( $risposta->get_data() ), $come . ': precondizione, il contenuto della pagina e\' letto.' );
+			$this->assertStringNotContainsString( 'Oggetto da non vedere fuori', (string) wp_json_encode( $risposta->get_data() ), $come . ': nell\'interfaccia per programmi non disegna niente.' );
+			$GLOBALS['wp_rest_server'] = null;
+		}
 
 		// Pagine che non sono pagine dell'albo: in bozza e con password.
 		$bozza  = self::factory()->post->create(
@@ -856,6 +904,239 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 
 			$this->controlla_accessibilita( $quale, $html, $stile );
 		}
+	}
+
+	/**
+	 * A-204: il documento di un atto che la pagina non mostra non si scarica.
+	 *
+	 * Il punto di consegna del meccanismo comune guarda pubblicazione,
+	 * password e scadenza, ma non il numero di registro, e una password data
+	 * gli basta. La pagina non mostra ne' l'uno ne' l'altro atto, quindi
+	 * nemmeno i loro documenti escono: il rifiuto e' quello che il punto da'
+	 * al documento di uno scaduto.
+	 */
+	public function test_a204_documento_di_un_atto_che_la_pagina_non_mostra(): void {
+		$this->pagina_albo();
+
+		$scaduto   = $this->pubblicato_il( '2041-09-01 09:30:00', 'Atto scaduto di riferimento' );
+		$controllo = $this->pubblicato_il( '2041-10-01 09:30:00', 'Atto di controllo' );
+		$chiuso    = $this->pubblicato_il( '2041-10-02 09:30:00', 'Atto a cui si mette una password' );
+		$senza     = $this->scavalcato();
+
+		$this->scavalca_barriera(
+			static function () use ( $chiuso ) {
+				global $wpdb;
+
+				return $wpdb->update( $wpdb->posts, array( 'post_password' => 'segreta' ), array( 'ID' => $chiuso ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- scrittura da fuori, come la farebbe un altro programma.
+			}
+		);
+		clean_post_cache( $chiuso );
+		$this->assertSame( 'segreta', get_post( $chiuso )->post_password, 'Precondizione: l\'atto ha la password.' );
+
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+		wp_set_current_user( 0 );
+
+		$this->assertTrue( conformita_core_scaduto( $scaduto ), 'Precondizione: il riferimento e\' scaduto.' );
+		$rifiuto = $this->consegna( (int) DocumentiAtto::principale( $scaduto ) );
+		$this->assertFalse( $this->consegnato( $rifiuto ), 'Precondizione: il documento dello scaduto non si scarica.' );
+		$this->assertSame( 404, $rifiuto[0]['stato'] ?? 0, 'Precondizione: il rifiuto e\' un "non trovato".' );
+
+		require_once ABSPATH . WPINC . '/class-phpass.php';
+		$biscotto = ( new \PasswordHash( 8, true ) )->HashPassword( 'segreta' );
+
+		foreach ( array(
+			'senza numero'                         => array( $senza, null ),
+			'con password, senza biscotto'         => array( $chiuso, null ),
+			'con password, con il biscotto giusto' => array( $chiuso, $biscotto ),
+		) as $quale => list( $atto, $valore ) ) {
+			unset( $_COOKIE[ 'wp-postpass_' . COOKIEHASH ] );
+
+			if ( null !== $valore ) {
+				$_COOKIE[ 'wp-postpass_' . COOKIEHASH ] = wp_slash( $valore );
+				$this->assertFalse( post_password_required( $atto ), $quale . ': precondizione, con il biscotto WordPress considera la password data.' );
+			}
+
+			$this->assertTrue( $this->consegnato( $this->consegna( (int) DocumentiAtto::principale( $controllo ) ) ), $quale . ': controllo positivo, prima il documento in corso si scarica.' );
+			$this->assertSame( $rifiuto, $this->consegna( (int) DocumentiAtto::principale( $atto ) ), $quale . ': il documento non si scarica, con la risposta dello scaduto.' );
+			$this->assertTrue( $this->consegnato( $this->consegna( (int) DocumentiAtto::principale( $controllo ) ) ), $quale . ': controllo positivo, dopo il documento in corso si scarica.' );
+		}
+	}
+
+	/**
+	 * A-205: la "non trovata" di una scheda porta il divieto ai motori e alle memorie.
+	 */
+	public function test_a205_non_trovata_fuori_dai_motori(): void {
+		$this->pagina_albo();
+
+		$scaduto = $this->pubblicato_il( '2041-09-01 09:30:00', 'Atto scaduto' );
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+		wp_set_current_user( 0 );
+
+		foreach ( array(
+			'scaduto'         => $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $scaduto ) ),
+			'numero mai dato' => $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => 999999 ) ),
+		) as $quale => $dove ) {
+			$risposta = $this->risposta( $dove );
+
+			$this->assertTrue( $risposta['non trovata'], $quale . ': precondizione, la scheda risponde "non trovata".' );
+			$this->assertSame( 'noindex', $risposta['intestazioni']['X-Robots-Tag'] ?? '', $quale . ': il divieto nell\'intestazione.' );
+			$this->assertSame( array( 'X-Robots-Tag: noindex' ), $risposta['righe'], $quale . ': il divieto su una riga propria.' );
+			$this->assertStringContainsString( 'noindex', $risposta['robot'], $quale . ': il divieto nel sorgente.' );
+
+			foreach ( wp_get_nocache_headers() as $nome => $valore ) {
+				$this->assertSame( $valore, $risposta['intestazioni'][ $nome ] ?? null, $quale . ': ' . $nome . ' vieta di conservare la risposta.' );
+			}
+		}
+
+		$fuori = $this->risposta( home_url( '/?p=999999' ) );
+		$this->assertTrue( $fuori['non trovata'], 'Precondizione: l\'indirizzo inesistente fuori dalla pagina risponde "non trovata".' );
+		$this->assertArrayNotHasKey( 'X-Robots-Tag', $fuori['intestazioni'], 'Fuori dalla pagina la "non trovata" non riceve il divieto dell\'albo.' );
+		$this->assertSame( array(), $fuori['righe'], 'Fuori dalla pagina nessuna riga dell\'albo.' );
+	}
+
+	/**
+	 * A-205 (memorie di pagina): la costante dopo la scheda non trovata, in un avvio separato.
+	 *
+	 * Una costante definita da un'altra prova non si toglie: qui il processo
+	 * e' nuovo, quindi la costante c'e' solo se la definisce questa richiesta.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_a205_non_trovata_la_costante(): void {
+		$this->pagina_albo();
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+		wp_set_current_user( 0 );
+
+		$this->assertFalse( defined( 'DONOTCACHEPAGE' ), 'Precondizione: nel processo nuovo la costante non c\'e\'.' );
+
+		$this->richiesta_pubblica( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => 999999 ) ) );
+
+		$this->assertTrue( is_404(), 'Precondizione: la scheda risponde "non trovata".' );
+		$this->assertTrue( defined( 'DONOTCACHEPAGE' ) && true === constant( 'DONOTCACHEPAGE' ), 'La scheda non trovata definisce la costante.' );
+	}
+
+	/**
+	 * A-206: le direttive per un motore specifico non si mescolano al divieto generale.
+	 */
+	public function test_a206_direttive_per_un_motore(): void {
+		$this->pagina_albo();
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+		wp_set_current_user( 0 );
+
+		foreach ( array(
+			'per un motore'                     => array( array( 'X-Robots-Tag' => 'googlebot: nofollow' ), 'noindex', array( 'X-Robots-Tag: googlebot: nofollow', 'X-Robots-Tag: noindex' ) ),
+			'per un motore, con il suo divieto' => array( array( 'X-Robots-Tag' => 'googlebot: nofollow, noindex' ), 'noindex', array( 'X-Robots-Tag: googlebot: nofollow, noindex', 'X-Robots-Tag: noindex' ) ),
+			'generale e per un motore'          => array(
+				array(
+					'x-robots-tag' => 'googlebot: nofollow',
+					'X-Robots-Tag' => 'nofollow',
+				),
+				'nofollow, noindex',
+				array( 'X-Robots-Tag: googlebot: nofollow', 'X-Robots-Tag: noindex' ),
+			),
+		) as $quale => list( $scritte, $composta, $righe ) ) {
+			$altri = static function ( $intestazioni ) use ( $scritte ) {
+				return array_merge( (array) $intestazioni, $scritte );
+			};
+			add_filter( 'wp_headers', $altri );
+
+			$risposta = $this->risposta( $this->indirizzo() );
+
+			remove_filter( 'wp_headers', $altri );
+
+			$this->assertFalse( $risposta['non trovata'], $quale . ': precondizione, la pagina si apre.' );
+			$this->assertSame( $composta, $risposta['intestazioni']['X-Robots-Tag'] ?? '', $quale . ': l\'intestazione composta.' );
+			$this->assertArrayNotHasKey( 'x-robots-tag', $risposta['intestazioni'], $quale . ': ne resta una sola.' );
+			$this->assertSame( $righe, $risposta['righe'], $quale . ': le righe proprie.' );
+		}
+	}
+
+	/**
+	 * A-207: due codici brevi nella stessa pagina, ciascuno con i suoi identificativi.
+	 */
+	public function test_a207_due_codici_brevi(): void {
+		$this->pagina_albo();
+		$this->pubblicato_il( '2041-10-01 09:30:00', 'Atto in due moduli' );
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+		wp_set_current_user( 0 );
+
+		$dove = $this->indirizzo( array( VistaPubblica::CAMPO_DAL => 'ieri' ) );
+
+		$una = $this->riferimenti( (string) $this->pagina_disegnata( $dove ) );
+		$this->assertCount( 1, $una, 'Precondizione: con un codice breve, un modulo.' );
+		$this->assertContains( VistaPubblica::ID_ERRORE, $una[0]['id'], 'Precondizione: la ricerca scritta male mostra l\'errore.' );
+
+		wp_update_post(
+			array(
+				'ID'           => $this->pagina,
+				'post_content' => '[albo_pretorio]' . "\n\n" . '[albo_pretorio]',
+			)
+		);
+		PaginaPubblica::azzera();
+
+		$due = $this->riferimenti( (string) $this->pagina_disegnata( $dove ) );
+		$this->assertCount( 2, $due, 'Precondizione: con due codici brevi, due moduli.' );
+
+		$tutti = array_merge( $due[0]['id'], $due[1]['id'] );
+		$this->assertSame( array_values( array_unique( $tutti ) ), $tutti, 'Sull\'intero risultato gli identificativi sono unici.' );
+
+		foreach ( $due as $n => $modulo ) {
+			$this->assertNotEmpty( $modulo['rimandi'], 'Precondizione: il modulo ' . $n . ' ha riferimenti.' );
+
+			foreach ( $modulo['rimandi'] as $rimando ) {
+				$this->assertContains( $rimando, $modulo['id'], 'Il riferimento ' . $rimando . ' punta a un elemento dello stesso modulo.' );
+			}
+
+			$this->assertSame( $una[0]['nomi'], $modulo['nomi'], 'I nomi dei campi del modulo ' . $n . ' restano gli stessi.' );
+		}
+
+		$this->assertSame( $una[0]['id'], $due[0]['id'], 'Il primo modulo ha gli identificativi di sempre.' );
+	}
+
+	/**
+	 * Per ogni contenitore dell'albo: identificativi, riferimenti e nomi dei campi.
+	 *
+	 * @param string $html Codice disegnato.
+	 * @return array<int, array{id: array<int, string>, rimandi: array<int, string>, nomi: array<int, string>}>
+	 */
+	private function riferimenti( string $html ): array {
+		$documento = new \DOMDocument();
+		$vecchio   = libxml_use_internal_errors( true );
+		$documento->loadHTML( '<?xml encoding="UTF-8"><html><body>' . $html . '</body></html>' );
+		libxml_clear_errors();
+		libxml_use_internal_errors( $vecchio );
+
+		$xpath  = new \DOMXPath( $documento );
+		$moduli = array();
+
+		foreach ( $xpath->query( '//*[contains(concat(" ", normalize-space(@class), " "), " albo-pretorio ")]' ) as $radice ) {
+			$voce = array(
+				'id'      => array(),
+				'rimandi' => array(),
+				'nomi'    => array(),
+			);
+
+			foreach ( $xpath->query( './/*[@id]', $radice ) as $nodo ) {
+				$voce['id'][] = $nodo->getAttribute( 'id' );
+			}
+
+			foreach ( array( 'for', 'aria-describedby', 'aria-labelledby' ) as $attributo ) {
+				foreach ( $xpath->query( './/*[@' . $attributo . ']', $radice ) as $nodo ) {
+					foreach ( preg_split( '/\s+/', trim( $nodo->getAttribute( $attributo ) ), -1, PREG_SPLIT_NO_EMPTY ) as $rimando ) {
+						$voce['rimandi'][] = $rimando;
+					}
+				}
+			}
+
+			foreach ( $xpath->query( './/*[@name]', $radice ) as $nodo ) {
+				$voce['nomi'][] = $nodo->getAttribute( 'name' );
+			}
+
+			$moduli[] = $voce;
+		}
+
+		return $moduli;
 	}
 
 	/**
