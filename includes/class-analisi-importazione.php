@@ -58,6 +58,13 @@ final class AnalisiImportazione {
 	const ESCLUSO = 'escluso';
 
 	/**
+	 * Esito di un atto gia' portato nel nuovo albo da un'importazione precedente: non si tocca piu'.
+	 *
+	 * @var string
+	 */
+	const IMPORTATO = 'importato';
+
+	/**
 	 * Byte oltre i quali un nome di categoria, amministrazione, persona o ufficio non e' un nome vero.
 	 *
 	 * @var int
@@ -180,6 +187,7 @@ final class AnalisiImportazione {
 		}
 
 		return array(
+			'importati'    => self::importati(),
 			'oggi'         => $adesso->setTimezone( wp_timezone() )->format( 'Y-m-d' ),
 			'anno'         => Repertorio::anno_di( $adesso ),
 			'tipi'         => $tipi,
@@ -382,6 +390,10 @@ final class AnalisiImportazione {
 			}
 		}
 
+		if ( ! is_array( $contesto['importati'] ?? null ) ) {
+			$generali[] = self::segnalazione( 'conflitto', 'importati_non_letti', __( 'Il nuovo albo non ha risposto alla lettura degli atti gia\' importati: non si puo\' dire quali atti del backup ci siano gia\'.', 'albo-pretorio-pa' ) );
+		}
+
 		$file_usati = array();
 		$atti       = array();
 		$misura     = 0;
@@ -401,6 +413,24 @@ final class AnalisiImportazione {
 					)
 				);
 				break;
+			}
+
+			$importato = self::gia_importato( $riga, $contesto, $id_doppi );
+
+			if ( null !== $importato ) {
+				$atti[]  = $importato;
+				$misura += strlen( serialize( $importato ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize -- solo per misurare la grandezza dell'atto nel rapporto.
+
+				// I file di un atto gia' importato sono citati: non sono file che nessuno usa.
+				foreach ( $allegati[ $importato['id'] ] ?? array() as $allegato ) {
+					$file = self::trova_file( (string) ( $allegato['Allegato'] ?? '' ), $letto['file'] );
+
+					if ( $letto['zip'] && null !== $file['nome'] ) {
+						$file_usati[ $file['nome'] ] = true;
+					}
+				}
+
+				continue;
 			}
 
 			$atti[]  = self::atto(
@@ -528,6 +558,95 @@ final class AnalisiImportazione {
 	}
 
 	/**
+	 * Gli atti gia' portati nel nuovo albo da un'importazione, per identificativo d'origine.
+	 *
+	 * Vale anche la bozza che un'importazione interrotta ha lasciato: non e'
+	 * importata, ma chi importa deve sapere che c'e' per toglierla.
+	 *
+	 * @return array<string, array{atto_id: int, stato: string}>|null Nulla se la lettura non ha risposto.
+	 */
+	public static function importati(): ?array {
+		global $wpdb;
+
+		$righe = Lettura::righe(
+			$wpdb->prepare(
+				'SELECT m.meta_value AS origine, p.ID AS atto_id, p.post_status AS stato FROM %i m JOIN %i p ON p.ID = m.post_id WHERE m.meta_key = %s AND p.post_type = %s ORDER BY p.ID',
+				$wpdb->postmeta,
+				$wpdb->posts,
+				META_ORIGINE_IMPORTAZIONE,
+				TIPO
+			),
+			array( 'origine', 'atto_id', 'stato' )
+		);
+
+		if ( null === $righe ) {
+			return null;
+		}
+
+		$importati = array();
+
+		foreach ( $righe as $riga ) {
+			$origine = (string) $riga['origine'];
+
+			// Un atto pubblicato vince sulla bozza lasciata a meta' con la stessa origine.
+			if ( isset( $importati[ $origine ] ) && 'publish' === $importati[ $origine ]['stato'] ) {
+				continue;
+			}
+
+			$importati[ $origine ] = array(
+				'atto_id' => (int) $riga['atto_id'],
+				'stato'   => (string) $riga['stato'],
+			);
+		}
+
+		return $importati;
+	}
+
+	/**
+	 * L'atto del backup gia' importato, nella forma breve del rapporto, o nulla.
+	 *
+	 * Un atto importato non si analizza piu': i suoi numeri sono gia' del
+	 * nuovo albo, e confrontarli con se stessi li darebbe per gia' usati.
+	 *
+	 * @param array<string, string|null> $riga     Riga della tabella degli atti.
+	 * @param array<string, mixed>       $contesto Stato del nuovo albo.
+	 * @param array<string, bool>        $id_doppi Numeri interni assenti o ripetuti.
+	 * @return array<string, mixed>|null
+	 */
+	private static function gia_importato( array $riga, array $contesto, array $id_doppi ): ?array {
+		$id        = (string) ( $riga['IdAtto'] ?? '' );
+		$importato = is_array( $contesto['importati'] ?? null ) ? ( $contesto['importati'][ $id ] ?? null ) : null;
+
+		if ( null === $importato || 'publish' !== $importato['stato'] || isset( $id_doppi[ $id ] ) ) {
+			return null;
+		}
+
+		$numero = self::numero_anno( $riga );
+
+		return array(
+			'id'           => $id,
+			'numero'       => $numero['numero'],
+			'scritto'      => (string) ( $riga['Numero'] ?? 'NULL' ),
+			'anno'         => $numero['anno'],
+			'oggetto'      => '',
+			'inizio'       => self::data( $riga['DataInizio'] ?? null ),
+			'fine'         => self::data( $riga['DataFine'] ?? null ),
+			'giorni'       => null,
+			'stato'        => 'importato',
+			'pubblico'     => __( 'Gia\' importato: e\' nel nuovo albo e non si tocca piu\'.', 'albo-pretorio-pa' ),
+			'in_vista'     => false,
+			'tipo'         => '',
+			'categoria'    => (string) ( $riga['IdCategoria'] ?? '' ),
+			'tipo_id'      => null,
+			'atto_id'      => $importato['atto_id'],
+			'dati'         => array(),
+			'documenti'    => array(),
+			'esito'        => self::IMPORTATO,
+			'segnalazioni' => array(),
+		);
+	}
+
+	/**
 	 * Un atto del backup, come verrebbe ricostruito.
 	 *
 	 * @param array<string, string|null> $riga       Riga della tabella degli atti.
@@ -566,6 +685,13 @@ final class AnalisiImportazione {
 			'in_vista'     => false,
 			'tipo'         => '',
 			'categoria'    => (string) ( $riga['IdCategoria'] ?? '' ),
+			'tipo_id'      => null,
+			'scrittura'    => array(
+				'riferimento'  => '',
+				'procedimento' => array(),
+				'annullamento' => null,
+				'motivo'       => '',
+			),
 			'dati'         => array(),
 			'documenti'    => array(),
 			'esito'        => '',
@@ -580,6 +706,10 @@ final class AnalisiImportazione {
 			$atto['segnalazioni'] = array( self::segnalazione( 'nota', 'bozza', __( 'Bozza mai pubblicata: non si porta.', 'albo-pretorio-pa' ) ) );
 
 			return $atto;
+		}
+
+		if ( ! is_array( $contesto['importati'] ?? null ) ) {
+			$segnala[] = self::segnalazione( 'conflitto', 'importati_non_letti', __( 'Non si sa se questo atto e\' gia\' stato importato: la lettura del nuovo albo non ha risposto.', 'albo-pretorio-pa' ) );
 		}
 
 		// Numero e anno.
@@ -703,6 +833,8 @@ final class AnalisiImportazione {
 				)
 				: $tipo['nome'];
 
+			$atto['tipo_id'] = null === $tipo ? null : $tipo['id'];
+
 			// Le decisioni ancora aperte sul tipo valgono anche per ogni suo atto.
 			$aperte = self::tipo_di( $categoria, $contesto )['segnalazioni'];
 
@@ -771,7 +903,10 @@ final class AnalisiImportazione {
 		if ( null !== $annullo ) {
 			$motivo        = trim( (string) ( $riga['MotivoAnnullamento'] ?? '' ) );
 			$atto['stato'] = 'annullato';
-			$segnala[]     = self::segnalazione(
+
+			$atto['scrittura']['annullamento'] = $annullo;
+			$atto['scrittura']['motivo']       = $motivo;
+			$segnala[]                         = self::segnalazione(
 				'dubbio',
 				'annullato',
 				sprintf(
@@ -931,6 +1066,8 @@ final class AnalisiImportazione {
 
 			if ( $pulito !== $riferimento ) {
 				$segnala[] = self::segnalazione( 'dubbio', 'riferimento_non_conservabile', __( 'Il riferimento contiene a capo, marcatori o caratteri che il numero proprio non accetta: non si conserverebbe alla lettera.', 'albo-pretorio-pa' ) );
+			} else {
+				$atto['scrittura']['riferimento'] = $riferimento;
 			}
 		}
 
@@ -1030,6 +1167,8 @@ final class AnalisiImportazione {
 				);
 				continue;
 			}
+
+			$atto['scrittura']['procedimento'][ $dato ] = $valore;
 
 			$elenco = DatiProcedimento::RESPONSABILE === $dato ? $contesto['responsabili'] : ( DatiProcedimento::UFFICIO === $dato ? $contesto['uffici'] : null );
 
@@ -1131,10 +1270,12 @@ final class AnalisiImportazione {
 			}
 
 			$documento = array(
-				'titolo'   => '' === $titolo ? basename( str_replace( '\\', '/', (string) ( $riga['Allegato'] ?? '' ) ) ) : $titolo,
-				'ruolo'    => 'D' === $natura ? __( 'documento', 'albo-pretorio-pa' ) : __( 'allegato', 'albo-pretorio-pa' ),
-				'file'     => $file['nome'],
-				'verifica' => '',
+				'titolo'     => '' === $titolo ? basename( str_replace( '\\', '/', (string) ( $riga['Allegato'] ?? '' ) ) ) : $titolo,
+				'ruolo'      => 'D' === $natura ? __( 'documento', 'albo-pretorio-pa' ) : __( 'allegato', 'albo-pretorio-pa' ),
+				'principale' => 'D' === $natura,
+				'file'       => $file['nome'],
+				'impronta'   => null === $file['nome'] || ! isset( $indici['file'][ $file['nome'] ] ) ? '' : (string) $indici['file'][ $file['nome'] ]['impronta'],
+				'verifica'   => '',
 			);
 
 			if ( ! $indici['zip'] ) {
@@ -1545,6 +1686,7 @@ final class AnalisiImportazione {
 				self::DA_DECIDERE => 0,
 				self::CONFLITTO   => 0,
 				self::ESCLUSO     => 0,
+				self::IMPORTATO   => 0,
 			),
 			'stati' => array(),
 		);

@@ -140,6 +140,12 @@ const META_DOCUMENTO_PRINCIPALE = '_albo_pretorio_documento_principale';
 const META_ALLEGATI_ULTERIORI = '_albo_pretorio_allegati_ulteriori';
 
 /**
+ * Nome del dato con l'identificativo che l'atto importato aveva nel vecchio
+ * albo: e' cio' che fa riconoscere un atto gia' importato a un rilancio.
+ */
+const META_ORIGINE_IMPORTAZIONE = '_albo_pretorio_origine_importazione';
+
+/**
  * Tabella degli anni del repertorio, senza il prefisso delle tabelle del sito.
  */
 const TABELLA_REPERTORIO_ANNI = 'albo_pretorio_repertorio_anni';
@@ -209,6 +215,7 @@ require_once __DIR__ . '/includes/class-schermata-festivi.php';
 require_once __DIR__ . '/includes/class-schermata-scaduti.php';
 require_once __DIR__ . '/includes/class-lettore-backup.php';
 require_once __DIR__ . '/includes/class-analisi-importazione.php';
+require_once __DIR__ . '/includes/class-importazione.php';
 require_once __DIR__ . '/includes/class-schermata-importazione.php';
 require_once __DIR__ . '/includes/class-pagina-pubblica.php';
 require_once __DIR__ . '/includes/class-vista-pubblica.php';
