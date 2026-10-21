@@ -638,15 +638,26 @@ final class Passaggi {
 			'dettagli' => is_array( $dati['dettagli'] ?? null ) ? $dati['dettagli'] : array(),
 		);
 
-		self::inizia( $atto_id, $campi, $fine, 'importazione' );
+		// Il blocco dell'anno, tenuto fino a dopo la conferma: una dichiarazione della partenza non passa in mezzo.
+		$blocco = Repertorio::blocca_anno( $anno );
 
-		try {
-			$esito = self::importa_dentro( $atto_id, $campi, $fine, $partito, $partenza, $prima_fine, array( $fine ) !== self::righe_fine( $partenza ), $prima );
-		} finally {
-			unset( self::$in_corso[ $atto_id ] );
+		if ( is_wp_error( $blocco ) ) {
+			return $blocco;
 		}
 
-		return self::dopo_la_chiusura( $atto_id, $esito );
+		try {
+			self::inizia( $atto_id, $campi, $fine, 'importazione' );
+
+			try {
+				$esito = self::importa_dentro( $atto_id, $campi, $fine, $partito, $partenza, $prima_fine, array( $fine ) !== self::righe_fine( $partenza ), $prima );
+			} finally {
+				unset( self::$in_corso[ $atto_id ] );
+			}
+
+			return self::dopo_la_chiusura( $atto_id, $esito );
+		} finally {
+			Repertorio::sblocca_anno( $anno );
+		}
 	}
 
 	/**

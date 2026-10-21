@@ -67,6 +67,62 @@ final class Repertorio {
 	const MASSIMO = 4294967295;
 
 	/**
+	 * Secondi di attesa del blocco di un anno, tenuto da una dichiarazione o da un'importazione.
+	 */
+	const ATTESA_ANNO = 3;
+
+	/**
+	 * Il nome del blocco di un anno nella banca dati.
+	 *
+	 * Dichiarazione della partenza e importazione di un numero dello stesso anno
+	 * lo prendono entrambe e lo tengono fino alla fine della loro scrittura,
+	 * transazione compresa: non si scavalcano, qualunque sia l'isolamento
+	 * della banca dati e anche quando la riga dell'anno non c'e'.
+	 *
+	 * @param int $anno Anno.
+	 * @return string
+	 */
+	public static function nome_blocco_anno( int $anno ): string {
+		global $wpdb;
+
+		return substr( $wpdb->prefix, 0, 40 ) . 'albo_anno_' . $anno;
+	}
+
+	/**
+	 * Prende il blocco di un anno, attendendo al massimo pochi secondi.
+	 *
+	 * @param int $anno Anno.
+	 * @return true|\WP_Error
+	 */
+	public static function blocca_anno( int $anno ) {
+		global $wpdb;
+
+		if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK( %s, %d )', self::nome_blocco_anno( $anno ), self::ATTESA_ANNO ) ) ) {
+			return new \WP_Error(
+				'albo_repertorio_anno_occupato',
+				sprintf(
+					/* translators: %d: anno. */
+					__( 'Un\'altra operazione sta scrivendo la numerazione del %d in questo momento. Si riprova fra poco.', 'albo-pretorio-pa' ),
+					$anno
+				)
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Lascia il blocco di un anno.
+	 *
+	 * @param int $anno Anno.
+	 */
+	public static function sblocca_anno( int $anno ): void {
+		global $wpdb;
+
+		$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', self::nome_blocco_anno( $anno ) ) );
+	}
+
+	/**
 	 * Nome completo della tabella degli anni.
 	 *
 	 * @return string
@@ -407,6 +463,31 @@ final class Repertorio {
 		}
 
 		$anno = self::anno_di( $ora );
+
+		$blocco = self::blocca_anno( $anno );
+
+		if ( is_wp_error( $blocco ) ) {
+			return $blocco;
+		}
+
+		try {
+			return self::dichiara_nell_anno( $valore, $anno, $utente_id, $ora );
+		} finally {
+			self::sblocca_anno( $anno );
+		}
+	}
+
+	/**
+	 * La dichiarazione della partenza, con il blocco dell'anno gia' preso.
+	 *
+	 * @param int                $valore    Partenza chiesta.
+	 * @param int                $anno      Anno.
+	 * @param int                $utente_id Chi dichiara.
+	 * @param \DateTimeImmutable $ora       Ora della dichiarazione.
+	 * @return true|\WP_Error
+	 */
+	private static function dichiara_nell_anno( int $valore, int $anno, int $utente_id, \DateTimeImmutable $ora ) {
+		global $wpdb;
 
 		/*
 		 * Un numero importato dal vecchio albo e' gia' stato usato: una partenza
