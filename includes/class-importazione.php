@@ -93,6 +93,16 @@ final class Importazione {
 	private static $in_lavorazione = 0;
 
 	/**
+	 * Se l'importazione lavora anche dentro la transazione di un altro: mai, fuori dalle prove.
+	 *
+	 * Le prove girano dentro una transazione che annullano alla fine, e la
+	 * aprono con un valore che solo loro scrivono.
+	 *
+	 * @var bool
+	 */
+	private static $dentro_altra_transazione = false;
+
+	/**
 	 * Se l'importazione sta portando a pubblicato questa bozza, in questo momento.
 	 *
 	 * Il passaggio di importazione salta la verifica, e lo concede solo qui.
@@ -377,6 +387,12 @@ final class Importazione {
 			return new \WP_Error( 'albo_importazione_in_corso', __( 'Importazione non avviata: ce n\'e\' gia\' una in corso. Si continua o si interrompe quella.', 'albo-pretorio-pa' ) );
 		}
 
+		$esterna = self::errore_transazione_esterna();
+
+		if ( null !== $esterna ) {
+			return $esterna;
+		}
+
 		$protezione = conformita_core_stato_protezione_allegati();
 
 		if ( 'verificata' !== ( $protezione['copertura'] ?? '' ) && empty( $protezione['scavalcata'] ) ) {
@@ -528,6 +544,12 @@ final class Importazione {
 			return new \WP_Error( 'albo_importazione_nessuna', __( 'Nessuna importazione in corso.', 'albo-pretorio-pa' ) );
 		}
 
+		$esterna = self::errore_transazione_esterna();
+
+		if ( null !== $esterna ) {
+			return $esterna;
+		}
+
 		$impronta = self::impronta_backup( (string) $stato['percorso'] );
 
 		if ( null === $impronta || ! hash_equals( (string) $stato['impronta'], $impronta ) ) {
@@ -566,7 +588,14 @@ final class Importazione {
 				 * richiesta si e' fermata fra la conferma dell'atto e il
 				 * salvataggio. Si ricostruisce l'esito dal registro.
 				 */
-				$stato = self::annota_importazione( $stato, $atto, self::esito_dal_registro( (int) $atto['atto_id'] ) );
+				$ritrovato = self::esito_dal_registro( (int) $atto['atto_id'] );
+
+				// Senza il registro l'esito non si ricostruisce: ci si ferma qui, e "Continua" riprova.
+				if ( is_wp_error( $ritrovato ) ) {
+					return $ritrovato;
+				}
+
+				$stato = self::annota_importazione( $stato, $atto, $ritrovato );
 
 				// L'atto e' pubblicato: nessuna sua bozza e' rimasta da ritrovare.
 				unset( $stato['lavorazione'][ $id ] );
@@ -610,6 +639,23 @@ final class Importazione {
 		}
 
 		return $stato;
+	}
+
+	/**
+	 * Il rifiuto quando la connessione e' dentro la transazione di un altro, o nulla.
+	 *
+	 * Bozze, documenti e numeri scritti li' diventerebbero definitivi, o
+	 * sparirebbero, solo con quella transazione, e i file resterebbero sul
+	 * disco: l'importazione non comincia.
+	 *
+	 * @return \WP_Error|null
+	 */
+	private static function errore_transazione_esterna(): ?\WP_Error {
+		if ( self::$dentro_altra_transazione || ! Repertorio::transazione_esterna() ) {
+			return null;
+		}
+
+		return new \WP_Error( 'albo_importazione_transazione_esterna', __( 'L\'importazione non comincia: la connessione alla banca dati e\' dentro una transazione aperta da un altro componente, e gli atti scritti non sarebbero definitivi. Si controllano i componenti attivi.', 'albo-pretorio-pa' ) );
 	}
 
 	/**
