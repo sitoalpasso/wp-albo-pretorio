@@ -112,14 +112,45 @@ final class Repertorio {
 	}
 
 	/**
-	 * Lascia il blocco di un anno.
+	 * Lascia il blocco di un anno, se le scritture sono gia' definitive.
+	 *
+	 * Dentro la transazione di un altro le scritture diventano definitive solo
+	 * quando quella si chiude: il blocco resta, e lo lascia la banca dati alla
+	 * fine della connessione.
 	 *
 	 * @param int $anno Anno.
 	 */
 	public static function sblocca_anno( int $anno ): void {
 		global $wpdb;
 
+		if ( self::transazione_esterna() ) {
+			return;
+		}
+
 		$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', self::nome_blocco_anno( $anno ) ) );
+	}
+
+	/**
+	 * Se la connessione e' dentro una transazione aperta da altri, o non lo si sa.
+	 *
+	 * Scrittura automatica spenta, o una transazione gia' aperta dove la banca
+	 * dati lo dice (`@@in_transaction`, che non tutte le versioni hanno). Una
+	 * risposta mancante vale come transazione esterna: e' la lettura prudente.
+	 *
+	 * @return bool
+	 */
+	public static function transazione_esterna(): bool {
+		global $wpdb;
+
+		if ( '1' !== (string) $wpdb->get_var( 'SELECT @@autocommit' ) ) {
+			return true;
+		}
+
+		$zitto = $wpdb->suppress_errors( true );
+		$in    = $wpdb->get_var( 'SELECT @@in_transaction' );
+		$wpdb->suppress_errors( $zitto );
+
+		return '1' === (string) $in;
 	}
 
 	/**
