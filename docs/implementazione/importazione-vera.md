@@ -156,7 +156,15 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
   attesa di pochi secondi) e lo tengono fino alla fine della scrittura, transazione
   compresa. Vale qualunque sia l'isolamento della banca dati e anche quando la riga
   dell'anno manca. In più, la condizione "nessun numero importato oltre la partenza" sta
-  dentro la scrittura della dichiarazione.
+  dentro la scrittura della dichiarazione. Se la connessione è dentro una transazione aperta
+  da altri, le scritture diventano definitive solo alla sua chiusura: allora il blocco
+  dell'anno non si lascia, e lo lascia la banca dati alla fine della connessione.
+- L'importazione non comincia, e non prosegue, se la connessione alla banca dati è dentro una
+  transazione aperta da un altro componente (scrittura automatica spenta, o transazione già
+  aperta dove la banca dati lo dice): bozze, documenti e numeri non sarebbero definitivi, e
+  un annullamento esterno lascerebbe i file sul disco.
+- Alla ripresa, se il registro non si legge, l'esito dell'atto già confermato non si
+  ricostruisce: il blocco si ferma su quell'atto senza avanzare, e "Continua" riprova.
 - La prima versione della bozza si salva solo se le revisioni sono attive per quella bozza:
   con le revisioni spente nella configurazione del sito l'importazione funziona lo stesso.
 - Il backup si riconosce dalla sua impronta: se fra un blocco e l'altro il file cambia,
@@ -212,6 +220,14 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
   "read committed" della banca dati dichiarazione e importazione potevano confermarsi
   insieme (ora un blocco dell'anno comune). Ciascun caso ha la sua prova, e la mutazione
   corrispondente la rende rossa.
+- La terza revisione esterna ha chiesto tre correzioni, fatte: dentro la transazione di un
+  altro componente il blocco dell'anno si lasciava prima della conferma vera, e
+  l'importazione lavorava lo stesso (ora non comincia, e la dichiarazione tiene il blocco);
+  una lettura del registro fallita alla ripresa contava fra i non riusciti un atto
+  importato (ora il blocco si ferma e riprova); le prove non avevano responsabile e ufficio
+  compilati (ora sì, conservati anche se l'amministrazione non li mostra). Le prove girano
+  dentro la transazione della suite, che annullano alla fine: lì l'importazione è ammessa da
+  un valore che solo le prove scrivono, e una riga apposta prova il rifiuto.
 - La riga A-193 dell'importazione a secco fallisce in questo ambiente di prova anche sul ramo
   principale, per la versione di `iconv`: non dipende da questo lavoro.
 
