@@ -107,14 +107,16 @@ final class Importazione {
 	/**
 	 * Il nome nell'indirizzo della bozza preparata per un atto del vecchio albo.
 	 *
-	 * Si scrive insieme alla bozza, nella stessa istruzione: una bozza rimasta
-	 * prima che il ricordo dell'origine fosse scritto si riconosce lo stesso.
+	 * Il segno e' casuale e sta nello stato dell'importazione prima che la bozza
+	 * nasca; il nome si scrive insieme alla bozza, nella stessa istruzione. Una
+	 * bozza rimasta prima del ricordo dell'origine si riconosce cosi', e una
+	 * bozza qualunque non puo' avere quel nome per caso.
 	 *
-	 * @param string $id Identificativo nel vecchio albo.
+	 * @param string $segno Segno casuale della lavorazione.
 	 * @return string
 	 */
-	public static function nome_bozza( string $id ): string {
-		return 'albo-importazione-' . sanitize_title( $id );
+	public static function nome_bozza( string $segno ): string {
+		return 'albo-importazione-' . sanitize_key( $segno );
 	}
 
 	/**
@@ -409,7 +411,8 @@ final class Importazione {
 			return new \WP_Error( 'albo_importazione_vuota', __( 'Importazione non avviata: nel rapporto non c\'e\' nessun atto che si porti.', 'albo-pretorio-pa' ) );
 		}
 
-		$stato = array(
+		$precedente = self::stato();
+		$stato      = array(
 			'stato'             => 'in_corso',
 			'backup'            => $nome,
 			'percorso'          => $percorso,
@@ -427,6 +430,8 @@ final class Importazione {
 			'non_portati'       => self::non_portati( $rapporto, $conferma_visibili ),
 			'non_riusciti'      => array(),
 			'da_scegliere'      => array(),
+			// I segni delle bozze rimaste incerte passano all'importazione nuova, che le ritrova.
+			'lavorazione'       => is_array( $precedente['lavorazione'] ?? null ) ? $precedente['lavorazione'] : array(),
 		);
 
 		update_option( self::OPZIONE, $stato, false );
@@ -562,10 +567,25 @@ final class Importazione {
 				 * salvataggio. Si ricostruisce l'esito dal registro.
 				 */
 				$stato = self::annota_importazione( $stato, $atto, self::esito_dal_registro( (int) $atto['atto_id'] ) );
+
+				// L'atto e' pubblicato: nessuna sua bozza e' rimasta da ritrovare.
+				unset( $stato['lavorazione'][ $id ] );
 			} elseif ( null === $motivo ) {
+				// Il segno della bozza si salva prima che la bozza nasca.
+				$stato['lavorazione'][ $id ][] = bin2hex( random_bytes( 16 ) );
+
+				if ( ! update_option( self::OPZIONE, $stato, false ) ) {
+					return self::errore_stato_non_salvato();
+				}
+
 				$esito = self::importa_atto( $atto, $letto, $stato );
 				$fermo = is_wp_error( $esito ) && ! empty( $esito->get_error_data()['incerto'] );
 				$stato = self::annota_importazione( $stato, $atto, $esito );
+
+				// Con un esito certo nessuna bozza di questo atto e' rimasta: i segni non servono piu'.
+				if ( ! $fermo ) {
+					unset( $stato['lavorazione'][ $id ] );
+				}
 			} else {
 				$stato = self::annota_non_portato( $stato, $motivo, null === $atto ? $id : self::numero( $atto ) );
 			}
@@ -580,7 +600,7 @@ final class Importazione {
 
 			// Dopo ogni atto: un blocco interrotto riprende da qui, non da capo.
 			if ( ! update_option( self::OPZIONE, $stato, false ) ) {
-				return new \WP_Error( 'albo_importazione_stato_non_salvato', __( 'L\'importazione si e\' fermata: la banca dati non ha salvato a che punto e\' arrivata. Con "Continua" riprende, e gli atti gia\' scritti si riconoscono.', 'albo-pretorio-pa' ) );
+				return self::errore_stato_non_salvato();
 			}
 
 			// Uno stato incerto non si supera da soli: chi importa guarda prima l'atto.
@@ -590,6 +610,15 @@ final class Importazione {
 		}
 
 		return $stato;
+	}
+
+	/**
+	 * Il rifiuto quando la banca dati non salva lo stato dell'importazione.
+	 *
+	 * @return \WP_Error
+	 */
+	private static function errore_stato_non_salvato(): \WP_Error {
+		return new \WP_Error( 'albo_importazione_stato_non_salvato', __( 'L\'importazione si e\' fermata: la banca dati non ha salvato a che punto e\' arrivata. Con "Continua" riprende, e gli atti gia\' scritti si riconoscono.', 'albo-pretorio-pa' ) );
 	}
 
 	/**
@@ -730,26 +759,29 @@ final class Importazione {
 	 */
 	private static function importa_atto( array $atto, array $letto, array $stato ) {
 		$id    = (string) $atto['id'];
-		$tolte = self::togli_bozze_lasciate( $id );
+		$segni = array_map( 'strval', (array) ( $stato['lavorazione'][ $id ] ?? array() ) );
+		$tolte = self::togli_bozze_lasciate( $id, $segni );
 
+		// Una bozza lasciata che non si toglie: lo stato dell'atto non e' garantito.
 		if ( is_wp_error( $tolte ) ) {
-			return $tolte;
+			return self::incerto( $tolte );
 		}
 
 		$atto_id   = 0;
 		$documenti = null;
 
 		try {
-			$atto_id = self::prepara_bozza( $atto );
+			$bozza = self::prepara_bozza( $atto, (string) end( $segni ) );
 
-			if ( is_wp_error( $atto_id ) ) {
-				return $atto_id;
+			if ( is_wp_error( $bozza ) ) {
+				return self::dopo_il_fallimento( $id, 0, $atto, $bozza, $segni );
 			}
 
+			$atto_id   = $bozza;
 			$documenti = self::deposita_documenti( $atto_id, $atto, (string) $stato['percorso'], $letto );
 
 			if ( is_wp_error( $documenti ) ) {
-				return self::dopo_il_fallimento( $id, $atto_id, $atto, $documenti );
+				return self::dopo_il_fallimento( $id, $atto_id, $atto, $documenti, $segni );
 			}
 
 			$portati = array();
@@ -803,6 +835,7 @@ final class Importazione {
 						$errore->getMessage()
 					)
 				),
+				$segni,
 				is_array( $documenti ) ? null === $documenti['principale'] : null
 			);
 		}
@@ -816,7 +849,8 @@ final class Importazione {
 				new \WP_Error(
 					(string) $esito->get_error_code(),
 					__( 'L\'atto non e\' stato importato: il passaggio a pubblicato non e\' riuscito, tutto e\' stato annullato e la bozza cancellata. Il codice dice il motivo.', 'albo-pretorio-pa' )
-				)
+				),
+				$segni
 			);
 		}
 
@@ -829,14 +863,15 @@ final class Importazione {
 	/**
 	 * Cosa resta di un atto la cui importazione non e' andata come previsto, guardando la banca dati.
 	 *
-	 * @param string    $id           Identificativo nel vecchio albo.
-	 * @param int       $atto_id      Bozza, se si conosce.
-	 * @param array     $atto         Atto del rapporto.
-	 * @param \WP_Error $errore       Il motivo.
-	 * @param bool|null $da_scegliere Principale da scegliere, se i documenti sono stati depositati.
+	 * @param string             $id           Identificativo nel vecchio albo.
+	 * @param int                $atto_id      Bozza, se si conosce.
+	 * @param array              $atto         Atto del rapporto.
+	 * @param \WP_Error          $errore       Il motivo.
+	 * @param array<int, string> $segni        Segni delle bozze di questo atto.
+	 * @param bool|null          $da_scegliere Principale da scegliere, se i documenti sono stati depositati.
 	 * @return array{atto_id: int, da_scegliere: bool}|\WP_Error
 	 */
-	private static function dopo_il_fallimento( string $id, int $atto_id, array $atto, \WP_Error $errore, ?bool $da_scegliere = null ) {
+	private static function dopo_il_fallimento( string $id, int $atto_id, array $atto, \WP_Error $errore, array $segni, ?bool $da_scegliere = null ) {
 		if ( $atto_id > 0 ) {
 			clean_post_cache( $atto_id );
 
@@ -859,7 +894,7 @@ final class Importazione {
 		}
 
 		// Anche la bozza di cui non si conosce il numero: la si riconosce dal nome.
-		$tolte = self::togli_bozze_lasciate( $id );
+		$tolte = self::togli_bozze_lasciate( $id, $segni );
 
 		return is_wp_error( $tolte ) ? self::incerto( $errore ) : $errore;
 	}
@@ -881,26 +916,33 @@ final class Importazione {
 	/**
 	 * Toglie le bozze che un'importazione interrotta ha lasciato per questo atto del vecchio albo.
 	 *
-	 * @param string $id Identificativo nel vecchio albo.
+	 * Una bozza si riconosce dal ricordo dell'origine, che solo l'importazione
+	 * scrive, o dal nome con uno dei segni casuali salvati per questo atto.
+	 *
+	 * @param string             $id    Identificativo nel vecchio albo.
+	 * @param array<int, string> $segni Segni delle bozze di questo atto.
 	 * @return true|\WP_Error
 	 */
-	private static function togli_bozze_lasciate( string $id ) {
+	private static function togli_bozze_lasciate( string $id, array $segni ) {
 		global $wpdb;
 
+		$nomi = array_map( array( self::class, 'nome_bozza' ), $segni );
+
+		// Il nome di nessuna bozza: con nessun segno, vale solo il ricordo dell'origine.
+		if ( array() === $nomi ) {
+			$nomi[] = '';
+		}
+
+		$segnaposto = implode( ', ', array_fill( 0, count( $nomi ), '%s' ) );
+		// phpcs:disable WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- i segnaposto dei nomi sono costruiti qui sopra, uno per nome.
 		$righe = Lettura::righe(
 			$wpdb->prepare(
-				'SELECT DISTINCT p.ID FROM %i p LEFT JOIN %i m ON m.post_id = p.ID AND m.meta_key = %s WHERE p.post_type = %s AND p.post_status IN ( %s, %s ) AND ( m.meta_value = %s OR p.post_name = %s )',
-				$wpdb->posts,
-				$wpdb->postmeta,
-				META_ORIGINE_IMPORTAZIONE,
-				TIPO,
-				'draft',
-				'auto-draft',
-				$id,
-				self::nome_bozza( $id )
+				"SELECT DISTINCT p.ID FROM %i p LEFT JOIN %i m ON m.post_id = p.ID AND m.meta_key = %s WHERE p.post_type = %s AND p.post_status IN ( %s, %s ) AND ( m.meta_value = %s OR ( p.post_name <> '' AND p.post_name IN ( {$segnaposto} ) ) )",
+				array_merge( array( $wpdb->posts, $wpdb->postmeta, META_ORIGINE_IMPORTAZIONE, TIPO, 'draft', 'auto-draft', $id ), $nomi )
 			),
 			array( 'ID' )
 		);
+		// phpcs:enable WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		if ( null === $righe ) {
 			return new \WP_Error( 'albo_importazione_non_letta', __( 'L\'atto non e\' stato importato: la banca dati non ha risposto alla ricerca delle bozze lasciate da un\'importazione interrotta.', 'albo-pretorio-pa' ) );
@@ -934,18 +976,21 @@ final class Importazione {
 	 * Ogni dato si rilegge: un valore che il nuovo albo non conserverebbe alla
 	 * lettera ferma l'atto invece di arrivare cambiato.
 	 *
-	 * @param array<string, mixed> $atto Atto del rapporto.
+	 * Un rifiuto o un'eccezione lasciano la bozza dov'e': la toglie chi chiama,
+	 * ritrovandola dal nome, e se non ci riesce l'esito e' incerto.
+	 *
+	 * @param array<string, mixed> $atto  Atto del rapporto.
+	 * @param string               $segno Segno casuale della lavorazione, gia' salvato.
 	 * @return int|\WP_Error
-	 * @throws \Throwable L'eccezione sollevata mentre si completava la bozza, dopo averla cancellata.
 	 */
-	private static function prepara_bozza( array $atto ) {
+	private static function prepara_bozza( array $atto, string $segno ) {
 		$atto_id = wp_insert_post(
 			wp_slash(
 				array(
 					'post_type'    => TIPO,
 					'post_status'  => 'draft',
 					'post_title'   => (string) $atto['oggetto'],
-					'post_name'    => self::nome_bozza( (string) $atto['id'] ),
+					'post_name'    => self::nome_bozza( $segno ),
 					'post_content' => '',
 					'post_author'  => get_current_user_id(),
 				)
@@ -957,16 +1002,7 @@ final class Importazione {
 			return new \WP_Error( 'albo_importazione_bozza', __( 'L\'atto non e\' stato importato: la bozza non si e\' creata.', 'albo-pretorio-pa' ) );
 		}
 
-		$atto_id = (int) $atto_id;
-
-		try {
-			return self::completa_bozza( $atto_id, $atto );
-		} catch ( \Throwable $errore ) {
-			// La bozza non resta a meta': chi chiama non ne conosce ancora il numero.
-			self::togli_bozza( $atto_id );
-
-			throw $errore;
-		}
+		return self::completa_bozza( (int) $atto_id, $atto );
 	}
 
 	/**
@@ -1030,13 +1066,11 @@ final class Importazione {
 		 * di un atto scritto a mano: il passaggio a pubblicato non cambia oggetto
 		 * ne' testo, e quindi non ne aggiunge un'altra.
 		 */
-		if ( null === $errore && post_type_supports( TIPO, 'revisions' ) && ! is_int( wp_save_post_revision( $atto_id ) ) ) {
+		if ( null === $errore && wp_revisions_enabled( get_post( $atto_id ) ) && ! is_int( wp_save_post_revision( $atto_id ) ) ) {
 			$errore = __( 'la prima versione della bozza non si e\' salvata', 'albo-pretorio-pa' );
 		}
 
 		if ( null !== $errore ) {
-			self::togli_bozza( $atto_id );
-
 			return new \WP_Error(
 				'albo_importazione_dato',
 				sprintf(
