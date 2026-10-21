@@ -126,10 +126,13 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
   dicendolo. "Interrompi" chiude un'importazione lasciata a metà; gli atti già importati
   restano.
 - Un blocco interrotto a metà (tempo scaduto, errore fatale) può lasciare una bozza
-  preparata e non pubblicata. La bozza nasce con un nome nell'indirizzo che contiene
-  l'identificativo d'origine, scritto insieme alla bozza stessa, e poco dopo riceve anche il
-  ricordo dell'origine: il rilancio la ritrova dall'uno o dall'altro e la cancella con i suoi
-  file prima di rifarla, anche se il blocco si è fermato prima del ricordo.
+  preparata e non pubblicata. Prima che la bozza nasca si salva nello stato
+  dell'importazione un segno casuale; la bozza nasce con un nome nell'indirizzo che contiene
+  quel segno, scritto insieme alla bozza stessa, e poco dopo riceve anche il ricordo
+  dell'origine. Il rilancio la ritrova dall'uno o dall'altro e la cancella con i suoi file
+  prima di rifarla, anche se il blocco si è fermato prima del ricordo. Una bozza scritta da
+  una persona non ha né il ricordo né un segno salvato, e non si tocca mai, qualunque nome
+  abbia. I segni delle bozze rimaste incerte passano all'importazione successiva.
 - Il passaggio a pubblicato senza verifica si concede soltanto alla bozza che l'importazione
   sta scrivendo in quel momento, a chi ha i permessi dell'importazione, e solo se l'atto che
   arriva visibile ha la conferma sui dati personali. Una bozza qualunque, anche con il
@@ -140,16 +143,22 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
 - Ogni atto ha uno di tre esiti: **confermato** (pubblicato con il suo numero, anche se un
   altro componente solleva un'eccezione subito dopo la conferma), **annullato** (la bozza è
   cancellata e si è verificato che non c'è più) o **incerto** (la bozza non si cancella, o il
-  numero risulta senza l'atto pubblicato). Un esito incerto ferma il blocco su quell'atto e
-  lo dice; si guarda l'atto prima di continuare.
+  numero risulta senza l'atto pubblicato). Ogni uscita passa da questa distinzione: anche un
+  dato della bozza che non si scrive, e una bozza lasciata da prima che non si toglie. Un
+  esito incerto ferma il blocco su quell'atto e lo dice; si guarda l'atto prima di
+  continuare.
 - Se la richiesta si ferma fra la conferma di un atto e il salvataggio dello stato,
   "Continua" ritrova l'atto fra quelli importati da questa importazione e ne ricostruisce
   l'esito dalla voce di registro, compreso il documento principale da scegliere. Se la banca
   dati non salva lo stato, il blocco si ferma e lo dice.
 - La dichiarazione della partenza e l'importazione di un numero dello stesso anno non si
-  scavalcano: la condizione "nessun numero importato oltre la partenza" sta dentro la
-  scrittura della dichiarazione, sia quando la riga dell'anno c'è sia quando manca, e il
-  controllo dopo la scrittura rilegge i numeri confermati nel frattempo.
+  scavalcano: entrambe prendono lo stesso blocco dell'anno nella banca dati (`GET_LOCK`,
+  attesa di pochi secondi) e lo tengono fino alla fine della scrittura, transazione
+  compresa. Vale qualunque sia l'isolamento della banca dati e anche quando la riga
+  dell'anno manca. In più, la condizione "nessun numero importato oltre la partenza" sta
+  dentro la scrittura della dichiarazione.
+- La prima versione della bozza si salva solo se le revisioni sono attive per quella bozza:
+  con le revisioni spente nella configurazione del sito l'importazione funziona lo stesso.
 - Il backup si riconosce dalla sua impronta: se fra un blocco e l'altro il file cambia,
   l'importazione si ferma e lo dice.
 - Ogni blocco si ferma dopo un tempo fisso o un numero di atti, il primo che arriva, e porta
@@ -196,6 +205,13 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
   concessione legata alla bozza, la conferma, il controllo delle tabelle, la condizione
   nella dichiarazione, la fermata sull'incerto, il nome della bozza, lo sfuggire dei
   messaggi, la scrittura dei dati del procedimento) rendono rossa la loro riga.
+- La seconda revisione esterna ha chiesto quattro correzioni, fatte: la bozza si riconosceva
+  anche dal solo nome, che una persona può scrivere (ora un segno casuale salvato prima);
+  un errore nel completare la bozza e una bozza lasciata che non si toglieva non davano
+  l'esito incerto; con le revisioni spente nessun atto si importava; con l'isolamento
+  "read committed" della banca dati dichiarazione e importazione potevano confermarsi
+  insieme (ora un blocco dell'anno comune). Ciascun caso ha la sua prova, e la mutazione
+  corrispondente la rende rossa.
 - La riga A-193 dell'importazione a secco fallisce in questo ambiente di prova anche sul ramo
   principale, per la versione di `iconv`: non dipende da questo lavoro.
 
