@@ -146,6 +146,14 @@ trait FlussoDiProva {
 		unset( $GLOBALS['current_screen'] );
 		$this->sgancia_server_finto();
 		$this->azzera_ambiente_albo();
+
+		/*
+		 * Dentro la transazione della prova il blocco dell'anno resta fino alla
+		 * fine della richiesta, come deve. Qui la richiesta e' la prova: finita
+		 * lei si rilascia, altrimenti una prova in un processo separato
+		 * troverebbe l'anno occupato dal processo che l'ha lanciata.
+		 */
+		$GLOBALS['wpdb']->query( 'SELECT RELEASE_ALL_LOCKS()' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Rilascio dei blocchi della prova, non dati.
 	}
 
 	/**

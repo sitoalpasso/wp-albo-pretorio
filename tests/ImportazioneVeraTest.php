@@ -152,8 +152,6 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		delete_option( Importazione::OPZIONE );
 		$this->ammetti_transazione_esterna( false );
 
-		// I blocchi degli anni presi dentro la transazione della suite restano fino alla fine della connessione: qui la si simula.
-		$GLOBALS['wpdb']->query( 'SELECT RELEASE_ALL_LOCKS()' );
 		$GLOBALS['current_screen'] = null;
 		$this->smonta_flusso();
 
@@ -1538,6 +1536,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 
 		$percorso = $this->backup_nella_cartella();
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: si legge lo stato della connessione.
 		$this->assertSame( '0', (string) $wpdb->get_var( 'SELECT @@autocommit' ), 'Precondizione: la suite tiene aperta la sua transazione.' );
 		$this->assertTrue( Repertorio::transazione_esterna() );
 
