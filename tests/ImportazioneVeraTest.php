@@ -109,6 +109,20 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$this->fissa_orologi( self::ADESSO );
 		set_current_screen( 'dashboard' );
 		delete_option( Importazione::OPZIONE );
+
+		// La prova gira dentro la transazione della suite, che annulla tutto alla fine: qui l'importazione e' ammessa.
+		$this->ammetti_transazione_esterna( true );
+	}
+
+	/**
+	 * Ammette o no l'importazione dentro la transazione della suite di prova.
+	 *
+	 * @param bool $ammessa Se ammessa.
+	 */
+	private function ammetti_transazione_esterna( bool $ammessa ): void {
+		$valore = new \ReflectionProperty( Importazione::class, 'dentro_altra_transazione' );
+		$valore->setAccessible( true );
+		$valore->setValue( null, $ammessa );
 	}
 
 	/**
@@ -136,6 +150,10 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		}
 
 		delete_option( Importazione::OPZIONE );
+		$this->ammetti_transazione_esterna( false );
+
+		// I blocchi degli anni presi dentro la transazione della suite restano fino alla fine della connessione: qui la si simula.
+		$GLOBALS['wpdb']->query( 'SELECT RELEASE_ALL_LOCKS()' );
 		$GLOBALS['current_screen'] = null;
 		$this->smonta_flusso();
 
@@ -156,11 +174,13 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		return array(
 			$this->atto_vecchio(
 				$scaduto + array(
-					'IdAtto'      => 1,
-					'Numero'      => 10,
-					'Oggetto'     => 'Delibera "dieci" & <prova>',
-					'Riferimento' => 'Delibera 5/2041',
-					'Richiedente' => 'Ditta Rossi & figli',
+					'IdAtto'               => 1,
+					'Numero'               => 10,
+					'Oggetto'              => 'Delibera "dieci" & <prova>',
+					'Riferimento'          => 'Delibera 5/2041',
+					'Richiedente'          => 'Ditta Rossi & figli',
+					'RespProc'             => 3,
+					'IdUnitaOrganizzativa' => 2,
 				)
 			),
 			$this->atto_vecchio(
@@ -338,6 +358,29 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 	 */
 	private function backup_nella_cartella( ?array $atti = null, ?array $allegati = null, string $nome = 'backup.zip' ): string {
 		$tabelle = $this->tabelle_vecchie( $atti ?? $this->atti_di_prova(), $allegati ?? $this->allegati_di_prova() );
+
+		$tabelle['albopretorio_resprocedura'][] = array(
+			'IdResponsabile' => 3,
+			'Cognome'        => 'Bianchi',
+			'Nome'           => 'Anna',
+			'Email'          => '',
+			'Telefono'       => '',
+			'Orario'         => '',
+			'Note'           => '',
+			'Funzione'       => '',
+		);
+
+		$tabelle['albopretorio_unitaorganizzative'][] = array(
+			'IdUO'      => 2,
+			'Nome'      => 'Ufficio tecnico',
+			'Indirizzo' => '',
+			'Url'       => '',
+			'Email'     => '',
+			'Pec'       => '',
+			'Telefono'  => '',
+			'Fax'       => '',
+			'Note'      => '',
+		);
 
 		$tabelle['albopretorio_categorie'][] = array(
 			'IdCategoria' => 7,
@@ -706,11 +749,24 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$this->assertFalse( $voce['dettagli']['conferma_dati_personali'] );
 		$this->assertFalse( $voce['dettagli']['principale_da_scegliere'] );
 
-		// I dati del procedimento: il richiedente alla lettera, sull'atto e nel registro; gli altri vuoti.
-		$this->assertSame( 'Ditta Rossi & figli', DatiProcedimento::valore( $atti['1']['id'], DatiProcedimento::RICHIEDENTE ) );
-		$this->assertSame( '', DatiProcedimento::valore( $atti['1']['id'], DatiProcedimento::RESPONSABILE ) );
-		$this->assertSame( 'Ditta Rossi & figli', $this->voce_importazione( $atti['1']['id'] )['dettagli'][ DatiProcedimento::RICHIEDENTE ] );
-		$this->assertSame( '', DatiProcedimento::valore( $atti['5']['id'], DatiProcedimento::RICHIEDENTE ) );
+		// I dati del procedimento alla lettera, sull'atto e nel registro, anche se l'amministrazione non ha scelto di mostrarli.
+		foreach ( DatiProcedimento::DATI as $dato ) {
+			$this->assertFalse( DatiProcedimento::in_uso( $dato ), 'Precondizione: non si mostra: ' . $dato );
+		}
+
+		$procedimento = array(
+			DatiProcedimento::RESPONSABILE => 'Bianchi Anna',
+			DatiProcedimento::UFFICIO      => 'Ufficio tecnico',
+			DatiProcedimento::RICHIEDENTE  => 'Ditta Rossi & figli',
+		);
+
+		foreach ( $procedimento as $dato => $valore ) {
+			$this->assertSame( $valore, DatiProcedimento::valore( $atti['1']['id'], $dato ), 'Sull\'atto: ' . $dato );
+			$this->assertSame( $valore, $this->voce_importazione( $atti['1']['id'] )['dettagli'][ $dato ], 'Nel registro: ' . $dato );
+			$this->assertSame( '', DatiProcedimento::valore( $atti['5']['id'], $dato ), 'Vuoto dove il vecchio albo non l\'aveva: ' . $dato );
+		}
+
+		$this->assertSame( array(), DatiProcedimento::da_mostrare( $atti['1']['id'] ), 'Conservati, non mostrati.' );
 
 		$annullato = $this->voce_importazione( $atti['4']['id'] );
 
@@ -1077,6 +1133,29 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$this->assertSame( array( '1' ), array_map( 'strval', array_keys( Importazione::stato()['importati'] ) ), 'Lo stato salvato non lo sa.' );
 		$this->assertSame( 1, Importazione::stato()['posizione'] );
 
+		// La lettura del registro non risponde, una volta: il blocco si ferma sull'atto, senza avanzare ne' perderlo.
+		$fallita  = false;
+		$registro = static function ( $query ) use ( &$fallita ) {
+			if ( ! $fallita && 0 === stripos( ltrim( (string) $query ), 'SELECT' ) && false !== strpos( (string) $query, 'conformita_core_registro' ) && false !== strpos( (string) $query, "'importazione'" ) ) {
+				$fallita = true;
+
+				return 'SELECT * FROM tabella_che_non_esiste';
+			}
+
+			return $query;
+		};
+
+		add_filter( 'query', $registro );
+		$non_letto = Importazione::prosegui( 5, microtime( true ) + 60 );
+		remove_filter( 'query', $registro );
+
+		$this->assertTrue( $fallita, 'Precondizione: la lettura del registro e\' fallita.' );
+		$this->assertWPError( $non_letto );
+		$this->assertSame( 'albo_importazione_registro_non_letto', $non_letto->get_error_code() );
+		$this->assertSame( 1, Importazione::stato()['posizione'], 'Non avanza.' );
+		$this->assertSame( array(), Importazione::stato()['non_riusciti'], 'L\'atto non e\' fra i non riusciti.' );
+		$this->assertArrayHasKey( '3', Importazione::stato()['lavorazione'], 'Il segno resta.' );
+
 		$finale = $this->importa_tutto_da_qui();
 		$atti   = $this->importati();
 
@@ -1402,6 +1481,9 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$percorso    = $this->backup_nella_cartella();
 		$this->altra = new \wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
 
+		// Le dichiarazioni della preparazione tengono il blocco dentro la transazione della suite: le si considera confermate.
+		$GLOBALS['wpdb']->query( 'SELECT RELEASE_ALL_LOCKS()' );
+
 		// Un'altra richiesta tiene il 2041, come un'importazione nel mezzo della sua transazione.
 		$this->assertSame( '1', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Repertorio::nome_blocco_anno( 2041 ) ) ) );
 
@@ -1426,10 +1508,69 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 
 		$this->altra->query( $this->altra->prepare( 'SELECT RELEASE_LOCK( %s )', Repertorio::nome_blocco_anno( 2039 ) ) );
 
-		// Liberato il blocco, la dichiarazione passa e lo lascia: l'altra richiesta lo riprende subito.
+		/*
+		 * Liberato il blocco, la dichiarazione passa. La prova gira dentro la
+		 * transazione della suite, che non e' ancora confermata: la
+		 * dichiarazione tiene il blocco fino alla fine della connessione, e
+		 * l'altra richiesta non lo prende. Lo stesso per l'importazione, che
+		 * qui la prova ammette.
+		 */
 		$this->assertTrue( Repertorio::dichiara( 3, $this->amministratore, new \DateTimeImmutable( '2039-03-01 10:00:00', wp_timezone() ) ) );
-		$this->assertSame( '1', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Repertorio::nome_blocco_anno( 2039 ) ) ), 'La dichiarazione ha lasciato il blocco.' );
-		$this->assertSame( '1', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Repertorio::nome_blocco_anno( 2041 ) ) ), 'L\'importazione ha lasciato il blocco.' );
+		$this->assertSame( '0', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Repertorio::nome_blocco_anno( 2039 ) ) ), 'Dentro una transazione non confermata la dichiarazione tiene il blocco.' );
+
+		$finale = Importazione::prosegui( 50, microtime( true ) + 60 );
+
+		$this->assertSame( 'finita', $finale['stato'] );
+		$this->assertSame( '0', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Repertorio::nome_blocco_anno( 2041 ) ) ), 'Dentro una transazione non confermata l\'importazione tiene il blocco.' );
+
+		// Alla fine della connessione la banca dati lascia i blocchi.
+		$GLOBALS['wpdb']->query( 'SELECT RELEASE_ALL_LOCKS()' );
+
+		$this->assertSame( '1', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Repertorio::nome_blocco_anno( 2039 ) ) ) );
+		$this->assertSame( '1', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Repertorio::nome_blocco_anno( 2041 ) ) ) );
+	}
+
+	/**
+	 * A-214. Dentro la transazione di un altro componente l'importazione non comincia, e non prosegue.
+	 */
+	public function test_a214_transazione_esterna(): void {
+		global $wpdb;
+
+		$percorso = $this->backup_nella_cartella();
+
+		$this->assertSame( '0', (string) $wpdb->get_var( 'SELECT @@autocommit' ), 'Precondizione: la suite tiene aperta la sua transazione.' );
+		$this->assertTrue( Repertorio::transazione_esterna() );
+
+		$this->ammetti_transazione_esterna( false );
+
+		$rifiutata = Importazione::avvia(
+			$percorso,
+			'backup.zip',
+			array(
+				'impronta' => hash_file( 'sha256', $percorso ),
+				'atti'     => 6,
+				'in_vista' => 1,
+			),
+			true,
+			false
+		);
+
+		$this->assertWPError( $rifiutata );
+		$this->assertSame( 'albo_importazione_transazione_esterna', $rifiutata->get_error_code() );
+		$this->assertNull( Importazione::stato() );
+
+		// Avviata dove e' ammessa, non prosegue dentro la transazione di un altro: niente si scrive.
+		$this->ammetti_transazione_esterna( true );
+		$this->avvia_diretto( $percorso );
+		$this->ammetti_transazione_esterna( false );
+
+		$ferma = Importazione::prosegui( 50, microtime( true ) + 60 );
+
+		$this->assertWPError( $ferma );
+		$this->assertSame( 'albo_importazione_transazione_esterna', $ferma->get_error_code() );
+		$this->assertSame( 0, Importazione::stato()['posizione'] );
+		$this->assertSame( array(), $this->inventario(), 'Nessuna bozza, nessun atto.' );
+		$this->assertSame( array(), Repertorio::atti_numerati( 2041, 10 ) );
 	}
 
 	/**
