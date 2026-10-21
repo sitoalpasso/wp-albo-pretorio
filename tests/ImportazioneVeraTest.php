@@ -45,6 +45,7 @@ use AlboPretorioPa\Passaggi;
 use AlboPretorioPa\Repertorio;
 use AlboPretorioPa\SchermataImportazione;
 
+use const AlboPretorioPa\META_NUMERO_PROPRIO;
 use const AlboPretorioPa\META_ORIGINE_IMPORTAZIONE;
 use const AlboPretorioPa\SEZIONE;
 use const AlboPretorioPa\TIPO;
@@ -820,6 +821,21 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 
 		$this->assertFileExists( $sul_disco, 'Precondizione: il file della bozza lasciata e\' sul disco.' );
 
+		// Una bozza qualunque, scritta da una persona con un nome che somiglia a quelli dell'importazione: non si tocca.
+		$ordinaria = self::factory()->post->create(
+			array(
+				'post_type'   => TIPO,
+				'post_status' => 'draft',
+				'post_title'  => 'Bozza di una persona',
+				'post_name'   => 'albo-importazione-2',
+			)
+		);
+		$suo_file  = (string) get_attached_file( $this->deposita_documento( $ordinaria ) );
+		$foto_sua  = $this->fotografia( $ordinaria );
+
+		unset( $foto_sua['allegati'], $foto_sua['disco'] );
+		$this->assertSame( 'albo-importazione-2', $foto_sua['riga']['post_name'], 'Precondizione: il nome e\' quello scritto.' );
+
 		$this->importa_tutto( $percorso, array( SchermataImportazione::CAMPO_CONFERMA_VISIBILI => '1' ) );
 
 		$dopo = $this->importati();
@@ -834,6 +850,13 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		foreach ( $prima as $origine => $atto ) {
 			$this->assertSame( $atto, $foto[ $origine ], 'Un atto gia\' importato non si tocca, in niente: ' . $origine );
 		}
+
+		$foto_dopo = $this->fotografia( $ordinaria );
+
+		unset( $foto_dopo['allegati'], $foto_dopo['disco'] );
+		$this->assertSame( $foto_sua, $foto_dopo, 'La bozza della persona e\' identica: riga, dati, voci, registro.' );
+		$this->assertFileExists( $suo_file, 'Il suo documento e\' ancora sul disco.' );
+		$this->assertArrayNotHasKey( 'lavorazione', array_filter( Importazione::stato() ), 'Nessun segno resta a importazione riuscita.' );
 	}
 
 	/**
@@ -1073,6 +1096,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$this->assertSame( 0, $finale['gia_importati'] );
 		$this->assertArrayNotHasKey( 'gia_importato', $this->non_portati( $finale ) );
 		$this->assertSame( array(), $finale['non_riusciti'] );
+		$this->assertSame( array(), $finale['lavorazione'], 'Nessun segno resta per l\'atto ritrovato.' );
 	}
 
 	/**
@@ -1192,7 +1216,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 			return false !== stripos( (string) $query, 'INSERT IGNORE' ) && 1 === preg_match( '/VALUES\s*\(\s*2041\s*,\s*12\s*,/i', (string) $query ) ? 'SELECT * FROM tabella_che_non_esiste' : $query;
 		};
 		$trattiene = static function ( $cancella, $post ) {
-			return Importazione::nome_bozza( '3' ) === $post->post_name ? false : $cancella;
+			return 'Atto con due allegati' === $post->post_title ? false : $cancella;
 		};
 
 		add_filter( 'query', $guasto );
@@ -1237,7 +1261,9 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$bozze = $this->inventario( 'draft' );
 
 		$this->assertCount( 1, $bozze, 'Resta la bozza che non si e\' cancellata, e si vede.' );
-		$this->assertSame( Importazione::nome_bozza( '3' ), $bozze[0]['nome'] );
+		$this->assertCount( 1, Importazione::stato()['lavorazione']['3'], 'Il segno della bozza incerta resta nello stato.' );
+		$this->assertSame( Importazione::nome_bozza( Importazione::stato()['lavorazione']['3'][0] ), $bozze[0]['nome'], 'La bozza porta il nome con il segno salvato prima di nascere.' );
+		$this->assertMatchesRegularExpression( '/^albo-importazione-[0-9a-f]{32}$/', $bozze[0]['nome'] );
 
 		$this->assertSame( 'interrotta', SchermataImportazione::importazione_da_invio( $this->invio( 'interrompi' ) )['stato'] );
 
@@ -1249,16 +1275,16 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		 * un'eccezione dopo la conferma, durante lo svuotamento della memoria.
 		 */
 		$lancia_prima = static function ( $post_id, $post ) {
-			if ( TIPO === $post->post_type && Importazione::nome_bozza( '4' ) === $post->post_name ) {
+			if ( TIPO === $post->post_type && 'Atto annullato' === $post->post_title ) {
 				throw new \RuntimeException( 'guasto alla creazione' );
 			}
 		};
 		$lanciata     = false;
 		$lancia_dopo  = static function ( $post_id ) use ( &$lanciata, $wpdb ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: lo stato vero, non quello in memoria.
-			$riga = $wpdb->get_row( $wpdb->prepare( 'SELECT post_status, post_name FROM %i WHERE ID = %d', $wpdb->posts, $post_id ), ARRAY_A );
+			$riga = $wpdb->get_row( $wpdb->prepare( 'SELECT post_status, post_title FROM %i WHERE ID = %d', $wpdb->posts, $post_id ), ARRAY_A );
 
-			if ( ! $lanciata && is_array( $riga ) && 'publish' === $riga['post_status'] && Importazione::nome_bozza( '5' ) === $riga['post_name'] && ! Passaggi::in_corso( (int) $post_id ) ) {
+			if ( ! $lanciata && is_array( $riga ) && 'publish' === $riga['post_status'] && 'Atto breve' === $riga['post_title'] && ! Passaggi::in_corso( (int) $post_id ) ) {
 				$lanciata = true;
 
 				throw new \RuntimeException( 'guasto dopo la conferma' );
@@ -1280,6 +1306,151 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$this->assertStringNotContainsString( 'Stato incerto', $finale['non_riusciti'][0]['testo'], 'La bozza senza origine si e\' ritrovata dal nome e cancellata.' );
 		$this->assertSame( $this->importati_per_inventario(), $this->inventario(), 'Tutti gli atti del tipo, in ogni stato: solo gli importati, nessuna bozza.' );
 		$this->assertSame( array(), Repertorio::atti_numerati( 2041, 13 ) );
+	}
+
+	/**
+	 * A-215. Un errore nella preparazione della bozza, o una bozza lasciata che non si toglie, fermano il blocco.
+	 */
+	public function test_a215_preparazione_e_pulizia_incerte(): void {
+		$percorso = $this->backup_nella_cartella();
+
+		// Il numero proprio dell'atto 10/2041 (numero interno 1) non si scrive, e la sua bozza non si cancella.
+		$non_scrive = static function ( $controllo, $atto_id, $chiave ) {
+			unset( $atto_id );
+
+			return META_NUMERO_PROPRIO === $chiave ? false : $controllo;
+		};
+		$trattiene  = static function ( $cancella, $post ) {
+			return 'Delibera "dieci" & <prova>' === $post->post_title ? false : $cancella;
+		};
+
+		add_filter( 'update_post_metadata', $non_scrive, 10, 3 );
+		add_filter( 'pre_delete_post', $trattiene, 10, 2 );
+
+		$this->avvia_diretto( $percorso );
+		$fermo = Importazione::prosegui( 50, microtime( true ) + 60 );
+
+		remove_filter( 'update_post_metadata', $non_scrive, 10 );
+
+		$this->assertSame( 'in_corso', $fermo['stato'] );
+		$this->assertSame( 1, $fermo['posizione'], 'Fermo sul primo atto: nessun atto dopo e\' stato lavorato.' );
+		$this->assertSame( array( 'albo_importazione_dato' ), array_column( $fermo['non_riusciti'], 'codice' ) );
+		$this->assertStringContainsString( 'numero proprio', $fermo['non_riusciti'][0]['testo'] );
+		$this->assertStringContainsString( 'Stato incerto', $fermo['non_riusciti'][0]['testo'] );
+		$this->assertCount( 1, $this->inventario(), 'Solo la bozza che non si e\' cancellata.' );
+		$this->assertSame( 'draft', $this->inventario()[0]['stato'] );
+
+		$this->assertSame( 'interrotta', Importazione::interrompi()['stato'] );
+
+		// Una nuova importazione trova la bozza lasciata e non riesce a toglierla: si ferma subito, senza crearne un'altra.
+		$this->avvia_diretto( $percorso );
+		$ancora = Importazione::prosegui( 50, microtime( true ) + 60 );
+
+		remove_filter( 'pre_delete_post', $trattiene, 10 );
+
+		$this->assertSame( 1, $ancora['posizione'] );
+		$this->assertSame( array( 'albo_importazione_bozza_rimasta' ), array_column( $ancora['non_riusciti'], 'codice' ) );
+		$this->assertStringContainsString( 'Stato incerto', $ancora['non_riusciti'][0]['testo'] );
+		$this->assertCount( 1, $this->inventario(), 'Nessuna bozza nuova.' );
+		$this->assertCount( 2, Importazione::stato()['lavorazione']['1'], 'I segni di entrambe le lavorazioni restano.' );
+
+		$this->assertSame( 'interrotta', Importazione::interrompi()['stato'] );
+
+		// Senza guasti, la bozza lasciata si toglie e tutto si porta.
+		$this->importa_tutto( $percorso );
+
+		$this->assertSame( array( '1', '3', '4', '5', '12', '14' ), array_map( 'strval', array_keys( $this->importati() ) ) );
+		$this->assertSame( $this->importati_per_inventario(), $this->inventario() );
+	}
+
+	/**
+	 * A-210. Con le revisioni spente nella configurazione del sito, l'importazione funziona lo stesso.
+	 */
+	public function test_a210_con_le_revisioni_spente(): void {
+		$percorso = $this->backup_nella_cartella();
+
+		add_filter( 'wp_revisions_to_keep', '__return_zero' );
+
+		try {
+			$this->assertFalse(
+				wp_revisions_enabled(
+					get_post(
+						self::factory()->post->create(
+							array(
+								'post_type'   => TIPO,
+								'post_status' => 'draft',
+							)
+						)
+					)
+				),
+				'Precondizione: revisioni spente.'
+			);
+
+			$stato = $this->importa_tutto( $percorso );
+		} finally {
+			remove_filter( 'wp_revisions_to_keep', '__return_zero' );
+		}
+
+		$this->assertSame( array(), $stato['non_riusciti'] );
+		$this->assertSame( array( '1', '3', '4', '5', '12', '14' ), array_map( 'strval', array_keys( $stato['importati'] ) ) );
+	}
+
+	/**
+	 * A-213. Dichiarazione e importazione dello stesso anno prendono lo stesso blocco, anche quando la riga dell'anno manca.
+	 */
+	public function test_a213_blocco_dell_anno(): void {
+		$percorso    = $this->backup_nella_cartella();
+		$this->altra = new \wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
+
+		// Un'altra richiesta tiene il 2041, come un'importazione nel mezzo della sua transazione.
+		$this->assertSame( '1', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Repertorio::nome_blocco_anno( 2041 ) ) ) );
+
+		$this->avvia_diretto( $percorso );
+		$stato = Importazione::prosegui( 1, microtime( true ) + 60 );
+
+		$this->assertSame( array( 'albo_repertorio_anno_occupato' ), array_column( $stato['non_riusciti'], 'codice' ), 'L\'atto del 2041 aspetta e poi rinuncia.' );
+		$this->assertStringNotContainsString( 'Stato incerto', $stato['non_riusciti'][0]['testo'] );
+		$this->assertSame( array(), $this->inventario(), 'Nessuna bozza resta.' );
+		$this->assertSame( array(), Repertorio::atti_numerati( 2041, 10 ) );
+
+		$this->altra->query( $this->altra->prepare( 'SELECT RELEASE_LOCK( %s )', Repertorio::nome_blocco_anno( 2041 ) ) );
+
+		// Un'altra richiesta tiene il 2039, che non ha riga: la dichiarazione della partenza aspetta e poi rinuncia, senza scrivere.
+		$this->assertSame( '1', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Repertorio::nome_blocco_anno( 2039 ) ) ) );
+
+		$dichiarata = Repertorio::dichiara( 3, $this->amministratore, new \DateTimeImmutable( '2039-03-01 10:00:00', wp_timezone() ) );
+
+		$this->assertWPError( $dichiarata );
+		$this->assertSame( 'albo_repertorio_anno_occupato', $dichiarata->get_error_code() );
+		$this->assertSame( array( '2041' ), array_column( $this->anni(), 'anno' ) );
+
+		$this->altra->query( $this->altra->prepare( 'SELECT RELEASE_LOCK( %s )', Repertorio::nome_blocco_anno( 2039 ) ) );
+
+		// Liberato il blocco, la dichiarazione passa e lo lascia: l'altra richiesta lo riprende subito.
+		$this->assertTrue( Repertorio::dichiara( 3, $this->amministratore, new \DateTimeImmutable( '2039-03-01 10:00:00', wp_timezone() ) ) );
+		$this->assertSame( '1', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Repertorio::nome_blocco_anno( 2039 ) ) ), 'La dichiarazione ha lasciato il blocco.' );
+		$this->assertSame( '1', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Repertorio::nome_blocco_anno( 2041 ) ) ), 'L\'importazione ha lasciato il blocco.' );
+	}
+
+	/**
+	 * Avvia l'importazione senza la seconda conferma, senza il primo blocco della schermata.
+	 *
+	 * @param string $percorso Backup.
+	 */
+	private function avvia_diretto( string $percorso ): void {
+		$avviata = Importazione::avvia(
+			$percorso,
+			'backup.zip',
+			array(
+				'impronta' => hash_file( 'sha256', $percorso ),
+				'atti'     => 6,
+				'in_vista' => 1,
+			),
+			true,
+			false
+		);
+
+		$this->assertIsArray( $avviata, is_wp_error( $avviata ) ? $avviata->get_error_message() : '' );
 	}
 
 	/**
@@ -1465,7 +1636,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 
 		// Un componente che si ferma sull'atto 13/2041 con un messaggio scritto in HTML: il rapporto lo mostra come testo.
 		$ostile = static function ( $post_id, $post ) {
-			if ( TIPO === $post->post_type && Importazione::nome_bozza( '4' ) === $post->post_name ) {
+			if ( TIPO === $post->post_type && 'Atto annullato' === $post->post_title ) {
 				throw new \RuntimeException( '<script>alert("ostile")</script><b>grassetto</b>' );
 			}
 		};
