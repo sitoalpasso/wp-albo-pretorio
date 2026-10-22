@@ -176,6 +176,8 @@ final class TipoAtto {
 			return $elenchi;
 		}
 
+		self::registra_stato_annullato();
+
 		self::$completa = true;
 
 		self::dimentica_avvisi_del_tentativo();
@@ -325,6 +327,40 @@ final class TipoAtto {
 		self::$oggetto_tipo = get_post_type_object( TIPO );
 
 		return true;
+	}
+
+	/**
+	 * Lo stato dell'atto annullato.
+	 *
+	 * **Non pubblico.** Per WordPress un contenuto in questo stato non si
+	 * mostra a chi non lo gestisce, e il punto pubblico di consegna del
+	 * meccanismo comune consegna soltanto i documenti degli atti pubblicati:
+	 * i documenti dell'annullato si fermano da soli, anche se un altro
+	 * componente apre il tipo. L'avviso al pubblico lo mostra la pagina
+	 * dell'albo, che sceglie da se' che cosa disegnare. Protetto, cosi' che
+	 * la schermata dell'atto si apra a chi lo gestisce, e contato fra gli
+	 * stati dell'elenco degli atti.
+	 */
+	private static function registra_stato_annullato(): void {
+		if ( null !== get_post_status_object( ChiusuraPubblicazione::ANNULLATO ) ) {
+			return;
+		}
+
+		register_post_status(
+			ChiusuraPubblicazione::ANNULLATO,
+			array(
+				'label'                     => _x( 'Annullato', 'stato dell\'atto', 'albo-pretorio-pa' ),
+				/* translators: %s: numero degli atti annullati. */
+				'label_count'               => _n_noop( 'Annullato <span class="count">(%s)</span>', 'Annullati <span class="count">(%s)</span>', 'albo-pretorio-pa' ),
+				'public'                    => false,
+				'protected'                 => true,
+				'private'                   => false,
+				'internal'                  => false,
+				'exclude_from_search'       => true,
+				'show_in_admin_all_list'    => true,
+				'show_in_admin_status_list' => true,
+			)
+		);
 	}
 
 	/**

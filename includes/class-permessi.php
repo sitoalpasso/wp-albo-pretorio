@@ -70,8 +70,31 @@ final class Permessi {
 	const CHIAVE_CONSULTAZIONE = 'consultare_scaduti';
 
 	/**
+	 * Il nome generico del permesso di annullare e defiggere gli atti (ALBO-22).
+	 *
+	 * E' dell'albo e non del meccanismo comune, che non conosce questi
+	 * passaggi. **Fa parte dell'insieme di chi pubblica**, ma e' distinto dal
+	 * permesso di pubblicare: un'amministrazione che vuole riservarlo a un
+	 * responsabile lo toglie agli altri ruoli senza toccare il codice.
+	 *
+	 * @var string
+	 */
+	const CHIAVE_DEFISSIONE = 'defissione_atti';
+
+	/**
+	 * Il permesso di annullare e defiggere gli atti, come lo vede WordPress.
+	 *
+	 * Porta il nome del tipo, come i permessi derivati dal tipo: cosi' lo
+	 * trova anche chi toglie i permessi dell'albo cercandoli per nome.
+	 *
+	 * @var string
+	 */
+	const PERMESSO_DEFISSIONE = 'albo_pretorio_defissione_atto_albo';
+
+	/**
 	 * Chi pubblica: tutto quello che fa chi redige, piu' l'esposizione, piu'
-	 * la lettura del registro, dove trova i motivi dei rimandi in bozza.
+	 * la lettura del registro, dove trova i motivi dei rimandi in bozza, piu'
+	 * l'annullamento.
 	 *
 	 * @var array<int, string>
 	 */
@@ -85,6 +108,7 @@ final class Permessi {
 		'delete_others_posts',
 		'delete_published_posts',
 		self::CHIAVE_REGISTRO,
+		self::CHIAVE_DEFISSIONE,
 	);
 
 	/**
@@ -115,8 +139,8 @@ final class Permessi {
 
 	/**
 	 * La corrispondenza fra nomi generici e permessi derivati dal tipo, piu'
-	 * quello del registro delle modifiche e quello della consultazione degli
-	 * scaduti.
+	 * quello del registro delle modifiche, quello della consultazione degli
+	 * scaduti e quello dell'annullamento.
 	 *
 	 * @return array<string, string>|\WP_Error
 	 */
@@ -142,6 +166,7 @@ final class Permessi {
 
 		$mappa[ self::CHIAVE_REGISTRO ]      = (string) conformita_core_capacita_registro();
 		$mappa[ self::CHIAVE_CONSULTAZIONE ] = (string) $consultazione;
+		$mappa[ self::CHIAVE_DEFISSIONE ]    = self::PERMESSO_DEFISSIONE;
 
 		return $mappa;
 	}
