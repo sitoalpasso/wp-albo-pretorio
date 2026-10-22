@@ -141,9 +141,8 @@ Righe A-195..A-209 di `collaudo.md`, in `tests/PaginaPubblicaTest.php`.
 - **Non svuota le memorie di pagina alla scadenza** (ALBO-20): vieta soltanto di conservare
   la pagina.
 - **Non porta il motore di verifica dell'accessibilità nella verifica continua**: le due
-  righe di ALBO-28 sui due temi restano "da fare" finché non c'è il passo che apre le pagine
-  in un browser vero dentro GitHub. Su questa versione il motore si fa girare a mano, e
-  l'esito si scrive qui sotto.
+  righe di ALBO-28 sui due temi sono rimaste "da fare" fino al passo che apre le pagine
+  in un browser vero dentro GitHub, arrivato dopo (sotto, "Il browser vero nei controlli").
 - **Non costruisce un blocco** dell'editor: il codice breve si scrive anche nell'editor a
   blocchi, nel blocco "Codice breve".
 
@@ -299,3 +298,35 @@ arrivava alla lettura della data, che solleva un'eccezione, e la pagina si inter
 invece di dire che la ricerca era scritta male. Ora la data deve avere la forma AAAA-MM-GG
 prima di essere letta. Riga A-199, estesa; la prova senza la correzione si ferma con
 l'eccezione.
+
+### Il browser vero nei controlli
+
+Dopo l'unità, `bin/prova-nel-browser.sh` porta il motore e la tastiera nei controlli di GitHub,
+nel passo "Pagina pubblica in un browser vero". Installa un sito WordPress di prova, attiva il
+meccanismo comune e l'albo, pubblica ventuno atti con i passaggi veri
+(`tests/browser/prepara-sito.php`), serve il sito con il server di PHP sulla stessa macchina e
+lo apre in Chrome con `tests/browser/accessibilita.mjs`: il motore (axe 4.10.3, regole WCAG 2.0
+e 2.1 di livello A e AA) su sei pagine, con lo schermo di un telefono e con uno largo, su
+Twenty Twenty-Five e sul tema spoglio di prova (`tests/browser/tema-spoglio`), e il percorso da
+sola tastiera sul tema spoglio, più due ricerche fatte senza mouse. Nessuna rete esterna
+durante la prova: sito, motore e browser sono sulla macchina dei controlli.
+
+Il percorso da tastiera preme Tab dall'inizio della pagina e pretende che il fuoco passi per
+ogni comando nell'ordine in cui sta, con un indicatore visibile, e che dopo l'ultimo lasci la
+pagina. Un campo di data in Chrome si percorre a pezzi, giorno, mese e anno: i Tab di seguito
+sullo stesso campo di data contano come uno.
+
+Prima delle pagine vere, motore e percorso girano su una pagina guastata apposta (immagine
+senza testo alternativo, campo senza etichetta, collegamento senza indicatore del fuoco): se
+non vi trovano i guasti, la prova si ferma. Guasti introdotti nell'albo per vedere se la prova
+li vede, tre, tutti visti: indicatore del fuoco tolto dal foglio di stile, etichetta tolta dal
+campo di testo, ordine di tabulazione cambiato sul pulsante "Cerca".
+
+Due cose imparate mettendola in piedi:
+
+- **Su Twenty Twenty-Five il motore trova una violazione del tema**, sugli schermi larghi: il
+  menu della testata mette dentro l'elenco degli elementi che un elenco non può contenere. Non
+  tocca l'albo, quindi si annota e non ferma la prova; sul tema spoglio ogni violazione ferma.
+- **Con l'albo collegato al sito per collegamento simbolico** WordPress calcola male
+  l'indirizzo del foglio di stile, e la pagina esce senza: il percorso da tastiera se ne è
+  accorto subito, perché il fuoco non aveva più l'indicatore. Lo script copia l'albo nel sito.
