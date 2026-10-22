@@ -1519,6 +1519,37 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 'interrotta', Importazione::interrompi()['stato'] );
 
+		// Una nuova importazione non riesce a leggere l'elenco dei file: la bozza resta, con l'elenco.
+		wp_cache_flush();
+
+		$letto = false;
+		$cieca = static function ( $query ) use ( &$letto ) {
+			if ( false !== strpos( (string) $query, Importazione::META_FILE_DA_TOGLIERE ) && 0 === stripos( ltrim( (string) $query ), 'SELECT' ) ) {
+				$letto = true;
+
+				return 'SELECT * FROM tabella_che_non_esiste';
+			}
+
+			return $query;
+		};
+
+		add_filter( 'query', $cieca );
+		$this->avvia_diretto( $percorso, 5 );
+		$ancora = Importazione::prosegui( 50, microtime( true ) + 60 );
+		remove_filter( 'query', $cieca );
+
+		$this->assertTrue( $letto, 'Precondizione: la lettura dell\'elenco e\' fallita.' );
+		$this->assertSame( array( 'albo_importazione_bozza_rimasta' ), array_column( $ancora['non_riusciti'], 'codice' ) );
+		$this->assertStringContainsString( 'Stato incerto', $ancora['non_riusciti'][0]['testo'] );
+		$this->assertSame( 'draft', get_post_status( $bozza ), 'Senza l\'elenco letto la bozza non si cancella.' );
+		$this->assertSame( $file, array_map( 'strval', get_post_meta( $bozza, Importazione::META_FILE_DA_TOGLIERE, false ) ) );
+
+		foreach ( $file as $uno ) {
+			$this->assertFileExists( $uno );
+		}
+
+		$this->assertSame( 'interrotta', Importazione::interrompi()['stato'] );
+
 		// Senza guasti il rilancio toglie i file e la bozza, e porta tutto: sul disco solo i documenti degli importati.
 		$this->importa_tutto( $percorso );
 
@@ -1733,6 +1764,60 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		sort( $attesi );
 
 		return $attesi;
+	}
+
+	/**
+	 * A-215. Una copia dall'archivio che non riesce non lascia file temporanei.
+	 */
+	public function test_a215_temporanei_tolti(): void {
+		$percorso = $this->backup_nella_cartella();
+		$estrai   = new \ReflectionMethod( Importazione::class, 'estrai' );
+		$estrai->setAccessible( true );
+
+		$archivio = new \ZipArchive();
+		$this->assertTrue( $archivio->open( $percorso ) );
+		$voce = '';
+
+		$quanti = $archivio->count();
+
+		for ( $i = 0; $i < $quanti; ++$i ) {
+			if ( 'unico-301.pdf' === wp_basename( (string) $archivio->getNameIndex( $i ) ) ) {
+				$voce = (string) $archivio->getNameIndex( $i );
+			}
+		}
+
+		$archivio->close();
+		$this->assertNotSame( '', $voce, 'Precondizione: il file e\' nell\'archivio.' );
+
+		$atteso     = self::FILE['unico-301.pdf'][1];
+		$temporanei = static function (): array {
+			$trovati = glob( trailingslashit( get_temp_dir() ) . '*' );
+
+			return array_values( array_filter( is_array( $trovati ) ? $trovati : array(), 'is_file' ) );
+		};
+		$prima      = $temporanei();
+
+		foreach ( array(
+			'archivio che non si apre' => array( $percorso . '-che-non-esiste', $voce, $atteso ),
+			'file che non c\'e\''      => array( $percorso, $voce . '-che-non-esiste', $atteso ),
+			'impronta diversa'         => array( $percorso, $voce, str_repeat( '0', 64 ) ),
+		) as $caso => $argomenti ) {
+			$esito = $estrai->invokeArgs( null, $argomenti );
+
+			$this->assertWPError( $esito, $caso );
+			$this->assertSame( 'albo_importazione_estrazione', $esito->get_error_code(), $caso );
+			$this->assertSame( $prima, $temporanei(), $caso . ': nessun temporaneo resta.' );
+		}
+
+		// Il file intero passa a chi chiama, che lo cancella dopo il deposito.
+		$copiato = $estrai->invokeArgs( null, array( $percorso, $voce, $atteso ) );
+
+		$this->assertIsString( $copiato );
+		$this->assertSame( $atteso, hash_file( 'sha256', $copiato ) );
+
+		wp_delete_file( $copiato );
+
+		$this->assertSame( $prima, $temporanei() );
 	}
 
 	/**
