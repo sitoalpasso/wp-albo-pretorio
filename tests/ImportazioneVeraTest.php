@@ -1441,6 +1441,112 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-215. Un documento o un file della bozza che non si cancella lascia la bozza, e il rilancio finisce la pulizia.
+	 */
+	public function test_a215_documenti_della_bozza_incerti(): void {
+		$percorso = $this->backup_nella_cartella();
+		$prima    = $this->documenti_sul_disco();
+
+		// Il passaggio dell'atto 12/2041 (numero interno 3) fallisce dopo il deposito dei suoi due documenti.
+		$guasto = static function ( $query ) {
+			return false !== stripos( (string) $query, 'INSERT IGNORE' ) && 1 === preg_match( '/VALUES\s*\(\s*2041\s*,\s*12\s*,/i', (string) $query ) ? 'SELECT * FROM tabella_che_non_esiste' : $query;
+		};
+		// I documenti di quella bozza rifiutano la cancellazione.
+		$trattiene = static function ( $cancella, $documento ) {
+			return 'Atto con due allegati' === get_the_title( (int) $documento->post_parent ) ? false : $cancella;
+		};
+
+		add_filter( 'query', $guasto );
+		add_filter( 'pre_delete_attachment', $trattiene, 10, 2 );
+		$this->avvia_diretto( $percorso );
+		$fermo = Importazione::prosegui( 50, microtime( true ) + 60 );
+		remove_filter( 'query', $guasto );
+		remove_filter( 'pre_delete_attachment', $trattiene, 10 );
+
+		$this->assertSame( 2, $fermo['posizione'], 'Fermo subito dopo l\'atto incerto.' );
+		$this->assertSame( array( '12/2041' ), array_column( $fermo['non_riusciti'], 'numero' ) );
+		$this->assertStringContainsString( 'Stato incerto', $fermo['non_riusciti'][0]['testo'] );
+
+		$bozza = $this->importati()['3']['id'];
+
+		$this->assertSame( 'draft', get_post_status( $bozza ), 'La bozza resta, e con lei la strada per ritrovare i documenti.' );
+		$this->assertCount(
+			2,
+			get_children(
+				array(
+					'post_parent' => $bozza,
+					'post_type'   => 'attachment',
+					'post_status' => 'any',
+				)
+			)
+		);
+		$this->assertCount( 2, get_post_meta( $bozza, Importazione::META_FILE_DA_TOGLIERE, false ), 'L\'elenco dei file e\' scritto prima di cancellare.' );
+
+		$this->assertSame( 'interrotta', Importazione::interrompi()['stato'] );
+
+		// Una nuova importazione toglie i documenti, ma i loro file restano sul disco.
+		$file     = array_map( 'strval', get_post_meta( $bozza, Importazione::META_FILE_DA_TOGLIERE, false ) );
+		$conserva = static function ( $da_togliere ) use ( $file ) {
+			return in_array( $da_togliere, $file, true ) ? '' : $da_togliere;
+		};
+
+		add_filter( 'wp_delete_file', $conserva );
+		$this->avvia_diretto( $percorso, 5 );
+		$ancora = Importazione::prosegui( 50, microtime( true ) + 60 );
+		remove_filter( 'wp_delete_file', $conserva );
+
+		$this->assertSame( array( 'albo_importazione_bozza_rimasta' ), array_column( $ancora['non_riusciti'], 'codice' ) );
+		$this->assertStringContainsString( 'Stato incerto', $ancora['non_riusciti'][0]['testo'] );
+		$this->assertSame(
+			array(),
+			get_children(
+				array(
+					'post_parent' => $bozza,
+					'post_type'   => 'attachment',
+					'post_status' => 'any',
+				)
+			),
+			'Precondizione: i documenti se ne sono andati.'
+		);
+
+		foreach ( $file as $uno ) {
+			$this->assertFileExists( $uno, 'Precondizione: il file e\' rimasto.' );
+		}
+
+		$this->assertSame( 'draft', get_post_status( $bozza ), 'La bozza resta: e\' lei a ricordare dove sono i file.' );
+		$this->assertSame( $file, array_map( 'strval', get_post_meta( $bozza, Importazione::META_FILE_DA_TOGLIERE, false ) ) );
+
+		$this->assertSame( 'interrotta', Importazione::interrompi()['stato'] );
+
+		// Senza guasti il rilancio toglie i file e la bozza, e porta tutto: sul disco solo i documenti degli importati.
+		$this->importa_tutto( $percorso );
+
+		$this->assertFalse( get_post( $bozza ) instanceof \WP_Post );
+		$this->assertSame( array( '1', '3', '4', '5', '12', '14' ), array_map( 'strval', array_keys( $this->importati() ) ) );
+		$this->assertSame( $this->importati_per_inventario(), $this->inventario() );
+
+		$attesi = $prima;
+
+		foreach ( $this->importati() as $atto ) {
+			foreach ( get_children(
+				array(
+					'post_parent' => $atto['id'],
+					'post_type'   => 'attachment',
+					'post_status' => 'any',
+					'fields'      => 'ids',
+				)
+			) as $documento ) {
+				$attesi[] = get_attached_file( (int) $documento, true );
+			}
+		}
+
+		sort( $attesi );
+
+		// Il documento portato di nuovo puo' riprendere lo stesso nome di file: conta che ogni file abbia il suo documento.
+		$this->assertSame( $attesi, $this->documenti_sul_disco(), 'Nessun file senza documento.' );
+	}
+
+	/**
 	 * A-210. Con le revisioni spente nella configurazione del sito, l'importazione funziona lo stesso.
 	 */
 	public function test_a210_con_le_revisioni_spente(): void {
@@ -1573,17 +1679,135 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Avvia l'importazione senza la seconda conferma, senza il primo blocco della schermata.
-	 *
-	 * @param string $percorso Backup.
+	 * A-214. Con la scrittura automatica accesa e una transazione aperta da altri, una lettura fallita dello stato vale come transazione.
 	 */
-	private function avvia_diretto( string $percorso ): void {
-		$avviata = Importazione::avvia(
+	public function test_a214_transazione_aperta_e_lettura_fallita(): void {
+		$percorso    = $this->backup_nella_cartella();
+		$principale  = $GLOBALS['wpdb'];
+		$this->altra = new \wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
+		$this->altra->set_prefix( $principale->prefix );
+
+		$this->ammetti_transazione_esterna( false );
+
+		// Le risposte della banca dati si scelgono qui: MySQL non ha la variabile, MariaDB si'.
+		$risposta = 'SELECT 0';
+		$riscrivi = static function ( $query ) use ( &$risposta ) {
+			return 'SELECT @@in_transaction' === $query ? $risposta : $query;
+		};
+
+		add_filter( 'query', $riscrivi );
+		$GLOBALS['wpdb'] = $this->altra; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- prova: la connessione di un altro componente.
+
+		try {
+			$this->altra->query( 'SET autocommit = 1' );
+
+			$this->assertFalse( Repertorio::transazione_esterna(), 'Precondizione: scrittura automatica, nessuna transazione.' );
+
+			$this->altra->query( 'START TRANSACTION' );
+			$risposta = 'SELECT 1';
+
+			$this->assertTrue( Repertorio::transazione_esterna(), 'Precondizione: la banca dati dice che la transazione e\' aperta.' );
+
+			// La lettura fallisce: non si sa, quindi transazione.
+			$risposta = 'SELECT * FROM tabella_che_non_esiste';
+
+			$this->assertTrue( Repertorio::transazione_esterna() );
+
+			$rifiutata = Importazione::avvia(
+				$percorso,
+				'backup.zip',
+				array(
+					'impronta' => hash_file( 'sha256', $percorso ),
+					'atti'     => 6,
+					'in_vista' => 1,
+				),
+				true,
+				false
+			);
+
+			$this->assertWPError( $rifiutata );
+			$this->assertSame( 'albo_importazione_transazione_esterna', $rifiutata->get_error_code() );
+
+			// Il blocco dell'anno resta: lo rilascera' la fine della richiesta, non una lettura fallita.
+			$this->assertTrue( Repertorio::blocca_anno( 2039 ) );
+			Repertorio::sblocca_anno( 2039 );
+
+			$this->assertSame( '0', (string) $principale->get_var( $principale->prepare( 'SELECT GET_LOCK( %s, 0 )', Repertorio::nome_blocco_anno( 2039 ) ) ), 'Il blocco e\' ancora tenuto.' );
+
+			// Solo la variabile che la banca dati dichiara di non conoscere dice "nessuna transazione": una versione che non ne tiene il conto.
+			$risposta = 'SELECT @@variabile_che_non_esiste';
+
+			$this->assertFalse( Repertorio::transazione_esterna() );
+
+			$this->altra->query( 'ROLLBACK' );
+		} finally {
+			$GLOBALS['wpdb'] = $principale; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- prova: si rimette la connessione della suite.
+			remove_filter( 'query', $riscrivi );
+		}
+
+		$this->assertNull( Importazione::stato(), 'Niente si e\' scritto.' );
+	}
+
+	/**
+	 * A-214. Un avvio o un'interruzione che la banca dati non salva non si dichiarano riusciti.
+	 */
+	public function test_a214_avvio_e_interruzione_non_salvati(): void {
+		$percorso  = $this->backup_nella_cartella();
+		$non_salva = static function ( $nuovo, $vecchio ) {
+			unset( $nuovo );
+
+			return $vecchio;
+		};
+
+		add_filter( 'pre_update_option_' . Importazione::OPZIONE, $non_salva, 10, 2 );
+		$avvio = Importazione::avvia(
 			$percorso,
 			'backup.zip',
 			array(
 				'impronta' => hash_file( 'sha256', $percorso ),
 				'atti'     => 6,
+				'in_vista' => 1,
+			),
+			true,
+			false
+		);
+		remove_filter( 'pre_update_option_' . Importazione::OPZIONE, $non_salva, 10 );
+
+		$this->assertWPError( $avvio );
+		$this->assertSame( 'albo_importazione_stato_non_salvato', $avvio->get_error_code() );
+		$this->assertStringContainsString( 'Importazione non avviata', $avvio->get_error_message() );
+		$this->assertNull( Importazione::stato() );
+
+		$this->avvia_diretto( $percorso );
+		$this->assertSame( 1, Importazione::prosegui( 1, microtime( true ) + 60 )['posizione'] );
+
+		add_filter( 'pre_update_option_' . Importazione::OPZIONE, $non_salva, 10, 2 );
+		$interruzione = Importazione::interrompi();
+		remove_filter( 'pre_update_option_' . Importazione::OPZIONE, $non_salva, 10 );
+
+		$this->assertWPError( $interruzione );
+		$this->assertSame( 'albo_importazione_stato_non_salvato', $interruzione->get_error_code() );
+		$this->assertSame( 'in_corso', Importazione::stato()['stato'], 'Lo stato salvato dice ancora "in corso", e la risposta non dice altro.' );
+
+		// "Interrompi" di nuovo, questa volta salvato: "Continua" non porta piu' niente.
+		$this->assertSame( 'interrotta', Importazione::interrompi()['stato'] );
+		$this->assertWPError( Importazione::prosegui( 50, microtime( true ) + 60 ) );
+		$this->assertSame( 1, Importazione::stato()['posizione'] );
+	}
+
+	/**
+	 * Avvia l'importazione senza la seconda conferma, senza il primo blocco della schermata.
+	 *
+	 * @param string $percorso Backup.
+	 * @param int    $atti     Atti da portare secondo il rapporto confermato.
+	 */
+	private function avvia_diretto( string $percorso, int $atti = 6 ): void {
+		$avviata = Importazione::avvia(
+			$percorso,
+			'backup.zip',
+			array(
+				'impronta' => hash_file( 'sha256', $percorso ),
+				'atti'     => $atti,
 				'in_vista' => 1,
 			),
 			true,
