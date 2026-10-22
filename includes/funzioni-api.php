@@ -2,10 +2,11 @@
 /**
  * Le funzioni pubbliche dell'albo, per chi scrive codice.
  *
- * Fanno esattamente quello che fa il riquadro Pubblicazione della schermata
- * dell'atto, con gli stessi controlli: sono l'unico ingresso da codice ai due
- * passaggi che partono dalla verifica. `wp_update_post()` con lo stato
- * pubblicato resta rifiutato.
+ * Quelle che scrivono fanno esattamente quello che fa il riquadro
+ * Pubblicazione della schermata dell'atto, con gli stessi controlli: sono
+ * l'unico ingresso da codice ai due passaggi che partono dalla verifica.
+ * `wp_update_post()` con lo stato pubblicato resta rifiutato. L'ultima legge
+ * soltanto, per i temi.
  *
  * @package AlboPretorioPa
  */
@@ -62,5 +63,23 @@ if ( ! function_exists( 'albo_pretorio_proroga' ) ) {
 	 */
 	function albo_pretorio_proroga( $richiesta ) {
 		return \AlboPretorioPa\Passaggi::proroga( is_array( $richiesta ) ? $richiesta : array( 'richiesta' => $richiesta ) );
+	}
+}
+
+if ( ! function_exists( 'albo_pretorio_vista_corrente' ) ) {
+	/**
+	 * Quello che un tema puo' sapere della pagina in corso, per la sua testata.
+	 *
+	 * Nullo fuori dalla pagina dell'albo e su una pagina "non trovata". Sulla
+	 * pagina dell'albo: `elenco`, l'indirizzo dell'elenco; `atto`, nullo
+	 * sull'elenco, oppure `numero` (come 71/2026) e `tipo` dell'atto della
+	 * scheda aperta, solo se in pubblicazione adesso. L'oggetto non c'e'. Va
+	 * chiamata dai modelli del tema, quando WordPress sa gia' quale pagina e'
+	 * chiesta.
+	 *
+	 * @return array{elenco: string, atto: array{numero: string, tipo: string}|null}|null
+	 */
+	function albo_pretorio_vista_corrente() {
+		return \AlboPretorioPa\PaginaPubblica::vista();
 	}
 }

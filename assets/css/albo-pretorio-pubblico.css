@@ -32,8 +32,7 @@
 	line-height: 1.3;
 }
 
-.albo-pretorio__sottotitolo,
-.albo-pretorio__oggetto {
+.albo-pretorio__sottotitolo {
 	margin: 0 0 0.5em;
 	font-size: 1.15em;
 	line-height: 1.35;
@@ -126,20 +125,98 @@
 	margin: 0 0 1em;
 }
 
-.albo-pretorio__elenco {
-	margin: 0;
-	padding: 0;
-	list-style: none;
+.albo-pretorio__tabella {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.albo-pretorio__intestazione {
+	padding: 0.5em 0.75em 0.5em 0;
+	border-bottom: 2px solid currentColor;
+	font-weight: 700;
+	text-align: left;
+	vertical-align: bottom;
+}
+
+.albo-pretorio__cella {
+	padding: 0.75em 0.75em 0.75em 0;
+	border-bottom: 1px solid currentColor;
+	text-align: left;
+	vertical-align: top;
+}
+
+.albo-pretorio__cella--oggetto {
+	font-weight: 400;
+	overflow-wrap: anywhere;
+}
+
+.albo-pretorio__cella--numero,
+.albo-pretorio__cella--data {
+	white-space: nowrap;
+}
+
+.albo-pretorio__organo {
+	display: block;
+	margin: 0.25em 0 0;
+	font-size: 0.95em;
+}
+
+.albo-pretorio__etichetta {
+	display: none;
 }
 
 .albo-pretorio__atto {
 	margin: 0;
-	padding: 1em 0;
-	border-top: 1px solid currentColor;
 }
 
-.albo-pretorio__atto:last-child {
-	border-bottom: 1px solid currentColor;
+/*
+ * Su schermo stretto ogni riga diventa un riquadro e davanti a ogni dato
+ * compare il nome della sua colonna. I ruoli dichiarati nel codice tengono la
+ * tabella per i lettori di schermo; il nome davanti al dato e' nascosto a loro.
+ */
+@media (max-width: 40em) {
+	.albo-pretorio__testata {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		margin: -1px;
+		padding: 0;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		clip-path: inset(50%);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	.albo-pretorio__tabella,
+	.albo-pretorio__tabella tbody,
+	.albo-pretorio__cella {
+		display: block;
+		width: 100%;
+	}
+
+	.albo-pretorio__tabella tr {
+		display: block;
+		width: 100%;
+		padding: 0.75em 0;
+		border-bottom: 1px solid currentColor;
+	}
+
+	.albo-pretorio__cella {
+		padding: 0.25em 0;
+		border-bottom: 0;
+		white-space: normal;
+	}
+
+	.albo-pretorio__cella--oggetto {
+		font-size: 1.1em;
+	}
+
+	.albo-pretorio__etichetta {
+		display: block;
+		font-size: 0.9em;
+		font-weight: 700;
+	}
 }
 
 .albo-pretorio__dati {
