@@ -1021,7 +1021,7 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * A-204: la tabella degli atti resta una tabella per i lettori di schermo, su ogni schermo.
+	 * A-218: la tabella degli atti resta una tabella per i lettori di schermo, su ogni schermo.
 	 */
 	public function test_a204_tabella_degli_atti(): void {
 		$this->pagina_albo();
@@ -1096,7 +1096,7 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * A-205: la funzione per il tema dice la pagina dell'albo e l'atto in vista, solo se in pubblicazione.
+	 * A-219: la funzione per il tema dice la pagina dell'albo e l'atto in vista, solo se in pubblicazione.
 	 */
 	public function test_a205_funzione_per_il_tema(): void {
 		$this->assertTrue( function_exists( 'albo_pretorio_vista_corrente' ), 'Precondizione: la funzione esiste.' );

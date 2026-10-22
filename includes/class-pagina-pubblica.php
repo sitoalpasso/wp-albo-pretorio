@@ -523,7 +523,7 @@ final class PaginaPubblica {
 	}
 
 	/**
-	 * Quello che un tema puo' sapere della pagina in corso, per la sua testata (A-205).
+	 * Quello che un tema puo' sapere della pagina in corso, per la sua testata (A-219).
 	 *
 	 * Nullo fuori dalla pagina dell'albo, e su una pagina "non trovata". Sulla
 	 * pagina: l'indirizzo dell'elenco e, se c'e' una scheda aperta di un atto in

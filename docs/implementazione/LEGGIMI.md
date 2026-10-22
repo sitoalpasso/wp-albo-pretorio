@@ -58,4 +58,4 @@ Schede presenti:
 - [`elenco-in-tabella.md`](elenco-in-tabella.md): l'elenco degli atti in tabella, che su
   schermo stretto diventa un riquadro per atto, le date separate nella scheda e la funzione
   `albo_pretorio_vista_corrente()` per i temi. Righe di collaudo A-195, A-196, A-203 riviste,
-  A-204 e A-205 nuove.
+  A-218 e A-219 nuove.

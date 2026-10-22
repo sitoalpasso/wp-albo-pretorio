@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro
 com'è andata davvero.
 
 **Stato: costruita, in attesa di revisione.** Requisiti ALBO-16 e ALBO-28, righe di collaudo A-195, A-196 e
-A-203 riviste, A-204 e A-205 nuove. Parte dalla pagina pubblica di
+A-203 riviste, A-218 e A-219 nuove. Parte dalla pagina pubblica di
 [`pagina-pubblica.md`](pagina-pubblica.md) e ne cambia la decisione 2.
 Nessuna versione nuova del meccanismo comune: basta la 1.7.0.
 
@@ -34,11 +34,11 @@ singola, atto chiesto, atto in pubblicazione letto adesso): per un atto scaduto,
 un numero mai dato restituisce soltanto l'indirizzo dell'elenco, mai il numero.
 
 **Come si prova che funziona, e come si prova che il test è vero.** Le prove di A-195 e A-196
-leggono la tabella e la scheda nuove con gli stessi atti di prima. A-204 legge la tabella come
+leggono la tabella e la scheda nuove con gli stessi atti di prima. A-218 legge la tabella come
 documento: ogni colonna ha la sua intestazione, ogni riga ha l'oggetto come intestazione,
 ogni cella ha il suo ruolo, il testo davanti al dato è nascosto ai lettori di schermo e c'è
 lo stile che lo mostra solo su schermo stretto. Se si toglie l'intestazione di riga, il ruolo
-di una cella o il testo nascosto, la riga diventa rossa. A-205 chiama la funzione su una
+di una cella o il testo nascosto, la riga diventa rossa. A-219 chiama la funzione su una
 pagina qualunque, sull'elenco, sulla scheda di un atto in corso e sulla scheda di uno scaduto,
 di una bozza e di un numero mai dato: il numero esce solo nel secondo caso. Se la funzione
 dimentica il controllo della scadenza, la riga diventa rossa all'ultimo istante utile e a
@@ -54,7 +54,7 @@ mezzanotte.
 | `includes/class-pagina-pubblica.php` | l'atto in vista, letto una volta e usato dal titolo della finestra e dalla funzione per il tema |
 | `includes/funzioni-api.php` | la funzione `albo_pretorio_vista_corrente()` |
 | `assets/css/albo-pretorio-pubblico.css` | stili della tabella e della disposizione a riquadri su schermo stretto |
-| `tests/PaginaPubblicaTest.php` | prove di A-195, A-196, A-203 riviste, A-204 e A-205 nuove |
+| `tests/PaginaPubblicaTest.php` | prove di A-195, A-196, A-203 riviste, A-218 e A-219 nuove |
 | `docs/collaudo.md`, `docs/architettura.md`, `pagina-pubblica.md`, questa scheda e l'indice | righe, decisione 2, parte nuova |
 
 ### 2. Perché
@@ -96,7 +96,7 @@ chiunque.
 
 ### 7. Test aggiunti
 
-Righe A-195, A-196, A-203 riviste e A-204, A-205 nuove di `collaudo.md`, in
+Righe A-195, A-196, A-203 riviste e A-218, A-219 nuove di `collaudo.md`, in
 `tests/PaginaPubblicaTest.php`.
 
 ### 8. Che cosa non fa
@@ -142,13 +142,13 @@ trovata" e il tema non la disegna nemmeno.
 
 ## Com'è andata davvero
 
-Le righe A-204 e A-205 sono verdi, insieme alle 235 prove che c'erano già, con A-195, A-196
+Le righe A-218 e A-219 sono verdi, insieme alle 235 prove che c'erano già, con A-195, A-196
 e A-203 riscritte per la tabella. PHPCS pulito. Guasti introdotti per vedere quale prova li
-vede, sei, tutti visti: senza l'intestazione di riga (A-204), senza il ruolo delle celle
-(A-204), con il nome davanti al dato non nascosto ai lettori di schermo (A-204, e A-195 che
+vede, sei, tutti visti: senza l'intestazione di riga (A-218), senza il ruolo delle celle
+(A-218), con il nome davanti al dato non nascosto ai lettori di schermo (A-218, e A-195 che
 legge le celle come un lettore di schermo), senza la disposizione a riquadri su schermo
-stretto (A-204), senza lo stile dell'organo (A-203), con la funzione per il tema che non
-guarda se l'atto è in pubblicazione (A-205).
+stretto (A-218), senza lo stile dell'organo (A-203), con la funzione per il tema che non
+guarda se l'atto è in pubblicazione (A-219).
 
 Una cosa imparata scrivendo: la funzione per il tema non si può provare togliendo soltanto il
 suo controllo, perché la pagina di un atto scaduto risponde già "non trovata" prima che il

@@ -517,7 +517,7 @@ final class VistaPubblica {
 	 * Ogni elemento dichiara anche il suo ruolo: su schermo stretto il foglio
 	 * di stile cambia la disposizione delle celle, e alcuni browser, quando
 	 * succede, smettono di presentare la tabella come tale ai lettori di
-	 * schermo (A-204).
+	 * schermo (A-218).
 	 *
 	 * @param array<int, int> $atti Atti, nell'ordine.
 	 * @return string
