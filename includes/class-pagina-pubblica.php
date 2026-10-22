@@ -98,6 +98,13 @@ final class PaginaPubblica {
 	const STILE = 'albo-pretorio-pubblico';
 
 	/**
+	 * Gli stati di un atto che la pagina mostra fino alla sua data di fine.
+	 *
+	 * @var array<int, string>
+	 */
+	const STATI_IN_VISTA = array( 'publish', 'albo_annullato' );
+
+	/**
 	 * Le pagine dell'albo lette in questa richiesta, o nullo se non ancora lette.
 	 *
 	 * @var array<int, int>|null
@@ -520,11 +527,13 @@ final class PaginaPubblica {
 	/**
 	 * L'atto e' in pubblicazione, cioe' si mostra al pubblico.
 	 *
-	 * Tre condizioni, tutte lette adesso: pubblicato senza password, con il
-	 * numero di registro che solo il passaggio vero assegna, e non scaduto per
-	 * il meccanismo comune, che resta il solo a decidere della scadenza. Un
-	 * atto portato a pubblicato scrivendo lo stato nella banca dati non ha il
-	 * numero e non si mostra (A-196).
+	 * Tre condizioni, tutte lette adesso: pubblicato o annullato senza
+	 * password, con il numero di registro che solo il passaggio vero assegna,
+	 * e non scaduto per il meccanismo comune, che resta il solo a decidere
+	 * della scadenza. Un atto portato a pubblicato scrivendo lo stato nella
+	 * banca dati non ha il numero e non si mostra (A-196). Un atto annullato
+	 * si mostra fino alla sua data di fine come avviso, senza documenti: lo
+	 * dice `annullato()` (A-227).
 	 *
 	 * @param int $atto_id Atto.
 	 * @return bool
@@ -536,7 +545,7 @@ final class PaginaPubblica {
 
 		$atto = get_post( $atto_id );
 
-		if ( ! $atto instanceof \WP_Post || TIPO !== $atto->post_type || 'publish' !== $atto->post_status || '' !== $atto->post_password ) {
+		if ( ! $atto instanceof \WP_Post || TIPO !== $atto->post_type || ! in_array( $atto->post_status, self::STATI_IN_VISTA, true ) || '' !== $atto->post_password ) {
 			return false;
 		}
 
@@ -545,6 +554,16 @@ final class PaginaPubblica {
 		}
 
 		return false === conformita_core_scaduto( $atto_id );
+	}
+
+	/**
+	 * L'atto e' annullato: si mostra come avviso, e i suoi documenti non escono.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return bool
+	 */
+	public static function annullato( int $atto_id ): bool {
+		return ChiusuraPubblicazione::ANNULLATO === get_post_status( $atto_id );
 	}
 
 	/**
@@ -678,7 +697,7 @@ final class PaginaPubblica {
 		 */
 		$atto = (int) $wp->query_vars[ $chiave ];
 
-		if ( $atto > 0 && TIPO === get_post_type( $atto ) && ! self::in_pubblicazione( $atto ) ) {
+		if ( $atto > 0 && TIPO === get_post_type( $atto ) && ( ! self::in_pubblicazione( $atto ) || self::annullato( $atto ) ) ) {
 			self::$consegna_negata = true;
 		}
 	}
@@ -699,7 +718,9 @@ final class PaginaPubblica {
 	 * biscotto di WordPress gli basta: la pagina invece non mostra un atto
 	 * senza numero ne' uno con password. Nella richiesta del documento di un
 	 * atto che la pagina non mostra l'albo non apre il tipo, e il punto di
-	 * consegna risponde con il suo rifiuto, uguale per ogni motivo (A-204). Se
+	 * consegna risponde con il suo rifiuto, uguale per ogni motivo (A-204).
+	 * Lo stesso per un atto annullato, di cui la pagina mostra l'avviso e non
+	 * i documenti (A-227). Se
 	 * il tipo lo ha aperto un altro componente, resta la sua scelta, come per
 	 * l'anteprima incorporata (A-175, A-177).
 	 *

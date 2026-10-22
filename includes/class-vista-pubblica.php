@@ -294,7 +294,7 @@ final class VistaPubblica {
 
 		$argomenti = array(
 			'post_type'           => TIPO,
-			'post_status'         => 'publish',
+			'post_status'         => PaginaPubblica::STATI_IN_VISTA,
 			'has_password'        => false,
 			'posts_per_page'      => self::PER_PAGINA,
 			'paged'               => max( 1, (int) $ricerca['pagina'] ),
@@ -649,13 +649,18 @@ final class VistaPubblica {
 	 * @return string
 	 */
 	private static function riga( int $atto ): string {
-		$colonne = self::colonne();
-		$tipo    = DatiAtto::tipo( $atto );
-		$organo  = DatiAtto::organo( $atto );
-		$fine    = conformita_core_fine_pubblicazione( $atto );
-		$quanti  = self::quanti_documenti( $atto );
+		$colonne   = self::colonne();
+		$tipo      = DatiAtto::tipo( $atto );
+		$organo    = DatiAtto::organo( $atto );
+		$fine      = conformita_core_fine_pubblicazione( $atto );
+		$annullato = PaginaPubblica::annullato( $atto );
+		$quanti    = $annullato ? 0 : self::quanti_documenti( $atto );
 
 		$oggetto = '<a class="albo-pretorio__collegamento" href="' . esc_url( (string) PaginaPubblica::indirizzo_scheda( $atto ) ) . '">' . esc_html( get_the_title( $atto ) ) . '</a>';
+
+		if ( $annullato ) {
+			$oggetto .= ' <strong class="albo-pretorio__annullato">' . esc_html__( 'Annullato', 'albo-pretorio-pa' ) . '</strong>';
+		}
 
 		if ( null !== $organo ) {
 			$oggetto .= ' <span class="albo-pretorio__organo">' . esc_html( $organo->name ) . '</span>';
@@ -670,11 +675,13 @@ final class VistaPubblica {
 		$html .= self::cella(
 			$colonne['documenti'],
 			esc_html(
-				sprintf(
-					/* translators: %s: numero dei documenti dell'atto. */
-					_n( '%s documento', '%s documenti', $quanti, 'albo-pretorio-pa' ),
-					number_format_i18n( $quanti )
-				)
+				$annullato
+					? __( 'nessuno: atto annullato', 'albo-pretorio-pa' )
+					: sprintf(
+						/* translators: %s: numero dei documenti dell'atto. */
+						_n( '%s documento', '%s documenti', $quanti, 'albo-pretorio-pa' ),
+						number_format_i18n( $quanti )
+					)
 			)
 		);
 
@@ -708,14 +715,24 @@ final class VistaPubblica {
 	/**
 	 * La scheda di un atto in pubblicazione.
 	 *
+	 * Per un atto annullato e' l'avviso dell'annullamento: gli stessi dati
+	 * dell'atto, con data e motivo dell'annullamento, senza i dati del
+	 * procedimento, che possono nominare persone, e senza documenti (A-227).
+	 *
 	 * @param int $atto Atto.
 	 * @return string
 	 */
 	private static function scheda( int $atto ): string {
+		$annullato = PaginaPubblica::annullato( $atto );
+
 		$html  = '<div class="albo-pretorio">';
 		$html .= '<article class="albo-pretorio__scheda" aria-labelledby="albo-pretorio-titolo-atto" data-atto="' . (int) $atto . '">';
 		$html .= '<p class="albo-pretorio__torna"><a class="albo-pretorio__collegamento" href="' . esc_url( (string) PaginaPubblica::indirizzo() ) . '">' . esc_html__( 'Torna all\'elenco degli atti', 'albo-pretorio-pa' ) . '</a></p>';
 		$html .= '<h2 id="albo-pretorio-titolo-atto" class="albo-pretorio__titolo">' . esc_html( get_the_title( $atto ) ) . '</h2>';
+
+		if ( $annullato ) {
+			$html .= '<p class="albo-pretorio__avviso"><strong>' . esc_html__( 'Atto annullato. I suoi documenti non si consultano piu\'.', 'albo-pretorio-pa' ) . '</strong></p>';
+		}
 
 		$dati = array( __( 'Numero di registro', 'albo-pretorio-pa' ) => self::numero( $atto ) );
 		$tipo = DatiAtto::tipo( $atto );
@@ -744,6 +761,15 @@ final class VistaPubblica {
 
 		$dati[ __( 'Pubblicato dal', 'albo-pretorio-pa' ) ] = (string) get_post_time( 'd/m/Y', false, $atto );
 		$dati[ __( 'Fino al', 'albo-pretorio-pa' ) ]        = is_string( $fine ) ? self::data( $fine ) : '';
+
+		if ( $annullato ) {
+			$voce = Passaggi::annullamento( $atto );
+
+			$dati[ __( 'Annullato il', 'albo-pretorio-pa' ) ]              = null === $voce ? __( 'non leggibile in questo momento', 'albo-pretorio-pa' ) : wp_date( 'd/m/Y', $voce['istante']->getTimestamp() );
+			$dati[ __( 'Motivo dell\'annullamento', 'albo-pretorio-pa' ) ] = null === $voce ? __( 'non leggibile in questo momento', 'albo-pretorio-pa' ) : $voce['motivo'];
+
+			return $html . self::dati( $dati ) . '</article></div>';
+		}
 
 		foreach ( DatiProcedimento::da_mostrare( $atto ) as $etichetta => $valore ) {
 			$dati[ $etichetta ] = $valore;
