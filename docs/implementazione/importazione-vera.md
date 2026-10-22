@@ -162,8 +162,8 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
   occupato senza atto.
 - Ogni atto ha uno di tre esiti: **confermato** (pubblicato con il suo numero, anche se un
   altro componente solleva un'eccezione subito dopo la conferma), **annullato** (la bozza è
-  cancellata e si è verificato che non c'è più) o **incerto** (la bozza non si cancella, o il
-  numero risulta senza l'atto pubblicato). Ogni uscita passa da questa distinzione: anche un
+  cancellata e si è verificato che non c'è più) o **incerto** (la bozza non si cancella, il
+  numero risulta senza l'atto pubblicato, o l'annullamento della transazione non riesce). Ogni uscita passa da questa distinzione: anche un
   dato della bozza che non si scrive, e una bozza lasciata da prima che non si toglie. Un
   esito incerto ferma il blocco su quell'atto e lo dice; si guarda l'atto prima di
   continuare.
@@ -285,6 +285,11 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
   A-216 sul file caricato non arrivava mai a un rapporto riuscito (ora un punto di prova,
   raggiungibile solo per riflessione, accetta il file della prova come caricato). Ogni caso
   ha la sua prova, e la mutazione corrispondente la rende rossa.
+- La nona revisione esterna ha chiesto una correzione, fatta: se l'annullamento della
+  transazione non riusciva, l'atto che la connessione vedeva ancora pubblicato e numerato
+  poteva passare per confermato. Ora un annullamento non riuscito dà sempre l'esito incerto,
+  e dopo un rifiuto del passaggio lo stato pubblicato non vale mai come conferma. La prova
+  in A-215 diventa rossa solo togliendo entrambe le difese.
 - La riga A-193 dell'importazione a secco fallisce in questo ambiente di prova anche sul ramo
   principale, per la versione di `iconv`: non dipende da questo lavoro.
 
