@@ -5,7 +5,7 @@ Requisito ALBO-35. Righe di collaudo A-186..A-194, provate in `tests/Importazion
 ## Cosa fa, in breve
 
 Legge il backup che il plugin "Albo Pretorio On line" produce dalla sua schermata di utilità
-(menu Albo, Utility, Backup) e mostra **cosa si porterebbe** nel nuovo albo: per ogni atto
+(menu Albo, Utility, Backup) e mostra **cosa si porterebbe** in questo albo: per ogni atto
 numero, date, durata, tipo, dati, documenti, se arriverebbe visibile al pubblico, e i
 conflitti e i dubbi da risolvere prima. Poi categorie, numerazione, campi non riconosciuti e
 file. **Non scrive niente**: né atti, né tipi, né numeri, né file, né impostazioni. È il passo
@@ -62,33 +62,33 @@ caricamento.
 ## Le regole di traduzione
 
 **Atti.** Un atto con numero 0 è una bozza: non si porta. Un numero assente, negativo o
-illeggibile, o più alto del massimo che il registro del nuovo albo può contenere
+illeggibile, o più alto del massimo che il registro di questo albo può contenere
 (4294967295), non è una bozza: è un conflitto, con il valore scritto, e la schermata mostra
 "numero non valido" accanto al valore; lo stesso vale per un anno che non è un anno. Gli altri si portano con il loro
 numero e anno, che non si ricalcolano. Le date si leggono come giorni di calendario, così come
 sono scritte; la data zero vale come assente.
 
-| Situazione nel backup | Nel nuovo albo |
+| Situazione nel backup | In questo albo |
 |---|---|
-| fine oggi o dopo, inizio oggi o prima | visibile al pubblico fino a tutto il giorno di fine; chi importa deve dare la conferma sui dati personali che il nuovo albo chiede prima di pubblicare (ALBO-11) |
+| fine oggi o dopo, inizio oggi o prima | visibile al pubblico fino a tutto il giorno di fine; chi importa deve dare la conferma sui dati personali che questo albo chiede prima di pubblicare (ALBO-11) |
 | fine passata | invisibile al pubblico, senza impostazioni (ALBO-05); si consulta dalla schermata riservata degli scaduti |
 | fine assente | invisibile: per la scadenza un atto senza fine non si vede. Dubbio |
-| inizio futuro | dubbio: il nuovo albo non programma le pubblicazioni |
+| inizio futuro | dubbio: questo albo non programma le pubblicazioni |
 | fine prima dell'inizio, inizio assente | conflitto |
 | data di annullamento | annullato con motivo; cosa veda il pubblico nel periodo di pubblicazione è una sotto-decisione ancora aperta. Dubbio |
 
 "Oggi" è il giorno nel fuso del sito (`wp_timezone()`), lo stesso della scadenza.
 
 **Durata.** La durata scritta è la differenza in giorni fra inizio e fine, la stessa regola
-del nuovo albo, e porta la sua origine: "date scritte nel vecchio albo". Si confronta con i
+di questo albo, e porta la sua origine: "date scritte in Albo Pretorio On line". Si confronta con i
 giorni della categoria: più corta è un dubbio; più lunga è spiegata quando tutti i giorni
-saltati, dalla fine calcolata in poi, sono festivi (domeniche e l'elenco dei festivi del nuovo
+saltati, dalla fine calcolata in poi, sono festivi (domeniche e l'elenco dei festivi di questo
 albo, o la proposta con le feste nazionali se l'elenco non è ancora salvato) e la fine
 scritta non lo è, e allora è una nota sullo slittamento; altrimenti è un dubbio (una proroga o
 una correzione a mano).
 
 **Categorie e tipi.** Ogni categoria si confronta per nome, senza maiuscole e spazi ai lati,
-con i tipi di atto del nuovo albo. Gli atti si contano per categoria, non per tipo: due
+con i tipi di atto di questo albo. Gli atti si contano per categoria, non per tipo: due
 categorie che diventano lo stesso tipo restano distinte. Se il tipo c'è si mostrano durata e origine; se non c'è,
 "tipo da creare", e **l'origine della durata la dichiara chi importa, senza valore proposto**.
 Una categoria senza giorni darebbe un tipo senza durata. Le categorie annidate si mostrano con
@@ -97,8 +97,8 @@ anche un dubbio su ciascun atto di quella categoria, che quindi non risulta impo
 il tipo non è deciso.
 
 **Numerazione.** Conflitti: lo stesso numero e anno su due atti (sull'atto si dice quanti sono, l'elenco dei
-numeri interni sta una volta sola fra le segnalazioni generali); un numero già dato dal nuovo
-albo; un numero oltre l'ultimo numero del vecchio registro dichiarato nel nuovo albo per
+numeri interni sta una volta sola fra le segnalazioni generali); un numero già dato da questo
+albo; un numero oltre l'ultimo numero del registro precedente dichiarato in questo albo per
 quell'anno. Dubbio: l'anno del numero diverso dall'anno di inizio. Per ogni anno si contano
 i numeri mancanti nella serie. Dal contatore (`opt_AP_NumeroProgressivo`,
 `opt_AP_AnnoProgressivo`) si ricava una **proposta** dell'ultimo numero usato, il più alto fra
@@ -111,11 +111,11 @@ dà proposta (dubbio "contatore non valido"), e nemmeno atti già arrivati al ma
 esistono nel backup: "non indicato", non un errore. Responsabile del procedimento (persona
 indicata in `RespProc`), ufficio (`IdUnitaOrganizzativa`) e richiedente si conservano sempre e
 si mostrano secondo la scelta corrente dell'amministrazione (ALBO-33); un nome fuori dagli
-elenchi del nuovo albo resta come un nome tolto dall'elenco. Senza posto nel nuovo albo, e
+elenchi di questo albo resta come un nome tolto dall'elenco. Senza posto in questo albo, e
 quindi nota: le altre persone collegate (`Soggetti`), le note (`Informazioni`), le etichette
 di raggruppamento, nominate con il loro valore. Un atto di un'altra amministrazione (`Ente` diverso da 0) è un dubbio
 finché le amministrazioni ospitate (ALBO-29) non ci sono. `Data` e `DataOblio` si riconoscono
-e non servono. Un testo che il nuovo albo non conserverebbe alla lettera, o non in UTF-8, è un
+e non servono. Un testo che questo albo non conserverebbe alla lettera, o non in UTF-8, è un
 dubbio; per responsabile, ufficio e richiedente vale anche un carattere di controllo (a capo,
 tabulazione) ai margini, che togliendo gli spazi ai lati si perderebbe. Lunghezza e caratteri
 di controllo si guardano prima di leggere il nome: un testo con molti a capo non si divide in
@@ -157,7 +157,7 @@ cambiano l'esito.
 ## File, permessi, percorso
 
 - `includes/class-lettore-backup.php`: lettura dell'archivio e del testo SQL.
-- `includes/class-analisi-importazione.php`: stato del nuovo albo (`contesto()`) e rapporto.
+- `includes/class-analisi-importazione.php`: stato di questo albo (`contesto()`) e rapporto.
 - `includes/class-schermata-importazione.php`: voce "Importazione a secco" nel menu degli atti.
 - `includes/class-repertorio.php`: `numeri_usati()`, i numeri già dati in un anno.
 
@@ -199,7 +199,7 @@ Il rapporto vive solo nella pagina che lo mostra. Ogni testo esce sfuggito.
   numerazione (ultimo numero usato, proposta di partenza) e i file non citati si calcolano invece
   su tutti gli atti del backup, perché un risultato parziale presentato come intero sarebbe
   sbagliato.
-- La numerazione del nuovo albo non risponde, per i numeri usati o per la riga dell'anno con la
+- La numerazione di questo albo non risponde, per i numeri usati o per la riga dell'anno con la
   partenza dichiarata: conflitto generale e conflitto su ogni atto di quell'anno, perché non si
   può dire se i numeri sono già stati dati o oltre la partenza. Un anno senza riga non è un
   guasto: è un anno ancora da numerare.
@@ -213,7 +213,7 @@ il backup non contiene.
 
 ## Come si prova su un sito vero
 
-Sul sito di prova con il nuovo albo attivo: dal vecchio albo, Utility, Backup, poi
+Sul sito di prova con questo albo attivo: da Albo Pretorio On line, Utility, Backup, poi
 Importazione a secco nel menu degli atti, scegliere il backup appena fatto e leggere il
-rapporto. Confrontare il numero di atti per anno e gli ultimi numeri con il registro del
-vecchio albo, e aprire a campione i documenti segnalati come diversi.
+rapporto. Confrontare il numero di atti per anno e gli ultimi numeri con il registro di
+Albo Pretorio On line, e aprire a campione i documenti segnalati come diversi.

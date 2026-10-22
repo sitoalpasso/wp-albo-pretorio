@@ -2,15 +2,15 @@
 /**
  * L'importazione a secco: cosa porterebbe il backup, senza scrivere niente (ALBO-35).
  *
- * Riceve quello che `LettoreBackup` ha letto e lo confronta con lo stato del
- * nuovo albo: tipi di atto e loro durate, numeri gia' usati, scelte sui dati
+ * Riceve quello che `LettoreBackup` ha letto e lo confronta con lo stato di
+ * questo albo: tipi di atto e loro durate, numeri gia' usati, scelte sui dati
  * del procedimento, elenco dei festivi. Ne esce un rapporto: per ogni atto
  * come verrebbe ricostruito, se sarebbe visibile al pubblico, e i conflitti e
  * i dubbi che chi importa deve risolvere prima; poi categorie, numerazione,
  * campi non riconosciuti e file.
  *
  * **Le date sono fatti avvenuti**: si leggono come giorni di calendario e non
- * si ricalcolano. Da quel momento vale la scadenza del nuovo albo, che e' una
+ * si ricalcolano. Da quel momento vale la scadenza di questo albo, che e' una
  * proprieta' della data letta: un atto la cui fine e' passata arriverebbe
  * invisibile al pubblico, senza impostazioni. Il rapporto non decide niente al
  * posto dell'amministrazione: dove la scelta e' sua, la segnala.
@@ -25,7 +25,7 @@ namespace AlboPretorioPa;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Confronto fra il backup letto e il nuovo albo.
+ * Confronto fra il backup letto e questo albo.
  */
 final class AnalisiImportazione {
 
@@ -93,7 +93,7 @@ final class AnalisiImportazione {
 	const LIVELLI = array( 'conflitto', 'dubbio', 'nota' );
 
 	/**
-	 * Le colonne conosciute di ciascuna tabella, con il loro destino nel nuovo albo.
+	 * Le colonne conosciute di ciascuna tabella, con il loro destino in questo albo.
 	 *
 	 * Una colonna fuori da questo elenco si dichiara non riconosciuta; una
 	 * colonna dell'elenco che manca nel backup si dichiara assente, perche' le
@@ -137,7 +137,7 @@ final class AnalisiImportazione {
 	}
 
 	/**
-	 * Lo stato del nuovo albo che serve al confronto.
+	 * Lo stato di questo albo che serve al confronto.
 	 *
 	 * @param array<int, int>    $anni   Anni degli atti del backup.
 	 * @param \DateTimeImmutable $adesso Istante dell'analisi.
@@ -196,7 +196,7 @@ final class AnalisiImportazione {
 	 * Il rapporto dell'importazione a secco.
 	 *
 	 * @param array<string, mixed> $letto    Quello che il lettore ha letto.
-	 * @param array<string, mixed> $contesto Lo stato del nuovo albo, da `contesto()`.
+	 * @param array<string, mixed> $contesto Lo stato di questo albo, da `contesto()`.
 	 * @return array<string, mixed>
 	 */
 	public static function rapporto( array $letto, array $contesto ): array {
@@ -532,7 +532,7 @@ final class AnalisiImportazione {
 	 *
 	 * @param array<string, string|null> $riga       Riga della tabella degli atti.
 	 * @param array<string, mixed>       $indici     Tabelle collegate, per identificativo.
-	 * @param array<string, mixed>       $contesto   Stato del nuovo albo.
+	 * @param array<string, mixed>       $contesto   Stato di questo albo.
 	 * @param array<string, bool>        $file_usati File dell'archivio citati, aggiornato.
 	 * @return array<string, mixed>
 	 */
@@ -575,7 +575,7 @@ final class AnalisiImportazione {
 		// Solo lo zero vero e' una bozza: un numero assente, negativo o illeggibile e' un dato da correggere.
 		if ( self::bozza( $riga ) ) {
 			$atto['stato']        = 'bozza';
-			$atto['pubblico']     = __( 'Non si porta: e\' una bozza mai pubblicata. Si chiude prima nel vecchio albo, o si ricrea nel nuovo.', 'albo-pretorio-pa' );
+			$atto['pubblico']     = __( 'Non si porta: e\' una bozza mai pubblicata. Si chiude prima in Albo Pretorio On line, o si ricrea qui.', 'albo-pretorio-pa' );
 			$atto['esito']        = self::ESCLUSO;
 			$atto['segnalazioni'] = array( self::segnalazione( 'nota', 'bozza', __( 'Bozza mai pubblicata: non si porta.', 'albo-pretorio-pa' ) ) );
 
@@ -583,7 +583,7 @@ final class AnalisiImportazione {
 		}
 
 		// Numero e anno.
-		// Il registro del nuovo albo arriva fino a Repertorio::MASSIMO: oltre, il numero non ci sta.
+		// Il registro di questo albo arriva fino a Repertorio::MASSIMO: oltre, il numero non ci sta.
 		if ( null === $numero || $numero <= 0 || $numero > Repertorio::MASSIMO ) {
 			$segnala[] = self::segnalazione(
 				'conflitto',
@@ -617,7 +617,7 @@ final class AnalisiImportazione {
 				'numero_doppio',
 				sprintf(
 					/* translators: 1: numero/anno, 2: quanti atti lo portano. */
-					__( 'Il numero %1$s e\' portato da %2$d atti, elencati fra le segnalazioni generali: nel nuovo albo un numero e\' di un atto solo.', 'albo-pretorio-pa' ),
+					__( 'Il numero %1$s e\' portato da %2$d atti, elencati fra le segnalazioni generali: in questo albo un numero e\' di un atto solo.', 'albo-pretorio-pa' ),
 					$numero . '/' . $anno,
 					count( $doppi )
 				)
@@ -626,14 +626,14 @@ final class AnalisiImportazione {
 
 		$numerazione = $contesto['numerazione'][ $anno ] ?? null;
 
-		// Se la numerazione del nuovo albo non ha risposto, non si sa se il numero e' gia' dato o oltre la partenza: l'atto non e' portabile.
+		// Se la numerazione di questo albo non ha risposto, non si sa se il numero e' gia' dato o oltre la partenza: l'atto non e' portabile.
 		if ( $numero > 0 && $anno >= 1 && $anno <= 9999 && ( ! is_array( $numerazione ) || null === $numerazione['usati'] || false === $numerazione['riga'] ) ) {
 			$segnala[] = self::segnalazione(
 				'conflitto',
 				'numerazione_non_letta',
 				sprintf(
 					/* translators: %d: anno. */
-					__( 'La numerazione del nuovo albo per il %d non ha risposto: non si puo\' dire se il numero e\' gia\' stato dato.', 'albo-pretorio-pa' ),
+					__( 'La numerazione di questo albo per il %d non ha risposto: non si puo\' dire se il numero e\' gia\' stato dato.', 'albo-pretorio-pa' ),
 					$anno
 				)
 			);
@@ -645,7 +645,7 @@ final class AnalisiImportazione {
 				'numero_gia_usato',
 				sprintf(
 					/* translators: %s: numero/anno. */
-					__( 'Il numero %s e\' gia\' stato dato a un atto del nuovo albo.', 'albo-pretorio-pa' ),
+					__( 'Il numero %s e\' gia\' stato dato a un atto di questo albo.', 'albo-pretorio-pa' ),
 					$numero . '/' . $anno
 				)
 			);
@@ -655,7 +655,7 @@ final class AnalisiImportazione {
 				'numero_oltre_partenza',
 				sprintf(
 					/* translators: 1: numero/anno, 2: ultimo numero dichiarato. */
-					__( 'Il numero %1$s viene dopo l\'ultimo numero del vecchio registro dichiarato nel nuovo albo (%2$d): uno dei due registri e\' sbagliato.', 'albo-pretorio-pa' ),
+					__( 'Il numero %1$s viene dopo l\'ultimo numero del registro precedente dichiarato in questo albo (%2$d): uno dei due registri e\' sbagliato.', 'albo-pretorio-pa' ),
 					$numero . '/' . $anno,
 					$numerazione['riga']['partenza']
 				)
@@ -742,7 +742,7 @@ final class AnalisiImportazione {
 	 * @param array<string, mixed>       $atto     Atto ricostruito, aggiornato.
 	 * @param array<string, string|null> $riga     Riga della tabella degli atti.
 	 * @param array<string, mixed>       $indici   Tabelle collegate.
-	 * @param array<string, mixed>       $contesto Stato del nuovo albo.
+	 * @param array<string, mixed>       $contesto Stato di questo albo.
 	 * @param array<int, array>          $segnala  Segnalazioni dell'atto, aggiornate.
 	 * @param string|null                $annullo  Data di annullamento.
 	 */
@@ -756,7 +756,7 @@ final class AnalisiImportazione {
 		}
 
 		if ( null === $fine ) {
-			$segnala[] = self::segnalazione( 'dubbio', 'fine_assente', __( 'La data di fine manca o non e\' una data valida. Nel nuovo albo un atto senza fine non si vede: arriverebbe invisibile al pubblico.', 'albo-pretorio-pa' ) );
+			$segnala[] = self::segnalazione( 'dubbio', 'fine_assente', __( 'La data di fine manca o non e\' una data valida. In questo albo un atto senza fine non si vede: arriverebbe invisibile al pubblico.', 'albo-pretorio-pa' ) );
 		}
 
 		if ( null !== $inizio && null !== $fine && $fine < $inizio ) {
@@ -776,7 +776,7 @@ final class AnalisiImportazione {
 				'annullato',
 				sprintf(
 					/* translators: 1: data di annullamento, 2: motivo. */
-					__( 'Atto annullato il %1$s (motivo: %2$s). Si porterebbe annullato, con numero e motivo; cosa ne veda il pubblico nel periodo di pubblicazione e\' una scelta ancora aperta del nuovo albo.', 'albo-pretorio-pa' ),
+					__( 'Atto annullato il %1$s (motivo: %2$s). Si porterebbe annullato, con numero e motivo; cosa ne veda il pubblico nel periodo di pubblicazione e\' una scelta ancora aperta di questo albo.', 'albo-pretorio-pa' ),
 					self::leggibile( $annullo ),
 					'' === $motivo ? __( 'non indicato', 'albo-pretorio-pa' ) : $motivo
 				)
@@ -797,8 +797,8 @@ final class AnalisiImportazione {
 				$atto['stato'] = 'futuro';
 			}
 
-			$atto['pubblico'] = __( 'Inizio futuro: il nuovo albo non programma le pubblicazioni.', 'albo-pretorio-pa' );
-			$segnala[]        = self::segnalazione( 'dubbio', 'inizio_futuro', __( 'La pubblicazione comincia in un giorno futuro: il nuovo albo non programma le pubblicazioni. Si pubblica dopo l\'importazione, o si lascia finire nel vecchio albo.', 'albo-pretorio-pa' ) );
+			$atto['pubblico'] = __( 'Inizio futuro: questo albo non programma le pubblicazioni.', 'albo-pretorio-pa' );
+			$segnala[]        = self::segnalazione( 'dubbio', 'inizio_futuro', __( 'La pubblicazione comincia in un giorno futuro: questo albo non programma le pubblicazioni. Si pubblica dopo l\'importazione, o si lascia finire in Albo Pretorio On line.', 'albo-pretorio-pa' ) );
 			return;
 		}
 
@@ -816,7 +816,7 @@ final class AnalisiImportazione {
 		$segnala[] = self::segnalazione(
 			'dubbio',
 			'conferma_dati_personali',
-			__( 'Atto ancora in pubblicazione: nel vecchio albo non c\'e\' la conferma del responsabile sui dati personali che il nuovo albo chiede prima di pubblicare. Va data da chi importa, guardando il documento.', 'albo-pretorio-pa' )
+			__( 'Atto ancora in pubblicazione: in Albo Pretorio On line non c\'e\' la conferma del responsabile sui dati personali che questo albo chiede prima di pubblicare. Va data da chi importa, guardando il documento.', 'albo-pretorio-pa' )
 		);
 	}
 
@@ -824,12 +824,12 @@ final class AnalisiImportazione {
 	 * Il confronto fra la durata scritta e i giorni della categoria.
 	 *
 	 * La durata scritta e' la differenza in giorni fra inizio e fine: e' la
-	 * stessa regola del nuovo albo, in cui il giorno di pubblicazione non conta.
+	 * stessa regola di questo albo, in cui il giorno di pubblicazione non conta.
 	 *
 	 * @param array<string, mixed>       $atto     Atto ricostruito, aggiornato.
 	 * @param array<string, string|null> $riga     Riga della tabella degli atti.
 	 * @param array<string, mixed>       $indici   Tabelle collegate.
-	 * @param array<string, mixed>       $contesto Stato del nuovo albo.
+	 * @param array<string, mixed>       $contesto Stato di questo albo.
 	 * @param array<int, array>          $segnala  Segnalazioni dell'atto, aggiornate.
 	 */
 	private static function durata( array &$atto, array $riga, array $indici, array $contesto, array &$segnala ): void {
@@ -838,7 +838,7 @@ final class AnalisiImportazione {
 
 		$atto['dati'][ __( 'Durata', 'albo-pretorio-pa' ) ] = sprintf(
 			/* translators: %d: numero di giorni. */
-			_n( '%d giorno, origine: date scritte nel vecchio albo', '%d giorni, origine: date scritte nel vecchio albo', (int) $atto['giorni'], 'albo-pretorio-pa' ),
+			_n( '%d giorno, origine: date scritte in Albo Pretorio On line', '%d giorni, origine: date scritte in Albo Pretorio On line', (int) $atto['giorni'], 'albo-pretorio-pa' ),
 			(int) $atto['giorni']
 		);
 
@@ -917,7 +917,7 @@ final class AnalisiImportazione {
 	 * @param array<string, mixed>       $atto     Atto ricostruito, aggiornato.
 	 * @param array<string, string|null> $riga     Riga della tabella degli atti.
 	 * @param array<string, mixed>       $indici   Tabelle collegate.
-	 * @param array<string, mixed>       $contesto Stato del nuovo albo.
+	 * @param array<string, mixed>       $contesto Stato di questo albo.
 	 * @param array<int, array>          $segnala  Segnalazioni dell'atto, aggiornate.
 	 */
 	private static function dati( array &$atto, array $riga, array $indici, array $contesto, array &$segnala ): void {
@@ -934,8 +934,8 @@ final class AnalisiImportazione {
 			}
 		}
 
-		$atto['dati'][ __( 'Organo', 'albo-pretorio-pa' ) ]           = __( 'non indicato (il vecchio albo non lo registra)', 'albo-pretorio-pa' );
-		$atto['dati'][ __( 'Data di adozione', 'albo-pretorio-pa' ) ] = __( 'non indicata (il vecchio albo non la registra)', 'albo-pretorio-pa' );
+		$atto['dati'][ __( 'Organo', 'albo-pretorio-pa' ) ]           = __( 'non indicato (Albo Pretorio On line non lo registra)', 'albo-pretorio-pa' );
+		$atto['dati'][ __( 'Data di adozione', 'albo-pretorio-pa' ) ] = __( 'non indicata (Albo Pretorio On line non la registra)', 'albo-pretorio-pa' );
 
 		$ente = (string) ( $riga['Ente'] ?? '0' );
 
@@ -952,7 +952,7 @@ final class AnalisiImportazione {
 					)
 					: sprintf(
 						/* translators: %s: nome dell'amministrazione. */
-						__( 'L\'atto e\' di un\'altra amministrazione (%s): il nuovo albo non gestisce ancora le amministrazioni ospitate.', 'albo-pretorio-pa' ),
+						__( 'L\'atto e\' di un\'altra amministrazione (%s): questo albo non gestisce ancora le amministrazioni ospitate.', 'albo-pretorio-pa' ),
 						$nome
 					)
 			);
@@ -1024,7 +1024,7 @@ final class AnalisiImportazione {
 					'nome_non_conservabile',
 					sprintf(
 						/* translators: %s: etichetta del dato. */
-						__( '%s: il testo contiene caratteri che il nuovo albo non accetta, o e\' troppo lungo; non si conserverebbe alla lettera.', 'albo-pretorio-pa' ),
+						__( '%s: il testo contiene caratteri che questo albo non accetta, o e\' troppo lungo; non si conserverebbe alla lettera.', 'albo-pretorio-pa' ),
 						DatiProcedimento::etichetta( $dato )
 					)
 				);
@@ -1039,7 +1039,7 @@ final class AnalisiImportazione {
 					'fuori_elenco',
 					sprintf(
 						/* translators: 1: etichetta del dato, 2: valore. */
-						__( '%1$s "%2$s" non e\' nell\'elenco del nuovo albo: resterebbe sull\'atto come un nome tolto dall\'elenco.', 'albo-pretorio-pa' ),
+						__( '%1$s "%2$s" non e\' nell\'elenco di questo albo: resterebbe sull\'atto come un nome tolto dall\'elenco.', 'albo-pretorio-pa' ),
 						DatiProcedimento::etichetta( $dato ),
 						$valore
 					)
@@ -1079,14 +1079,14 @@ final class AnalisiImportazione {
 				'soggetti_senza_posto',
 				sprintf(
 					/* translators: %s: nomi delle persone. */
-					__( 'Altre persone collegate all\'atto (%s): il nuovo albo non ha un campo per loro, non si porterebbero.', 'albo-pretorio-pa' ),
+					__( 'Altre persone collegate all\'atto (%s): questo albo non ha un campo per loro, non si porterebbero.', 'albo-pretorio-pa' ),
 					implode( ', ', $nomi )
 				)
 			);
 		}
 
 		if ( '' !== trim( (string) ( $riga['Informazioni'] ?? '' ) ) ) {
-			$segnala[] = self::segnalazione( 'nota', 'informazioni_senza_posto', __( 'L\'atto ha delle note (campo Informazioni): il nuovo albo non ha un campo per loro, non si porterebbero.', 'albo-pretorio-pa' ) );
+			$segnala[] = self::segnalazione( 'nota', 'informazioni_senza_posto', __( 'L\'atto ha delle note (campo Informazioni): questo albo non ha un campo per loro, non si porterebbero.', 'albo-pretorio-pa' ) );
 		}
 
 		if ( isset( $indici['etichette'][ $atto['id'] ] ) && ! isset( $indici['id_doppi'][ $atto['id'] ] ) ) {
@@ -1095,7 +1095,7 @@ final class AnalisiImportazione {
 				'etichette_senza_posto',
 				sprintf(
 					/* translators: %s: nomi delle etichette. */
-					__( 'L\'atto ha delle etichette di raggruppamento (%s): il nuovo albo non le ha, non si porterebbero.', 'albo-pretorio-pa' ),
+					__( 'L\'atto ha delle etichette di raggruppamento (%s): questo albo non le ha, non si porterebbero.', 'albo-pretorio-pa' ),
 					implode( ', ', array_unique( $indici['etichette'][ $atto['id'] ] ) )
 				)
 			);
@@ -1116,7 +1116,7 @@ final class AnalisiImportazione {
 		$senza_archivio = false;
 		$grave          = self::visibile( $atto ) ? 'conflitto' : 'dubbio';
 
-		// Le versioni precedenti del vecchio albo non distinguono documento e allegati, e nelle successive chi pubblicava
+		// Le versioni precedenti di Albo Pretorio On line non distinguono documento e allegati, e nelle successive chi pubblicava
 		// lasciava spesso la scelta preimpostata ad allegato: un file solo e' per forza il documento.
 		$senza_natura = array() !== $righe && ! array_key_exists( 'Natura', reset( $righe ) );
 		$unico        = 1 === count( $righe ) && ( $senza_natura || 'D' !== strtoupper( trim( (string) ( reset( $righe )['Natura'] ?? '' ) ) ) );
@@ -1169,7 +1169,7 @@ final class AnalisiImportazione {
 				}
 
 				if ( '' === $atteso ) {
-					$documento['verifica'] = __( 'trovato; impronta non registrata nel vecchio albo', 'albo-pretorio-pa' );
+					$documento['verifica'] = __( 'trovato; impronta non registrata in Albo Pretorio On line', 'albo-pretorio-pa' );
 				} elseif ( hash_equals( $atteso, $trovato ) ) {
 					$documento['verifica'] = __( 'trovato, impronta uguale a quella registrata al caricamento', 'albo-pretorio-pa' );
 				} else {
@@ -1192,7 +1192,7 @@ final class AnalisiImportazione {
 					'per_estratto',
 					sprintf(
 						/* translators: %s: titolo del documento. */
-						__( '"%s" e\' pubblicato per estratto: il nuovo albo non ha questa indicazione, va riportata nell\'oggetto o nel documento.', 'albo-pretorio-pa' ),
+						__( '"%s" e\' pubblicato per estratto: questo albo non ha questa indicazione, va riportata nell\'oggetto o nel documento.', 'albo-pretorio-pa' ),
 						$documento['titolo']
 					)
 				);
@@ -1206,11 +1206,11 @@ final class AnalisiImportazione {
 		}
 
 		if ( $unico && $senza_natura ) {
-			$segnala[] = self::segnalazione( 'nota', 'principale_unico', __( 'Questa versione del vecchio albo non distingue documento e allegati: l\'unico file dell\'atto diventa il documento principale.', 'albo-pretorio-pa' ) );
+			$segnala[] = self::segnalazione( 'nota', 'principale_unico', __( 'Questa versione di Albo Pretorio On line non distingue documento e allegati: l\'unico file dell\'atto diventa il documento principale.', 'albo-pretorio-pa' ) );
 		} elseif ( $unico ) {
-			$segnala[] = self::segnalazione( 'nota', 'principale_unico', __( 'Il vecchio albo segna l\'unico file dell\'atto come allegato: diventa il documento principale.', 'albo-pretorio-pa' ) );
+			$segnala[] = self::segnalazione( 'nota', 'principale_unico', __( 'Albo Pretorio On line segna l\'unico file dell\'atto come allegato: diventa il documento principale.', 'albo-pretorio-pa' ) );
 		} elseif ( $senza_natura ) {
-			$segnala[] = self::segnalazione( 'dubbio', 'principale_assente', __( 'Questa versione del vecchio albo non distingue documento e allegati: il documento principale lo sceglie chi importa.', 'albo-pretorio-pa' ) );
+			$segnala[] = self::segnalazione( 'dubbio', 'principale_assente', __( 'Questa versione di Albo Pretorio On line non distingue documento e allegati: il documento principale lo sceglie chi importa.', 'albo-pretorio-pa' ) );
 		} elseif ( 0 === $principali ) {
 			$segnala[] = self::segnalazione( 'dubbio', 'principale_assente', __( 'Nessun allegato e\' segnato come documento: il documento principale lo sceglie chi importa.', 'albo-pretorio-pa' ) );
 		} elseif ( $principali > 1 ) {
@@ -1219,7 +1219,7 @@ final class AnalisiImportazione {
 				'principali_multipli',
 				sprintf(
 					/* translators: %d: numero di documenti. */
-					__( '%d allegati sono segnati come documento: nel nuovo albo il documento principale e\' uno, lo sceglie chi importa.', 'albo-pretorio-pa' ),
+					__( '%d allegati sono segnati come documento: in questo albo il documento principale e\' uno, lo sceglie chi importa.', 'albo-pretorio-pa' ),
 					$principali
 				)
 			);
@@ -1278,7 +1278,7 @@ final class AnalisiImportazione {
 	 * @param array<int, array<string, string|null>>    $righe     Righe della tabella delle categorie.
 	 * @param array<string, array<string, string|null>> $per_id    Categorie per identificativo.
 	 * @param array<int, array<string, mixed>>          $atti      Atti ricostruiti.
-	 * @param array<string, mixed>                      $contesto  Stato del nuovo albo.
+	 * @param array<string, mixed>                      $contesto  Stato di questo albo.
 	 * @return array<int, array<string, mixed>>
 	 */
 	private static function categorie( array $righe, array $per_id, array $atti, array $contesto ): array {
@@ -1315,7 +1315,7 @@ final class AnalisiImportazione {
 	 * Il tipo di atto che una categoria diventerebbe, e le decisioni che restano aperte.
 	 *
 	 * @param array<string, string|null> $riga     Riga della tabella delle categorie.
-	 * @param array<string, mixed>       $contesto Stato del nuovo albo.
+	 * @param array<string, mixed>       $contesto Stato di questo albo.
 	 * @return array{chiave: string, corrisponde: string, segnalazioni: array<int, array>}
 	 */
 	private static function tipo_di( array $riga, array $contesto ): array {
@@ -1326,7 +1326,7 @@ final class AnalisiImportazione {
 
 		if ( null === $tipo ) {
 			$corrisponde = __( 'tipo di atto da creare; l\'origine della durata (norma o scelta dell\'amministrazione) la dichiara chi importa', 'albo-pretorio-pa' );
-			$segnala[]   = self::segnalazione( 'dubbio', 'tipo_da_creare', __( 'Nel nuovo albo non c\'e\' un tipo di atto con questo nome.', 'albo-pretorio-pa' ) );
+			$segnala[]   = self::segnalazione( 'dubbio', 'tipo_da_creare', __( 'In questo albo non c\'e\' un tipo di atto con questo nome.', 'albo-pretorio-pa' ) );
 			$chiave      = sprintf(
 				/* translators: %s: nome della categoria. */
 				__( '%s (tipo da creare)', 'albo-pretorio-pa' ),
@@ -1352,7 +1352,7 @@ final class AnalisiImportazione {
 						'durata_tipo_diversa',
 						sprintf(
 							/* translators: 1: giorni della categoria, 2: giorni del tipo. */
-							__( 'La categoria ha %1$d giorni, il tipo di atto del nuovo albo %2$d: gli atti importati conservano le loro date, i nuovi seguiranno il tipo.', 'albo-pretorio-pa' ),
+							__( 'La categoria ha %1$d giorni, il tipo di atto di questo albo %2$d: gli atti importati conservano le loro date, i nuovi seguiranno il tipo.', 'albo-pretorio-pa' ),
 							$giorni,
 							$tipo['durata']['giorni']
 						)
@@ -1402,7 +1402,7 @@ final class AnalisiImportazione {
 	 *
 	 * @param array<int, array<string, mixed>> $atti     Numero e anno di tutti gli atti del backup.
 	 * @param array<string, string|null>       $opzioni  Impostazioni del plugin di provenienza.
-	 * @param array<string, mixed>             $contesto Stato del nuovo albo.
+	 * @param array<string, mixed>             $contesto Stato di questo albo.
 	 * @param array<int, array>                $generali Segnalazioni generali, aggiornate.
 	 * @return array<string, mixed>
 	 */
@@ -1430,7 +1430,7 @@ final class AnalisiImportazione {
 					'numerazione_non_letta',
 					sprintf(
 						/* translators: %d: anno. */
-						__( 'La numerazione del nuovo albo per il %d non ha risposto: non si puo\' dire se i numeri del backup sono gia\' stati dati.', 'albo-pretorio-pa' ),
+						__( 'La numerazione di questo albo per il %d non ha risposto: non si puo\' dire se i numeri del backup sono gia\' stati dati.', 'albo-pretorio-pa' ),
 						$anno
 					)
 				);
@@ -1476,7 +1476,7 @@ final class AnalisiImportazione {
 				'contatore_non_valido',
 				sprintf(
 					/* translators: %s: valore del contatore. */
-					__( 'Il contatore del vecchio albo (%s) non e\' un numero che il nuovo albo possa usare come partenza: l\'ultimo numero usato si dichiara a mano.', 'albo-pretorio-pa' ),
+					__( 'Il contatore di Albo Pretorio On line (%s) non e\' un numero che questo albo possa usare come partenza: l\'ultimo numero usato si dichiara a mano.', 'albo-pretorio-pa' ),
 					(string) $opzioni['opt_AP_NumeroProgressivo']
 				)
 			);
@@ -1489,10 +1489,10 @@ final class AnalisiImportazione {
 				'ultimo'    => max( $massimo, $contatore - 1 ),
 			);
 
-			// La partenza del nuovo albo sta sotto Repertorio::MASSIMO: una proposta oltre non si fa.
+			// La partenza di questo albo sta sotto Repertorio::MASSIMO: una proposta oltre non si fa.
 			if ( $proposta['ultimo'] >= Repertorio::MASSIMO ) {
 				$proposta   = null;
-				$generali[] = self::segnalazione( 'dubbio', 'proposta_non_valida', __( 'L\'ultimo numero usato nel vecchio albo e\' il piu\' alto che il nuovo registro possa contenere: la partenza non si puo\' proporre.', 'albo-pretorio-pa' ) );
+				$generali[] = self::segnalazione( 'dubbio', 'proposta_non_valida', __( 'L\'ultimo numero usato in Albo Pretorio On line e\' il piu\' alto che il registro di questo albo possa contenere: la partenza non si puo\' proporre.', 'albo-pretorio-pa' ) );
 			}
 
 			if ( $contatore - 1 !== $massimo ) {
@@ -1501,7 +1501,7 @@ final class AnalisiImportazione {
 					'contatore_diverso',
 					sprintf(
 						/* translators: 1: anno, 2: prossimo numero del contatore, 3: numero piu' alto trovato. */
-						__( 'Il contatore del vecchio albo per il %1$d darebbe come prossimo numero %2$d, ma il numero piu\' alto fra gli atti di quell\'anno e\' %3$d.', 'albo-pretorio-pa' ),
+						__( 'Il contatore di Albo Pretorio On line per il %1$d darebbe come prossimo numero %2$d, ma il numero piu\' alto fra gli atti di quell\'anno e\' %3$d.', 'albo-pretorio-pa' ),
 						$anno_cont,
 						$contatore,
 						$massimo
@@ -1515,7 +1515,7 @@ final class AnalisiImportazione {
 					'contatore_anno_vecchio',
 					sprintf(
 						/* translators: 1: anno del contatore, 2: anno in corso. */
-						__( 'Il contatore del vecchio albo e\' fermo al %1$d, mentre l\'anno in corso e\' il %2$d.', 'albo-pretorio-pa' ),
+						__( 'Il contatore di Albo Pretorio On line e\' fermo al %1$d, mentre l\'anno in corso e\' il %2$d.', 'albo-pretorio-pa' ),
 						$anno_cont,
 						$contesto['anno']
 					)

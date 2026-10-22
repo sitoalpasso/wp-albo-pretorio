@@ -4,7 +4,7 @@
  *
  * Chi pubblica sceglie un backup del plugin "Albo Pretorio On line", fra quelli
  * che quel plugin ha lasciato nella sua cartella sul server oppure caricandolo
- * dal proprio computer, e legge il rapporto di cosa si porterebbe nel nuovo
+ * dal proprio computer, e legge il rapporto di cosa si porterebbe in questo
  * albo. **Non si scrive niente**: ne' atti, ne' tipi, ne' numeri, ne' file. Il
  * file caricato si legge dal posto temporaneo in cui lo mette PHP, che lo
  * cancella da se' alla fine della richiesta, e il rapporto vive solo nella
@@ -242,10 +242,10 @@ final class SchermataImportazione {
 		}
 
 		echo '<div class="wrap albo-pretorio-importazione">';
-		printf( '<h1>%s</h1>', esc_html__( 'Importazione a secco dal vecchio albo', 'albo-pretorio-pa' ) );
+		printf( '<h1>%s</h1>', esc_html__( 'Importazione a secco da Albo Pretorio On line', 'albo-pretorio-pa' ) );
 		printf(
 			'<p>%s</p>',
-			esc_html__( 'Legge il backup del plugin "Albo Pretorio On line" (menu Albo, Utility, Backup) e mostra cosa si porterebbe nel nuovo albo: atti, date, numeri, documenti, conflitti e dubbi. Non scrive niente: ne\' atti, ne\' tipi, ne\' numeri, ne\' file.', 'albo-pretorio-pa' )
+			esc_html__( 'Legge il backup del plugin "Albo Pretorio On line" (menu Albo, Utility, Backup) e mostra cosa si porterebbe in questo albo: atti, date, numeri, documenti, conflitti e dubbi. Non scrive niente: ne\' atti, ne\' tipi, ne\' numeri, ne\' file.', 'albo-pretorio-pa' )
 		);
 
 		self::modulo();
@@ -263,7 +263,7 @@ final class SchermataImportazione {
 	 * Il messaggio per un file oltre i limiti di caricamento del server.
 	 */
 	private static function troppo_grande(): string {
-		return __( 'Il file e\' piu\' grande di quanto il server accetti in un caricamento. Il backup si puo\' lasciare nella cartella dei backup del vecchio albo e sceglierlo da li\'.', 'albo-pretorio-pa' );
+		return __( 'Il file e\' piu\' grande di quanto il server accetti in un caricamento. Il backup si puo\' lasciare nella cartella dei backup di Albo Pretorio On line e sceglierlo da li\'.', 'albo-pretorio-pa' );
 	}
 
 	/**
@@ -304,13 +304,13 @@ final class SchermataImportazione {
 				esc_html(
 					sprintf(
 						/* translators: %s: percorso della cartella. */
-						__( 'Nella cartella dei backup del vecchio albo (%s) non c\'e\' nessun archivio.', 'albo-pretorio-pa' ),
+						__( 'Nella cartella dei backup di Albo Pretorio On line (%s) non c\'e\' nessun archivio.', 'albo-pretorio-pa' ),
 						self::CARTELLA
 					)
 				)
 			);
 		} else {
-			printf( '<p><label for="%1$s">%2$s</label><br /><select id="%1$s" name="%1$s">', esc_attr( self::CAMPO_PRESENTE ), esc_html__( 'Backup presenti nella cartella del vecchio albo', 'albo-pretorio-pa' ) );
+			printf( '<p><label for="%1$s">%2$s</label><br /><select id="%1$s" name="%1$s">', esc_attr( self::CAMPO_PRESENTE ), esc_html__( 'Backup presenti nella cartella di Albo Pretorio On line', 'albo-pretorio-pa' ) );
 			printf( '<option value="">%s</option>', esc_html__( 'Nessuno', 'albo-pretorio-pa' ) );
 
 			foreach ( $presenti as $nome => $dati ) {
@@ -500,7 +500,7 @@ final class SchermataImportazione {
 				esc_html(
 					sprintf(
 						/* translators: 1: anno, 2: ultimo numero, 3: prossimo numero del contatore, 4: numero piu' alto trovato. */
-						__( 'Per il %1$d l\'ultimo numero usato nel vecchio albo risulterebbe %2$d (contatore: prossimo numero %3$d; numero piu\' alto fra gli atti: %4$d). E\' una proposta: la partenza la dichiara chi pubblica, dalla schermata della numerazione.', 'albo-pretorio-pa' ),
+						__( 'Per il %1$d l\'ultimo numero usato in Albo Pretorio On line risulterebbe %2$d (contatore: prossimo numero %3$d; numero piu\' alto fra gli atti: %4$d). E\' una proposta: la partenza la dichiara chi pubblica, dalla schermata della numerazione.', 'albo-pretorio-pa' ),
 						$numerazione['proposta']['anno'],
 						$numerazione['proposta']['ultimo'],
 						$numerazione['proposta']['contatore'],
@@ -516,7 +516,7 @@ final class SchermataImportazione {
 
 		echo '<table class="widefat striped"><thead><tr>';
 
-		foreach ( array( __( 'Anno', 'albo-pretorio-pa' ), __( 'Atti numerati', 'albo-pretorio-pa' ), __( 'Numero piu\' alto', 'albo-pretorio-pa' ), __( 'Numeri mancanti', 'albo-pretorio-pa' ), __( 'Nel nuovo albo', 'albo-pretorio-pa' ) ) as $intestazione ) {
+		foreach ( array( __( 'Anno', 'albo-pretorio-pa' ), __( 'Atti numerati', 'albo-pretorio-pa' ), __( 'Numero piu\' alto', 'albo-pretorio-pa' ), __( 'Numeri mancanti', 'albo-pretorio-pa' ), __( 'In questo albo', 'albo-pretorio-pa' ) ) as $intestazione ) {
 			printf( '<th scope="col">%s</th>', esc_html( $intestazione ) );
 		}
 
@@ -551,7 +551,7 @@ final class SchermataImportazione {
 		printf( '<h3>%s</h3>', esc_html__( 'Categorie e tipi di atto', 'albo-pretorio-pa' ) );
 		echo '<table class="widefat striped"><thead><tr>';
 
-		foreach ( array( __( 'Categoria', 'albo-pretorio-pa' ), __( 'Giorni', 'albo-pretorio-pa' ), __( 'Atti', 'albo-pretorio-pa' ), __( 'Nel nuovo albo', 'albo-pretorio-pa' ) ) as $intestazione ) {
+		foreach ( array( __( 'Categoria', 'albo-pretorio-pa' ), __( 'Giorni', 'albo-pretorio-pa' ), __( 'Atti', 'albo-pretorio-pa' ), __( 'In questo albo', 'albo-pretorio-pa' ) ) as $intestazione ) {
 			printf( '<th scope="col">%s</th>', esc_html( $intestazione ) );
 		}
 
@@ -583,7 +583,7 @@ final class SchermataImportazione {
 	 */
 	private static function campi( array $rapporto ): void {
 		if ( array() !== $rapporto['campi']['assenti'] ) {
-			printf( '<h3>%s</h3><ul>', esc_html__( 'Campi assenti nel backup (versione precedente del vecchio albo)', 'albo-pretorio-pa' ) );
+			printf( '<h3>%s</h3><ul>', esc_html__( 'Campi assenti nel backup (versione precedente di Albo Pretorio On line)', 'albo-pretorio-pa' ) );
 
 			foreach ( $rapporto['campi']['assenti'] as $tabella => $colonne ) {
 				printf( '<li>%1$s: %2$s</li>', esc_html( $tabella ), esc_html( implode( ', ', $colonne ) ) );
@@ -636,7 +636,7 @@ final class SchermataImportazione {
 				esc_html( self::numero( $atto ) ),
 				esc_html(
 					sprintf(
-						/* translators: %s: numero interno dell'atto nel vecchio albo. */
+						/* translators: %s: numero interno dell'atto in Albo Pretorio On line. */
 						__( 'interno %s', 'albo-pretorio-pa' ),
 						$atto['id']
 					)
