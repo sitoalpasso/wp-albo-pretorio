@@ -141,6 +141,9 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
   Allo stesso modo si legge l'elenco dei file scritto sulla bozza: senza risposta, la bozza
   resta. La bozza ricorda anche gli identificativi dei documenti: WordPress ne cancella i
   dati prima della riga, e un documento rimasto a metà senza la sua marca si ritrova da lì.
+  Anche la scomparsa della bozza si verifica con una lettura che risponde: se la riga resta
+  e la lettura fallisce, l'esito è incerto e i segni restano, così il rilancio la ritrova
+  dal nome.
 - Dopo l'ultimo deposito, prima del passaggio a pubblicato, si rilegge dalla banca dati
   cosa indica l'atto: documento principale e allegati ulteriori devono essere tutti e soli
   quelli depositati, nell'ordine. Una lettura mancata fra due depositi può far perdere un
@@ -275,6 +278,13 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
   ricorda l'identificativo); una lettura mancata dell'elenco degli allegati fra due depositi
   poteva pubblicare un atto con un allegato in meno (ora l'elenco si ricontrolla prima del
   passaggio). Ogni caso ha la sua prova, e la mutazione corrispondente la rende rossa.
+- L'ottava revisione esterna ha chiesto tre correzioni, fatte: la scomparsa della bozza si
+  verificava con una lettura che non distingueva l'errore (ora sì); la lettura degli anni
+  precedenti della numerazione, se falliva, valeva "nessun anno prima" e poteva ammettere un
+  numero importato vietato (ora ferma con l'errore di lettura, prima di scrivere); la prova
+  A-216 sul file caricato non arrivava mai a un rapporto riuscito (ora un punto di prova,
+  raggiungibile solo per riflessione, accetta il file della prova come caricato). Ogni caso
+  ha la sua prova, e la mutazione corrispondente la rende rossa.
 - La riga A-193 dell'importazione a secco fallisce in questo ambiente di prova anche sul ramo
   principale, per la versione di `iconv`: non dipende da questo lavoro.
 
