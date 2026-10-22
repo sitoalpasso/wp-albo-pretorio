@@ -1,0 +1,11 @@
+{
+	"name": "albo-pretorio-pa-prova-nel-browser",
+	"private": true,
+	"description": "Prova della pagina pubblica dell'albo in un browser vero: motore automatico di accessibilita' e percorso da sola tastiera (ALBO-16, ALBO-28).",
+	"license": "GPL-3.0-or-later",
+	"type": "module",
+	"dependencies": {
+		"axe-core": "4.10.3",
+		"playwright-core": "1.55.1"
+	}
+}
