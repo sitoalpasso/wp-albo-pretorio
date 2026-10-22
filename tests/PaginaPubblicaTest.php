@@ -1,6 +1,7 @@
 <?php
 /**
- * La pagina pubblica dell'albo: righe A-195..A-209 (ALBO-06, ALBO-16, ALBO-28).
+ * La pagina pubblica dell'albo: righe A-195..A-209 (ALBO-06, ALBO-16, ALBO-28),
+ * e il codice breve e gli indirizzi di "Albo Pretorio On line", A-220..A-223 (ALBO-35).
  *
  * Le prove fanno richieste vere alla pagina che contiene il codice breve, con
  * gli atti portati a pubblicato dal passaggio vero e l'orologio fissato. Il
@@ -25,6 +26,7 @@ use AlboPretorioPa\PaginaPubblica;
 use AlboPretorioPa\Repertorio;
 use AlboPretorioPa\VistaPubblica;
 
+use const AlboPretorioPa\META_ORIGINE_IMPORTAZIONE;
 use const AlboPretorioPa\TASSONOMIA_ORGANO;
 use const AlboPretorioPa\TIPO;
 
@@ -1677,6 +1679,483 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 		}
 
 		add_filter( 'pre_handle_404', array( PaginaPubblica::class, 'da_pre_handle_404' ), 10, 2 );
+	}
+
+	/**
+	 * Una pagina pubblicata con il contenuto indicato, che diventa la pagina delle prove.
+	 *
+	 * @param string $contenuto Contenuto.
+	 * @param string $nome      Nome nell'indirizzo.
+	 * @return int
+	 */
+	private function pagina_con( string $contenuto, string $nome = 'albo' ): int {
+		$this->pagina = self::factory()->post->create(
+			array(
+				'post_type'    => 'page',
+				'post_status'  => 'publish',
+				'post_title'   => 'Albo',
+				'post_name'    => $nome,
+				'post_content' => '<p>Gli atti in pubblicazione.</p>' . "\n\n" . $contenuto,
+			)
+		);
+
+		return $this->pagina;
+	}
+
+	/**
+	 * Un atto pubblicato che ricorda il numero interno di "Albo Pretorio On line", come lo lascia l'importazione.
+	 *
+	 * @param string $istante Data e ora della pubblicazione.
+	 * @param string $oggetto Oggetto.
+	 * @param string $origine Numero interno.
+	 * @return int
+	 */
+	private function importato_il( string $istante, string $oggetto, string $origine ): int {
+		$id = $this->pubblicato_il( $istante, $oggetto );
+
+		// L'importazione la scrive in bozza; qui l'atto e' gia' pubblicato, e la chiusura lo protegge.
+		$this->scavalca_barriera(
+			static function () use ( $id, $origine ) {
+				add_post_meta( $id, META_ORIGINE_IMPORTAZIONE, $origine, true );
+			}
+		);
+
+		$this->assertSame( $origine, get_post_meta( $id, META_ORIGINE_IMPORTAZIONE, true ), 'Precondizione: l\'origine e\' scritta.' );
+
+		return $id;
+	}
+
+	/**
+	 * Il rinvio che la richiesta produce prima del tema, o nullo.
+	 *
+	 * Si chiama l'aggancio dell'albo e non tutto `template_redirect`: i rinvii
+	 * di WordPress sullo stesso aggancio guardano altro, e uno di loro
+	 * scambiato per quello dell'albo farebbe verde la riga per il motivo
+	 * sbagliato. La priorita' dell'aggancio ha la sua verifica (A-222).
+	 *
+	 * @param string $indirizzo Indirizzo.
+	 * @return array{indirizzo: string, stato: int}|null
+	 */
+	private function rinvio( string $indirizzo ): ?array {
+		$this->richiesta_pubblica( $indirizzo );
+
+		$ferma = static function ( $luogo, $stato ) {
+			throw new \RuntimeException( (string) $luogo, (int) $stato ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- porta l'indirizzo alla prova, non esce mai.
+		};
+
+		add_filter( 'wp_redirect', $ferma, PHP_INT_MAX, 2 );
+
+		try {
+			PaginaPubblica::da_template_redirect();
+		} catch ( \RuntimeException $rinvio ) {
+			return array(
+				'indirizzo' => $rinvio->getMessage(),
+				'stato'     => (int) $rinvio->getCode(),
+			);
+		} finally {
+			remove_filter( 'wp_redirect', $ferma, PHP_INT_MAX );
+		}
+
+		return null;
+	}
+
+	/**
+	 * Registra al posto dell'albo i codici brevi di "Albo Pretorio On line", come fa quel plugin acceso.
+	 */
+	private function vecchio_plugin_acceso(): void {
+		foreach ( array_merge( array( PaginaPubblica::CODICE_VECCHIO ), PaginaPubblica::CODICI_VECCHI_MUTI ) as $codice ) {
+			remove_shortcode( $codice );
+			add_shortcode(
+				$codice,
+				static function () use ( $codice ): string {
+					return '<div class="vecchio-plugin">' . $codice . ' del plugin precedente</div>';
+				}
+			);
+		}
+
+		PaginaPubblica::da_init();
+	}
+
+	/**
+	 * Spegne il plugin precedente: i suoi codici brevi si liberano e l'albo li prende.
+	 */
+	private function vecchio_plugin_spento(): void {
+		foreach ( array_merge( array( PaginaPubblica::CODICE_VECCHIO ), PaginaPubblica::CODICI_VECCHI_MUTI ) as $codice ) {
+			remove_shortcode( $codice );
+		}
+
+		PaginaPubblica::da_init();
+	}
+
+	/**
+	 * A-220: spento il plugin precedente, `[Albo]` con ogni attributo disegna la pagina dell'albo.
+	 */
+	public function test_a220_codice_vecchio_disegna_la_pagina(): void {
+		global $shortcode_tags;
+
+		$this->assertSame( array( PaginaPubblica::class, 'da_codice_breve' ), $shortcode_tags[ PaginaPubblica::CODICE_VECCHIO ] ?? null, 'Senza il plugin precedente `[Albo]` e\' dell\'albo.' );
+		$this->assertSame( 0, has_action( 'init', array( PaginaPubblica::class, 'da_init' ) ), 'I codici si prendono all\'inizio di `init`, dopo il caricamento dei plugin.' );
+
+		$correnti = $this->pagina_con( '[Albo stato="1" cat="3" filtri="no" per_page="5"]', 'albo-in-corso' );
+		$storico  = $this->pagina_con( '[Albo stato="2"]', 'albo-storico' );
+		$semplice = $this->pagina_con( '[Albo]', 'albo-semplice' );
+		$parola   = $this->pagina_con( 'Il codice breve si chiamava Albo, fra parentesi quadre.', 'nomina-il-codice' );
+
+		$this->assertSame( array( $correnti, $storico, $semplice ), PaginaPubblica::pagine(), 'Le tre pagine con `[Albo]` sono pagine dell\'albo; quella che lo nomina no.' );
+		$this->assertTrue( is_post_type_viewable( TIPO ), 'Con le pagine il tipo e\' consultabile: i documenti degli atti in corso si scaricano.' );
+
+		$scaduto = $this->pubblicato_il( '2041-09-01 09:00:00', 'Atto gia\' scaduto' );
+		$corso   = $this->pubblicato_il( '2041-10-01 09:30:00', 'Atto in corso' );
+
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+
+		foreach ( array( $correnti, $storico, $semplice ) as $pagina ) {
+			$this->pagina = $pagina;
+
+			$html = (string) $this->pagina_disegnata( $this->indirizzo() );
+
+			$this->assertSame( array( $corso ), $this->atti_elencati( $html ), $pagina . ': l\'elenco nuovo, solo l\'atto in corso, qualunque attributo.' );
+			$this->assertStringNotContainsString( get_the_title( $scaduto ), $html, $pagina . ': lo scaduto non c\'e\', anche dove `stato="2"` chiedeva lo storico.' );
+			$this->assertStringContainsString( 'noindex', $this->robot_stampati(), $pagina . ': il divieto ai motori.' );
+			$this->assertContains( 'X-Robots-Tag: noindex', $this->righe, $pagina . ': il divieto nell\'intestazione.' );
+			$this->assertStringContainsString( 'href="' . esc_url( add_query_arg( PaginaPubblica::PARAMETRO_ATTO, $corso, (string) get_permalink( $pagina ) ) ) . '"', $html, $pagina . ': l\'oggetto apre la scheda sulla stessa pagina.' );
+
+			$scheda = (string) $this->pagina_disegnata( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $corso ) ) );
+			$this->assertStringContainsString( 'albo-pretorio-titolo-atto', $scheda, $pagina . ': la scheda si apre.' );
+			$this->assertNull( $this->pagina_disegnata( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $scaduto ) ) ), $pagina . ': la scheda dello scaduto e\' "non trovata".' );
+		}
+
+		$this->pagina = $parola;
+		$this->assertStringNotContainsString( 'albo-pretorio', (string) $this->pagina_disegnata( $this->indirizzo() ), 'Fuori dalla pagina dell\'albo il codice non disegna niente.' );
+		$this->assertSame( '', do_shortcode( '[Albo]' ), 'Fuori dalla pagina dell\'albo `[Albo]` non disegna niente, come il codice nuovo (A-200).' );
+	}
+
+	/**
+	 * A-221: con il plugin precedente acceso i suoi codici restano suoi; spento, gli altri due non disegnano niente.
+	 */
+	public function test_a221_codici_vecchi_con_il_plugin_precedente(): void {
+		global $shortcode_tags;
+
+		$vecchia = $this->pagina_con( '[Albo stato="1"]', 'albo' );
+		$this->pubblicato_il( '2041-10-01 09:30:00', 'Atto in corso' );
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+
+		$this->vecchio_plugin_acceso();
+
+		try {
+			$this->assertNotSame( array( PaginaPubblica::class, 'da_codice_breve' ), $shortcode_tags[ PaginaPubblica::CODICE_VECCHIO ], 'Acceso il plugin precedente, `[Albo]` resta suo.' );
+			$this->assertSame( array(), PaginaPubblica::pagine(), 'La sua pagina non e\' una pagina dell\'albo.' );
+			$this->assertFalse( is_post_type_viewable( TIPO ), 'Senza pagine dell\'albo il tipo resta chiuso: nessun documento esce.' );
+
+			$html = (string) $this->pagina_disegnata( $this->indirizzo() );
+			$this->assertStringContainsString( 'Albo del plugin precedente', $html, 'La pagina la disegna il plugin precedente.' );
+			$this->assertStringNotContainsString( 'albo-pretorio', $html, 'L\'albo non disegna niente sulla sua pagina.' );
+			$this->assertNotContains( 'X-Robots-Tag: noindex', $this->righe, 'Le regole dell\'albo non si applicano alla pagina d\'altri.' );
+
+			$this->assertNull(
+				$this->rinvio(
+					$this->indirizzo(
+						array(
+							'action' => 'visatto',
+							'id'     => '1',
+						)
+					)
+				),
+				'Nessun rinvio dalla pagina d\'altri.'
+			);
+			$this->assertFalse( is_404(), 'Ne\' "non trovata": i suoi indirizzi li risponde il plugin precedente.' );
+
+			foreach ( PaginaPubblica::CODICI_VECCHI_MUTI as $codice ) {
+				$this->assertSame( '<div class="vecchio-plugin">' . $codice . ' del plugin precedente</div>', do_shortcode( '[' . $codice . ' numero="1" anno="2041"]' ), $codice . ': resta del plugin precedente.' );
+			}
+
+			$nuova = $this->pagina_con( '[albo_pretorio]', 'albo-nuovo' );
+			$this->assertSame( array( $nuova ), PaginaPubblica::pagine(), 'Accanto, la pagina con il codice nuovo e\' la pagina dell\'albo.' );
+			$this->assertNotNull( $this->pagina_disegnata( $this->indirizzo() ), 'E si disegna.' );
+		} finally {
+			$this->vecchio_plugin_spento();
+		}
+
+		$this->assertSame( array( PaginaPubblica::class, 'da_codice_breve' ), $shortcode_tags[ PaginaPubblica::CODICE_VECCHIO ], 'Spento il plugin precedente, `[Albo]` e\' dell\'albo.' );
+		$this->assertContains( $vecchia, PaginaPubblica::pagine(), 'E la sua pagina e\' una pagina dell\'albo, senza toccarla.' );
+
+		foreach ( PaginaPubblica::CODICI_VECCHI_MUTI as $codice ) {
+			$this->assertSame( array( PaginaPubblica::class, 'da_codice_muto' ), $shortcode_tags[ $codice ], $codice . ': preso dall\'albo.' );
+			$this->assertSame( 'prima  dopo', do_shortcode( 'prima [' . $codice . ' numero="1" anno="2041" meta="x" valore="y"] dopo' ), $codice . ': non disegna niente, e il codice fra parentesi quadre non resta sul sito.' );
+		}
+
+		// Un componente che prende `[Albo]` dopo l'albo: le pagine non sono piu' dell'albo.
+		remove_shortcode( PaginaPubblica::CODICE_VECCHIO );
+		add_shortcode(
+			PaginaPubblica::CODICE_VECCHIO,
+			static function (): string {
+				return 'altro';
+			}
+		);
+		PaginaPubblica::azzera();
+
+		try {
+			$this->assertNotContains( $vecchia, PaginaPubblica::pagine(), 'Chi possiede il codice si guarda quando si chiede quali sono le pagine.' );
+		} finally {
+			$this->vecchio_plugin_spento();
+		}
+	}
+
+	/**
+	 * A-222: i vecchi indirizzi della scheda e della stampa portano alla scheda nuova solo se l'atto e' in pubblicazione.
+	 */
+	public function test_a222_vecchi_indirizzi_della_scheda(): void {
+		$this->assertSame( 0, has_action( 'template_redirect', array( PaginaPubblica::class, 'da_template_redirect' ) ), 'Il rinvio viene prima del tema e degli altri rinvii.' );
+
+		$this->pagina_con( '[Albo stato="1"]' );
+
+		$corso = $this->importato_il( '2041-10-01 09:30:00', 'Atto importato in corso', '123' );
+		$this->importato_il( '2041-09-01 09:00:00', 'Atto importato scaduto', '45' );
+		$this->importato_il( '2041-10-01 09:30:00', 'Primo con la stessa origine', '88' );
+		$this->importato_il( '2041-10-01 09:30:00', 'Secondo con la stessa origine', '88' );
+		$nuovo = $this->pubblicato_il( '2041-10-02 09:30:00', 'Atto nato in questo albo' );
+		$bozza = $this->atto_completo( 'normativo', array( 'post_title' => 'Bozza con origine' ) );
+		add_post_meta( $bozza, META_ORIGINE_IMPORTAZIONE, '77', true );
+
+		$this->fissa_orologi( self::ULTIMO_ISTANTE );
+
+		$scheda = $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $corso ) );
+
+		foreach ( array(
+			'visitatore'     => 0,
+			'amministratore' => $this->amministratore,
+		) as $chi => $utente ) {
+			wp_set_current_user( $utente );
+
+			foreach ( array(
+				'scheda'      => array(
+					'action' => 'visatto',
+					'id'     => '123',
+				),
+				'stampa'      => array(
+					'action' => 'printatto',
+					'id'     => '123',
+					'pdf'    => 'a',
+				),
+				'certificato' => array(
+					'action' => 'printatto',
+					'id'     => '123',
+					'pdf'    => 'c',
+				),
+			) as $quale => $parametri ) {
+				$this->assertSame(
+					array(
+						'indirizzo' => $scheda,
+						'stato'     => 302,
+					),
+					$this->rinvio( $this->indirizzo( $parametri ) ),
+					$chi . ', ' . $quale . ': ultimo secondo, rinvio temporaneo alla scheda nuova.'
+				);
+				$this->assertFalse( is_404(), $chi . ', ' . $quale . ': non e\' "non trovata".' );
+			}
+
+			$mai = $this->risposta( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => 999999999 ) ) );
+			$this->assertTrue( $mai['non trovata'], $chi . ': precondizione, un numero mai dato risponde "non trovata".' );
+
+			foreach ( array(
+				'scaduto'               => array(
+					'action' => 'visatto',
+					'id'     => '45',
+				),
+				'stampa dello scaduto'  => array(
+					'action' => 'printatto',
+					'id'     => '45',
+					'pdf'    => 'c',
+				),
+				'origine doppia'        => array(
+					'action' => 'visatto',
+					'id'     => '88',
+				),
+				'bozza con origine'     => array(
+					'action' => 'visatto',
+					'id'     => '77',
+				),
+				'mai importato'         => array(
+					'action' => 'visatto',
+					'id'     => '999',
+				),
+				'numero di questo albo' => array(
+					'action' => 'visatto',
+					'id'     => (string) $nuovo,
+				),
+				'zero davanti'          => array(
+					'action' => 'visatto',
+					'id'     => '0123',
+				),
+				'lettere'               => array(
+					'action' => 'visatto',
+					'id'     => 'abc',
+				),
+				'senza numero'          => array( 'action' => 'visatto' ),
+				'numero vuoto'          => array(
+					'action' => 'printatto',
+					'id'     => '',
+				),
+				'elenco'                => array(
+					'action' => 'visatto',
+					'id'     => array( '123' ),
+				),
+			) as $quale => $parametri ) {
+				$indirizzo = $this->indirizzo( $parametri );
+
+				$this->assertNull( $this->rinvio( $indirizzo ), $chi . ', ' . $quale . ': nessun rinvio.' );
+				$this->assertSame( $mai, $this->risposta( $indirizzo ), $chi . ', ' . $quale . ': risponde come un atto mai esistito.' );
+			}
+
+			// Il parametro della scheda nuova vale per primo.
+			$this->assertNull(
+				$this->rinvio(
+					$this->indirizzo(
+						array(
+							PaginaPubblica::PARAMETRO_ATTO => $corso,
+							'action'                       => 'visatto',
+							'id'                           => '45',
+						)
+					)
+				),
+				$chi . ': con la scheda nuova chiesta, nessun rinvio.'
+			);
+			$this->assertFalse( is_404(), $chi . ': e la scheda nuova si apre.' );
+
+			// Le altre azioni del plugin precedente aprono l'elenco.
+			foreach ( array( 'addstatall', 'filtra', 'VISATTO' ) as $azione ) {
+				$html = (string) $this->pagina_disegnata(
+					$this->indirizzo(
+						array(
+							'action' => $azione,
+							'id'     => '123',
+						)
+					)
+				);
+				$this->assertContains( $corso, $this->atti_elencati( $html ), $chi . ', ' . $azione . ': l\'elenco.' );
+				$this->assertNull(
+					$this->rinvio(
+						$this->indirizzo(
+							array(
+								'action' => $azione,
+								'id'     => '123',
+							)
+						)
+					),
+					$chi . ', ' . $azione . ': nessun rinvio.'
+				);
+			}
+		}
+
+		// Dalla mezzanotte lo stesso indirizzo non porta piu' da nessuna parte.
+		$this->fissa_orologi( self::PRIMO_ISTANTE_SCADUTO );
+		wp_set_current_user( 0 );
+
+		$mai = $this->risposta( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => 999999999 ) ) );
+
+		foreach ( array( 'visatto', 'printatto' ) as $azione ) {
+			$indirizzo = $this->indirizzo(
+				array(
+					'action' => $azione,
+					'id'     => '123',
+				)
+			);
+
+			$this->assertNull( $this->rinvio( $indirizzo ), $azione . ': dalla mezzanotte, nessun rinvio.' );
+			$this->assertSame( $mai, $this->risposta( $indirizzo ), $azione . ': dalla mezzanotte, come un atto mai esistito.' );
+		}
+	}
+
+	/**
+	 * A-223: i vecchi indirizzi dei documenti, sulle pagine dell'albo e solo li'.
+	 */
+	public function test_a223_vecchi_indirizzi_dei_documenti(): void {
+		$vecchia = $this->pagina_con( '[Albo]', 'albo' );
+		$nuova   = $this->pagina_con( '[albo_pretorio]', 'albo-pretorio' );
+		$altro   = self::factory()->post->create( array( 'post_title' => 'Articolo ordinario' ) );
+
+		$corso = $this->importato_il( '2041-10-01 09:30:00', 'Atto importato in corso', '123' );
+		$this->importato_il( '2041-09-01 09:00:00', 'Atto importato scaduto', '45' );
+
+		$this->fissa_orologi( self::ULTIMO_ISTANTE );
+		wp_set_current_user( 0 );
+
+		foreach ( array( $vecchia, $nuova ) as $pagina ) {
+			$this->pagina = $pagina;
+
+			$this->assertSame(
+				array(
+					'indirizzo' => $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $corso ) ),
+					'stato'     => 302,
+				),
+				$this->rinvio(
+					$this->indirizzo(
+						array(
+							'action' => 'dwnalle',
+							'id'     => '9',
+							'idAtto' => '123',
+						)
+					)
+				),
+				$pagina . ': il documento di un atto in corso porta alla sua scheda, dove ogni documento si scarica.'
+			);
+
+			$mai = $this->risposta( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => 999999999 ) ) );
+
+			foreach ( array(
+				'scaduto'                  => array(
+					'action' => 'dwnalle',
+					'id'     => '9',
+					'idAtto' => '45',
+				),
+				'mai importato'            => array(
+					'action' => 'dwnalle',
+					'id'     => '9',
+					'idAtto' => '999',
+				),
+				'senza atto'               => array(
+					'action' => 'dwnalle',
+					'id'     => '9',
+				),
+				'atto nel posto sbagliato' => array(
+					'action' => 'dwnalle',
+					'id'     => '123',
+				),
+			) as $quale => $parametri ) {
+				$indirizzo = $this->indirizzo( $parametri );
+
+				$this->assertNull( $this->rinvio( $indirizzo ), $pagina . ', ' . $quale . ': nessun rinvio.' );
+				$this->assertSame( $mai, $this->risposta( $indirizzo ), $pagina . ', ' . $quale . ': risponde come un atto mai esistito.' );
+			}
+		}
+
+		// Fuori dalle pagine dell'albo l'albo non risponde ai vecchi indirizzi.
+		$fuori = add_query_arg(
+			array(
+				'action' => 'dwnalle',
+				'id'     => '9',
+				'idAtto' => '123',
+			),
+			(string) get_permalink( $altro )
+		);
+		$this->assertNull( $this->rinvio( $fuori ), 'Su un articolo ordinario nessun rinvio.' );
+		$this->assertFalse( is_404(), 'Ne\' "non trovata": l\'articolo si apre.' );
+
+		// Dalla mezzanotte il documento dell'atto in corso non porta piu' da nessuna parte.
+		$this->fissa_orologi( self::PRIMO_ISTANTE_SCADUTO );
+		$this->pagina = $vecchia;
+
+		$mai       = $this->risposta( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => 999999999 ) ) );
+		$indirizzo = $this->indirizzo(
+			array(
+				'action' => 'dwnalle',
+				'id'     => '9',
+				'idAtto' => '123',
+			)
+		);
+
+		$this->assertNull( $this->rinvio( $indirizzo ), 'Dalla mezzanotte, nessun rinvio.' );
+		$this->assertSame( $mai, $this->risposta( $indirizzo ), 'Dalla mezzanotte, come un atto mai esistito.' );
 	}
 
 	/**
