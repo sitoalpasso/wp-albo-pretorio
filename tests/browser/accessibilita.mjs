@@ -107,6 +107,17 @@ const FILTRO_RIORDINATO = FILTRO_SPENTO.replace( ' disabled>', '>' )
 	.replace( /<label for="(\w+)">([^<]+)<\/label>(<(?:input|select)[^>]*>(?:<option[^>]*>[^<]*<\/option><\/select>)?)/g, '<div class="campo-$1"><label for="$1">$2</label>$3</div>' )
 	.replace( '<div class="campo-albo_organo">', '<div class="campo-albo_organo" style="order: -1">' );
 
+// Il contrario: nel codice organo prima di tipo, a vista rimessi nell'ordine dell'elenco fisso.
+const FILTRO_SCAMBIATO = FILTRO_RIORDINATO
+	.replace( ' style="order: -1"', '' )
+	.replace( /(<div class="campo-albo_tipo">.*?<\/div>)(\s*)(<div class="campo-albo_organo">.*?<\/div>)/s, ( _, tipo, a_capo, organo ) => organo.replace( '">', '" style="order: 1">' ) + a_capo + tipo.replace( '">', '" style="order: 0">' ) )
+	.replace( /<div class="campo-albo_(testo|dal|al)">/g, ( d, c ) => d.replace( '">', `" style="order: ${ { testo: -1, dal: 2, al: 3 }[ c ] }">` ) )
+	.replace( '<button type="submit">', '<button type="submit" style="order: 4">' );
+
+// La ricerca per date con il conteggio giusto ma senza la tabella degli atti.
+const DATE_SENZA_TABELLA = `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Ricerca</title></head>
+<body><main><div class="albo-pretorio"><p class="albo-pretorio__conteggio">CONTEGGIO</p></div></main></body></html>`;
+
 // Collegamenti che hanno il fuoco ma non portano da nessuna parte.
 const COLLEGAMENTI_MORTI = `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Elenco</title></head>
 <body><main><div class="albo-pretorio"><nav><a class="albo-pretorio__collegamento" href="#">2</a></nav></div></main></body></html>`;
@@ -433,6 +444,48 @@ async function verifica_contenuto( pagina, nome, attese, memoria = {} ) {
 }
 
 /**
+ * Una ricerca che deve trovare tutti gli atti: il conteggio e le righe di ogni
+ * pagina dei risultati, seguita da tastiera, sono esattamente gli atti attesi.
+ *
+ * Restituisce i problemi e gli indirizzi delle pagine seguenti visitate.
+ */
+async function verifica_tutti_gli_atti( pagina, attese ) {
+	const problemi = [];
+	const indirizzi = [];
+	const conteggio = ( await pagina.locator( '.albo-pretorio__conteggio' ).first().textContent( { timeout: 2000 } ).catch( () => '' ) )?.trim();
+	const visti = await oggetti_elencati( pagina );
+
+	if ( conteggio !== `${ attese.oggetti.length } atti` ) {
+		problemi.push( `il conteggio dice "${ conteggio }", attesi ${ attese.oggetti.length } atti` );
+	}
+
+	for ( let numero = 2; visti.length > 0 && visti.length < attese.oggetti.length && numero <= attese.oggetti.length; numero++ ) {
+		const indirizzo = await segui_da_tastiera( pagina, String( numero ) );
+
+		if ( ! indirizzo ) {
+			problemi.push( `la pagina ${ numero } dei risultati non si raggiunge da tastiera` );
+			break;
+		}
+
+		indirizzi.push( indirizzo );
+
+		const altri = await oggetti_elencati( pagina );
+
+		if ( altri.length === 0 ) {
+			break;
+		}
+
+		visti.push( ...altri );
+	}
+
+	if ( ! stessi( visti, attese.oggetti ) ) {
+		problemi.push( `le righe dei risultati sono ${ visti.length } (${ new Set( visti ).size } diverse), attesi esattamente i ${ attese.oggetti.length } atti` );
+	}
+
+	return { problemi, indirizzi };
+}
+
+/**
  * I comandi della ricerca che ALBO-16 richiede: ci sono tutti, si vedono, sono attivi.
  *
  * L'elenco e' fisso e non ricavato dalla pagina: un campo spento o nascosto
@@ -475,7 +528,7 @@ async function verifica_comandi( pagina ) {
 		const comandi = [ ...richiesti.map( ( id ) => albo?.querySelector( `#${ id }` ) ), pulsanti[ 0 ] ];
 
 		if ( problemi.length === 0 && comandi.every( Boolean ) ) {
-			const riquadri = comandi.map( ( e, posto ) => ( { posto, nome: e.id || e.textContent.trim(), r: e.getBoundingClientRect() } ) );
+			const riquadri = comandi.map( ( e ) => ( { e, nome: e.id || e.textContent.trim(), r: e.getBoundingClientRect() } ) );
 			const righe = [];
 
 			for ( const q of [ ...riquadri ].sort( ( a, b ) => a.r.top - b.r.top ) ) {
@@ -485,7 +538,8 @@ async function verifica_comandi( pagina ) {
 			}
 
 			const aVista = righe.flatMap( ( g ) => g.sort( ( a, b ) => a.r.left - b.r.left ) ).map( ( q ) => q.nome );
-			const nellaPagina = riquadri.map( ( q ) => q.nome );
+			// L'ordine della pagina e' quello del codice, non quello dell'elenco fisso: e' l'ordine che segue il Tab.
+			const nellaPagina = [ ...riquadri ].sort( ( a, b ) => ( a.e.compareDocumentPosition( b.e ) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1 ) ).map( ( q ) => q.nome );
 
 			if ( aVista.join( ',' ) !== nellaPagina.join( ',' ) ) {
 				problemi.push( `i comandi della ricerca si vedono nell'ordine ${ aVista.join( ', ' ) }, ma il Tab li visita nell'ordine ${ nellaPagina.join( ', ' ) }` );
@@ -645,6 +699,12 @@ try {
 			sbaglia( 'controllo di realta\': la verifica dei comandi non vede l\'organo spostato a vista prima del testo' );
 		}
 
+		await pagina.setContent( FILTRO_SCAMBIATO );
+
+		if ( ! ( await verifica_comandi( pagina ) ).some( ( p ) => p.startsWith( 'i comandi della ricerca si vedono nell\'ordine' ) ) ) {
+			sbaglia( 'controllo di realta\': la verifica dei comandi non vede tipo e organo scambiati nel codice e rimessi in ordine a vista' );
+		}
+
 		await pagina.setContent( FILTRO_SPENTO.replace( ' disabled>', '>' ) );
 
 		if ( ( await verifica_comandi( pagina ) ).length > 0 ) {
@@ -652,6 +712,12 @@ try {
 		}
 
 		if ( conTastiera ) {
+			await pagina.setContent( DATE_SENZA_TABELLA.replace( 'CONTEGGIO', `${ dati.oggetti.length } atti` ) );
+
+			if ( ( await verifica_tutti_gli_atti( pagina, dati ) ).problemi.length === 0 ) {
+				sbaglia( 'controllo di realta\': la ricerca per date con il conteggio giusto ma senza la tabella risulta riuscita' );
+			}
+
 			await pagina.setContent( COLLEGAMENTI_MORTI );
 
 			if ( null !== ( await segui_da_tastiera( pagina, '2' ) ) ) {
@@ -800,10 +866,22 @@ try {
 				await Promise.all( [ pagina.waitForNavigation( { waitUntil: 'load' } ), pagina.keyboard.press( 'Enter' ) ] );
 
 				const indirizzo = new URL( pagina.url() );
-				const conteggio = ( await pagina.locator( '.albo-pretorio__conteggio' ).first().textContent() )?.trim();
 
-				if ( indirizzo.searchParams.get( 'albo_dal' ) !== oggi || indirizzo.searchParams.get( 'albo_al' ) !== oggi || conteggio !== `${ dati.oggetti.length } atti` ) {
-					sbaglia( `${ tema }, ${ schermo }: la ricerca per date da tastiera manda dal ${ indirizzo.searchParams.get( 'albo_dal' ) } al ${ indirizzo.searchParams.get( 'albo_al' ) } e trova "${ conteggio }", attesi ${ oggi } e ${ dati.oggetti.length } atti` );
+				if ( indirizzo.searchParams.get( 'albo_dal' ) !== oggi || indirizzo.searchParams.get( 'albo_al' ) !== oggi ) {
+					sbaglia( `${ tema }, ${ schermo }: la ricerca per date da tastiera manda dal ${ indirizzo.searchParams.get( 'albo_dal' ) } al ${ indirizzo.searchParams.get( 'albo_al' ) }, attesi ${ oggi } e ${ oggi }` );
+				} else {
+					const esito = await verifica_tutti_gli_atti( pagina, dati );
+
+					// Anche le pagine seguenti restano dentro la ricerca.
+					for ( const altra of esito.indirizzi ) {
+						const parametri = new URL( altra ).searchParams;
+
+						if ( parametri.get( 'albo_dal' ) !== oggi || parametri.get( 'albo_al' ) !== oggi ) {
+							esito.problemi.push( `la pagina ${ altra } dei risultati ha perso le date della ricerca` );
+						}
+					}
+
+					esito.problemi.forEach( ( p ) => sbaglia( `${ tema }, ${ schermo }: la ricerca per date da tastiera: ${ p }` ) );
 				}
 			}
 

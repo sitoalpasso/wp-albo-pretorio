@@ -331,17 +331,23 @@ apposta (immagine senza testo alternativo, campo senza etichetta, collegamento s
 indicatore del fuoco, collegamento con contorno e ombra trasparenti, ciclo del fuoco
 dall'ultimo comando al primo, scheda senza documenti, ricerca scritta male senza messaggio):
 se non vi trovano i guasti, la prova si ferma. Guasti introdotti nell'albo per vedere se la
-prova li vede, nove, tutti visti: indicatore del fuoco tolto dal foglio di stile, indicatore
+prova li vede, tredici, tutti visti: indicatore del fuoco tolto dal foglio di stile, indicatore
 reso trasparente, etichetta tolta dal campo di testo, ordine di tabulazione cambiato sul
 pulsante "Cerca", documenti della scheda spariti, messaggio della ricerca scritta male tolto,
 spiegazione dell'errore tolta lasciando l'avviso, filtro dell'organo spento, collegamenti agli
 atti che non portano da nessuna parte, date di sola lettura, filtro dell'organo spostato a
-vista prima del testo con il foglio di stile.
+vista prima del testo con il foglio di stile, tipo e organo scambiati nel codice e rimessi in
+ordine a vista con il foglio di stile, tabella dei risultati tolta quando la ricerca ha tutte e
+due le date.
 
 L'ordine del Tab si confronta con l'ordine della pagina, e i comandi della ricerca anche con
 l'ordine in cui si vedono: un foglio di stile può spostare a vista un campo senza cambiarne il
-posto nel Tab. Le date di una ricerca da tastiera si scrivono a cifre, e l'ordine di giorno,
+posto nel Tab. L'ordine del Tab si ricava dal codice della pagina, non dall'elenco fisso dei
+comandi: altrimenti due campi scambiati nel codice e rimessi in ordine a vista passerebbero. Le date di una ricerca da tastiera si scrivono a cifre, e l'ordine di giorno,
 mese e anno dipende dalla lingua del browser: la prova lo ricava provando su un campo a parte.
+Della ricerca per date non basta il conteggio: si leggono le righe della prima pagina, si va
+alla seconda da tastiera, che deve conservare le due date, e le righe insieme devono essere
+esattamente tutti gli atti, senza doppioni.
 
 Oltre alle pagine aperte per indirizzo, la prova segue da tastiera i collegamenti che le
 uniscono: dall'elenco alla seconda pagina, alla scheda, e dalla scheda di nuovo all'elenco. I
