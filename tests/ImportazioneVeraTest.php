@@ -602,7 +602,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 	/**
 	 * A-210. Gli atti portabili si scrivono con i valori di Albo Pretorio On line.
 	 */
-	public function test_a210_atti_scritti_come_nel_vecchio_albo(): void {
+	public function test_a210_atti_scritti_come_in_albo_pretorio_on_line(): void {
 		$percorso = $this->backup_nella_cartella();
 		$stato    = $this->importa_tutto( $percorso, array( SchermataImportazione::CAMPO_CONFERMA_VISIBILI => '1' ) );
 		$atti     = $this->importati();
