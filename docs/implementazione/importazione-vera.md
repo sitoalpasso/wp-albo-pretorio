@@ -135,7 +135,11 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
   verificando che non ci siano più; poi i file, verificando che non siano più sul disco
   (solo dentro la cartella protetta); per ultima la bozza. Se un passo non riesce l'esito
   è incerto, la bozza resta con l'elenco, e il rilancio riprende da lì: nessun documento e
-  nessun file resta senza qualcuno che lo ritrovi. Una bozza scritta da
+  nessun file resta senza qualcuno che lo ritrovi. I documenti si leggono dalla banca dati
+  con una lettura che distingue "nessun documento" da "nessuna risposta", e una seconda
+  lettura uguale, subito prima di togliere la bozza, conferma che non ne resta nessuno.
+  Durante l'importazione un documento depositato che l'atto non riesce a registrare non si
+  cancella subito: resta alla bozza, e lo toglie questa stessa pulizia. Una bozza scritta da
   una persona non ha né il ricordo né un segno salvato, e non si tocca mai, qualunque nome
   abbia. I segni delle bozze rimaste incerte passano all'importazione successiva.
 - Il passaggio a pubblicato senza verifica si concede soltanto alla bozza che l'importazione
@@ -169,8 +173,8 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
   transazione aperta da un altro componente (scrittura automatica spenta, o transazione già
   aperta dove la banca dati lo dice): bozze, documenti e numeri non sarebbero definitivi, e
   un annullamento esterno lascerebbe i file sul disco. Se la domanda "c'è una transazione
-  aperta?" non ha risposta, vale come sì: l'unica eccezione è la banca dati che dichiara di
-  non conoscere la variabile (MySQL non la ha; MariaDB sì). Su MySQL, quindi, una
+  aperta?" non ha risposta, vale come sì: l'unica eccezione è la banca dati che non ha la
+  variabile nel suo elenco, letto senza errori (MySQL non la ha; MariaDB sì). Su MySQL, quindi, una
   transazione aperta a mano con la scrittura automatica accesa non si vede: è un limite
   dichiarato, che richiede un componente insolito.
 - Alla ripresa, se il registro non si legge, l'esito dell'atto già confermato non si
@@ -246,6 +250,13 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
   caso ha la sua prova, e la mutazione corrispondente la rende rossa. Nelle prove, il
   blocco dell'anno preso dentro la transazione della suite si rilascia alla fine di ogni
   prova, come alla fine di una richiesta vera.
+- La quinta revisione esterna ha chiesto due correzioni, fatte: una lettura dei documenti
+  della bozza che falliva sembrava "nessun documento", e la bozza si cancellava lasciandoli
+  senza traccia (ora una lettura che distingue i due casi, più una lettura di controllo
+  prima di togliere la bozza); un documento che l'atto non registrava si cancellava subito,
+  e se il file restava nessuno lo ritrovava (ora, nell'importazione, resta alla bozza e lo
+  toglie la pulizia). Fuori dall'importazione il deposito si comporta come prima. Ogni caso
+  ha la sua prova, e la mutazione corrispondente la rende rossa.
 - La riga A-193 dell'importazione a secco fallisce in questo ambiente di prova anche sul ramo
   principale, per la versione di `iconv`: non dipende da questo lavoro.
 
