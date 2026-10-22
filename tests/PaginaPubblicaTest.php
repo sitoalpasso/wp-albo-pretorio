@@ -335,9 +335,21 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	private function risposta( string $indirizzo ): array {
 		$this->stati = array();
 		$this->righe = array();
+		$this->globali_nuove();
 		$this->richiesta_pubblica( $indirizzo );
 
 		return $this->fotografia();
+	}
+
+	/**
+	 * Toglie le variabili globali che una richiesta precedente ha lasciato.
+	 *
+	 * Nella stessa esecuzione le richieste si susseguono, mentre su un sito
+	 * ognuna parte da zero: senza, `single` di una pagina aperta prima
+	 * comparirebbe nella risposta di una "non trovata".
+	 */
+	private function globali_nuove(): void {
+		unset( $GLOBALS['post'], $GLOBALS['posts'], $GLOBALS['more'], $GLOBALS['single'] );
 	}
 
 	/**
@@ -355,6 +367,14 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			'corpo'        => $this->corpo_del_modello(),
 			'intestazioni' => apply_filters( 'wp_headers', array(), $GLOBALS['wp'] ),
 			'robot'        => $this->robot_stampati(),
+			'globali'      => array(
+				'post'   => isset( $GLOBALS['post'] ) && $GLOBALS['post'] instanceof \WP_Post ? $GLOBALS['post']->ID : null,
+				'posts'  => wp_list_pluck( (array) ( $GLOBALS['posts'] ?? array() ), 'ID' ),
+				'more'   => $GLOBALS['more'] ?? null,
+				'single' => $GLOBALS['single'] ?? null,
+			),
+			// Un modello 404 che legge il post globale senza percorrere i risultati.
+			'post letto'   => get_the_title(),
 		);
 	}
 
@@ -2117,7 +2137,9 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			$this->fissa_orologi( self::ULTIMO_ISTANTE );
 			$this->stati = array();
 			$this->righe = array();
+			$this->globali_nuove();
 			$this->richiesta_pubblica( $indirizzo );
+			$this->assertSame( 1, $GLOBALS['single'] ?? null, $azione . ': precondizione, WordPress ha gia\' scritto la pagina fra le variabili globali.' );
 			$this->assertSame( array(), $this->stati, $azione . ': precondizione, il rinvio e\' predisposto e nessuno stato e\' scritto.' );
 
 			$this->fissa_orologi( self::PRIMO_ISTANTE_SCADUTO );

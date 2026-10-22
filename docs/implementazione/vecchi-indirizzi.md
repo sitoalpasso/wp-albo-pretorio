@@ -171,3 +171,9 @@ stato; un rinvio che all'ultimo non parte più dà la "non trovata" intera. Altr
 guasti introdotti, tutti visti: memoria che non guarda il proprietario del codice (A-221),
 ricerca dell'origine sui soli pubblicati (A-222), rinvio mancato senza "non trovata" (A-222),
 stato 200 scritto prima del rinvio (A-222).
+
+Secondo giro: una correzione, fatta. Il diniego tardivo arriva dopo che WordPress ha scritto
+la pagina dell'albo fra le variabili globali: ora si riscrivono dalla risposta negata, e un
+modello 404 che legge il post globale stampa lo stesso che per un atto mai esistito. Due
+guasti introdotti, visti tutti e due da A-222: variabili non riscritte, `more` e `single`
+lasciati.

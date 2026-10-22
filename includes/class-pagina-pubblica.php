@@ -633,9 +633,23 @@ final class PaginaPubblica {
 			}
 		}
 
-		if ( $GLOBALS['wp_query'] instanceof \WP_Query ) {
-			self::nega( $GLOBALS['wp_query'] );
+		if ( ! $GLOBALS['wp_query'] instanceof \WP_Query ) {
+			return;
 		}
+
+		self::nega( $GLOBALS['wp_query'] );
+
+		/*
+		 * Qui WordPress ha gia' scritto fra le variabili globali la pagina
+		 * dell'albo: si riscrivono dalla risposta negata, come per un atto mai
+		 * esistito, che le riceve dopo il diniego. `more` e `single` le scrive
+		 * solo per una pagina, quindi per una "non trovata" non ci sono.
+		 */
+		if ( $GLOBALS['wp'] instanceof \WP ) {
+			$GLOBALS['wp']->register_globals();
+		}
+
+		unset( $GLOBALS['more'], $GLOBALS['single'] );
 	}
 
 	/**
