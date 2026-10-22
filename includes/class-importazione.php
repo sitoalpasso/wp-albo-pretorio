@@ -1029,23 +1029,17 @@ final class Importazione {
 	 * @return bool Se la bozza non c'e' piu'.
 	 */
 	private static function togli_bozza( int $atto_id ): bool {
-		$documenti = get_children(
-			array(
-				'post_parent' => $atto_id,
-				'post_type'   => 'attachment',
-				'post_status' => 'any',
-				'fields'      => 'ids',
-			)
-		);
-		$documenti = array_values( array_filter( array_map( 'intval', is_array( $documenti ) ? $documenti : array() ), 'conformita_core_allegato_protetto' ) );
+		$documenti = self::documenti_della_bozza( $atto_id );
+
+		if ( null === $documenti ) {
+			return false;
+		}
 
 		// Prima l'elenco dei file, scritto sulla bozza: la bozza si cancella per ultima, quindi resta finche' resta un file.
 		$ricordati = array_map( 'strval', get_post_meta( $atto_id, self::META_FILE_DA_TOGLIERE, false ) );
 
-		foreach ( $documenti as $documento ) {
-			$file = get_attached_file( $documento, true );
-
-			if ( is_string( $file ) && '' !== $file && ! in_array( $file, $ricordati, true ) ) {
+		foreach ( $documenti as $documento => $file ) {
+			if ( '' !== $file && ! in_array( $file, $ricordati, true ) ) {
 				if ( false === add_post_meta( $atto_id, self::META_FILE_DA_TOGLIERE, $file ) ) {
 					return false;
 				}
@@ -1054,7 +1048,7 @@ final class Importazione {
 			}
 		}
 
-		foreach ( $documenti as $documento ) {
+		foreach ( array_keys( $documenti ) as $documento ) {
 			wp_delete_attachment( $documento, true );
 			clean_post_cache( $documento );
 
@@ -1076,10 +1070,64 @@ final class Importazione {
 			}
 		}
 
+		// Prima di togliere la bozza, una lettura che risponde davvero: nessun documento le e' rimasto.
+		if ( array() !== self::documenti_della_bozza( $atto_id ) ) {
+			return false;
+		}
+
 		wp_delete_post( $atto_id, true );
 		clean_post_cache( $atto_id );
 
 		return ! get_post( $atto_id ) instanceof \WP_Post;
+	}
+
+	/**
+	 * I documenti protetti di una bozza, con il percorso del file, o nulla se la banca dati non risponde.
+	 *
+	 * Letti dalla banca dati com'e', con una lettura che distingue "nessun
+	 * documento" da "nessuna risposta": un elenco vuoto per errore farebbe
+	 * cancellare la bozza lasciando i documenti senza nessuno che li ritrovi.
+	 *
+	 * @param int $atto_id Bozza.
+	 * @return array<int, string>|null Identificativo del documento => percorso del file, vuoto se non c'e'.
+	 */
+	private static function documenti_della_bozza( int $atto_id ): ?array {
+		global $wpdb;
+
+		$righe = Lettura::righe(
+			$wpdb->prepare(
+				'SELECT p.ID, f.meta_value AS file FROM %i p JOIN %i m ON m.post_id = p.ID AND m.meta_key = %s AND m.meta_value = %s LEFT JOIN %i f ON f.post_id = p.ID AND f.meta_key = %s WHERE p.post_parent = %d AND p.post_type = %s ORDER BY p.ID',
+				$wpdb->posts,
+				$wpdb->postmeta,
+				\Conformita_Core_Allegati::MARCA,
+				'1',
+				$wpdb->postmeta,
+				'_wp_attached_file',
+				$atto_id,
+				'attachment'
+			),
+			array( 'ID', 'file' )
+		);
+
+		if ( null === $righe ) {
+			return null;
+		}
+
+		$caricamenti = wp_get_upload_dir();
+		$documenti   = array();
+
+		foreach ( $righe as $riga ) {
+			$file = (string) $riga['file'];
+
+			// Come get_attached_file(): un percorso relativo e' dentro la cartella dei caricamenti.
+			if ( '' !== $file && ! path_is_absolute( $file ) ) {
+				$file = $caricamenti['basedir'] . '/' . $file;
+			}
+
+			$documenti[ (int) $riga['ID'] ] = $file;
+		}
+
+		return $documenti;
 	}
 
 	/**
@@ -1262,7 +1310,8 @@ final class Importazione {
 						'error'    => 0,
 					),
 					$ruolo,
-					'percorso_locale'
+					'percorso_locale',
+					true
 				);
 			} finally {
 				if ( file_exists( $temporaneo ) ) {
