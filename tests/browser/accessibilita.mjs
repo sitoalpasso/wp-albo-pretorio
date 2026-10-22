@@ -427,8 +427,17 @@ async function verifica_contenuto( pagina, nome, attese, memoria = {} ) {
 			problemi.push( `la scheda ha il titolo ${ JSON.stringify( titolo ) }, atteso "${ attese[ 'oggetto della scheda' ] }"` );
 		}
 
+		// Nel codice non basta: ogni documento si deve vedere, o nessuno lo apre.
+		const nascosti = await documenti.evaluateAll( ( a ) => a.filter( ( e ) => {
+			const r = e.getBoundingClientRect();
+
+			return ! e.checkVisibility( { checkOpacity: true, checkVisibilityCSS: true } ) || r.width === 0 || r.height === 0 || e.closest( '[inert]' ) !== null;
+		} ).map( ( e ) => e.textContent.trim() ) );
+
 		if ( JSON.stringify( nomi ) !== JSON.stringify( attese[ 'documenti della scheda' ] ?? [] ) ) {
 			problemi.push( `la scheda ha i documenti ${ JSON.stringify( nomi ) }, attesi ${ JSON.stringify( attese[ 'documenti della scheda' ] ) }` );
+		} else if ( nascosti.length > 0 ) {
+			problemi.push( `i documenti ${ JSON.stringify( nascosti ) } della scheda ci sono nel codice ma non si vedono` );
 		} else {
 			for ( const indirizzo of await documenti.evaluateAll( ( a ) => a.map( ( e ) => e.href ) ) ) {
 				const risposta = await pagina.request.get( indirizzo );
@@ -441,6 +450,53 @@ async function verifica_contenuto( pagina, nome, attese, memoria = {} ) {
 	}
 
 	return problemi;
+}
+
+/**
+ * I documenti della scheda che il Tab non raggiunge.
+ *
+ * Un elemento sta nel percorso se e' visibile e il Tab ci e' arrivato.
+ */
+function documenti_fuori_dal_percorso( giro, nome, attese ) {
+	if ( 'scheda con allegati' !== nome ) {
+		return [];
+	}
+
+	const toccati = new Set( giro.passi.filter( Boolean ).map( ( p ) => p.posto ) );
+
+	return ( attese[ 'documenti della scheda' ] ?? [] )
+		.filter( ( d ) => ! giro.elementi.some( ( e, posto ) => e.albo && e.nome === d && toccati.has( posto ) ) )
+		.map( ( d ) => `il documento "${ d }" non e' nel percorso` );
+}
+
+/**
+ * La ricerca per organo senza mouse, dalla pagina aperta: Tab fino all'elenco
+ * degli organi, si sceglie scrivendo l'inizio del nome, Tab fino a "Cerca",
+ * Invio. Devono uscire gli atti di quell'organo, e soltanto loro.
+ */
+async function ricerca_per_organo( pagina, attese ) {
+	if ( ! ( await tab_fino_a( pagina, 'albo_organo' ) ) ) {
+		return [ 'l\'elenco degli organi non si raggiunge con Tab' ];
+	}
+
+	await pagina.keyboard.type( attese[ 'nome dell\'organo scelto' ].slice( 0, 3 ) );
+
+	if ( ! ( await tab_fino_al_pulsante( pagina, 'Cerca' ) ) ) {
+		return [ 'il pulsante "Cerca" non si raggiunge con Tab' ];
+	}
+
+	await Promise.all( [ pagina.waitForNavigation( { waitUntil: 'load' } ), pagina.keyboard.press( 'Enter' ) ] );
+
+	const scelto = new URL( pagina.url() ).searchParams.get( 'albo_organo' );
+	const attesi = attese[ 'oggetti dell\'organo scelto' ];
+
+	if ( scelto !== String( attese[ 'organo scelto' ] ) ) {
+		return [ `la ricerca per organo manda l'organo ${ scelto }, atteso ${ attese[ 'organo scelto' ] } (${ attese[ 'nome dell\'organo scelto' ] })` ];
+	}
+
+	const esito = await verifica_tutti_gli_atti( pagina, { oggetti: attesi } );
+
+	return esito.problemi;
 }
 
 /**
@@ -718,6 +774,28 @@ try {
 				sbaglia( 'controllo di realta\': la ricerca per date con il conteggio giusto ma senza la tabella risulta riuscita' );
 			}
 
+			// La scheda vera con la lista dei documenti nascosta: nomi, indirizzi e PDF giusti, ma nessuno li vede.
+			await pagina.goto( dati[ 'scheda con allegati' ], { waitUntil: 'load' } );
+			await pagina.addStyleTag( { content: '.albo-pretorio__documenti { display: none !important; }' } );
+
+			if ( ( await verifica_contenuto( pagina, 'scheda con allegati', dati ) ).length === 0 ) {
+				sbaglia( 'controllo di realta\': la verifica del contenuto non vede i documenti della scheda nascosti' );
+			}
+
+			if ( documenti_fuori_dal_percorso( await percorso( pagina ), 'scheda con allegati', dati ).length === 0 ) {
+				sbaglia( 'controllo di realta\': il percorso da tastiera non vede i documenti della scheda nascosti' );
+			}
+
+			// L'elenco vero senza l'organo da scegliere, poi con l'organo spento.
+			for ( const [ guasto, attesa ] of [ [ ( o ) => o.remove(), 'tolto' ], [ ( o ) => { o.disabled = true; }, 'spento' ] ] ) {
+				await pagina.goto( dati.elenco, { waitUntil: 'load' } );
+				await pagina.locator( `#albo_organo option[value="${ dati[ 'organo scelto' ] }"]` ).evaluate( guasto );
+
+				if ( ( await ricerca_per_organo( pagina, dati ) ).length === 0 ) {
+					sbaglia( `controllo di realta': la ricerca per organo riesce con l'organo da scegliere ${ attesa }` );
+				}
+			}
+
 			await pagina.setContent( COLLEGAMENTI_MORTI );
 
 			if ( null !== ( await segui_da_tastiera( pagina, '2' ) ) ) {
@@ -786,7 +864,11 @@ try {
 					sbaglia( `${ etichetta }, da tastiera: ${ t }` );
 				}
 
-				// Ogni comando richiesto e' fra quelli che il Tab ha toccato.
+				// Ogni documento della scheda e ogni comando richiesto sono fra quelli che il Tab ha toccato.
+				for ( const p of documenti_fuori_dal_percorso( giro, nome, dati ) ) {
+					sbaglia( `${ etichetta }, da tastiera: ${ p }` );
+				}
+
 				if ( 'scheda con allegati' !== nome ) {
 					for ( const id of COMANDI_RICHIESTI ) {
 						if ( ! giro.elementi.some( ( e ) => e.albo && e.nome === id ) ) {
@@ -837,6 +919,13 @@ try {
 						sbaglia( `${ tema }, ${ schermo }: la ricerca per tipo da tastiera da' "${ conteggio }" con tipo ${ indirizzo.searchParams.get( 'albo_tipo' ) }, attesi i ${ attesi.length } atti del tipo ${ dati[ 'tipo scelto' ] }` );
 					}
 				}
+			}
+
+			// La ricerca per organo senza mouse.
+			await pagina.goto( dati.elenco, { waitUntil: 'load' } );
+
+			for ( const p of await ricerca_per_organo( pagina, dati ) ) {
+				sbaglia( `${ tema }, ${ schermo }: la ricerca per organo da tastiera: ${ p }` );
 			}
 
 			/*
@@ -912,7 +1001,7 @@ try {
 				}
 			}
 
-			console.log( `${ tema }, ${ schermo }: ricerca per testo, per tipo e per date, seconda pagina, scheda e ritorno fatti da sola tastiera` );
+			console.log( `${ tema }, ${ schermo }: ricerca per testo, per tipo, per organo e per date, seconda pagina, scheda e ritorno fatti da sola tastiera` );
 		}
 
 		await contesto.close();

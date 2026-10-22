@@ -234,6 +234,7 @@ $albo_pretorio_editore   = utente( 'editore', RUOLO );
 $albo_pretorio_normativo = voce( TASSONOMIA_TIPO_ATTO, 'Deliberazione' );
 $albo_pretorio_scelto    = voce( TASSONOMIA_TIPO_ATTO, 'Avviso' );
 $albo_pretorio_organo    = voce( TASSONOMIA_ORGANO, 'Giunta' );
+$albo_pretorio_altro     = voce( TASSONOMIA_ORGANO, 'Consiglio' );
 
 foreach ( array(
 	array( $albo_pretorio_normativo, 15, 'norma', 'Estremi di prova' ),
@@ -263,6 +264,7 @@ $albo_pretorio_scheda = pubblicato( 'Deliberazione sulla manutenzione dei sentie
 
 $albo_pretorio_oggetti = array( get_the_title( $albo_pretorio_scheda ) );
 $albo_pretorio_avvisi  = array();
+$albo_pretorio_giunta  = $albo_pretorio_oggetti;
 
 for ( $albo_pretorio_n = 2; $albo_pretorio_n <= 21; $albo_pretorio_n++ ) {
 	$albo_pretorio_oggetto   = sprintf( 'Avviso di prova numero %d', $albo_pretorio_n );
@@ -272,10 +274,15 @@ for ( $albo_pretorio_n = 2; $albo_pretorio_n <= 21; $albo_pretorio_n++ ) {
 		$albo_pretorio_avvisi[] = $albo_pretorio_oggetto;
 	}
 
+	// Due organi: il filtro dell'organo deve restringere davvero.
+	if ( 0 !== $albo_pretorio_n % 3 ) {
+		$albo_pretorio_giunta[] = $albo_pretorio_oggetto;
+	}
+
 	pubblicato(
 		$albo_pretorio_oggetto,
 		0 === $albo_pretorio_n % 2 ? $albo_pretorio_scelto : $albo_pretorio_normativo,
-		$albo_pretorio_organo,
+		0 === $albo_pretorio_n % 3 ? $albo_pretorio_altro : $albo_pretorio_organo,
 		$albo_pretorio_redattore,
 		$albo_pretorio_editore
 	);
@@ -314,6 +321,9 @@ echo wp_json_encode( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEs
 		// Cio' che ogni pagina deve mostrare: la prova lo confronta prima di esaminarla.
 		'oggetti'                           => $albo_pretorio_oggetti,
 		'oggetti del tipo scelto'           => $albo_pretorio_avvisi,
+		'organo scelto'                     => $albo_pretorio_organo,
+		'nome dell\'organo scelto'          => 'Giunta',
+		'oggetti dell\'organo scelto'       => $albo_pretorio_giunta,
 		'documenti della scheda'            => array( 'Documento principale', 'Allegato 1', 'Allegato 2' ),
 		'atti per pagina'                   => \AlboPretorioPa\VistaPubblica::PER_PAGINA,
 		// Il giorno di pubblicazione degli atti, nel fuso del sito, per la ricerca per date.
