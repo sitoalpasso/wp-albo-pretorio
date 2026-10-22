@@ -16,6 +16,12 @@
  * codice breve: l'amministrazione la crea, la sposta, la toglie con gli
  * strumenti di sempre (decisione del 19 ottobre 2026).
  *
+ * **Il passaggio da "Albo Pretorio On line".** Spento quel plugin, il suo
+ * codice breve `[Albo]` disegna questa stessa pagina, e i suoi indirizzi delle
+ * schede e dei documenti portano alla scheda nuova dell'atto importato se e'
+ * in pubblicazione, altrimenti rispondono "non trovata" come un atto mai
+ * esistito (ALBO-35, scheda `vecchi-indirizzi.md`).
+ *
  * @package AlboPretorioPa
  */
 
@@ -42,6 +48,42 @@ final class PaginaPubblica {
 	const CODICE_BREVE = 'albo_pretorio';
 
 	/**
+	 * Il codice breve della pagina di "Albo Pretorio On line".
+	 *
+	 * Lo prende l'albo solo se nessuno lo ha registrato: con il plugin
+	 * precedente acceso resta suo, e le sue pagine restano sue (A-221).
+	 *
+	 * @var string
+	 */
+	const CODICE_VECCHIO = 'Albo';
+
+	/**
+	 * Gli altri codici brevi di "Albo Pretorio On line", che qui non disegnano niente.
+	 *
+	 * Un atto incollato in un articolo e un gruppo di atti con la stessa
+	 * etichetta: fuori dalla pagina dell'albo non valgono il divieto ai motori
+	 * ne' la risposta "non trovata", quindi non si disegnano. Presi solo per
+	 * non lasciare sul sito il codice scritto fra parentesi quadre (A-221).
+	 *
+	 * @var array<int, string>
+	 */
+	const CODICI_VECCHI_MUTI = array( 'AlboAtto', 'AlboGruppiAtti' );
+
+	/**
+	 * I tre indirizzi di "Albo Pretorio On line" che portano a un atto, e il
+	 * parametro che in ciascuno porta il suo numero interno.
+	 *
+	 * La scheda, la stampa della scheda o del certificato, il documento.
+	 *
+	 * @var array<string, string>
+	 */
+	const AZIONI_VECCHIE = array(
+		'visatto'   => 'id',
+		'printatto' => 'id',
+		'dwnalle'   => 'idAtto',
+	);
+
+	/**
 	 * Il parametro dell'indirizzo che apre la scheda di un atto.
 	 *
 	 * @var string
@@ -63,6 +105,16 @@ final class PaginaPubblica {
 	private static ?array $pagine = null;
 
 	/**
+	 * I codici brevi con cui le pagine ricordate sono state lette.
+	 *
+	 * Se chi possiede `[Albo]` cambia dopo la lettura, le pagine si rileggono
+	 * (A-221).
+	 *
+	 * @var array<int, string>
+	 */
+	private static array $codici_letti = array();
+
+	/**
 	 * In questa richiesta la scheda chiesta e' stata trasformata in "non trovata".
 	 *
 	 * Dopo `set_404()` la richiesta non e' piu' una pagina singola, quindi
@@ -79,6 +131,13 @@ final class PaginaPubblica {
 	 * @var bool
 	 */
 	private static bool $consegna_negata = false;
+
+	/**
+	 * L'atto in pubblicazione a cui porta il vecchio indirizzo chiesto, o zero.
+	 *
+	 * @var int
+	 */
+	private static int $rinvio = 0;
 
 	/**
 	 * Quante volte il codice breve ha disegnato in questa richiesta.
@@ -106,6 +165,8 @@ final class PaginaPubblica {
 	 */
 	public static function aggancia(): void {
 		add_shortcode( self::CODICE_BREVE, array( self::class, 'da_codice_breve' ) );
+		add_action( 'init', array( self::class, 'da_init' ), 0 );
+		add_action( 'template_redirect', array( self::class, 'da_template_redirect' ), 0 );
 
 		add_action( 'parse_request', array( self::class, 'da_parse_request' ), 9 );
 		add_filter( 'is_post_type_viewable', array( self::class, 'da_is_post_type_viewable' ), 10, 2 );
@@ -139,8 +200,52 @@ final class PaginaPubblica {
 	public static function azzera_richiesta(): void {
 		self::$scheda_negata   = false;
 		self::$consegna_negata = false;
+		self::$rinvio          = 0;
 		self::$istanze         = 0;
 		self::$specifiche      = array();
+	}
+
+	/**
+	 * Prende i codici brevi di "Albo Pretorio On line" rimasti liberi.
+	 *
+	 * Quel plugin li registra quando si carica, prima di `init`: se e' acceso
+	 * li trova occupati e non li tocca. Se li prende, la pagina con `[Albo]`
+	 * diventa la pagina dell'albo, con ogni attributo ignorato: `stato`, `cat`
+	 * e gli altri chiedevano scaduti o filtri che qui non esistono (A-220).
+	 */
+	public static function da_init(): void {
+		if ( ! shortcode_exists( self::CODICE_VECCHIO ) ) {
+			add_shortcode( self::CODICE_VECCHIO, array( self::class, 'da_codice_breve' ) );
+		}
+
+		foreach ( self::CODICI_VECCHI_MUTI as $codice ) {
+			if ( ! shortcode_exists( $codice ) ) {
+				add_shortcode( $codice, array( self::class, 'da_codice_muto' ) );
+			}
+		}
+
+		self::azzera();
+	}
+
+	/**
+	 * I codici brevi che disegnano la pagina dell'albo: il suo, e `[Albo]` se e' dell'albo.
+	 *
+	 * Chi possiede un codice breve si guarda adesso, non alla registrazione:
+	 * un componente che lo registra dopo lo prende per se', e allora quelle
+	 * pagine non sono piu' dell'albo (A-221).
+	 *
+	 * @return array<int, string>
+	 */
+	public static function codici(): array {
+		global $shortcode_tags;
+
+		$codici = array( self::CODICE_BREVE );
+
+		if ( isset( $shortcode_tags[ self::CODICE_VECCHIO ] ) && array( self::class, 'da_codice_breve' ) === $shortcode_tags[ self::CODICE_VECCHIO ] ) {
+			$codici[] = self::CODICE_VECCHIO;
+		}
+
+		return $codici;
 	}
 
 	/**
@@ -178,7 +283,9 @@ final class PaginaPubblica {
 	public static function pagine(): array {
 		global $wpdb;
 
-		if ( null !== self::$pagine ) {
+		$codici = self::codici();
+
+		if ( null !== self::$pagine && $codici === self::$codici_letti ) {
 			return self::$pagine;
 		}
 
@@ -187,7 +294,8 @@ final class PaginaPubblica {
 			return array();
 		}
 
-		self::$pagine = array();
+		self::$pagine       = array();
+		self::$codici_letti = $codici;
 
 		$tipi = array_values(
 			array_diff(
@@ -200,11 +308,19 @@ final class PaginaPubblica {
 			return self::$pagine;
 		}
 
-		$righe = Lettura::righe(
+		$simili = implode( ' OR ', array_fill( 0, count( $codici ), 'post_content LIKE %s' ) );
+		$righe  = Lettura::righe(
 			$wpdb->prepare(
-				"SELECT ID, post_type, post_content FROM %i WHERE post_status = 'publish' AND post_password = '' AND post_content LIKE %s ORDER BY ID ASC",
-				$wpdb->posts,
-				'%' . $wpdb->esc_like( '[' . self::CODICE_BREVE ) . '%'
+				"SELECT ID, post_type, post_content FROM %i WHERE post_status = 'publish' AND post_password = '' AND ( {$simili} ) ORDER BY ID ASC", // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- solo segnaposto, uno per codice breve.
+				array_merge(
+					array( $wpdb->posts ),
+					array_map(
+						static function ( string $codice ) use ( $wpdb ): string {
+							return '%' . $wpdb->esc_like( '[' . $codice ) . '%';
+						},
+						$codici
+					)
+				)
 			),
 			array( 'ID', 'post_type', 'post_content' )
 		);
@@ -214,8 +330,15 @@ final class PaginaPubblica {
 		}
 
 		foreach ( $righe as $riga ) {
-			if ( in_array( (string) $riga['post_type'], $tipi, true ) && has_shortcode( (string) $riga['post_content'], self::CODICE_BREVE ) ) {
-				self::$pagine[] = (int) $riga['ID'];
+			if ( ! in_array( (string) $riga['post_type'], $tipi, true ) ) {
+				continue;
+			}
+
+			foreach ( $codici as $codice ) {
+				if ( has_shortcode( (string) $riga['post_content'], $codice ) ) {
+					self::$pagine[] = (int) $riga['ID'];
+					break;
+				}
 			}
 		}
 
@@ -338,6 +461,63 @@ final class PaginaPubblica {
 	}
 
 	/**
+	 * L'atto a cui porta un vecchio indirizzo di "Albo Pretorio On line", se l'indirizzo e' uno di quelli.
+	 *
+	 * Falso se l'indirizzo non e' una scheda, una stampa o un documento di quel
+	 * plugin, o se chiede gia' una scheda di questo albo, che vale per prima.
+	 * Zero se lo e' ma non porta a nessun atto importato: numero interno
+	 * mancante o scritto male, mai importato, o la banca dati che non risponde.
+	 * Il numero interno si legge con la regola della scheda, sole cifre senza
+	 * zeri davanti: sono gli indirizzi che quel plugin stampava.
+	 *
+	 * @param array<string, mixed> $richiesta Parametri della richiesta.
+	 * @return int|false
+	 */
+	public static function atto_del_vecchio_indirizzo( array $richiesta ) {
+		if ( array_key_exists( self::PARAMETRO_ATTO, $richiesta ) || ! isset( $richiesta['action'] ) || ! is_string( $richiesta['action'] ) || ! isset( self::AZIONI_VECCHIE[ $richiesta['action'] ] ) ) {
+			return false;
+		}
+
+		$parametro = self::AZIONI_VECCHIE[ $richiesta['action'] ];
+		$origine   = self::atto_chiesto( array( self::PARAMETRO_ATTO => $richiesta[ $parametro ] ?? '' ) );
+
+		return 0 === $origine ? 0 : self::atto_di_origine( (string) $origine );
+	}
+
+	/**
+	 * L'atto che l'importazione ha portato da quel numero interno, o zero.
+	 *
+	 * Uno solo, in qualunque stato: se due atti ricordano la stessa origine,
+	 * anche uno in bozza o annullato, nessuno, perche' l'indirizzo non saprebbe
+	 * quale dei due e' il suo. Se l'atto e' in pubblicazione lo dice poi
+	 * `in_pubblicazione()` (A-222).
+	 *
+	 * @param string $origine Numero interno in "Albo Pretorio On line".
+	 * @return int
+	 */
+	private static function atto_di_origine( string $origine ): int {
+		global $wpdb;
+
+		$righe = Lettura::righe(
+			$wpdb->prepare(
+				'SELECT DISTINCT p.ID FROM %i p JOIN %i m ON m.post_id = p.ID WHERE m.meta_key = %s AND m.meta_value = %s AND p.post_type = %s ORDER BY p.ID ASC',
+				$wpdb->posts,
+				$wpdb->postmeta,
+				META_ORIGINE_IMPORTAZIONE,
+				$origine,
+				TIPO
+			),
+			array( 'ID' )
+		);
+
+		if ( null === $righe || 1 !== count( $righe ) ) {
+			return 0;
+		}
+
+		return (int) $righe[0]['ID'];
+	}
+
+	/**
 	 * L'atto e' in pubblicazione, cioe' si mostra al pubblico.
 	 *
 	 * Tre condizioni, tutte lette adesso: pubblicato senza password, con il
@@ -408,6 +588,68 @@ final class PaginaPubblica {
 		 * conto suo prima del tema consumerebbe l'unica istanza.
 		 */
 		return 1 === self::$istanze ? $html : VistaPubblica::distingui( $html, self::$istanze );
+	}
+
+	/**
+	 * Aggancio dei codici brevi di "Albo Pretorio On line" che qui non disegnano niente.
+	 *
+	 * @param mixed $attributi Attributi, ignorati.
+	 * @return string
+	 */
+	public static function da_codice_muto( $attributi = array() ): string {
+		unset( $attributi );
+
+		return '';
+	}
+
+	/**
+	 * Un vecchio indirizzo di un atto in pubblicazione porta alla sua scheda nuova.
+	 *
+	 * Prima del tema e degli altri rinvii di WordPress. Il rinvio e'
+	 * temporaneo e non si conserva: l'indirizzo vecchio vale solo finche'
+	 * l'atto e' in pubblicazione, e la scheda nuova ricontrolla l'atto quando
+	 * si apre (A-222, A-223).
+	 *
+	 * L'atto si ricontrolla qui. Se fra la lettura della richiesta e questo
+	 * momento e' passata la mezzanotte, o il rinvio non riesce, la risposta e'
+	 * la stessa di un atto mai esistito, non la pagina dell'elenco (A-222).
+	 */
+	public static function da_template_redirect(): void {
+		$atto = self::$rinvio;
+
+		if ( $atto < 1 ) {
+			return;
+		}
+
+		self::$rinvio = 0;
+
+		$scheda = self::richiesta_dell_albo() && self::in_pubblicazione( $atto ) ? self::indirizzo_scheda( $atto ) : null;
+
+		if ( null !== $scheda ) {
+			nocache_headers();
+
+			if ( wp_safe_redirect( $scheda, 302, 'Albo Pretorio' ) ) {
+				exit;
+			}
+		}
+
+		if ( ! $GLOBALS['wp_query'] instanceof \WP_Query ) {
+			return;
+		}
+
+		self::nega( $GLOBALS['wp_query'] );
+
+		/*
+		 * Qui WordPress ha gia' scritto fra le variabili globali la pagina
+		 * dell'albo: si riscrivono dalla risposta negata, come per un atto mai
+		 * esistito, che le riceve dopo il diniego. `more` e `single` le scrive
+		 * solo per una pagina, quindi per una "non trovata" non ci sono.
+		 */
+		if ( $GLOBALS['wp'] instanceof \WP ) {
+			$GLOBALS['wp']->register_globals();
+		}
+
+		unset( $GLOBALS['more'], $GLOBALS['single'] );
 	}
 
 	/**
@@ -514,10 +756,46 @@ final class PaginaPubblica {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- lettura pubblica, nessuna modifica.
 		$atto = self::atto_chiesto( $_GET );
 
-		if ( false === $atto || self::in_pubblicazione( $atto ) ) {
+		if ( false === $atto ) {
+			/*
+			 * Un vecchio indirizzo di "Albo Pretorio On line": porta alla scheda
+			 * nuova solo un atto in pubblicazione. Tutto il resto, scaduto,
+			 * annullato, mai importato o scritto male, risponde come un atto
+			 * mai esistito: un rinvio, o una risposta diversa, direbbe che
+			 * l'atto c'e' (A-222, A-223).
+			 */
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- lettura pubblica, nessuna modifica.
+			$atto = self::atto_del_vecchio_indirizzo( $_GET );
+
+			if ( false === $atto ) {
+				return $anticipato;
+			}
+
+			/*
+			 * Il rinvio parte dopo, prima del tema. Intanto nessuno stato:
+			 * `true` ferma il 200 di WordPress, e se all'ultimo l'atto non
+			 * e' piu' in pubblicazione la risposta resta da scrivere tutta.
+			 */
+			if ( self::in_pubblicazione( $atto ) ) {
+				self::$rinvio = $atto;
+
+				return true;
+			}
+		} elseif ( self::in_pubblicazione( $atto ) ) {
 			return $anticipato;
 		}
 
+		self::nega( $interrogazione );
+
+		return true;
+	}
+
+	/**
+	 * La risposta "non trovata" della pagina dell'albo, uguale per ogni atto che non si mostra.
+	 *
+	 * @param \WP_Query $interrogazione Interrogazione principale.
+	 */
+	private static function nega( \WP_Query $interrogazione ): void {
 		self::$scheda_negata = true;
 
 		$interrogazione->set_404();
@@ -536,8 +814,6 @@ final class PaginaPubblica {
 
 		status_header( 404 );
 		nocache_headers();
-
-		return true;
 	}
 
 	/**

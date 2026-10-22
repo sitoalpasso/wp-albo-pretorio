@@ -51,6 +51,13 @@ produrre un rifiuto rumoroso, mai un permesso silenzioso.
 - Ogni ID ricevuto dall'esterno si verifica: esiste, è del tipo di contenuto giusto,
   è in uno stato su cui l'operazione è lecita, l'utente ha titolo su di esso.
 - Validazione sempre lato server. Il controllo nel browser è cortesia, non difesa.
+- **I vecchi indirizzi di Albo Pretorio On line** (`?action=visatto`, `printatto`,
+  `dwnalle`) sulla pagina dell'albo leggono un solo numero, di sole cifre, e cercano l'unico
+  atto, in qualunque stato, che lo ricorda come origine; poi, a parte, si controlla che
+  quell'atto sia in pubblicazione. Il rinvio va soltanto alla scheda
+  dell'atto sulla pagina stessa, con `wp_safe_redirect()`: nessuna parte dell'indirizzo di
+  arrivo viene dalla richiesta, quindi non può portare fuori dal sito. Ogni caso che non
+  rinvia risponde come un atto mai esistito.
 - Percorsi di file mai costruiti da input esterno senza normalizzazione: niente
   `../` che risale le cartelle. L'endpoint di consegna degli allegati riceve un ID,
   mai un percorso.
