@@ -2,19 +2,19 @@
 /**
  * L'importazione vera dal plugin "Albo Pretorio On line" (ALBO-35).
  *
- * Dopo il rapporto a secco, scrive nel nuovo albo gli atti che il rapporto
- * dice portabili, con il numero, l'anno e le date del vecchio albo e i
+ * Dopo il rapporto a secco, scrive in questo albo gli atti che il rapporto
+ * dice portabili, con il numero, l'anno e le date di Albo Pretorio On line e i
  * documenti copiati byte per byte dall'archivio del backup.
  *
  * **A blocchi.** L'avvio rilegge il backup, rifa' il rapporto, lo confronta
  * con quello confermato da chi importa e fissa l'elenco degli atti da portare.
- * Ogni blocco rilegge il backup, rifa' il rapporto con lo stato attuale del
- * nuovo albo e porta gli atti successivi dell'elenco finche' non ha usato il
+ * Ogni blocco rilegge il backup, rifa' il rapporto con lo stato attuale di
+ * questo albo e porta gli atti successivi dell'elenco finche' non ha usato il
  * suo tempo; lo stato si salva dopo ogni atto, cosi' che un blocco interrotto
  * riprenda dall'atto in cui si e' fermato.
  *
- * **Senza doppioni.** Ogni atto importato ricorda il suo identificativo nel
- * vecchio albo: per il rapporto e' "gia' importato" e non si tocca piu'. Una
+ * **Senza doppioni.** Ogni atto importato ricorda il suo identificativo in
+ * Albo Pretorio On line: per il rapporto e' "gia' importato" e non si tocca piu'. Una
  * bozza lasciata da un blocco interrotto a meta' ha lo stesso ricordo, e si
  * cancella con i suoi file prima di rifare l'atto.
  *
@@ -72,7 +72,7 @@ final class Importazione {
 	 *
 	 * @var string
 	 */
-	const ORIGINE_DURATA = 'date_scritte_nel_vecchio_albo';
+	const ORIGINE_DURATA = 'date_scritte_in_albo_pretorio_on_line';
 
 	/**
 	 * I dubbi del rapporto che l'importazione porta con se' senza condizioni.
@@ -123,7 +123,7 @@ final class Importazione {
 	}
 
 	/**
-	 * Il nome nell'indirizzo della bozza preparata per un atto del vecchio albo.
+	 * Il nome nell'indirizzo della bozza preparata per un atto di Albo Pretorio On line.
 	 *
 	 * Il segno e' casuale e sta nello stato dell'importazione prima che la bozza
 	 * nasca; il nome si scrive insieme alla bozza, nella stessa istruzione. Una
@@ -252,12 +252,12 @@ final class Importazione {
 			'gia_importato'                => __( 'gia\' importato', 'albo-pretorio-pa' ),
 			'bozza'                        => __( 'bozza mai pubblicata', 'albo-pretorio-pa' ),
 			'senza_documenti'              => __( 'nessun documento: il documento principale e\' obbligatorio', 'albo-pretorio-pa' ),
-			'tipo_da_creare'               => __( 'il tipo di atto con il nome della categoria non c\'e\' nel nuovo albo: si crea, con la sua durata, e si rilancia', 'albo-pretorio-pa' ),
+			'tipo_da_creare'               => __( 'il tipo di atto con il nome della categoria non c\'e\' in questo albo: si crea, con la sua durata, e si rilancia', 'albo-pretorio-pa' ),
 			'conferma_dati_personali'      => __( 'in pubblicazione: manca la conferma sui dati personali degli atti visibili', 'albo-pretorio-pa' ),
 			'annullato'                    => __( 'annullato e ancora in pubblicazione: cosa ne veda il pubblico e\' una decisione ancora aperta', 'albo-pretorio-pa' ),
 			'documenti_non_verificabili'   => __( 'documenti non verificabili: serve l\'archivio zip del backup', 'albo-pretorio-pa' ),
 			'file_mancante'                => __( 'un file non c\'e\' nell\'archivio', 'albo-pretorio-pa' ),
-			'impronta_diversa'             => __( 'un file non e\' quello caricato nel vecchio albo', 'albo-pretorio-pa' ),
+			'impronta_diversa'             => __( 'un file non e\' quello caricato in Albo Pretorio On line', 'albo-pretorio-pa' ),
 			'per_estratto'                 => __( 'documento pubblicato per estratto', 'albo-pretorio-pa' ),
 			'fine_assente'                 => __( 'data di fine assente', 'albo-pretorio-pa' ),
 			'inizio_futuro'                => __( 'inizio della pubblicazione nel futuro', 'albo-pretorio-pa' ),
@@ -270,9 +270,9 @@ final class Importazione {
 			'numero_non_valido'            => __( 'numero di registro non valido', 'albo-pretorio-pa' ),
 			'anno_non_valido'              => __( 'anno del numero non valido', 'albo-pretorio-pa' ),
 			'numero_doppio'                => __( 'numero portato da piu\' atti', 'albo-pretorio-pa' ),
-			'numero_gia_usato'             => __( 'numero gia\' dato a un atto del nuovo albo', 'albo-pretorio-pa' ),
-			'numero_oltre_partenza'        => __( 'numero oltre l\'ultimo numero del vecchio registro dichiarato nel nuovo albo', 'albo-pretorio-pa' ),
-			'numerazione_non_letta'        => __( 'la numerazione del nuovo albo non ha risposto', 'albo-pretorio-pa' ),
+			'numero_gia_usato'             => __( 'numero gia\' dato a un atto di questo albo', 'albo-pretorio-pa' ),
+			'numero_oltre_partenza'        => __( 'numero oltre l\'ultimo numero del registro precedente dichiarato in questo albo', 'albo-pretorio-pa' ),
+			'numerazione_non_letta'        => __( 'la numerazione di questo albo non ha risposto', 'albo-pretorio-pa' ),
 			'categoria_assente'            => __( 'categoria assente nel backup', 'albo-pretorio-pa' ),
 			'id_atto_doppio'               => __( 'numero interno assente o ripetuto', 'albo-pretorio-pa' ),
 			'importati_non_letti'          => __( 'la lettura degli atti gia\' importati non ha risposto', 'albo-pretorio-pa' ),
@@ -788,7 +788,7 @@ final class Importazione {
 	}
 
 	/**
-	 * Il rapporto di un backup, con lo stato attuale del nuovo albo.
+	 * Il rapporto di un backup, con lo stato attuale di questo albo.
 	 *
 	 * @param string $percorso Backup.
 	 * @return array<string, mixed>|\WP_Error
@@ -923,7 +923,7 @@ final class Importazione {
 	/**
 	 * Cosa resta di un atto la cui importazione non e' andata come previsto, guardando la banca dati.
 	 *
-	 * @param string             $id           Identificativo nel vecchio albo.
+	 * @param string             $id           Identificativo in Albo Pretorio On line.
 	 * @param int                $atto_id      Bozza, se si conosce.
 	 * @param array              $atto         Atto del rapporto.
 	 * @param \WP_Error          $errore       Il motivo.
@@ -974,12 +974,12 @@ final class Importazione {
 	}
 
 	/**
-	 * Toglie le bozze che un'importazione interrotta ha lasciato per questo atto del vecchio albo.
+	 * Toglie le bozze che un'importazione interrotta ha lasciato per questo atto di Albo Pretorio On line.
 	 *
 	 * Una bozza si riconosce dal ricordo dell'origine, che solo l'importazione
 	 * scrive, o dal nome con uno dei segni casuali salvati per questo atto.
 	 *
-	 * @param string             $id    Identificativo nel vecchio albo.
+	 * @param string             $id    Identificativo in Albo Pretorio On line.
 	 * @param array<int, string> $segni Segni delle bozze di questo atto.
 	 * @return true|\WP_Error
 	 */
@@ -1146,7 +1146,7 @@ final class Importazione {
 	/**
 	 * La bozza dell'atto con oggetto, origine, tipo, numero proprio e dati del procedimento.
 	 *
-	 * Ogni dato si rilegge: un valore che il nuovo albo non conserverebbe alla
+	 * Ogni dato si rilegge: un valore che questo albo non conserverebbe alla
 	 * lettera ferma l'atto invece di arrivare cambiato.
 	 *
 	 * Un rifiuto o un'eccezione lasciano la bozza dov'e': la toglie chi chiama,
@@ -1440,7 +1440,7 @@ final class Importazione {
 	 * @return \WP_Error
 	 */
 	private static function errore_permesso(): \WP_Error {
-		return new \WP_Error( 'albo_importazione_permesso', __( 'Non si possiede il permesso di importare gli atti del vecchio albo.', 'albo-pretorio-pa' ) );
+		return new \WP_Error( 'albo_importazione_permesso', __( 'Non si possiede il permesso di importare gli atti di Albo Pretorio On line.', 'albo-pretorio-pa' ) );
 	}
 
 	/**

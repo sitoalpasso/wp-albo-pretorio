@@ -1,8 +1,8 @@
 <?php
 /**
- * L'importazione vera dal backup del vecchio albo: righe A-210..A-217 (ALBO-35).
+ * L'importazione vera dal backup di Albo Pretorio On line: righe A-210..A-217 (ALBO-35).
  *
- * Il backup di prova sta nella cartella del vecchio albo, come sul sito vero.
+ * Il backup di prova sta nella cartella di Albo Pretorio On line, come sul sito vero.
  * L'orologio e' fissato a mezzanotte e mezza del 16 ottobre 2041 nel fuso del
  * sito: l'atto con fine il 16 e' ancora in pubblicazione, quelli con fine a
  * settembre sono scaduti. La partenza dichiarata per il 2041 e' 40.
@@ -16,11 +16,11 @@
  * - 5: 14/2041, durata piu' corta della categoria: si porta, con il dubbio;
  * - 6: 50/2041, oltre la partenza dichiarata: conflitto, non si porta;
  * - 7: bozza: non si porta;
- * - 8: categoria senza tipo nel nuovo albo: non si porta;
+ * - 8: categoria senza tipo in questo albo: non si porta;
  * - 9: file assente dall'archivio: non si porta;
  * - 10: nessun allegato: non si porta;
  * - 11: inizio futuro: non si porta;
- * - 12: 300/2040, scaduto, di un anno che il nuovo albo non ha mai numerato: si porta;
+ * - 12: 300/2040, scaduto, di un anno che questo albo non ha mai numerato: si porta;
  * - 13: 19/2041, annullato e ancora in pubblicazione: non si porta, neanche con la seconda conferma;
  * - 14: 301/2040, scaduto, un file solo segnato come allegato: si porta, con quel file come principale.
  *
@@ -65,7 +65,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 	private const ADESSO = '2041-10-16 00:30:00';
 
 	/**
-	 * La partenza dichiarata per il 2041 nel nuovo albo.
+	 * La partenza dichiarata per il 2041 in questo albo.
 	 */
 	private const PARTENZA = 40;
 
@@ -348,7 +348,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Scrive il backup nella cartella del vecchio albo, con le tabelle indicate.
+	 * Scrive il backup nella cartella di Albo Pretorio On line, con le tabelle indicate.
 	 *
 	 * @param array<int, array<string, mixed>>|null $atti     Righe degli atti, quelle di prova se nulle.
 	 * @param array<int, array<string, mixed>>|null $allegati Righe degli allegati, quelle di prova se nulle.
@@ -405,7 +405,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Il rapporto di un backup, con lo stato attuale del nuovo albo.
+	 * Il rapporto di un backup, con lo stato attuale di questo albo.
 	 *
 	 * @param string $percorso Backup.
 	 * @return array<string, mixed>
@@ -456,7 +456,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Gli atti del nuovo albo che ricordano un'origine, per origine, letti dalla banca dati.
+	 * Gli atti di questo albo che ricordano un'origine, per origine, letti dalla banca dati.
 	 *
 	 * @return array<string, array{id: int, stato: string}>
 	 */
@@ -601,9 +601,9 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * A-210. Gli atti portabili si scrivono con i valori del vecchio albo.
+	 * A-210. Gli atti portabili si scrivono con i valori di Albo Pretorio On line.
 	 */
-	public function test_a210_atti_scritti_come_nel_vecchio_albo(): void {
+	public function test_a210_atti_scritti_come_in_albo_pretorio_on_line(): void {
 		$percorso = $this->backup_nella_cartella();
 		$stato    = $this->importa_tutto( $percorso, array( SchermataImportazione::CAMPO_CONFERMA_VISIBILI => '1' ) );
 		$atti     = $this->importati();
@@ -703,8 +703,8 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 			$this->assertSame( $atteso[1], get_post( $id )->post_date, 'Inizio a mezzanotte, ora del sito: ' . $origine );
 			$this->assertSame( $atteso[2], get_post( $id )->post_date_gmt, 'Inizio in tempo universale: ' . $origine );
 			$this->assertSame( $this->amministratore, (int) get_post( $id )->post_author, 'Autore chi importa: ' . $origine );
-			$this->assertSame( $atteso[3], Repertorio::di( $id ), 'Numero e anno del vecchio albo: ' . $origine );
-			$this->assertSame( $atteso[4], conformita_core_fine_pubblicazione( $id ), 'Fine del vecchio albo: ' . $origine );
+			$this->assertSame( $atteso[3], Repertorio::di( $id ), 'Numero e anno di Albo Pretorio On line: ' . $origine );
+			$this->assertSame( $atteso[4], conformita_core_fine_pubblicazione( $id ), 'Fine di Albo Pretorio On line: ' . $origine );
 			$this->assertSame( 'Deliberazione', DatiAtto::tipo( $id )->name, 'Tipo con il nome della categoria: ' . $origine );
 			$this->assertSame( $atteso[5], DatiAtto::numero_proprio( $id ), 'Numero proprio dal riferimento: ' . $origine );
 		}
@@ -743,7 +743,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$this->assertSame( 'backup.zip', $voce['dettagli']['backup'] );
 		$this->assertSame( hash_file( 'sha256', $percorso ), $voce['dettagli']['impronta_backup'] );
 		$this->assertSame( 10, $voce['dettagli']['durata_giorni'] );
-		$this->assertSame( 'date_scritte_nel_vecchio_albo', $voce['dettagli']['origine_durata'] );
+		$this->assertSame( 'date_scritte_in_albo_pretorio_on_line', $voce['dettagli']['origine_durata'] );
 		$this->assertSame( array( 'durata_breve' ), $voce['dettagli']['dubbi_portati'] );
 		$this->assertFalse( $voce['dettagli']['conferma_dati_personali'] );
 		$this->assertFalse( $voce['dettagli']['principale_da_scegliere'] );
@@ -762,7 +762,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		foreach ( $procedimento as $dato => $valore ) {
 			$this->assertSame( $valore, DatiProcedimento::valore( $atti['1']['id'], $dato ), 'Sull\'atto: ' . $dato );
 			$this->assertSame( $valore, $this->voce_importazione( $atti['1']['id'] )['dettagli'][ $dato ], 'Nel registro: ' . $dato );
-			$this->assertSame( '', DatiProcedimento::valore( $atti['5']['id'], $dato ), 'Vuoto dove il vecchio albo non l\'aveva: ' . $dato );
+			$this->assertSame( '', DatiProcedimento::valore( $atti['5']['id'], $dato ), 'Vuoto dove Albo Pretorio On line non l\'aveva: ' . $dato );
 		}
 
 		$this->assertSame( array(), DatiProcedimento::da_mostrare( $atti['1']['id'] ), 'Conservati, non mostrati.' );

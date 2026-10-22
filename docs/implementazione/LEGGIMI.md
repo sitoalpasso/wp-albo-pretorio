@@ -52,9 +52,13 @@ Schede presenti:
 - [`importazione-a-secco.md`](importazione-a-secco.md): la lettura del backup del plugin
   "Albo Pretorio On line" e il rapporto di cosa si porterebbe, senza scrivere niente. Righe
   di collaudo A-186..A-194.
-- [`importazione-vera.md`](importazione-vera.md): la scrittura degli atti del vecchio albo
+- [`importazione-vera.md`](importazione-vera.md): la scrittura degli atti di Albo Pretorio On line
   dopo il rapporto, a blocchi, tutto o niente per atto e senza doppioni. Righe di collaudo
   A-210..A-217.
 - [`pagina-pubblica.md`](pagina-pubblica.md): la pagina pubblica dell'albo con il codice breve
   `[albo_pretorio]`: elenco, scheda, ricerca, divieto ai motori, accessibilità del codice
   prodotto. Righe di collaudo A-195..A-209.
+- [`elenco-in-tabella.md`](elenco-in-tabella.md): l'elenco degli atti in tabella, che su
+  schermo stretto diventa un riquadro per atto, le date separate nella scheda e la funzione
+  `albo_pretorio_vista_corrente()` per i temi. Righe di collaudo A-195, A-196, A-203 riviste,
+  A-218 e A-219 nuove.

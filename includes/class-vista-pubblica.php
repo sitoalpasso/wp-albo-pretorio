@@ -589,45 +589,120 @@ final class VistaPubblica {
 			)
 		) . '</p>';
 
-		$html .= '<ol class="albo-pretorio__elenco">';
-
-		foreach ( $esito['atti'] as $atto ) {
-			$html .= self::voce_elenco( $atto );
-		}
-
-		$html .= '</ol>';
+		$html .= self::tabella( $esito['atti'] );
 
 		return $html . self::pagine( $ricerca, $esito['totale'] ) . '</section>';
 	}
 
 	/**
-	 * Un atto dell'elenco.
+	 * Le colonne della tabella, nell'ordine.
+	 *
+	 * @return array<string, string> Nome della colonna per chiave.
+	 */
+	private static function colonne(): array {
+		return array(
+			'numero'    => __( 'Numero', 'albo-pretorio-pa' ),
+			'tipo'      => __( 'Tipo', 'albo-pretorio-pa' ),
+			'oggetto'   => __( 'Oggetto', 'albo-pretorio-pa' ),
+			'dal'       => __( 'Pubblicato dal', 'albo-pretorio-pa' ),
+			'al'        => __( 'Fino al', 'albo-pretorio-pa' ),
+			'documenti' => __( 'Documenti', 'albo-pretorio-pa' ),
+		);
+	}
+
+	/**
+	 * La tabella degli atti.
+	 *
+	 * Ogni elemento dichiara anche il suo ruolo: su schermo stretto il foglio
+	 * di stile cambia la disposizione delle celle, e alcuni browser, quando
+	 * succede, smettono di presentare la tabella come tale ai lettori di
+	 * schermo (A-218).
+	 *
+	 * @param array<int, int> $atti Atti, nell'ordine.
+	 * @return string
+	 */
+	private static function tabella( array $atti ): string {
+		$html  = '<table class="albo-pretorio__tabella" role="table" aria-labelledby="albo-pretorio-titolo-elenco">';
+		$html .= '<thead class="albo-pretorio__testata" role="rowgroup"><tr role="row">';
+
+		foreach ( self::colonne() as $nome ) {
+			$html .= '<th class="albo-pretorio__intestazione" scope="col" role="columnheader">' . esc_html( $nome ) . '</th>';
+		}
+
+		$html .= '</tr></thead><tbody role="rowgroup">';
+
+		foreach ( $atti as $atto ) {
+			$html .= self::riga( $atto );
+		}
+
+		return $html . '</tbody></table>';
+	}
+
+	/**
+	 * La riga di un atto.
+	 *
+	 * L'oggetto e' l'intestazione della riga. Davanti a ogni altro dato c'e'
+	 * il nome della sua colonna, che si vede solo su schermo stretto e che i
+	 * lettori di schermo saltano: per loro il nome e' gia' nell'intestazione.
 	 *
 	 * @param int $atto Atto.
 	 * @return string
 	 */
-	private static function voce_elenco( int $atto ): string {
-		$scheda = (string) PaginaPubblica::indirizzo_scheda( $atto );
+	private static function riga( int $atto ): string {
+		$colonne = self::colonne();
+		$tipo    = DatiAtto::tipo( $atto );
+		$organo  = DatiAtto::organo( $atto );
+		$fine    = conformita_core_fine_pubblicazione( $atto );
+		$quanti  = self::quanti_documenti( $atto );
 
-		$html  = '<li class="albo-pretorio__atto" data-atto="' . (int) $atto . '">';
-		$html .= '<h3 class="albo-pretorio__oggetto"><a class="albo-pretorio__collegamento" href="' . esc_url( $scheda ) . '">' . esc_html( get_the_title( $atto ) ) . '</a></h3>';
-
-		$dati = array( __( 'Numero di registro', 'albo-pretorio-pa' ) => self::numero( $atto ) );
-		$tipo = DatiAtto::tipo( $atto );
-
-		if ( null !== $tipo ) {
-			$dati[ __( 'Tipo', 'albo-pretorio-pa' ) ] = $tipo->name;
-		}
-
-		$organo = DatiAtto::organo( $atto );
+		$oggetto = '<a class="albo-pretorio__collegamento" href="' . esc_url( (string) PaginaPubblica::indirizzo_scheda( $atto ) ) . '">' . esc_html( get_the_title( $atto ) ) . '</a>';
 
 		if ( null !== $organo ) {
-			$dati[ __( 'Organo', 'albo-pretorio-pa' ) ] = $organo->name;
+			$oggetto .= ' <span class="albo-pretorio__organo">' . esc_html( $organo->name ) . '</span>';
 		}
 
-		$dati[ __( 'In pubblicazione', 'albo-pretorio-pa' ) ] = self::periodo( $atto );
+		$html  = '<tr class="albo-pretorio__atto" role="row" data-atto="' . (int) $atto . '">';
+		$html .= self::cella( $colonne['numero'], esc_html( self::numero( $atto ) ), 'albo-pretorio__cella--numero' );
+		$html .= self::cella( $colonne['tipo'], null === $tipo ? '' : esc_html( $tipo->name ) );
+		$html .= '<th class="albo-pretorio__cella albo-pretorio__cella--oggetto" scope="row" role="rowheader">' . $oggetto . '</th>';
+		$html .= self::cella( $colonne['dal'], esc_html( (string) get_post_time( 'd/m/Y', false, $atto ) ), 'albo-pretorio__cella--data' );
+		$html .= self::cella( $colonne['al'], is_string( $fine ) ? esc_html( self::data( $fine ) ) : '', 'albo-pretorio__cella--data' );
+		$html .= self::cella(
+			$colonne['documenti'],
+			esc_html(
+				sprintf(
+					/* translators: %s: numero dei documenti dell'atto. */
+					_n( '%s documento', '%s documenti', $quanti, 'albo-pretorio-pa' ),
+					number_format_i18n( $quanti )
+				)
+			)
+		);
 
-		return $html . self::dati( $dati ) . '</li>';
+		return $html . '</tr>';
+	}
+
+	/**
+	 * Una cella con il nome della sua colonna davanti, per lo schermo stretto.
+	 *
+	 * @param string $colonna Nome della colonna, non sfuggito.
+	 * @param string $valore  Valore, gia' sfuggito.
+	 * @param string $classe  Classe in piu', facoltativa.
+	 * @return string
+	 */
+	private static function cella( string $colonna, string $valore, string $classe = '' ): string {
+		$classi = trim( 'albo-pretorio__cella ' . $classe );
+
+		return '<td class="' . esc_attr( $classi ) . '" role="cell"><span class="albo-pretorio__etichetta" aria-hidden="true">' . esc_html( $colonna ) . '</span>' . $valore . '</td>';
+	}
+
+	/**
+	 * Quanti documenti ha l'atto: il principale, se c'e', e gli allegati.
+	 *
+	 * @param int $atto Atto.
+	 * @return int
+	 */
+	private static function quanti_documenti( int $atto ): int {
+		return ( null === DocumentiAtto::principale( $atto ) ? 0 : 1 ) + count( DocumentiAtto::ulteriori( $atto ) );
 	}
 
 	/**
@@ -665,7 +740,10 @@ final class VistaPubblica {
 			$dati[ __( 'Data di adozione', 'albo-pretorio-pa' ) ] = self::data( $adozione );
 		}
 
-		$dati[ __( 'In pubblicazione', 'albo-pretorio-pa' ) ] = self::periodo( $atto );
+		$fine = conformita_core_fine_pubblicazione( $atto );
+
+		$dati[ __( 'Pubblicato dal', 'albo-pretorio-pa' ) ] = (string) get_post_time( 'd/m/Y', false, $atto );
+		$dati[ __( 'Fino al', 'albo-pretorio-pa' ) ]        = is_string( $fine ) ? self::data( $fine ) : '';
 
 		foreach ( DatiProcedimento::da_mostrare( $atto ) as $etichetta => $valore ) {
 			$dati[ $etichetta ] = $valore;
@@ -785,23 +863,6 @@ final class VistaPubblica {
 		$numero = Repertorio::di( $atto );
 
 		return null === $numero ? '' : $numero['numero'] . '/' . $numero['anno'];
-	}
-
-	/**
-	 * Il periodo di pubblicazione, come "dal 01/10/2026 al 16/10/2026".
-	 *
-	 * @param int $atto Atto.
-	 * @return string
-	 */
-	private static function periodo( int $atto ): string {
-		$fine = conformita_core_fine_pubblicazione( $atto );
-
-		return sprintf(
-			/* translators: 1: data di inizio, 2: data di fine. */
-			__( 'dal %1$s al %2$s', 'albo-pretorio-pa' ),
-			(string) get_post_time( 'd/m/Y', false, $atto ),
-			is_string( $fine ) ? self::data( $fine ) : ''
-		);
 	}
 
 	/**

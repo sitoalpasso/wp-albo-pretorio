@@ -76,7 +76,7 @@ final class Passaggi {
 	const AZIONE_RIMANDO = 'rimando_in_bozza';
 
 	/**
-	 * Azione della voce di registro dell'atto importato dal vecchio albo, con origine e dubbi portati.
+	 * Azione della voce di registro dell'atto importato da Albo Pretorio On line, con origine e dubbi portati.
 	 *
 	 * @var string
 	 */
@@ -169,7 +169,7 @@ final class Passaggi {
 	 * Se il passaggio in corso su questo atto e' una pubblicazione.
 	 *
 	 * Solo la pubblicazione, e l'importazione che porta a pubblicato un atto
-	 * del vecchio albo, lasciano scrivere a WordPress il nome nell'indirizzo
+	 * di Albo Pretorio On line, lasciano scrivere a WordPress il nome nell'indirizzo
 	 * di un atto pubblicato che non lo ha ancora: la proroga e il rimando no.
 	 *
 	 * @param int $atto_id Atto.
@@ -180,7 +180,7 @@ final class Passaggi {
 	}
 
 	/**
-	 * Se il passaggio in corso su questo atto e' un'importazione dal vecchio albo.
+	 * Se il passaggio in corso su questo atto e' un'importazione da Albo Pretorio On line.
 	 *
 	 * E' l'unico passaggio che parte da una bozza: la bozza preparata
 	 * dall'importazione, che arriva pubblicata senza passare dalla verifica.
@@ -523,10 +523,10 @@ final class Passaggi {
 	}
 
 	/**
-	 * Pubblica una bozza preparata dall'importazione, con il numero e le date del vecchio albo (ALBO-35).
+	 * Pubblica una bozza preparata dall'importazione, con il numero e le date di Albo Pretorio On line (ALBO-35).
 	 *
 	 * E' l'unico passaggio da bozza a pubblicato, e non e' una pubblicazione:
-	 * l'atto e' stato pubblicato nel vecchio albo, e qui arriva con i fatti
+	 * l'atto e' stato pubblicato in Albo Pretorio On line, e qui arriva con i fatti
 	 * avvenuti la'. Numero, anno, inizio e fine non li calcola il sistema, li
 	 * porta chi importa dal backup; tutto il resto e' come la pubblicazione:
 	 * stesse difese del guardiano, stessa transazione, stesso controllo finale
@@ -534,7 +534,7 @@ final class Passaggi {
 	 * si registra dentro la transazione: e' un numero gia' usato altrove, e se
 	 * l'importazione dell'atto non riesce deve tornare libero.
 	 *
-	 * Un inizio nel futuro si rifiuta: il nuovo albo non programma.
+	 * Un inizio nel futuro si rifiuta: questo albo non programma.
 	 *
 	 * @param int                  $atto_id Bozza preparata dall'importazione.
 	 * @param array<string, mixed> $dati    `anno`, `numero`, `inizio` e `fine` (AAAA-MM-GG), `dettagli` per la voce di registro.
@@ -588,7 +588,7 @@ final class Passaggi {
 		if ( ! $valida || $fine < $dati['inizio'] ) {
 			return new \WP_Error(
 				'albo_importazione_date_non_valide',
-				__( 'L\'atto non si importa: le date di inizio e di fine del vecchio albo non sono valide.', 'albo-pretorio-pa' )
+				__( 'L\'atto non si importa: le date di inizio e di fine di Albo Pretorio On line non sono valide.', 'albo-pretorio-pa' )
 			);
 		}
 
