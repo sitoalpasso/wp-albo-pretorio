@@ -588,8 +588,8 @@ final class AnalisiImportazione {
 		foreach ( $righe as $riga ) {
 			$origine = (string) $riga['origine'];
 
-			// Un atto pubblicato vince sulla bozza lasciata a meta' con la stessa origine.
-			if ( isset( $importati[ $origine ] ) && 'publish' === $importati[ $origine ]['stato'] ) {
+			// Un atto pubblicato, o pubblicato e poi annullato, vince sulla bozza lasciata a meta' con la stessa origine.
+			if ( isset( $importati[ $origine ] ) && self::portato( $importati[ $origine ]['stato'] ) ) {
 				continue;
 			}
 
@@ -600,6 +600,19 @@ final class AnalisiImportazione {
 		}
 
 		return $importati;
+	}
+
+	/**
+	 * Lo stato di un atto che l'importazione ha portato fino in fondo.
+	 *
+	 * Pubblicato, oppure annullato dopo: l'annullamento parte solo da un atto
+	 * pubblicato, e un rilancio dell'importazione non deve riportarlo.
+	 *
+	 * @param string $stato Stato.
+	 * @return bool
+	 */
+	private static function portato( string $stato ): bool {
+		return in_array( $stato, array( ChiusuraPubblicazione::PUBBLICATO, ChiusuraPubblicazione::ANNULLATO ), true );
 	}
 
 	/**
@@ -617,7 +630,7 @@ final class AnalisiImportazione {
 		$id        = (string) ( $riga['IdAtto'] ?? '' );
 		$importato = is_array( $contesto['importati'] ?? null ) ? ( $contesto['importati'][ $id ] ?? null ) : null;
 
-		if ( null === $importato || 'publish' !== $importato['stato'] || isset( $id_doppi[ $id ] ) ) {
+		if ( null === $importato || ! self::portato( $importato['stato'] ) || isset( $id_doppi[ $id ] ) ) {
 			return null;
 		}
 
