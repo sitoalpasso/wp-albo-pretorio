@@ -45,6 +45,7 @@ use AlboPretorioPa\Passaggi;
 use AlboPretorioPa\Repertorio;
 use AlboPretorioPa\SchermataImportazione;
 
+use const AlboPretorioPa\META_ALLEGATI_ULTERIORI;
 use const AlboPretorioPa\META_NUMERO_PROPRIO;
 use const AlboPretorioPa\META_ORIGINE_IMPORTAZIONE;
 use const AlboPretorioPa\SEZIONE;
@@ -1547,6 +1548,194 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-215. Una lettura dei documenti che fallisce, o un documento non registrato il cui file resta, lasciano la bozza da ritrovare.
+	 */
+	public function test_a215_lettura_e_deposito_incerti(): void {
+		$percorso  = $this->backup_nella_cartella();
+		$prima     = $this->documenti_sul_disco();
+		$documenti = static function ( int $bozza ): array {
+			return get_children(
+				array(
+					'post_parent' => $bozza,
+					'post_type'   => 'attachment',
+					'post_status' => 'any',
+					'fields'      => 'ids',
+				)
+			);
+		};
+
+		/*
+		 * Il passaggio dell'atto 12/2041 (numero interno 3) fallisce dopo il
+		 * deposito; da quel momento ogni lettura dei documenti di una bozza
+		 * fallisce, anche quella di WordPress, mentre le scritture riescono.
+		 */
+		$rotta  = false;
+		$guasto = static function ( $query ) use ( &$rotta ) {
+			$query = (string) $query;
+
+			if ( false !== stripos( $query, 'INSERT IGNORE' ) && 1 === preg_match( '/VALUES\s*\(\s*2041\s*,\s*12\s*,/i', $query ) ) {
+				$rotta = true;
+
+				return 'SELECT * FROM tabella_che_non_esiste';
+			}
+
+			return $rotta && 0 === stripos( ltrim( $query ), 'SELECT' ) && false !== strpos( $query, 'post_parent' ) ? 'SELECT * FROM tabella_che_non_esiste' : $query;
+		};
+
+		add_filter( 'query', $guasto );
+		$this->avvia_diretto( $percorso );
+		$fermo = Importazione::prosegui( 50, microtime( true ) + 60 );
+		remove_filter( 'query', $guasto );
+
+		$this->assertTrue( $rotta, 'Precondizione: il guasto e\' partito.' );
+		$this->assertSame( 2, $fermo['posizione'], 'Fermo subito dopo l\'atto incerto.' );
+		$this->assertSame( array( '12/2041' ), array_column( $fermo['non_riusciti'], 'numero' ) );
+		$this->assertStringContainsString( 'Stato incerto', $fermo['non_riusciti'][0]['testo'] );
+
+		$bozza = $this->importati()['3']['id'];
+
+		$this->assertSame( 'draft', get_post_status( $bozza ), 'Senza l\'elenco dei documenti la bozza non si cancella.' );
+		$this->assertCount( 2, $documenti( $bozza ) );
+
+		$this->assertSame( 'interrotta', Importazione::interrompi()['stato'] );
+		$this->importa_tutto( $percorso );
+
+		$this->assertFalse( get_post( $bozza ) instanceof \WP_Post );
+		$this->assertSame( $this->importati_per_inventario(), $this->inventario() );
+		$this->assertSame( $this->file_attesi( $prima ), $this->documenti_sul_disco(), 'Nessun file senza documento.' );
+	}
+
+	/**
+	 * A-215. La lettura di controllo prima di togliere la bozza, se non risponde, lascia la bozza.
+	 */
+	public function test_a215_controllo_finale_fallito(): void {
+		$percorso = $this->backup_nella_cartella();
+		$prima    = $this->documenti_sul_disco();
+
+		// Il passaggio dell'atto 12/2041 fallisce; la pulizia legge i documenti, li toglie, e la seconda lettura non risponde.
+		$rotta   = false;
+		$letture = 0;
+		$guasto  = static function ( $query ) use ( &$rotta, &$letture ) {
+			$query = (string) $query;
+
+			if ( false !== stripos( $query, 'INSERT IGNORE' ) && 1 === preg_match( '/VALUES\s*\(\s*2041\s*,\s*12\s*,/i', $query ) ) {
+				$rotta = true;
+
+				return 'SELECT * FROM tabella_che_non_esiste';
+			}
+
+			if ( $rotta && false !== strpos( $query, \Conformita_Core_Allegati::MARCA ) && false !== strpos( $query, 'p.post_parent' ) ) {
+				++$letture;
+
+				return 2 === $letture ? 'SELECT * FROM tabella_che_non_esiste' : $query;
+			}
+
+			return $query;
+		};
+
+		add_filter( 'query', $guasto );
+		$this->avvia_diretto( $percorso );
+		$fermo = Importazione::prosegui( 50, microtime( true ) + 60 );
+		remove_filter( 'query', $guasto );
+
+		$this->assertSame( 2, $letture, 'Precondizione: la seconda lettura e\' quella di controllo.' );
+		$this->assertSame( 2, $fermo['posizione'] );
+		$this->assertStringContainsString( 'Stato incerto', $fermo['non_riusciti'][0]['testo'] );
+
+		$bozza = $this->importati()['3']['id'];
+
+		$this->assertSame( 'draft', get_post_status( $bozza ), 'Senza la conferma che non resta niente, la bozza resta.' );
+
+		$this->assertSame( 'interrotta', Importazione::interrompi()['stato'] );
+		$this->importa_tutto( $percorso );
+
+		$this->assertFalse( get_post( $bozza ) instanceof \WP_Post );
+		$this->assertSame( $this->importati_per_inventario(), $this->inventario() );
+		$this->assertSame( $this->file_attesi( $prima ), $this->documenti_sul_disco() );
+	}
+
+	/**
+	 * A-215. Un documento depositato che l'atto non registra, con il file che resta, lascia la bozza da ritrovare.
+	 */
+	public function test_a215_deposito_non_registrato(): void {
+		$percorso = $this->backup_nella_cartella();
+		$prima    = $this->documenti_sul_disco();
+		$cartella = \Conformita_Core_Allegati::cartella();
+		$titolo   = 'Atto con due allegati';
+
+		// Il dato degli allegati ulteriori di quell'atto non si scrive, e i file dei documenti non si cancellano.
+		$non_scrive = static function ( $controllo, $atto_id, $chiave ) use ( $titolo ) {
+			return META_ALLEGATI_ULTERIORI === $chiave && get_the_title( (int) $atto_id ) === $titolo ? false : $controllo;
+		};
+		$conserva   = static function ( $file ) use ( $cartella ) {
+			return 0 === strpos( (string) $file, $cartella ) ? '' : $file;
+		};
+
+		add_filter( 'update_post_metadata', $non_scrive, 10, 3 );
+		add_filter( 'wp_delete_file', $conserva );
+		$this->avvia_diretto( $percorso );
+		$fermo = Importazione::prosegui( 50, microtime( true ) + 60 );
+		remove_filter( 'update_post_metadata', $non_scrive, 10 );
+		remove_filter( 'wp_delete_file', $conserva );
+
+		$this->assertSame( 2, $fermo['posizione'] );
+		$this->assertSame( array( 'albo_importazione_deposito' ), array_column( $fermo['non_riusciti'], 'codice' ) );
+		$this->assertStringContainsString( 'Stato incerto', $fermo['non_riusciti'][0]['testo'] );
+
+		$bozza = $this->importati()['3']['id'];
+		$file  = array_map( 'strval', get_post_meta( $bozza, Importazione::META_FILE_DA_TOGLIERE, false ) );
+
+		$this->assertSame( 'draft', get_post_status( $bozza ) );
+		$this->assertSame(
+			array(),
+			get_children(
+				array(
+					'post_parent' => $bozza,
+					'post_type'   => 'attachment',
+					'post_status' => 'any',
+				)
+			),
+			'Precondizione: il documento se n\'e\' andato.'
+		);
+		$this->assertCount( 1, $file, 'Il file del documento non registrato e\' nell\'elenco della bozza.' );
+		$this->assertFileExists( $file[0], 'Precondizione: il file e\' rimasto.' );
+
+		$this->assertSame( 'interrotta', Importazione::interrompi()['stato'] );
+		$this->importa_tutto( $percorso );
+
+		$this->assertFalse( get_post( $bozza ) instanceof \WP_Post );
+		$this->assertSame( $this->importati_per_inventario(), $this->inventario() );
+		$this->assertSame( $this->file_attesi( $prima ), $this->documenti_sul_disco(), 'Nessun file senza documento.' );
+	}
+
+	/**
+	 * I file che devono stare sul disco: quelli di prima e quelli dei documenti degli importati.
+	 *
+	 * @param array<int, string> $prima File sul disco prima dell'importazione.
+	 * @return array<int, string>
+	 */
+	private function file_attesi( array $prima ): array {
+		$attesi = $prima;
+
+		foreach ( $this->importati() as $atto ) {
+			foreach ( get_children(
+				array(
+					'post_parent' => $atto['id'],
+					'post_type'   => 'attachment',
+					'post_status' => 'any',
+					'fields'      => 'ids',
+				)
+			) as $documento ) {
+				$attesi[] = get_attached_file( (int) $documento, true );
+			}
+		}
+
+		sort( $attesi );
+
+		return $attesi;
+	}
+
+	/**
 	 * A-210. Con le revisioni spente nella configurazione del sito, l'importazione funziona lo stesso.
 	 */
 	public function test_a210_con_le_revisioni_spente(): void {
@@ -1691,8 +1880,13 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 
 		// Le risposte della banca dati si scelgono qui: MySQL non ha la variabile, MariaDB si'.
 		$risposta = 'SELECT 0';
-		$riscrivi = static function ( $query ) use ( &$risposta ) {
-			return 'SELECT @@in_transaction' === $query ? $risposta : $query;
+		$elenco   = "SELECT 'in_transaction', 'ON'";
+		$riscrivi = static function ( $query ) use ( &$risposta, &$elenco ) {
+			if ( 'SELECT @@in_transaction' === $query ) {
+				return $risposta;
+			}
+
+			return 0 === strpos( (string) $query, 'SHOW SESSION VARIABLES' ) ? $elenco : $query;
 		};
 
 		add_filter( 'query', $riscrivi );
@@ -1708,10 +1902,17 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 
 			$this->assertTrue( Repertorio::transazione_esterna(), 'Precondizione: la banca dati dice che la transazione e\' aperta.' );
 
-			// La lettura fallisce: non si sa, quindi transazione.
+			// La lettura fallisce su una banca dati che ha la variabile: non si sa, quindi transazione.
 			$risposta = 'SELECT * FROM tabella_che_non_esiste';
 
 			$this->assertTrue( Repertorio::transazione_esterna() );
+
+			// Fallisce anche l'elenco delle variabili: ancora transazione.
+			$elenco = 'SELECT * FROM tabella_che_non_esiste';
+
+			$this->assertTrue( Repertorio::transazione_esterna() );
+
+			$elenco = "SELECT 'in_transaction', 'ON'";
 
 			$rifiutata = Importazione::avvia(
 				$percorso,
@@ -1734,8 +1935,9 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 
 			$this->assertSame( '0', (string) $principale->get_var( $principale->prepare( 'SELECT GET_LOCK( %s, 0 )', Repertorio::nome_blocco_anno( 2039 ) ) ), 'Il blocco e\' ancora tenuto.' );
 
-			// Solo la variabile che la banca dati dichiara di non conoscere dice "nessuna transazione": una versione che non ne tiene il conto.
+			// Solo una banca dati che non ha la variabile nel suo elenco dice "nessuna transazione": una versione che non ne tiene il conto.
 			$risposta = 'SELECT @@variabile_che_non_esiste';
+			$elenco   = "SHOW SESSION VARIABLES LIKE 'variabile\\_che\\_non\\_esiste'";
 
 			$this->assertFalse( Repertorio::transazione_esterna() );
 
