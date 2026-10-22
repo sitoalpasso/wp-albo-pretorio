@@ -139,7 +139,13 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
   con una lettura che distingue "nessun documento" da "nessuna risposta", e una seconda
   lettura uguale, subito prima di togliere la bozza, conferma che non ne resta nessuno.
   Allo stesso modo si legge l'elenco dei file scritto sulla bozza: senza risposta, la bozza
-  resta.
+  resta. La bozza ricorda anche gli identificativi dei documenti: WordPress ne cancella i
+  dati prima della riga, e un documento rimasto a metà senza la sua marca si ritrova da lì.
+- Dopo l'ultimo deposito, prima del passaggio a pubblicato, si rilegge dalla banca dati
+  cosa indica l'atto: documento principale e allegati ulteriori devono essere tutti e soli
+  quelli depositati, nell'ordine. Una lettura mancata fra due depositi può far perdere un
+  allegato dall'elenco: allora l'atto non si porta, la bozza si toglie, e il rilancio lo
+  riprova.
   Durante l'importazione un documento depositato che l'atto non riesce a registrare non si
   cancella subito: resta alla bozza, e lo toglie questa stessa pulizia. Una bozza scritta da
   una persona non ha né il ricordo né un segno salvato, e non si tocca mai, qualunque nome
@@ -264,6 +270,11 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
   documenti); la copia di un file dall'archivio lasciava il file temporaneo su alcune uscite
   d'errore (ora ogni uscita senza successo lo cancella, e lo passa a chi chiama solo il file
   intero). Ogni caso ha la sua prova, e la mutazione corrispondente la rende rossa.
+- La settima revisione esterna ha chiesto due correzioni, fatte: un documento la cui riga
+  non si cancellava dopo i suoi dati perdeva la marca e non si ritrovava più (ora la bozza ne
+  ricorda l'identificativo); una lettura mancata dell'elenco degli allegati fra due depositi
+  poteva pubblicare un atto con un allegato in meno (ora l'elenco si ricontrolla prima del
+  passaggio). Ogni caso ha la sua prova, e la mutazione corrispondente la rende rossa.
 - La riga A-193 dell'importazione a secco fallisce in questo ambiente di prova anche sul ramo
   principale, per la versione di `iconv`: non dipende da questo lavoro.
 
