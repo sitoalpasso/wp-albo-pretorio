@@ -1821,6 +1821,124 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-215. Un documento la cui riga non si cancella dopo i suoi dati resta ricordato dalla bozza, e il rilancio lo toglie.
+	 */
+	public function test_a215_documento_cancellato_a_meta(): void {
+		global $wpdb;
+
+		$percorso = $this->backup_nella_cartella();
+		$prima    = $this->documenti_sul_disco();
+
+		/*
+		 * Il passaggio dell'atto 12/2041 (numero interno 3) fallisce dopo il
+		 * deposito; poi la cancellazione della riga dei suoi documenti
+		 * fallisce, quando WordPress ne ha gia' cancellato i dati, marca
+		 * compresa.
+		 */
+		$rotta      = false;
+		$trattenuti = array();
+		$guasto     = static function ( $query ) use ( &$rotta, &$trattenuti, $wpdb ) {
+			$query = (string) $query;
+
+			if ( false !== stripos( $query, 'INSERT IGNORE' ) && 1 === preg_match( '/VALUES\s*\(\s*2041\s*,\s*12\s*,/i', $query ) ) {
+				$rotta = true;
+
+				return 'SELECT * FROM tabella_che_non_esiste';
+			}
+
+			if ( $rotta && 1 === preg_match( '/^DELETE FROM `?' . preg_quote( $wpdb->posts, '/' ) . '`? WHERE `ID` = (\d+)/', $query, $trovato ) ) {
+				$trattenuti[] = (int) $trovato[1];
+
+				return 'SELECT * FROM tabella_che_non_esiste';
+			}
+
+			return $query;
+		};
+
+		add_filter( 'query', $guasto );
+		$this->avvia_diretto( $percorso );
+		$fermo = Importazione::prosegui( 50, microtime( true ) + 60 );
+		remove_filter( 'query', $guasto );
+
+		$this->assertNotSame( array(), $trattenuti, 'Precondizione: la cancellazione della riga e\' fallita.' );
+		$this->assertSame( 2, $fermo['posizione'] );
+		$this->assertStringContainsString( 'Stato incerto', $fermo['non_riusciti'][0]['testo'] );
+
+		$bozza = $this->importati()['3']['id'];
+
+		$this->assertSame( 'draft', get_post_status( $bozza ) );
+
+		foreach ( $trattenuti as $documento ) {
+			clean_post_cache( $documento );
+
+			$this->assertSame( 'attachment', get_post_type( $documento ), 'Precondizione: la riga del documento e\' rimasta.' );
+			$this->assertSame( '', (string) get_post_meta( $documento, \Conformita_Core_Allegati::MARCA, true ), 'Precondizione: senza la marca.' );
+		}
+
+		$this->assertContains( (string) $trattenuti[0], get_post_meta( $bozza, Importazione::META_DOCUMENTI_DA_TOGLIERE, false ) );
+
+		$this->assertSame( 'interrotta', Importazione::interrompi()['stato'] );
+		$this->importa_tutto( $percorso );
+
+		$this->assertFalse( get_post( $bozza ) instanceof \WP_Post );
+
+		foreach ( $trattenuti as $documento ) {
+			clean_post_cache( $documento );
+
+			$this->assertNull( get_post( $documento ), 'Il documento rimasto a meta\' si e\' tolto.' );
+		}
+
+		$this->assertSame( $this->importati_per_inventario(), $this->inventario() );
+		$this->assertSame( $this->file_attesi( $prima ), $this->documenti_sul_disco(), 'Nessun file senza documento.' );
+		$this->assertSame( array(), $this->documenti_senza_atto(), 'Nessun documento senza atto.' );
+	}
+
+	/**
+	 * A-215. Una lettura dell'elenco degli allegati che non risponde fra due depositi non porta un atto con un allegato in meno.
+	 */
+	public function test_a215_allegato_perso_fra_due_depositi(): void {
+		$percorso = $this->backup_nella_cartella();
+		$prima    = $this->documenti_sul_disco();
+		$titolo   = 'Atto con due allegati';
+
+		// La lettura dell'elenco degli allegati di quell'atto risponde vuoto: il secondo deposito lo riscrive con se' solo.
+		$vuoto = static function ( $valore, $atto_id, $chiave ) use ( $titolo ) {
+			return META_ALLEGATI_ULTERIORI === $chiave && get_the_title( (int) $atto_id ) === $titolo ? array() : $valore;
+		};
+
+		add_filter( 'get_post_metadata', $vuoto, 10, 3 );
+		$stato = $this->importa_tutto( $percorso );
+		remove_filter( 'get_post_metadata', $vuoto, 10 );
+
+		$this->assertSame( array( '12/2041' ), array_column( $stato['non_riusciti'], 'numero' ) );
+		$this->assertSame( 'albo_importazione_collegamenti', $stato['non_riusciti'][0]['codice'] );
+		$this->assertStringNotContainsString( 'Stato incerto', $stato['non_riusciti'][0]['testo'], 'La bozza si e\' tolta: l\'esito e\' certo.' );
+		$this->assertArrayNotHasKey( '3', $this->importati(), 'Nessun atto con un allegato in meno.' );
+		$this->assertSame( $this->importati_per_inventario(), $this->inventario() );
+		$this->assertSame( $this->file_attesi( $prima ), $this->documenti_sul_disco() );
+		$this->assertSame( array(), $this->documenti_senza_atto() );
+
+		// Senza guasti il rilancio lo porta con entrambi gli allegati.
+		$this->importa_tutto( $percorso );
+
+		$atto = $this->importati()['3']['id'];
+
+		$this->assertCount( 2, DocumentiAtto::ulteriori( $atto ) );
+	}
+
+	/**
+	 * I documenti il cui atto non esiste piu'.
+	 *
+	 * @return array<int, int>
+	 */
+	private function documenti_senza_atto(): array {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: si legge cio' che c'e' davvero nella banca dati.
+		return array_map( 'intval', $wpdb->get_col( $wpdb->prepare( 'SELECT a.ID FROM %i a LEFT JOIN %i p ON p.ID = a.post_parent WHERE a.post_type = %s AND a.post_parent > 0 AND p.ID IS NULL', $wpdb->posts, $wpdb->posts, 'attachment' ) ) );
+	}
+
+	/**
 	 * A-210. Con le revisioni spente nella configurazione del sito, l'importazione funziona lo stesso.
 	 */
 	public function test_a210_con_le_revisioni_spente(): void {
