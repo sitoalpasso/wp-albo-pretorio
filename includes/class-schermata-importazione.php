@@ -107,6 +107,17 @@ final class SchermataImportazione {
 	const CAMPO_ATTI = 'albo_pretorio_importazione_atti';
 
 	/**
+	 * Il controllo che il file arrivi davvero da un caricamento.
+	 *
+	 * Nullo vuol dire `is_uploaded_file()`. Solo le prove lo cambiano, per
+	 * riflessione: una richiesta di prova non porta un caricamento HTTP vero.
+	 * Nessun filtro lo espone, quindi nessun componente puo' allentarlo.
+	 *
+	 * @var callable|null
+	 */
+	private static $verifica_caricamento = null;
+
+	/**
 	 * Nome del campo con il numero di atti visibili che chi importa ha visto.
 	 *
 	 * @var string
@@ -254,7 +265,9 @@ final class SchermataImportazione {
 
 			$temporaneo = isset( $caricato['tmp_name'] ) && is_string( $caricato['tmp_name'] ) ? $caricato['tmp_name'] : '';
 
-			if ( '' === $temporaneo || ! is_uploaded_file( $temporaneo ) ) {
+			$caricato_davvero = null === self::$verifica_caricamento ? is_uploaded_file( $temporaneo ) : (bool) call_user_func( self::$verifica_caricamento, $temporaneo );
+
+			if ( '' === $temporaneo || ! $caricato_davvero ) {
 				return new \WP_Error( 'albo_importazione_caricamento', __( 'Il caricamento del file non e\' riuscito.', 'albo-pretorio-pa' ) );
 			}
 
