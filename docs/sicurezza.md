@@ -98,6 +98,11 @@ produrre un rifiuto rumoroso, mai un permesso silenzioso.
 - `show_in_rest` dichiarato deliberatamente per ogni tipo di contenuto, e la REST
   rispetta le stesse regole di visibilità del resto del sito: un contenuto scaduto
   non è raggiungibile nemmeno per ID diretto.
+- I documenti di un atto annullato non si consegnano al pubblico, anche mentre
+  l'avviso dell'annullamento è in vista: lo stato non pubblico li fa rifiutare dal
+  meccanismo comune e l'albo li nega a sua volta, con lo stesso rifiuto di un atto
+  scaduto. Nell'amministrazione si aprono a chi gestisce gli atti, non a chi ha il
+  solo permesso di consultare gli scaduti.
 - I metadati non pensati per il pubblico non sono esposti dalla REST.
 
 ## Domande di controllo

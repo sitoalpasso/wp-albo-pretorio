@@ -413,7 +413,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-19 | da fare | Battito di controllo con avviso | **prodotto**, motivato dal guasto silenzioso sanzionato nel provv. Garante marzo 2026 |
 | ALBO-20 | da fare | L'atto defisso non viene più servito a nessuno | **norma** il risultato (Garante). **Prodotto** esclusione dalla memoria di pagina oppure invalidazione immediata: due strade, la scelta è nostra |
 | ALBO-21 | da fare | Scadenza sull'ora civile italiana | **prodotto**: correttezza tecnica, nessuna fonte esterna |
-| ALBO-22 | in corso | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto**, decisione chiusa il 2026-09-21: la tabella delle transizioni è nella nota qui sotto. Quattro sotto-decisioni ne sono seguite, di cui **tre restano aperte** e nessuna blocca l'unità; la quarta, sulle cause che legittimano la defissione anticipata, è chiusa il 2026-09-22 |
+| ALBO-22 | in corso | Stati dell'atto, transizioni consentite, chi prepara e chi pubblica come permessi distinti | **prodotto**, decisione chiusa il 2026-09-21: la tabella delle transizioni è nella nota qui sotto. Quattro sotto-decisioni ne sono seguite, di cui **due restano aperte** e nessuna blocca l'unità; la quarta, sulle cause che legittimano la defissione anticipata, è chiusa il 2026-09-22, la prima, su che cosa il pubblico vede di un annullato, il 2026-10-22 |
 | ALBO-27 | in corso | **La pubblicazione non si programma.** La data di inizio la scrive il sistema al passaggio a pubblicato, non è modificabile e non può stare nel futuro; nello stesso istante scrive la data di fine come inizio più durata applicabile, così che nessun valore calcolato prima della pubblicazione possa accorciare il periodo | **prodotto**, deciso il 2026-09-22. L'albo sostituisce la bacheca di carta, dove programmare non era possibile. Se un'amministrazione lo chiederà, si costruirà allora |
 | ALBO-28 | fatto | Le pagine che il componente genera (elenco, scheda, ricerca) sono accessibili con i soli mezzi del componente, qualunque tema usi il sito | **norma** la pubblicazione applica i requisiti di accessibilità (l. 69/2009 art. 32 c. 1, che rinvia a l. 4/2004 art. 11), e l'obbligo è dell'amministrazione. **Prodotto** che ne risponda il componente da solo, senza chiedere niente al tema, deciso il 2026-09-23. Limiti dichiarati: stili sovrascritti dal tema, documenti dell'ente |
 | ALBO-29 | da fare | Ogni atto ospitato di un'altra amministrazione porta e mostra al pubblico l'amministrazione che l'ha adottato. La scelta è obbligatoria e senza preselezione appena l'elenco delle amministrazioni ospitate ha una voce | **norma** la pubblicazione sull'albo di un altro ente è prevista (TUEL art. 124 c. 2, l. 69/2009 art. 32 c. 3); i ruoli sui dati li stabiliscono gli enti fra loro. **Prodotto** l'indicazione mostrata e l'assenza di accessi separati, deciso il 2026-09-23 |
@@ -554,13 +554,17 @@ coincide più con la data di fine memorizzata. Il referto va quindi costruito su
 non sul metadato, e dal registro prende anche la dichiarazione dell'amministrazione su che
 cosa la rimozione comporti per l'adempimento, quando c'è.
 
-#### Quattro sotto-decisioni, di cui tre restano aperte, e nessuna blocca l'unità
+#### Quattro sotto-decisioni, di cui due restano aperte, e nessuna blocca l'unità
 
 1. **Un atto annullato prima della scadenza resta visibile al pubblico, con lo stato
    dichiarato?** Negli albi la pubblicazione dell'annullamento ha una sua funzione
    informativa. La transizione si costruisce comunque: che cosa il pubblico veda di un atto
    annullato è una domanda sul filtro in lettura, separata da chi può compiere il passaggio.
-   Finché non è decisa non ha riga in `collaudo.md`.
+   **Chiusa il 2026-10-22 con "Solo l'avviso"**: l'annullato resta nell'elenco pubblico fino
+   alla sua scadenza, con numero, oggetto, data e motivo dell'annullamento; i suoi documenti
+   non si scaricano più, con lo stesso rifiuto dei documenti di un atto scaduto; dalla
+   scadenza sparisce come ogni altro atto. Righe A-224..A-230 di `collaudo.md`, scheda
+   `implementazione/annullamento.md`.
 2. **Chi dispone la defissione anticipata.** Qui è attribuita a chi pubblica, **in via
    provvisoria**. Alcuni enti la riservano a un responsabile nominato, che sarebbe una terza
    figura. La riga di collaudo prova la forma provvisoria e la marca come tale.
@@ -646,9 +650,9 @@ cosa la rimozione comporti per l'adempimento, quando c'è.
    non allo stato del momento: resta quindi possibile anche se l'atto viene poi annullato, e
    il compito pianificato, che porta a defisso solo gli atti ancora pubblicati, non la tocca.
    Il permesso è quello di disporre la defissione, non quello di pubblicare, e non si chiede
-   un perché: la dichiarazione è essa stessa la risposta. Se un giorno si decidesse che un
-   atto annullato esce dalla vista (sotto-decisione 1), la stessa domanda si porrebbe anche
-   per l'annullamento.
+   un perché: la dichiarazione è essa stessa la risposta. Per l'annullamento la stessa
+   domanda non si pone: l'annullato resta in vista fino alla sua scadenza (sotto-decisione 1),
+   quindi il periodo di pubblicazione non si accorcia.
 
    **Il caso opposto esiste e non va confuso con questo.** Dove la norma un termine non lo
    fissa, il periodo lo individua l'amministrazione, e il Garante dice che quel periodo non
@@ -717,6 +721,6 @@ primi tre chiusi dalla pubblicazione, gli altri dall'unità che ha costruito il 
 permessi e il ruolo proprio. Sono **"in corso"** ALBO-08, ALBO-09, ALBO-10, ALBO-22 e
 ALBO-27: il codice c'è per una parte, e ciascuno ha righe che aspettano funzioni non ancora
 costruite, cioè la durata propria (ALBO-04), la sostituzione per oscuramento (ALBO-08,
-ALBO-09, ALBO-12), la defissione anticipata e l'annullamento (ALBO-10, ALBO-22). **Tutti gli altri sono a "da fare"**. Il componente
+ALBO-09, ALBO-12), la defissione anticipata (ALBO-10, ALBO-22); l'annullamento è costruito, righe A-224..A-230. **Tutti gli altri sono a "da fare"**. Il componente
 pubblica gli atti ma **non li mostra ancora al pubblico**: la pagina pubblica non è
 costruita.
