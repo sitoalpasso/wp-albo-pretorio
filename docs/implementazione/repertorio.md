@@ -14,7 +14,7 @@ componente non assegna nessun numero finché chi pubblica non ha dichiarato, in 
 apposita, **l'ultimo numero già usato quell'anno**. Se ha scritto 121, il primo atto
 pubblicato qui prende il 122. Se non c'è un registro precedente si scrive 0, e si parte da 1.
 Un valore già pronto non c'è: partire da 1 in silenzio produrrebbe due atti con lo stesso
-numero, uno nel registro vecchio e uno qui. La schermata mostra quale sarà il prossimo
+numero, uno nel registro precedente e uno qui. La schermata mostra quale sarà il prossimo
 numero prima e dopo la dichiarazione, che si può correggere finché nessun numero di
 quell'anno è stato assegnato, e dopo resta com'è. Dal primo gennaio successivo la
 numerazione riparte da 1 da sola, perché il registro dell'anno prima lo teneva già il
@@ -74,7 +74,7 @@ pubblicazione (A5), che la chiamerà nel passaggio a pubblicato.
 
 Chi ha il permesso di pubblicare installa il componente a settembre. In bacheca vede un
 avviso: prima di pubblicare va dichiarato l'ultimo numero usato quest'anno. Apre **Albo
-pretorio, Numerazione**, legge che il vecchio registro è arrivato a 121, scrive 121 e salva.
+pretorio, Numerazione**, legge che il registro precedente è arrivato a 121, scrive 121 e salva.
 La schermata risponde: il prossimo atto avrà il numero 122/2026, dichiarato da lui oggi.
 Si accorge di un errore, era 124: corregge, e la schermata dice 125/2026. Poi si pubblica il
 primo atto, che prende il 125. Da quel momento la schermata mostra la dichiarazione ma non

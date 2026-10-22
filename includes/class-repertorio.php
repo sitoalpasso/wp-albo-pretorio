@@ -311,7 +311,7 @@ final class Repertorio {
 	 * I numeri gia' dati nell'anno indicato, come chiavi.
 	 *
 	 * Serve all'importazione a secco (ALBO-35) per dire quali numeri del
-	 * vecchio registro il nuovo albo ha gia' dato. Nulla se la lettura non ha
+	 * registro precedente questo albo ha gia' dato. Nulla se la lettura non ha
 	 * risposto.
 	 *
 	 * @param int $anno Anno.
@@ -521,7 +521,7 @@ final class Repertorio {
 		global $wpdb;
 
 		/*
-		 * Un numero importato dal vecchio albo e' gia' stato usato: una partenza
+		 * Un numero importato da Albo Pretorio On line e' gia' stato usato: una partenza
 		 * piu' bassa farebbe ridare quel numero al prossimo atto pubblicato.
 		 * Finche' l'anno non ha dato numeri, gli unici numeri registrati sono
 		 * quelli importati; dopo, la dichiarazione e' comunque bloccata, e lo
@@ -758,14 +758,14 @@ final class Repertorio {
 	}
 
 	/**
-	 * Registra il numero che un atto importato aveva nel vecchio albo (ALBO-35).
+	 * Registra il numero che un atto importato aveva in Albo Pretorio On line (ALBO-35).
 	 *
 	 * **La riga dell'anno non si tocca.** Un anno con una riga e' un anno di
-	 * cui il nuovo albo crede di aver tenuto la numerazione: una riga scritta
+	 * cui questo albo crede di aver tenuto la numerazione: una riga scritta
 	 * per un anno passato farebbe ripartire da 1 l'anno nuovo, senza
 	 * dichiarazione. Il numero va solo fra le assegnazioni, e se l'anno ha gia'
-	 * una riga non puo' superarne la partenza, cioe' l'ultimo numero del vecchio
-	 * registro dichiarato: oltre, il numero sarebbe del nuovo albo. La riga si
+	 * una riga non puo' superarne la partenza, cioe' l'ultimo numero del registro
+	 * precedente dichiarato: oltre, il numero sarebbe di questo albo. La riga si
 	 * legge bloccandola, cosi' che una dichiarazione non cambi la partenza fra
 	 * il controllo e la scrittura; per questo va chiamata dentro la transazione
 	 * di chi importa.
@@ -781,7 +781,7 @@ final class Repertorio {
 		if ( $anno < 1 || $anno > 9999 || $numero < 1 || $numero > self::MASSIMO ) {
 			return new \WP_Error(
 				'albo_repertorio_importato_non_valido',
-				__( 'Numero non registrato: il numero o l\'anno del vecchio albo non sono validi.', 'albo-pretorio-pa' )
+				__( 'Numero non registrato: il numero o l\'anno di Albo Pretorio On line non sono validi.', 'albo-pretorio-pa' )
 			);
 		}
 
@@ -830,8 +830,8 @@ final class Repertorio {
 			return new \WP_Error(
 				'albo_repertorio_importato_oltre_partenza',
 				sprintf(
-					/* translators: 1: numero/anno, 2: ultimo numero del vecchio registro dichiarato. */
-					__( 'Numero non registrato: %1$s viene dopo l\'ultimo numero del vecchio registro dichiarato nel nuovo albo (%2$d).', 'albo-pretorio-pa' ),
+					/* translators: 1: numero/anno, 2: ultimo numero del registro precedente dichiarato. */
+					__( 'Numero non registrato: %1$s viene dopo l\'ultimo numero del registro precedente dichiarato in questo albo (%2$d).', 'albo-pretorio-pa' ),
 					$numero . '/' . $anno,
 					(int) $riga[0]['partenza']
 				)
@@ -871,7 +871,7 @@ final class Repertorio {
 				'albo_repertorio_importato_gia_dato',
 				sprintf(
 					/* translators: %s: numero/anno. */
-					__( 'Numero non registrato: %s e\' gia\' di un altro atto del nuovo albo.', 'albo-pretorio-pa' ),
+					__( 'Numero non registrato: %s e\' gia\' di un altro atto di questo albo.', 'albo-pretorio-pa' ),
 					$numero . '/' . $anno
 				)
 			);
@@ -911,7 +911,7 @@ final class Repertorio {
 			'albo_repertorio_partenza_sotto_importati',
 			sprintf(
 				/* translators: 1: numero/anno gia' presente, 2: anno. */
-				__( 'Partenza non dichiarata: il numero %1$s e\' gia\' registrato, importato dal vecchio albo, e la partenza del %2$d non puo\' essere piu\' bassa.', 'albo-pretorio-pa' ),
+				__( 'Partenza non dichiarata: il numero %1$s e\' gia\' registrato, importato da Albo Pretorio On line, e la partenza del %2$d non puo\' essere piu\' bassa.', 'albo-pretorio-pa' ),
 				(int) $massimo[0]['n'] . '/' . $anno,
 				$anno
 			)

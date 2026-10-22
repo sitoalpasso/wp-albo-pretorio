@@ -1,10 +1,10 @@
 <?php
 /**
- * La schermata dell'importazione dal vecchio albo (ALBO-35).
+ * La schermata dell'importazione da Albo Pretorio On line (ALBO-35).
  *
  * Chi pubblica sceglie un backup del plugin "Albo Pretorio On line", fra quelli
  * che quel plugin ha lasciato nella sua cartella sul server oppure caricandolo
- * dal proprio computer, e legge il rapporto di cosa si porterebbe nel nuovo
+ * dal proprio computer, e legge il rapporto di cosa si porterebbe in questo
  * albo. La lettura **non scrive niente**: ne' atti, ne' tipi, ne' numeri, ne'
  * file. Il file caricato si legge dal posto temporaneo in cui lo mette PHP, che
  * lo cancella da se' alla fine della richiesta, e il rapporto vive solo nella
@@ -168,8 +168,8 @@ final class SchermataImportazione {
 
 		add_submenu_page(
 			'edit.php?post_type=' . TIPO,
-			__( 'Importazione dal vecchio albo', 'albo-pretorio-pa' ),
-			__( 'Importazione dal vecchio albo', 'albo-pretorio-pa' ),
+			__( 'Importazione da Albo Pretorio On line', 'albo-pretorio-pa' ),
+			__( 'Importazione da Albo Pretorio On line', 'albo-pretorio-pa' ),
 			$permessi[0],
 			self::PAGINA,
 			array( self::class, 'mostra' )
@@ -317,7 +317,7 @@ final class SchermataImportazione {
 	 */
 	public static function importazione_da_invio( array $invio ) {
 		if ( ! self::permessa() ) {
-			return new \WP_Error( 'albo_importazione_permesso', __( 'Non si possiede il permesso di importare gli atti del vecchio albo.', 'albo-pretorio-pa' ) );
+			return new \WP_Error( 'albo_importazione_permesso', __( 'Non si possiede il permesso di importare gli atti di Albo Pretorio On line.', 'albo-pretorio-pa' ) );
 		}
 
 		$gettone = isset( $invio[ self::CAMPO_GETTONE_IMPORTA ] ) && is_string( $invio[ self::CAMPO_GETTONE_IMPORTA ] ) ? sanitize_text_field( wp_unslash( $invio[ self::CAMPO_GETTONE_IMPORTA ] ) ) : '';
@@ -412,10 +412,10 @@ final class SchermataImportazione {
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
 		echo '<div class="wrap albo-pretorio-importazione">';
-		printf( '<h1>%s</h1>', esc_html__( 'Importazione dal vecchio albo', 'albo-pretorio-pa' ) );
+		printf( '<h1>%s</h1>', esc_html__( 'Importazione da Albo Pretorio On line', 'albo-pretorio-pa' ) );
 		printf(
 			'<p>%s</p>',
-			esc_html__( 'Legge il backup del plugin "Albo Pretorio On line" (menu Albo, Utility, Backup) e mostra cosa si porterebbe nel nuovo albo: atti, date, numeri, documenti, conflitti e dubbi. La lettura non scrive niente: ne\' atti, ne\' tipi, ne\' numeri, ne\' file. L\'importazione vera si avvia dopo, sotto il rapporto, con una conferma esplicita.', 'albo-pretorio-pa' )
+			esc_html__( 'Legge il backup del plugin "Albo Pretorio On line" (menu Albo, Utility, Backup) e mostra cosa si porterebbe in questo albo: atti, date, numeri, documenti, conflitti e dubbi. La lettura non scrive niente: ne\' atti, ne\' tipi, ne\' numeri, ne\' file. L\'importazione vera si avvia dopo, sotto il rapporto, con una conferma esplicita.', 'albo-pretorio-pa' )
 		);
 
 		if ( is_wp_error( $importa ) ) {
@@ -480,7 +480,7 @@ final class SchermataImportazione {
 	 * @param string               $nome     Nome del backup nella cartella.
 	 */
 	private static function modulo_importa( array $rapporto, string $nome ): void {
-		printf( '<h2 id="albo-pretorio-importa">%s</h2>', esc_html__( 'Importa nel nuovo albo', 'albo-pretorio-pa' ) );
+		printf( '<h2 id="albo-pretorio-importa">%s</h2>', esc_html__( 'Importa in questo albo', 'albo-pretorio-pa' ) );
 
 		if ( ! $rapporto['pacchetto']['zip'] ) {
 			printf( '<p>%s</p>', esc_html__( 'Si importa solo da un archivio zip, che porta i documenti: il solo file SQL non porta nessun atto.', 'albo-pretorio-pa' ) );
@@ -535,7 +535,7 @@ final class SchermataImportazione {
 			esc_html(
 				sprintf(
 					/* translators: %s: nome del backup. */
-					__( 'Confermo l\'importazione degli atti del backup %s. Gli atti importati non si tolgono con un clic: restano nel nuovo albo con il loro numero e la loro voce di registro.', 'albo-pretorio-pa' ),
+					__( 'Confermo l\'importazione degli atti del backup %s. Gli atti importati non si tolgono con un clic: restano in questo albo con il loro numero e la loro voce di registro.', 'albo-pretorio-pa' ),
 					$nome
 				)
 			)
@@ -658,7 +658,7 @@ final class SchermataImportazione {
 		self::elenco_numeri( 'da_scegliere', __( 'Atti con il documento principale da scegliere: tutti i file sono arrivati come allegati', 'albo-pretorio-pa' ), (array) $stato['da_scegliere'] );
 
 		if ( array() !== $stato['non_riusciti'] ) {
-			printf( '<details class="albo-pretorio-non-riusciti" open><summary><strong>%1$s (%2$d)</strong></summary><ul>', esc_html__( 'Atti non riusciti: non esistono nel nuovo albo, si riprovano rilanciando', 'albo-pretorio-pa' ), count( (array) $stato['non_riusciti'] ) );
+			printf( '<details class="albo-pretorio-non-riusciti" open><summary><strong>%1$s (%2$d)</strong></summary><ul>', esc_html__( 'Atti non riusciti: non esistono in questo albo, si riprovano rilanciando', 'albo-pretorio-pa' ), count( (array) $stato['non_riusciti'] ) );
 
 			foreach ( (array) $stato['non_riusciti'] as $fallito ) {
 				printf( '<li data-codice="%1$s">%2$s: %3$s</li>', esc_attr( (string) $fallito['codice'] ), esc_html( (string) $fallito['numero'] ), esc_html( (string) $fallito['testo'] ) );
@@ -703,7 +703,7 @@ final class SchermataImportazione {
 	 * Il messaggio per un file oltre i limiti di caricamento del server.
 	 */
 	private static function troppo_grande(): string {
-		return __( 'Il file e\' piu\' grande di quanto il server accetti in un caricamento. Il backup si puo\' lasciare nella cartella dei backup del vecchio albo e sceglierlo da li\'.', 'albo-pretorio-pa' );
+		return __( 'Il file e\' piu\' grande di quanto il server accetti in un caricamento. Il backup si puo\' lasciare nella cartella dei backup di Albo Pretorio On line e sceglierlo da li\'.', 'albo-pretorio-pa' );
 	}
 
 	/**
@@ -736,13 +736,13 @@ final class SchermataImportazione {
 				esc_html(
 					sprintf(
 						/* translators: %s: percorso della cartella. */
-						__( 'Nella cartella dei backup del vecchio albo (%s) non c\'e\' nessun archivio.', 'albo-pretorio-pa' ),
+						__( 'Nella cartella dei backup di Albo Pretorio On line (%s) non c\'e\' nessun archivio.', 'albo-pretorio-pa' ),
 						self::CARTELLA
 					)
 				)
 			);
 		} else {
-			printf( '<p><label for="%1$s">%2$s</label><br /><select id="%1$s" name="%1$s">', esc_attr( self::CAMPO_PRESENTE ), esc_html__( 'Backup presenti nella cartella del vecchio albo', 'albo-pretorio-pa' ) );
+			printf( '<p><label for="%1$s">%2$s</label><br /><select id="%1$s" name="%1$s">', esc_attr( self::CAMPO_PRESENTE ), esc_html__( 'Backup presenti nella cartella di Albo Pretorio On line', 'albo-pretorio-pa' ) );
 			printf( '<option value="">%s</option>', esc_html__( 'Nessuno', 'albo-pretorio-pa' ) );
 
 			foreach ( $presenti as $nome => $dati ) {
@@ -933,7 +933,7 @@ final class SchermataImportazione {
 				esc_html(
 					sprintf(
 						/* translators: 1: anno, 2: ultimo numero, 3: prossimo numero del contatore, 4: numero piu' alto trovato. */
-						__( 'Per il %1$d l\'ultimo numero usato nel vecchio albo risulterebbe %2$d (contatore: prossimo numero %3$d; numero piu\' alto fra gli atti: %4$d). E\' una proposta: la partenza la dichiara chi pubblica, dalla schermata della numerazione.', 'albo-pretorio-pa' ),
+						__( 'Per il %1$d l\'ultimo numero usato in Albo Pretorio On line risulterebbe %2$d (contatore: prossimo numero %3$d; numero piu\' alto fra gli atti: %4$d). E\' una proposta: la partenza la dichiara chi pubblica, dalla schermata della numerazione.', 'albo-pretorio-pa' ),
 						$numerazione['proposta']['anno'],
 						$numerazione['proposta']['ultimo'],
 						$numerazione['proposta']['contatore'],
@@ -949,7 +949,7 @@ final class SchermataImportazione {
 
 		echo '<table class="widefat striped"><thead><tr>';
 
-		foreach ( array( __( 'Anno', 'albo-pretorio-pa' ), __( 'Atti numerati', 'albo-pretorio-pa' ), __( 'Numero piu\' alto', 'albo-pretorio-pa' ), __( 'Numeri mancanti', 'albo-pretorio-pa' ), __( 'Nel nuovo albo', 'albo-pretorio-pa' ) ) as $intestazione ) {
+		foreach ( array( __( 'Anno', 'albo-pretorio-pa' ), __( 'Atti numerati', 'albo-pretorio-pa' ), __( 'Numero piu\' alto', 'albo-pretorio-pa' ), __( 'Numeri mancanti', 'albo-pretorio-pa' ), __( 'In questo albo', 'albo-pretorio-pa' ) ) as $intestazione ) {
 			printf( '<th scope="col">%s</th>', esc_html( $intestazione ) );
 		}
 
@@ -984,7 +984,7 @@ final class SchermataImportazione {
 		printf( '<h3>%s</h3>', esc_html__( 'Categorie e tipi di atto', 'albo-pretorio-pa' ) );
 		echo '<table class="widefat striped"><thead><tr>';
 
-		foreach ( array( __( 'Categoria', 'albo-pretorio-pa' ), __( 'Giorni', 'albo-pretorio-pa' ), __( 'Atti', 'albo-pretorio-pa' ), __( 'Nel nuovo albo', 'albo-pretorio-pa' ) ) as $intestazione ) {
+		foreach ( array( __( 'Categoria', 'albo-pretorio-pa' ), __( 'Giorni', 'albo-pretorio-pa' ), __( 'Atti', 'albo-pretorio-pa' ), __( 'In questo albo', 'albo-pretorio-pa' ) ) as $intestazione ) {
 			printf( '<th scope="col">%s</th>', esc_html( $intestazione ) );
 		}
 
@@ -1016,7 +1016,7 @@ final class SchermataImportazione {
 	 */
 	private static function campi( array $rapporto ): void {
 		if ( array() !== $rapporto['campi']['assenti'] ) {
-			printf( '<h3>%s</h3><ul>', esc_html__( 'Campi assenti nel backup (versione precedente del vecchio albo)', 'albo-pretorio-pa' ) );
+			printf( '<h3>%s</h3><ul>', esc_html__( 'Campi assenti nel backup (versione precedente di Albo Pretorio On line)', 'albo-pretorio-pa' ) );
 
 			foreach ( $rapporto['campi']['assenti'] as $tabella => $colonne ) {
 				printf( '<li>%1$s: %2$s</li>', esc_html( $tabella ), esc_html( implode( ', ', $colonne ) ) );
@@ -1069,7 +1069,7 @@ final class SchermataImportazione {
 				esc_html( self::numero( $atto ) ),
 				esc_html(
 					sprintf(
-						/* translators: %s: numero interno dell'atto nel vecchio albo. */
+						/* translators: %s: numero interno dell'atto in Albo Pretorio On line. */
 						__( 'interno %s', 'albo-pretorio-pa' ),
 						$atto['id']
 					)
