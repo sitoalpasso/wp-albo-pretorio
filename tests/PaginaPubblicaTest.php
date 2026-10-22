@@ -1843,7 +1843,12 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 		$this->assertTrue( is_post_type_viewable( TIPO ), 'Con le pagine il tipo e\' consultabile: i documenti degli atti in corso si scaricano.' );
 
 		$scaduto = $this->pubblicato_il( '2041-09-01 09:00:00', 'Atto gia\' scaduto' );
-		$corso   = $this->pubblicato_il( '2041-10-01 09:30:00', 'Atto in corso' );
+		$corso   = array();
+
+		// Sei atti in corso: `per_page="5"` ne mostrerebbe cinque se non fosse ignorato.
+		for ( $n = 1; $n <= 6; $n++ ) {
+			$corso[] = $this->pubblicato_il( '2041-10-01 09:3' . $n . ':00', 'Atto in corso ' . $n );
+		}
 
 		$this->fissa_orologi( '2041-10-05 10:00:00' );
 
@@ -1852,13 +1857,15 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 
 			$html = (string) $this->pagina_disegnata( $this->indirizzo() );
 
-			$this->assertSame( array( $corso ), $this->atti_elencati( $html ), $pagina . ': l\'elenco nuovo, solo l\'atto in corso, qualunque attributo.' );
+			$elencati = $this->atti_elencati( $html );
+			sort( $elencati );
+			$this->assertSame( $corso, $elencati, $pagina . ': l\'elenco nuovo, tutti e sei gli atti in corso e solo quelli, anche con `per_page="5"`.' );
 			$this->assertStringNotContainsString( get_the_title( $scaduto ), $html, $pagina . ': lo scaduto non c\'e\', anche dove `stato="2"` chiedeva lo storico.' );
 			$this->assertStringContainsString( 'noindex', $this->robot_stampati(), $pagina . ': il divieto ai motori.' );
 			$this->assertContains( 'X-Robots-Tag: noindex', $this->righe, $pagina . ': il divieto nell\'intestazione.' );
-			$this->assertStringContainsString( 'href="' . esc_url( add_query_arg( PaginaPubblica::PARAMETRO_ATTO, $corso, (string) get_permalink( $pagina ) ) ) . '"', $html, $pagina . ': l\'oggetto apre la scheda sulla stessa pagina.' );
+			$this->assertStringContainsString( 'href="' . esc_url( add_query_arg( PaginaPubblica::PARAMETRO_ATTO, $corso[0], (string) get_permalink( $pagina ) ) ) . '"', $html, $pagina . ': l\'oggetto apre la scheda sulla stessa pagina.' );
 
-			$scheda = (string) $this->pagina_disegnata( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $corso ) ) );
+			$scheda = (string) $this->pagina_disegnata( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $corso[0] ) ) );
 			$this->assertStringContainsString( 'albo-pretorio-titolo-atto', $scheda, $pagina . ': la scheda si apre.' );
 			$this->assertNull( $this->pagina_disegnata( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $scaduto ) ) ), $pagina . ': la scheda dello scaduto e\' "non trovata".' );
 		}
