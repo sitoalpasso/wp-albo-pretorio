@@ -941,17 +941,32 @@ final class Importazione {
 	 * @return array{atto_id: int, da_scegliere: bool}|\WP_Error
 	 */
 	private static function dopo_il_fallimento( string $id, int $atto_id, array $atto, \WP_Error $errore, array $segni, ?bool $da_scegliere = null ) {
+		/*
+		 * Il passaggio non ha potuto annullare le sue scritture: quello che
+		 * questa connessione vede non e' ne' confermato ne' annullato. Niente
+		 * si deduce e niente si tocca; il blocco si ferma con i segni.
+		 */
+		if ( 'albo_annullamento_non_riuscito' === $errore->get_error_code() ) {
+			return self::incerto( $errore );
+		}
+
 		if ( $atto_id > 0 ) {
 			clean_post_cache( $atto_id );
 
 			$numero = Repertorio::di( $atto_id );
 
-			// Confermato nella banca dati prima dell'eccezione: l'atto c'e', pubblicato e numerato.
+			/*
+			 * Confermato nella banca dati prima dell'eccezione: l'atto c'e',
+			 * pubblicato e numerato. Vale solo dopo un'eccezione, che e' l'unico
+			 * modo in cui un passaggio confermato arriva qui: un rifiuto del
+			 * passaggio vuol dire scritture annullate, e se l'atto sembra
+			 * pubblicato lo stato non e' garantito.
+			 */
 			if ( 'publish' === get_post_status( $atto_id ) && array(
 				'anno'   => (int) $atto['anno'],
 				'numero' => (int) $atto['numero'],
 			) === $numero ) {
-				return null === $da_scegliere ? self::esito_dal_registro( $atto_id ) : array(
+				return null === $da_scegliere ? self::incerto( $errore ) : array(
 					'atto_id'      => $atto_id,
 					'da_scegliere' => $da_scegliere,
 				);

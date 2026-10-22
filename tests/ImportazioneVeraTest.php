@@ -1768,6 +1768,64 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-215. Un passaggio che non riesce ad annullare le sue scritture ferma il blocco con l'esito incerto, senza dedurre niente.
+	 */
+	public function test_a215_annullamento_non_riuscito(): void {
+		global $wpdb;
+
+		$percorso = $this->backup_nella_cartella();
+
+		// La data di fine del primo atto non si scrive, dopo lo stato; e l'annullamento non si esegue.
+		$chiave       = conformita_core_chiave_fine_pubblicazione();
+		$non_scrive   = static function ( $controllo, $atto_id, $nome ) use ( $chiave ) {
+			unset( $atto_id );
+
+			return $chiave === $nome ? false : $controllo;
+		};
+		$annullamenti = 0;
+		$non_annulla  = static function ( $query ) use ( &$annullamenti ) {
+			if ( 0 === stripos( ltrim( (string) $query ), 'ROLLBACK TO SAVEPOINT albo_pretorio_passaggio' ) ) {
+				++$annullamenti;
+
+				return 'SELECT * FROM tabella_che_non_esiste';
+			}
+
+			return $query;
+		};
+
+		add_filter( 'update_post_metadata', $non_scrive, 10, 3 );
+		add_filter( 'query', $non_annulla );
+		$this->avvia_diretto( $percorso );
+		$fermo = Importazione::prosegui( 50, microtime( true ) + 60 );
+		remove_filter( 'query', $non_annulla );
+		remove_filter( 'update_post_metadata', $non_scrive, 10 );
+
+		$this->assertSame( 1, $annullamenti, 'Precondizione: un solo annullamento, non eseguito.' );
+		$this->assertSame( 1, $fermo['posizione'], 'Fermo sul primo atto: nessun atto dopo e\' stato lavorato.' );
+		$this->assertSame( array( 'albo_annullamento_non_riuscito' ), array_column( $fermo['non_riusciti'], 'codice' ) );
+		$this->assertStringContainsString( 'Stato incerto', $fermo['non_riusciti'][0]['testo'] );
+		$this->assertSame( array(), $fermo['importati'], 'L\'atto che sembra pubblicato non si conta fra gli importati.' );
+		$this->assertCount( 1, Importazione::stato()['lavorazione']['1'] ?? array(), 'I segni restano.' );
+
+		$bozza = $this->importati()['1']['id'];
+
+		$this->assertSame( 'publish', $this->importati()['1']['stato'], 'Precondizione: questa connessione vede ancora le scritture non annullate.' );
+
+		// La transazione si risolve: l'annullamento si fa davvero, e la ripresa toglie la bozza e porta tutto.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: l'annullamento che prima non era riuscito.
+		$this->assertNotFalse( $wpdb->query( 'ROLLBACK TO SAVEPOINT albo_pretorio_passaggio' ) );
+		wp_cache_flush();
+
+		$this->assertSame( 'draft', get_post_status( $bozza ) );
+
+		$this->assertSame( 'interrotta', Importazione::interrompi()['stato'] );
+		$this->importa_tutto( $percorso );
+
+		$this->assertSame( array( '1', '3', '4', '5', '12', '14' ), array_map( 'strval', array_keys( $this->importati() ) ) );
+		$this->assertSame( $this->importati_per_inventario(), $this->inventario() );
+	}
+
+	/**
 	 * A-215. Un documento depositato che l'atto non registra, con il file che resta, lascia la bozza da ritrovare.
 	 */
 	public function test_a215_deposito_non_registrato(): void {
