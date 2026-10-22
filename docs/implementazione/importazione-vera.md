@@ -138,6 +138,8 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
   nessun file resta senza qualcuno che lo ritrovi. I documenti si leggono dalla banca dati
   con una lettura che distingue "nessun documento" da "nessuna risposta", e una seconda
   lettura uguale, subito prima di togliere la bozza, conferma che non ne resta nessuno.
+  Allo stesso modo si legge l'elenco dei file scritto sulla bozza: senza risposta, la bozza
+  resta.
   Durante l'importazione un documento depositato che l'atto non riesce a registrare non si
   cancella subito: resta alla bozza, e lo toglie questa stessa pulizia. Una bozza scritta da
   una persona non ha né il ricordo né un segno salvato, e non si tocca mai, qualunque nome
@@ -257,6 +259,11 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
   e se il file restava nessuno lo ritrovava (ora, nell'importazione, resta alla bozza e lo
   toglie la pulizia). Fuori dall'importazione il deposito si comporta come prima. Ogni caso
   ha la sua prova, e la mutazione corrispondente la rende rossa.
+- La sesta revisione esterna ha chiesto due correzioni, fatte: anche l'elenco dei file
+  scritto sulla bozza si leggeva senza distinguere "vuoto" da "nessuna risposta" (ora come i
+  documenti); la copia di un file dall'archivio lasciava il file temporaneo su alcune uscite
+  d'errore (ora ogni uscita senza successo lo cancella, e lo passa a chi chiama solo il file
+  intero). Ogni caso ha la sua prova, e la mutazione corrispondente la rende rossa.
 - La riga A-193 dell'importazione a secco fallisce in questo ambiente di prova anche sul ramo
   principale, per la versione di `iconv`: non dipende da questo lavoro.
 
