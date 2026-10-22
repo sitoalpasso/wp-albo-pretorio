@@ -86,6 +86,14 @@ final class Importazione {
 	const DUBBI_PORTATI = array( 'principale_assente', 'principali_multipli', 'durata_breve', 'durata_lunga', 'anno_diverso', 'responsabile_assente', 'ufficio_assente' );
 
 	/**
+	 * Nome del dato della bozza con i file dei suoi documenti da togliere.
+	 *
+	 * Si scrive prima di cancellare i documenti: se un documento se ne va e il
+	 * suo file resta, la bozza, che resta anche lei, ricorda ancora dove sta.
+	 */
+	const META_FILE_DA_TOGLIERE = '_albo_pretorio_importazione_file_da_togliere';
+
+	/**
 	 * La bozza che l'importazione sta portando a pubblicato in questo momento, o zero.
 	 *
 	 * @var int
@@ -450,7 +458,10 @@ final class Importazione {
 			'lavorazione'       => is_array( $precedente['lavorazione'] ?? null ) ? $precedente['lavorazione'] : array(),
 		);
 
-		update_option( self::OPZIONE, $stato, false );
+		// Lo stato prima era un altro (nessuno, interrotto o finito): un valore uguale non c'e', e falso vuol dire non salvato.
+		if ( ! update_option( self::OPZIONE, $stato, false ) ) {
+			return new \WP_Error( 'albo_importazione_stato_non_salvato', __( 'Importazione non avviata: la banca dati non ha salvato l\'avvio. Nessun atto e\' stato scritto; si riprova.', 'albo-pretorio-pa' ) );
+		}
 
 		return $stato;
 	}
@@ -765,7 +776,10 @@ final class Importazione {
 			$stato['stato']  = 'interrotta';
 			$stato['finita'] = gmdate( 'Y-m-d H:i:s' );
 
-			update_option( self::OPZIONE, $stato, false );
+			// Da "in corso" a "interrotta": il valore cambia sempre, e falso vuol dire non salvato.
+			if ( ! update_option( self::OPZIONE, $stato, false ) ) {
+				return new \WP_Error( 'albo_importazione_stato_non_salvato', __( 'L\'importazione non si e\' interrotta: la banca dati non ha salvato l\'interruzione, e risulta ancora in corso. Si riprova.', 'albo-pretorio-pa' ) );
+			}
 
 			return $stato;
 		} finally {
@@ -1006,14 +1020,79 @@ final class Importazione {
 	/**
 	 * Cancella una bozza preparata dall'importazione, con i suoi documenti e i loro file.
 	 *
+	 * Ogni cancellazione si verifica: un documento o un file che resta lascia
+	 * al suo posto anche la bozza, con l'elenco dei file, e il rilancio
+	 * riprova da li'. Cancellare la bozza per prima lascerebbe documenti e
+	 * file senza nessuno che li ritrovi.
+	 *
 	 * @param int $atto_id Bozza.
 	 * @return bool Se la bozza non c'e' piu'.
 	 */
 	private static function togli_bozza( int $atto_id ): bool {
+		$documenti = get_children(
+			array(
+				'post_parent' => $atto_id,
+				'post_type'   => 'attachment',
+				'post_status' => 'any',
+				'fields'      => 'ids',
+			)
+		);
+		$documenti = array_values( array_filter( array_map( 'intval', is_array( $documenti ) ? $documenti : array() ), 'conformita_core_allegato_protetto' ) );
+
+		// Prima l'elenco dei file, scritto sulla bozza: la bozza si cancella per ultima, quindi resta finche' resta un file.
+		$ricordati = array_map( 'strval', get_post_meta( $atto_id, self::META_FILE_DA_TOGLIERE, false ) );
+
+		foreach ( $documenti as $documento ) {
+			$file = get_attached_file( $documento, true );
+
+			if ( is_string( $file ) && '' !== $file && ! in_array( $file, $ricordati, true ) ) {
+				if ( false === add_post_meta( $atto_id, self::META_FILE_DA_TOGLIERE, $file ) ) {
+					return false;
+				}
+
+				$ricordati[] = $file;
+			}
+		}
+
+		foreach ( $documenti as $documento ) {
+			wp_delete_attachment( $documento, true );
+			clean_post_cache( $documento );
+
+			if ( get_post( $documento ) instanceof \WP_Post ) {
+				return false;
+			}
+		}
+
+		foreach ( $ricordati as $file ) {
+			if ( ! self::file_dei_documenti( $file ) ) {
+				continue;
+			}
+
+			wp_delete_file( $file );
+			clearstatcache( true, $file );
+
+			if ( file_exists( $file ) ) {
+				return false;
+			}
+		}
+
 		wp_delete_post( $atto_id, true );
 		clean_post_cache( $atto_id );
 
 		return ! get_post( $atto_id ) instanceof \WP_Post;
+	}
+
+	/**
+	 * Il file sta nella cartella protetta dei documenti: fuori da li' non si cancella niente.
+	 *
+	 * @param string $file Percorso.
+	 * @return bool
+	 */
+	private static function file_dei_documenti( string $file ): bool {
+		$cartella = realpath( \Conformita_Core_Allegati::cartella() );
+		$dove     = realpath( dirname( $file ) );
+
+		return is_string( $cartella ) && is_string( $dove ) && 0 === strpos( $dove . '/', rtrim( $cartella, '/' ) . '/' );
 	}
 
 	/**
