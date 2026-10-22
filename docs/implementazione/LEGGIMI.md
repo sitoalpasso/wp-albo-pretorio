@@ -62,3 +62,6 @@ Schede presenti:
   schermo stretto diventa un riquadro per atto, le date separate nella scheda e la funzione
   `albo_pretorio_vista_corrente()` per i temi. Righe di collaudo A-195, A-196, A-203 riviste,
   A-218 e A-219 nuove.
+- [`vecchi-indirizzi.md`](vecchi-indirizzi.md): il codice breve `[Albo]` e gli indirizzi di
+  scheda, stampa e documenti di Albo Pretorio On line dopo il passaggio, e la convivenza dei
+  due plugin. Righe di collaudo A-220..A-223.

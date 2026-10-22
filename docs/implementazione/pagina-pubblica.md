@@ -129,9 +129,10 @@ Righe A-195..A-209 di `collaudo.md`, in `tests/PaginaPubblicaTest.php`.
 ### 8. Che cosa non fa
 
 - **Non costruisce il codice breve `[Albo]` né i vecchi indirizzi** del plugin precedente
-  (`?action=visatto` e simili): sono un lavoro a sé della Parte D. Il nome nuovo,
-  `[albo_pretorio]`, non si scontra con quello vecchio, e i due plugin possono restare
-  accesi insieme durante il passaggio.
+  (`?action=visatto` e simili): sono un lavoro a sé, poi fatto in
+  [`vecchi-indirizzi.md`](vecchi-indirizzi.md). Il nome nuovo, `[albo_pretorio]`, non si
+  scontra con quello vecchio, e i due plugin possono restare accesi insieme durante il
+  passaggio.
 - **Non cambia il nome del file scaricato** (ALBO-30): il documento esce con il nome di oggi.
   L'elenco dei documenti però non mostra il nome del file caricato, che può contenere nomi di
   persona: dice "Documento principale" e "Allegato 1", con formato e dimensione.
