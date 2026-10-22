@@ -99,6 +99,49 @@ jobs:
           WP_TESTS_DIR: /tmp/wordpress-tests-lib
         run: composer test:core-incompatibile
 
+  browser:
+    name: Pagina pubblica in un browser vero
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Predispone PHP e wp-cli
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mysqli
+          coverage: none
+          tools: wp-cli
+
+      - name: Predispone Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tests/browser/package-lock.json
+
+      # Il browser e' il Chrome gia' installato sulla macchina dei controlli:
+      # niente da scaricare, e durante la prova nessuna rete esterna.
+      - name: Esamina elenco, scheda e ricerca su due temi, e da sola tastiera
+        env:
+          CHROME: /usr/bin/google-chrome
+          DB_HOST: 127.0.0.1:3306
+        run: bin/prova-nel-browser.sh
+
   publiccode:
     name: Validazione publiccode.yml
     runs-on: ubuntu-latest

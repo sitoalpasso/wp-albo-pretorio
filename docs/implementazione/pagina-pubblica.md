@@ -141,9 +141,8 @@ Righe A-195..A-209 di `collaudo.md`, in `tests/PaginaPubblicaTest.php`.
 - **Non svuota le memorie di pagina alla scadenza** (ALBO-20): vieta soltanto di conservare
   la pagina.
 - **Non porta il motore di verifica dell'accessibilità nella verifica continua**: le due
-  righe di ALBO-28 sui due temi restano "da fare" finché non c'è il passo che apre le pagine
-  in un browser vero dentro GitHub. Su questa versione il motore si fa girare a mano, e
-  l'esito si scrive qui sotto.
+  righe di ALBO-28 sui due temi sono rimaste "da fare" fino al passo che apre le pagine
+  in un browser vero dentro GitHub, arrivato dopo (sotto, "Il browser vero nei controlli").
 - **Non costruisce un blocco** dell'editor: il codice breve si scrive anche nell'editor a
   blocchi, nel blocco "Codice breve".
 
@@ -299,3 +298,78 @@ arrivava alla lettura della data, che solleva un'eccezione, e la pagina si inter
 invece di dire che la ricerca era scritta male. Ora la data deve avere la forma AAAA-MM-GG
 prima di essere letta. Riga A-199, estesa; la prova senza la correzione si ferma con
 l'eccezione.
+
+### Il browser vero nei controlli
+
+Dopo l'unità, `bin/prova-nel-browser.sh` porta il motore e la tastiera nei controlli di GitHub,
+nel passo "Pagina pubblica in un browser vero". Installa un sito WordPress di prova, attiva il
+meccanismo comune e l'albo, pubblica ventuno atti con i passaggi veri
+(`tests/browser/prepara-sito.php`), serve il sito con il server di PHP sulla stessa macchina e
+lo apre in Chrome con `tests/browser/accessibilita.mjs`: il motore (axe 4.10.3, regole WCAG 2.0
+e 2.1 di livello A e AA) su sei pagine, con lo schermo di un telefono e con uno largo, su
+Twenty Twenty-Five e sul tema spoglio di prova (`tests/browser/tema-spoglio`), e il percorso da
+sola tastiera sul tema spoglio, più due ricerche fatte senza mouse. Nessuna rete esterna
+durante la prova: sito, motore e browser sono sulla macchina dei controlli.
+
+Prima di esaminare una pagina si controlla che mostri ciò che deve: gli atti attesi, il
+messaggio della ricerca senza risultati, l'errore visibile e legato al campo della ricerca
+scritta male, i tre documenti della scheda, che si scaricano. Una pagina vuota o sbagliata
+non vale come esaminata.
+
+Il percorso da tastiera preme Tab dall'inizio della pagina e pretende che il fuoco passi per
+ogni comando nell'ordine in cui sta, con un indicatore visibile, e che dall'albo si esca in
+avanti e all'indietro. L'indicatore si guarda nei pixel: il riquadro del comando fotografato
+con il fuoco e senza deve cambiare almeno quanto un filo lungo tutto il perimetro, quindi un
+contorno trasparente non passa. Per l'uscita si mettono due pulsanti fuori dall'albo, in cima
+e in fondo alla pagina: un browser senza barra degli indirizzi, dopo l'ultimo comando, riporta
+da sé il fuoco al primo, e senza un punto d'arrivo fuori un ciclo voluto non si
+distinguerebbe. Un campo di data in Chrome si percorre a pezzi, giorno, mese e anno: i Tab di seguito
+sullo stesso campo di data contano come uno.
+
+Prima delle pagine vere, motore, percorso e verifica del contenuto girano su pagine guastate
+apposta (immagine senza testo alternativo, campo senza etichetta, collegamento senza
+indicatore del fuoco, collegamento con contorno e ombra trasparenti, ciclo del fuoco
+dall'ultimo comando al primo, scheda senza documenti, ricerca scritta male senza messaggio):
+se non vi trovano i guasti, la prova si ferma. Guasti introdotti nell'albo per vedere se la
+prova li vede, diciassette, tutti visti: indicatore del fuoco tolto dal foglio di stile, indicatore
+reso trasparente, etichetta tolta dal campo di testo, ordine di tabulazione cambiato sul
+pulsante "Cerca", documenti della scheda spariti, messaggio della ricerca scritta male tolto,
+spiegazione dell'errore tolta lasciando l'avviso, filtro dell'organo spento, collegamenti agli
+atti che non portano da nessuna parte, date di sola lettura, filtro dell'organo spostato a
+vista prima del testo con il foglio di stile, tipo e organo scambiati nel codice e rimessi in
+ordine a vista con il foglio di stile, tabella dei risultati tolta quando la ricerca ha tutte e
+due le date, lista dei documenti della scheda nascosta con il foglio di stile, organo da
+scegliere spento nell'elenco degli organi, avviso d'errore della ricerca reso trasparente,
+messaggio del conteggio nascosto.
+
+L'ordine del Tab si confronta con l'ordine della pagina, e i comandi della ricerca anche con
+l'ordine in cui si vedono: un foglio di stile può spostare a vista un campo senza cambiarne il
+posto nel Tab. L'ordine del Tab si ricava dal codice della pagina, non dall'elenco fisso dei
+comandi: altrimenti due campi scambiati nel codice e rimessi in ordine a vista passerebbero. Le date di una ricerca da tastiera si scrivono a cifre, e l'ordine di giorno,
+mese e anno dipende dalla lingua del browser: la prova lo ricava provando su un campo a parte.
+Della ricerca per date non basta il conteggio: si leggono le righe della prima pagina, si va
+alla seconda da tastiera, che deve conservare le due date, e le righe insieme devono essere
+esattamente tutti gli atti, senza doppioni. Allo stesso modo la ricerca per organo si fa da
+tastiera, scegliendo un organo fra i due della preparazione, e deve dare i soli atti di
+quell'organo. I documenti della scheda devono vedersi e stare nel percorso del Tab, e i messaggi
+dell'albo (il conteggio, l'avviso d'errore) devono vedersi: esserci nel codice non basta.
+Vedersi vuol dire non nascosto, non trasparente nemmeno per un contenitore, con un riquadro
+non nullo e fuori da una parte resa inerte.
+
+Oltre alle pagine aperte per indirizzo, la prova segue da tastiera i collegamenti che le
+uniscono: dall'elenco alla seconda pagina, alla scheda, e dalla scheda di nuovo all'elenco. I
+comandi della ricerca che ALBO-16 richiede sono un elenco fisso: un filtro spento o nascosto
+sparirebbe da un inventario ricavato dalla pagina, e la prova resterebbe verde.
+
+Il sito di prova è sempre nuovo: lo script crea una cartella e una banca dati sue, le toglie
+alla fine, e se quelle indicate esistono già si ferma prima di scrivere. Non può quindi
+sovrascrivere un sito che c'era.
+
+Due cose imparate mettendola in piedi:
+
+- **Su Twenty Twenty-Five il motore trova una violazione del tema**, sugli schermi larghi: il
+  menu della testata mette dentro l'elenco degli elementi che un elenco non può contenere. Non
+  tocca l'albo, quindi si annota e non ferma la prova; sul tema spoglio ogni violazione ferma.
+- **Con l'albo collegato al sito per collegamento simbolico** WordPress calcola male
+  l'indirizzo del foglio di stile, e la pagina esce senza: il percorso da tastiera se ne è
+  accorto subito, perché il fuoco non aveva più l'indicatore. Lo script copia l'albo nel sito.
