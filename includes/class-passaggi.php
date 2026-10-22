@@ -76,6 +76,13 @@ final class Passaggi {
 	const AZIONE_RIMANDO = 'rimando_in_bozza';
 
 	/**
+	 * Azione della voce di registro dell'atto importato da Albo Pretorio On line, con origine e dubbi portati.
+	 *
+	 * @var string
+	 */
+	const AZIONE_IMPORTAZIONE = 'importazione';
+
+	/**
 	 * Le chiavi che una richiesta di pubblicazione puo' portare.
 	 *
 	 * Le due date sono ammesse come chiavi solo per poter essere rifiutate o
@@ -161,14 +168,28 @@ final class Passaggi {
 	/**
 	 * Se il passaggio in corso su questo atto e' una pubblicazione.
 	 *
-	 * Solo la pubblicazione lascia scrivere a WordPress il nome nell'indirizzo
+	 * Solo la pubblicazione, e l'importazione che porta a pubblicato un atto
+	 * di Albo Pretorio On line, lasciano scrivere a WordPress il nome nell'indirizzo
 	 * di un atto pubblicato che non lo ha ancora: la proroga e il rimando no.
 	 *
 	 * @param int $atto_id Atto.
 	 * @return bool
 	 */
 	public static function pubblicazione_in_corso( int $atto_id ): bool {
-		return isset( self::$in_corso[ $atto_id ] ) && 'pubblicazione' === self::$in_corso[ $atto_id ]['tipo'];
+		return isset( self::$in_corso[ $atto_id ] ) && in_array( self::$in_corso[ $atto_id ]['tipo'], array( 'pubblicazione', 'importazione' ), true );
+	}
+
+	/**
+	 * Se il passaggio in corso su questo atto e' un'importazione da Albo Pretorio On line.
+	 *
+	 * E' l'unico passaggio che parte da una bozza: la bozza preparata
+	 * dall'importazione, che arriva pubblicata senza passare dalla verifica.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return bool
+	 */
+	public static function importazione_in_corso( int $atto_id ): bool {
+		return isset( self::$in_corso[ $atto_id ] ) && self::AZIONE_IMPORTAZIONE === self::$in_corso[ $atto_id ]['tipo'];
 	}
 
 	/**
@@ -496,6 +517,241 @@ final class Passaggi {
 			'anno'   => $numero['anno'],
 			'numero' => $numero['numero'],
 			'inizio' => $campi['post_date'],
+			'fine'   => $fine,
+			'voce'   => (int) $esito,
+		);
+	}
+
+	/**
+	 * Pubblica una bozza preparata dall'importazione, con il numero e le date di Albo Pretorio On line (ALBO-35).
+	 *
+	 * E' l'unico passaggio da bozza a pubblicato, e non e' una pubblicazione:
+	 * l'atto e' stato pubblicato in Albo Pretorio On line, e qui arriva con i fatti
+	 * avvenuti la'. Numero, anno, inizio e fine non li calcola il sistema, li
+	 * porta chi importa dal backup; tutto il resto e' come la pubblicazione:
+	 * stesse difese del guardiano, stessa transazione, stesso controllo finale
+	 * che niente sia cambiato oltre a quello che il passaggio scrive. Il numero
+	 * si registra dentro la transazione: e' un numero gia' usato altrove, e se
+	 * l'importazione dell'atto non riesce deve tornare libero.
+	 *
+	 * Un inizio nel futuro si rifiuta: questo albo non programma.
+	 *
+	 * @param int                  $atto_id Bozza preparata dall'importazione.
+	 * @param array<string, mixed> $dati    `anno`, `numero`, `inizio` e `fine` (AAAA-MM-GG), `dettagli` per la voce di registro.
+	 * @return array{anno: int, numero: int, inizio: string, fine: string, voce: int}|\WP_Error
+	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
+	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, o se un altro componente solleva un'eccezione dopo la conferma; con l'eccezione come causa.
+	 */
+	public static function importa( int $atto_id, array $dati ) {
+		if ( self::occupato() ) {
+			return self::errore_annidato();
+		}
+
+		self::svuota_memoria( $atto_id );
+
+		$atto = get_post( $atto_id );
+
+		if ( ! TipoAtto::tipo_nostro() || ! $atto instanceof \WP_Post || TIPO !== $atto->post_type || 'draft' !== $atto->post_status ) {
+			return new \WP_Error(
+				'albo_importazione_non_una_bozza',
+				__( 'L\'atto non si importa: si porta a pubblicato soltanto la bozza preparata dall\'importazione.', 'albo-pretorio-pa' )
+			);
+		}
+
+		/*
+		 * Il passaggio salta la verifica: lo si concede solo alla bozza che
+		 * l'importazione sta scrivendo in questo momento, che porta il ricordo
+		 * dell'origine, a chi puo' importare. Una bozza qualunque non passa.
+		 */
+		if ( ! Importazione::in_lavorazione( $atto_id ) || '' === (string) get_post_meta( $atto_id, META_ORIGINE_IMPORTAZIONE, true ) ) {
+			return new \WP_Error(
+				'albo_importazione_non_una_bozza',
+				__( 'L\'atto non si importa: si porta a pubblicato soltanto la bozza preparata dall\'importazione.', 'albo-pretorio-pa' )
+			);
+		}
+
+		if ( ! current_user_can( 'publish_post', $atto_id ) || ! SchermataImportazione::permessa() ) {
+			return new \WP_Error(
+				'albo_pubblicazione_non_permessa',
+				__( 'L\'atto non si importa: non si possiede il permesso di pubblicare questo atto.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$inizio = is_string( $dati['inizio'] ?? null ) ? \DateTimeImmutable::createFromFormat( '!Y-m-d', $dati['inizio'], wp_timezone() ) : false;
+		$fine   = is_string( $dati['fine'] ?? null ) ? (string) $dati['fine'] : '';
+		$anno   = is_int( $dati['anno'] ?? null ) ? $dati['anno'] : 0;
+		$numero = is_int( $dati['numero'] ?? null ) ? $dati['numero'] : 0;
+		$adesso = self::ora();
+		$valida = false !== $inizio && $inizio->format( 'Y-m-d' ) === $dati['inizio'] && true === conformita_core_valida_fine_pubblicazione( $fine );
+		$oggi   = $adesso->setTimezone( wp_timezone() )->format( 'Y-m-d' );
+
+		if ( ! $valida || $fine < $dati['inizio'] ) {
+			return new \WP_Error(
+				'albo_importazione_date_non_valide',
+				__( 'L\'atto non si importa: le date di inizio e di fine di Albo Pretorio On line non sono valide.', 'albo-pretorio-pa' )
+			);
+		}
+
+		if ( $dati['inizio'] > $oggi ) {
+			return self::errore_programmazione( $inizio->format( 'Y-m-d H:i:s' ) );
+		}
+
+		// Un atto che arriva visibile ha bisogno della conferma sui dati personali, come ogni pubblicazione (ALBO-11).
+		if ( $fine >= $oggi && true !== ( $dati['dettagli']['conferma_dati_personali'] ?? null ) ) {
+			return new \WP_Error(
+				'albo_importazione_conferma_mancante',
+				__( 'L\'atto non si importa: e\' ancora in pubblicazione e arriverebbe visibile, ma manca la conferma sui dati personali.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$tabelle = self::tabelle_senza_transazioni( true );
+
+		if ( array() !== $tabelle ) {
+			return self::errore_tabelle( $tabelle );
+		}
+
+		$partenza = self::fotografia( $atto_id );
+
+		if ( null === $partenza ) {
+			return self::errore_lettura();
+		}
+
+		$prima      = self::voci_automatiche( $atto_id, 'pubblicazione' );
+		$prima_fine = self::voci_automatiche( $atto_id, 'modifica_fine_pubblicazione' );
+
+		if ( is_wp_error( $prima ) ) {
+			return $prima;
+		}
+
+		if ( is_wp_error( $prima_fine ) ) {
+			return $prima_fine;
+		}
+
+		$campi   = array(
+			'post_status'   => 'publish',
+			'post_date'     => $inizio->format( 'Y-m-d H:i:s' ),
+			'post_date_gmt' => $inizio->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' ),
+		);
+		$partito = array(
+			'anno'     => $anno,
+			'numero'   => $numero,
+			'dettagli' => is_array( $dati['dettagli'] ?? null ) ? $dati['dettagli'] : array(),
+		);
+
+		// Il blocco dell'anno, tenuto fino a dopo la conferma: una dichiarazione della partenza non passa in mezzo.
+		$blocco = Repertorio::blocca_anno( $anno );
+
+		if ( is_wp_error( $blocco ) ) {
+			return $blocco;
+		}
+
+		try {
+			self::inizia( $atto_id, $campi, $fine, 'importazione' );
+
+			try {
+				$esito = self::importa_dentro( $atto_id, $campi, $fine, $partito, $partenza, $prima_fine, array( $fine ) !== self::righe_fine( $partenza ), $prima );
+			} finally {
+				unset( self::$in_corso[ $atto_id ] );
+			}
+
+			return self::dopo_la_chiusura( $atto_id, $esito );
+		} finally {
+			Repertorio::sblocca_anno( $anno );
+		}
+	}
+
+	/**
+	 * Le scritture dell'importazione di un atto, dentro la transazione.
+	 *
+	 * @param int                   $atto_id    Atto.
+	 * @param array<string, string> $campi      Stato e date.
+	 * @param string                $fine       Data di fine.
+	 * @param array<string, mixed>  $numero     Anno, numero e dettagli per il registro.
+	 * @param array<string, mixed>  $partenza   Fotografia di partenza.
+	 * @param int                   $prima_fine Voci della fine prima del passaggio.
+	 * @param bool                  $cambia     La data di fine cambia.
+	 * @param int                   $prima      Voci della pubblicazione prima.
+	 * @return array{anno: int, numero: int, inizio: string, fine: string, voce: int}|\WP_Error
+	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
+	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, con l'eccezione come causa.
+	 */
+	private static function importa_dentro( int $atto_id, array $campi, string $fine, array $numero, array $partenza, int $prima_fine, bool $cambia, int $prima ) {
+		$apertura = self::apri();
+
+		if ( is_wp_error( $apertura ) ) {
+			return $apertura;
+		}
+
+		try {
+			$esito = self::blocca( $atto_id, $partenza );
+
+			if ( ! is_wp_error( $esito ) ) {
+				$esito = Repertorio::registra_importato( $atto_id, $numero['anno'], $numero['numero'] );
+			}
+
+			if ( ! is_wp_error( $esito ) ) {
+				$esito = self::scrivi_stato( $atto_id, $campi );
+			}
+
+			if ( ! is_wp_error( $esito ) ) {
+				$esito = self::scrivi_fine( $atto_id, $fine );
+			}
+
+			if ( ! is_wp_error( $esito ) ) {
+				$esito = self::controlla_voce_automatica( $atto_id, 'pubblicazione', $prima );
+			}
+
+			if ( ! is_wp_error( $esito ) ) {
+				$esito = self::controlla_voce_della_fine( $atto_id, $prima_fine, $cambia );
+			}
+
+			if ( ! is_wp_error( $esito ) ) {
+				$esito = self::scrivi_voce(
+					array(
+						'sezione'   => SEZIONE,
+						'azione'    => self::AZIONE_IMPORTAZIONE,
+						'contenuto' => $atto_id,
+						'dettagli'  => array(
+							'anno'   => $numero['anno'],
+							'numero' => $numero['numero'],
+							'inizio' => substr( $campi['post_date'], 0, 10 ),
+							'fine'   => $fine,
+						) + $numero['dettagli'] + DatiProcedimento::per_registro( $atto_id ),
+						'chiave'    => SEZIONE . ':' . self::AZIONE_IMPORTAZIONE . ':' . $atto_id,
+					)
+				);
+			}
+
+			if ( ! is_wp_error( $esito ) ) {
+				$controllo = self::controlla_invariato( $atto_id, $partenza, $campi, $fine );
+				$esito     = is_wp_error( $controllo ) ? $controllo : $esito;
+			}
+
+			if ( is_wp_error( $esito ) ) {
+				$annullato = self::annulla( $apertura, $atto_id );
+
+				return is_wp_error( $annullato ) ? $annullato : $esito;
+			}
+
+			$chiusura = self::chiudi( $apertura, $atto_id );
+
+			if ( is_wp_error( $chiusura ) ) {
+				return $chiusura;
+			}
+		} catch ( \Throwable $errore ) {
+			$annullato = self::annulla( $apertura, $atto_id );
+
+			if ( is_wp_error( $annullato ) ) {
+				throw new \RuntimeException( esc_html( $annullato->get_error_message() ), 0, $errore ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- gia' sfuggito.
+			}
+
+			throw $errore;
+		}
+
+		return array(
+			'anno'   => $numero['anno'],
+			'numero' => $numero['numero'],
+			'inizio' => substr( $campi['post_date'], 0, 10 ),
 			'fine'   => $fine,
 			'voce'   => (int) $esito,
 		);
@@ -1594,12 +1850,20 @@ final class Passaggi {
 	 * che non lo espone: e' l'unico punto in cui l'albo lo conosce, e una
 	 * prova verifica che la tabella esista con quel nome.
 	 *
+	 * @param bool $con_repertorio Anche le tabelle del repertorio, per il passaggio che vi scrive dentro la transazione.
 	 * @return array<int, string> Nomi delle tabelle, vuoto se sono tutte transazionali.
 	 */
-	public static function tabelle_senza_transazioni(): array {
+	public static function tabelle_senza_transazioni( bool $con_repertorio = false ): array {
 		global $wpdb;
 
-		$tabelle    = array( $wpdb->posts, $wpdb->postmeta, $wpdb->term_relationships, $wpdb->term_taxonomy, $wpdb->prefix . 'conformita_core_registro' );
+		$tabelle = array( $wpdb->posts, $wpdb->postmeta, $wpdb->term_relationships, $wpdb->term_taxonomy, $wpdb->prefix . 'conformita_core_registro' );
+
+		// L'importazione scrive il numero dentro la transazione: anche le tabelle del repertorio devono annullare.
+		if ( $con_repertorio ) {
+			$tabelle[] = Repertorio::tabella_anni();
+			$tabelle[] = Repertorio::tabella_assegnazioni();
+		}
+
 		$segnaposto = implode( ', ', array_fill( 0, count( $tabelle ), '%s' ) );
 
 		$transazionali = $wpdb->get_col(

@@ -111,9 +111,13 @@ final class DocumentiAtto {
 	 * @param array<string, mixed> $file    Voce nella forma di `$_FILES`.
 	 * @param string               $ruolo   `principale` oppure `ulteriore`.
 	 * @param string               $origine `caricamento` oppure `percorso_locale`, come per il meccanismo comune.
+	 * @param bool                 $lascia  Se il dato non si scrive, lascia il documento appena depositato
+	 *                                      all'atto invece di cancellarlo: chi chiama cancella atto e documenti
+	 *                                      insieme, verificando ogni passo. E' l'importazione, che altrimenti
+	 *                                      perderebbe la traccia di un file rimasto sul disco.
 	 * @return int|\WP_Error Identificativo dell'allegato, oppure errore.
 	 */
-	public static function deposita( int $atto_id, array $file, string $ruolo, string $origine ) {
+	public static function deposita( int $atto_id, array $file, string $ruolo, string $origine, bool $lascia = false ) {
 		$controllo = self::modificabile( $atto_id );
 
 		if ( is_wp_error( $controllo ) ) {
@@ -153,7 +157,9 @@ final class DocumentiAtto {
 		 * vecchio resta al suo posto.
 		 */
 		if ( false === $scritto ) {
-			wp_delete_attachment( $allegato, true );
+			if ( ! $lascia ) {
+				wp_delete_attachment( $allegato, true );
+			}
 
 			return self::non_in_bozza();
 		}

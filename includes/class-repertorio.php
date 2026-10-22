@@ -67,6 +67,106 @@ final class Repertorio {
 	const MASSIMO = 4294967295;
 
 	/**
+	 * Secondi di attesa del blocco di un anno, tenuto da una dichiarazione o da un'importazione.
+	 */
+	const ATTESA_ANNO = 3;
+
+	/**
+	 * Il nome del blocco di un anno nella banca dati.
+	 *
+	 * Dichiarazione della partenza e importazione di un numero dello stesso anno
+	 * lo prendono entrambe e lo tengono fino alla fine della loro scrittura,
+	 * transazione compresa: non si scavalcano, qualunque sia l'isolamento
+	 * della banca dati e anche quando la riga dell'anno non c'e'.
+	 *
+	 * @param int $anno Anno.
+	 * @return string
+	 */
+	public static function nome_blocco_anno( int $anno ): string {
+		global $wpdb;
+
+		return substr( $wpdb->prefix, 0, 40 ) . 'albo_anno_' . $anno;
+	}
+
+	/**
+	 * Prende il blocco di un anno, attendendo al massimo pochi secondi.
+	 *
+	 * @param int $anno Anno.
+	 * @return true|\WP_Error
+	 */
+	public static function blocca_anno( int $anno ) {
+		global $wpdb;
+
+		if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK( %s, %d )', self::nome_blocco_anno( $anno ), self::ATTESA_ANNO ) ) ) {
+			return new \WP_Error(
+				'albo_repertorio_anno_occupato',
+				sprintf(
+					/* translators: %d: anno. */
+					__( 'Un\'altra operazione sta scrivendo la numerazione del %d in questo momento. Si riprova fra poco.', 'albo-pretorio-pa' ),
+					$anno
+				)
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Lascia il blocco di un anno, se le scritture sono gia' definitive.
+	 *
+	 * Dentro la transazione di un altro le scritture diventano definitive solo
+	 * quando quella si chiude: il blocco resta, e lo lascia la banca dati alla
+	 * fine della connessione.
+	 *
+	 * @param int $anno Anno.
+	 */
+	public static function sblocca_anno( int $anno ): void {
+		global $wpdb;
+
+		if ( self::transazione_esterna() ) {
+			return;
+		}
+
+		$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', self::nome_blocco_anno( $anno ) ) );
+	}
+
+	/**
+	 * Se la connessione e' dentro una transazione aperta da altri, o non lo si sa.
+	 *
+	 * Scrittura automatica spenta, o una transazione gia' aperta dove la banca
+	 * dati lo dice (`@@in_transaction`, che non tutte le versioni hanno). Solo
+	 * due risposte dicono "nessuna transazione": zero, o l'elenco delle
+	 * variabili, letto senza errori, che non la contiene. Ogni altra risposta,
+	 * un errore compreso, vale come transazione esterna: e' la lettura prudente.
+	 *
+	 * @return bool
+	 */
+	public static function transazione_esterna(): bool {
+		global $wpdb;
+
+		if ( '1' !== (string) $wpdb->get_var( 'SELECT @@autocommit' ) ) {
+			return true;
+		}
+
+		$zitto = $wpdb->suppress_errors( true );
+		$in    = $wpdb->get_var( 'SELECT @@in_transaction' );
+
+		// Senza risposta: si chiede se la variabile esiste. Solo un elenco letto senza errori e vuoto dice di no.
+		if ( null === $in ) {
+			$variabile   = $wpdb->get_var( "SHOW SESSION VARIABLES LIKE 'in\\_transaction'" );
+			$sconosciuta = '' === $wpdb->last_error && null === $variabile;
+		}
+
+		$wpdb->suppress_errors( $zitto );
+
+		if ( null === $in ) {
+			return ! $sconosciuta;
+		}
+
+		return '0' !== (string) $in;
+	}
+
+	/**
 	 * Nome completo della tabella degli anni.
 	 *
 	 * @return string
@@ -374,7 +474,13 @@ final class Repertorio {
 			return $riga['ultimo'] + 1;
 		}
 
-		if ( self::anni_precedenti( $anno ) ) {
+		$precedenti = self::anni_precedenti( $anno );
+
+		if ( null === $precedenti ) {
+			return self::errore_lettura();
+		}
+
+		if ( $precedenti ) {
 			return 1;
 		}
 
@@ -408,7 +514,56 @@ final class Repertorio {
 
 		$anno = self::anno_di( $ora );
 
-		if ( self::anni_precedenti( $anno ) ) {
+		$blocco = self::blocca_anno( $anno );
+
+		if ( is_wp_error( $blocco ) ) {
+			return $blocco;
+		}
+
+		try {
+			return self::dichiara_nell_anno( $valore, $anno, $utente_id, $ora );
+		} finally {
+			self::sblocca_anno( $anno );
+		}
+	}
+
+	/**
+	 * La dichiarazione della partenza, con il blocco dell'anno gia' preso.
+	 *
+	 * @param int                $valore    Partenza chiesta.
+	 * @param int                $anno      Anno.
+	 * @param int                $utente_id Chi dichiara.
+	 * @param \DateTimeImmutable $ora       Ora della dichiarazione.
+	 * @return true|\WP_Error
+	 */
+	private static function dichiara_nell_anno( int $valore, int $anno, int $utente_id, \DateTimeImmutable $ora ) {
+		global $wpdb;
+
+		/*
+		 * Un numero importato da Albo Pretorio On line e' gia' stato usato: una partenza
+		 * piu' bassa farebbe ridare quel numero al prossimo atto pubblicato.
+		 * Finche' l'anno non ha dato numeri, gli unici numeri registrati sono
+		 * quelli importati; dopo, la dichiarazione e' comunque bloccata, e lo
+		 * dice il controllo piu' sotto. Questa lettura serve al messaggio: la
+		 * condizione vera sta dentro le due scritture, piu' sotto.
+		 */
+		$dichiarato = self::anno( $anno );
+
+		if ( null === $dichiarato || $dichiarato['ultimo'] === $dichiarato['partenza'] ) {
+			$sotto = self::sotto_importati( $anno, $valore );
+
+			if ( null !== $sotto ) {
+				return $sotto;
+			}
+		}
+
+		$precedenti = self::anni_precedenti( $anno );
+
+		if ( null === $precedenti ) {
+			return self::errore_lettura();
+		}
+
+		if ( $precedenti ) {
 			return new \WP_Error(
 				'albo_repertorio_partenza_non_dichiarabile',
 				sprintf(
@@ -423,43 +578,60 @@ final class Repertorio {
 
 		/*
 		 * Prima l'anno nuovo, con un inserimento che non sovrascrive: se la riga
-		 * c'e' gia', non tocca niente.
+		 * c'e' gia', non tocca niente. La condizione sui numeri importati sta
+		 * nell'istruzione: un'importazione che registra un numero fra la lettura
+		 * qui sopra e questa scrittura la fa fallire, invece di passare.
 		 */
 		$inserite = $wpdb->query(
 			$wpdb->prepare(
-				'INSERT IGNORE INTO %i (anno, ultimo, partenza, apertura, dichiarato_da, dichiarato_il) VALUES (%d, %d, %d, %s, %d, %s)',
+				'INSERT IGNORE INTO %i (anno, ultimo, partenza, apertura, dichiarato_da, dichiarato_il) SELECT %d, %d, %d, %s, %d, %s FROM DUAL WHERE NOT EXISTS ( SELECT 1 FROM %i WHERE anno = %d AND numero > %d )',
 				self::tabella_anni(),
 				$anno,
 				$valore,
 				$valore,
 				self::APERTURA_DICHIARAZIONE,
 				$utente_id,
-				$quando
+				$quando,
+				self::tabella_assegnazioni(),
+				$anno,
+				$valore
 			)
 		);
 
 		if ( 1 !== $inserite ) {
 			/*
 			 * La riga c'era: la correzione si fa solo se nessun numero e' stato
-			 * assegnato, e la condizione sta nell'istruzione stessa, non in una
-			 * lettura fatta prima, cosi' un'assegnazione che arriva nel frattempo
-			 * non puo' passare in mezzo.
+			 * assegnato e nessun numero importato supera il nuovo valore, e le
+			 * condizioni stanno nell'istruzione stessa, non in una lettura fatta
+			 * prima, cosi' un'assegnazione o un'importazione che arriva nel
+			 * frattempo non puo' passare in mezzo.
 			 */
 			$wpdb->query(
 				$wpdb->prepare(
-					'UPDATE %i SET ultimo = %d, partenza = %d, dichiarato_da = %d, dichiarato_il = %s WHERE anno = %d AND apertura = %s AND ultimo = partenza',
+					'UPDATE %i SET ultimo = %d, partenza = %d, dichiarato_da = %d, dichiarato_il = %s WHERE anno = %d AND apertura = %s AND ultimo = partenza AND NOT EXISTS ( SELECT 1 FROM %i WHERE anno = %d AND numero > %d )',
 					self::tabella_anni(),
 					$valore,
 					$valore,
 					$utente_id,
 					$quando,
 					$anno,
-					self::APERTURA_DICHIARAZIONE
+					self::APERTURA_DICHIARAZIONE,
+					self::tabella_assegnazioni(),
+					$anno,
+					$valore
 				)
 			);
 		}
 
 		$riga = self::anno( $anno );
+
+		if ( null === $riga || ( $riga['ultimo'] === $riga['partenza'] && $valore !== $riga['partenza'] ) ) {
+			$sotto = self::sotto_importati( $anno, $valore, true );
+
+			if ( null !== $sotto ) {
+				return $sotto;
+			}
+		}
 
 		if ( null === $riga
 			|| self::APERTURA_DICHIARAZIONE !== $riga['apertura']
@@ -519,7 +691,13 @@ final class Repertorio {
 		$anno = self::anno_di( $istante );
 
 		if ( null === self::anno( $anno ) ) {
-			if ( ! self::anni_precedenti( $anno ) ) {
+			$precedenti = self::anni_precedenti( $anno );
+
+			if ( null === $precedenti ) {
+				return self::errore_lettura();
+			}
+
+			if ( ! $precedenti ) {
 				return self::errore_partenza( $anno );
 			}
 
@@ -611,6 +789,173 @@ final class Repertorio {
 	}
 
 	/**
+	 * Registra il numero che un atto importato aveva in Albo Pretorio On line (ALBO-35).
+	 *
+	 * **La riga dell'anno non si tocca.** Un anno con una riga e' un anno di
+	 * cui questo albo crede di aver tenuto la numerazione: una riga scritta
+	 * per un anno passato farebbe ripartire da 1 l'anno nuovo, senza
+	 * dichiarazione. Il numero va solo fra le assegnazioni, e se l'anno ha gia'
+	 * una riga non puo' superarne la partenza, cioe' l'ultimo numero del registro
+	 * precedente dichiarato: oltre, il numero sarebbe di questo albo. La riga si
+	 * legge bloccandola, cosi' che una dichiarazione non cambi la partenza fra
+	 * il controllo e la scrittura; per questo va chiamata dentro la transazione
+	 * di chi importa.
+	 *
+	 * @param int $atto_id Atto importato, ancora senza numero.
+	 * @param int $anno    Anno del numero.
+	 * @param int $numero  Numero.
+	 * @return true|\WP_Error
+	 */
+	public static function registra_importato( int $atto_id, int $anno, int $numero ) {
+		global $wpdb;
+
+		if ( $anno < 1 || $anno > 9999 || $numero < 1 || $numero > self::MASSIMO ) {
+			return new \WP_Error(
+				'albo_repertorio_importato_non_valido',
+				__( 'Numero non registrato: il numero o l\'anno di Albo Pretorio On line non sono validi.', 'albo-pretorio-pa' )
+			);
+		}
+
+		if ( ! self::tabelle_presenti() ) {
+			return self::errore_tabelle();
+		}
+
+		$gia = self::assegnazione( $atto_id );
+
+		if ( false === $gia ) {
+			return self::errore_lettura();
+		}
+
+		if ( null !== $gia ) {
+			return new \WP_Error(
+				'albo_repertorio_importato_gia_numerato',
+				__( 'Numero non registrato: l\'atto ha gia\' un numero.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$riga = Lettura::righe(
+			$wpdb->prepare( 'SELECT partenza FROM %i WHERE anno = %d FOR UPDATE', self::tabella_anni(), $anno ),
+			array( 'partenza' )
+		);
+
+		if ( null === $riga ) {
+			return self::errore_lettura();
+		}
+
+		/*
+		 * Un anno senza riga che segue anni tenuti qui riparte da 1 senza
+		 * dichiarazione: un numero importato in quell'anno sarebbe ridato.
+		 */
+		$precedenti = array() === $riga ? self::anni_precedenti( $anno ) : false;
+
+		if ( null === $precedenti ) {
+			return self::errore_lettura();
+		}
+
+		if ( $precedenti ) {
+			return new \WP_Error(
+				'albo_repertorio_importato_anno_tenuto_qui',
+				sprintf(
+					/* translators: %d: anno. */
+					__( 'Numero non registrato: la numerazione del %d prosegue quella tenuta qui negli anni precedenti e riparte da 1, e un numero importato verrebbe ridato.', 'albo-pretorio-pa' ),
+					$anno
+				)
+			);
+		}
+
+		if ( array() !== $riga && $numero > (int) $riga[0]['partenza'] ) {
+			return new \WP_Error(
+				'albo_repertorio_importato_oltre_partenza',
+				sprintf(
+					/* translators: 1: numero/anno, 2: ultimo numero del registro precedente dichiarato. */
+					__( 'Numero non registrato: %1$s viene dopo l\'ultimo numero del registro precedente dichiarato in questo albo (%2$d).', 'albo-pretorio-pa' ),
+					$numero . '/' . $anno,
+					(int) $riga[0]['partenza']
+				)
+			);
+		}
+
+		$inserite = $wpdb->query(
+			$wpdb->prepare(
+				'INSERT IGNORE INTO %i (anno, numero, atto_id, assegnato_il) VALUES (%d, %d, %d, %s)',
+				self::tabella_assegnazioni(),
+				$anno,
+				$numero,
+				$atto_id,
+				gmdate( 'Y-m-d H:i:s' )
+			)
+		);
+
+		if ( false === $inserite ) {
+			return new \WP_Error(
+				'albo_repertorio_importato_non_scritto',
+				__( 'Numero non registrato: la banca dati ha rifiutato la scrittura.', 'albo-pretorio-pa' )
+			);
+		}
+
+		// Si rilegge: se il numero era gia' di un altro atto il vincolo ha scartato la riga.
+		$assegnato = self::assegnazione( $atto_id );
+
+		if ( false === $assegnato ) {
+			return self::errore_lettura();
+		}
+
+		if ( array(
+			'anno'   => $anno,
+			'numero' => $numero,
+		) !== $assegnato ) {
+			return new \WP_Error(
+				'albo_repertorio_importato_gia_dato',
+				sprintf(
+					/* translators: %s: numero/anno. */
+					__( 'Numero non registrato: %s e\' gia\' di un altro atto di questo albo.', 'albo-pretorio-pa' ),
+					$numero . '/' . $anno
+				)
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Il rifiuto di una partenza piu' bassa di un numero gia' registrato nell'anno, o nulla.
+	 *
+	 * @param int  $anno      Anno.
+	 * @param int  $valore    Partenza chiesta.
+	 * @param bool $bloccante Lettura bloccante, per il controllo dopo la scrittura.
+	 * @return \WP_Error|null
+	 */
+	private static function sotto_importati( int $anno, int $valore, bool $bloccante = false ): ?\WP_Error {
+		global $wpdb;
+
+		// La lettura bloccante vede i numeri confermati da altre richieste anche dentro una transazione gia' aperta.
+		$massimo = Lettura::righe(
+			$bloccante
+				? $wpdb->prepare( 'SELECT COALESCE( MAX( numero ), 0 ) AS n FROM %i WHERE anno = %d LOCK IN SHARE MODE', self::tabella_assegnazioni(), $anno )
+				: $wpdb->prepare( 'SELECT COALESCE( MAX( numero ), 0 ) AS n FROM %i WHERE anno = %d', self::tabella_assegnazioni(), $anno ),
+			array( 'n' )
+		);
+
+		if ( null === $massimo || 1 !== count( $massimo ) ) {
+			return self::errore_lettura();
+		}
+
+		if ( (int) $massimo[0]['n'] <= $valore ) {
+			return null;
+		}
+
+		return new \WP_Error(
+			'albo_repertorio_partenza_sotto_importati',
+			sprintf(
+				/* translators: 1: numero/anno gia' presente, 2: anno. */
+				__( 'Partenza non dichiarata: il numero %1$s e\' gia\' registrato, importato da Albo Pretorio On line, e la partenza del %2$d non puo\' essere piu\' bassa.', 'albo-pretorio-pa' ),
+				(int) $massimo[0]['n'] . '/' . $anno,
+				$anno
+			)
+		);
+	}
+
+	/**
 	 * Valida la partenza dichiarata.
 	 *
 	 * @param mixed $ultimo Valore ricevuto.
@@ -637,19 +982,27 @@ final class Repertorio {
 	}
 
 	/**
-	 * Vero se la banca dati contiene un anno precedente a quello dato.
+	 * Vero se la banca dati contiene un anno precedente a quello dato, nulla se non ha risposto.
+	 *
+	 * Una lettura fallita non vale "nessun anno prima": cambierebbe quale
+	 * numero e' ammesso, e chi chiama si ferma con l'errore di lettura.
 	 *
 	 * @param int $anno Anno.
-	 * @return bool
+	 * @return bool|null
 	 */
-	private static function anni_precedenti( int $anno ): bool {
+	private static function anni_precedenti( int $anno ): ?bool {
 		global $wpdb;
 
-		$conteggio = $wpdb->get_var(
-			$wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE anno < %d', self::tabella_anni(), $anno )
+		$righe = Lettura::righe(
+			$wpdb->prepare( 'SELECT COUNT(*) AS quanti FROM %i WHERE anno < %d', self::tabella_anni(), $anno ),
+			array( 'quanti' )
 		);
 
-		return (int) $conteggio > 0;
+		if ( null === $righe || 1 !== count( $righe ) || ! is_numeric( $righe[0]['quanti'] ) ) {
+			return null;
+		}
+
+		return (int) $righe[0]['quanti'] > 0;
 	}
 
 	/**
