@@ -94,6 +94,15 @@ final class Importazione {
 	const META_FILE_DA_TOGLIERE = '_albo_pretorio_importazione_file_da_togliere';
 
 	/**
+	 * Nome del dato della bozza con i documenti da togliere.
+	 *
+	 * WordPress cancella i dati di un documento prima della sua riga: se la
+	 * riga resta, il documento perde la marca del meccanismo comune e non si
+	 * ritroverebbe piu'. La bozza ne ricorda l'identificativo.
+	 */
+	const META_DOCUMENTI_DA_TOGLIERE = '_albo_pretorio_importazione_documenti_da_togliere';
+
+	/**
 	 * La bozza che l'importazione sta portando a pubblicato in questo momento, o zero.
 	 *
 	 * @var int
@@ -1031,28 +1040,40 @@ final class Importazione {
 	private static function togli_bozza( int $atto_id ): bool {
 		$documenti = self::documenti_della_bozza( $atto_id );
 
-		if ( null === $documenti ) {
+		// Prima gli elenchi dei documenti e dei file, scritti sulla bozza: la bozza si cancella per ultima, quindi resta finche' resta qualcosa.
+		$ricordati = self::ricordati( $atto_id, self::META_DOCUMENTI_DA_TOGLIERE );
+		$file      = self::ricordati( $atto_id, self::META_FILE_DA_TOGLIERE );
+
+		if ( null === $documenti || null === $ricordati || null === $file ) {
 			return false;
 		}
 
-		// Prima l'elenco dei file, scritto sulla bozza: la bozza si cancella per ultima, quindi resta finche' resta un file.
-		$ricordati = self::file_ricordati( $atto_id );
-
-		if ( null === $ricordati ) {
-			return false;
-		}
-
-		foreach ( $documenti as $documento => $file ) {
-			if ( '' !== $file && ! in_array( $file, $ricordati, true ) ) {
-				if ( false === add_post_meta( $atto_id, self::META_FILE_DA_TOGLIERE, wp_slash( $file ) ) ) {
+		foreach ( $documenti as $documento => $percorso ) {
+			if ( ! in_array( (string) $documento, $ricordati, true ) ) {
+				if ( false === add_post_meta( $atto_id, self::META_DOCUMENTI_DA_TOGLIERE, (string) $documento ) ) {
 					return false;
 				}
 
-				$ricordati[] = $file;
+				$ricordati[] = (string) $documento;
+			}
+
+			if ( '' !== $percorso && ! in_array( $percorso, $file, true ) ) {
+				if ( false === add_post_meta( $atto_id, self::META_FILE_DA_TOGLIERE, wp_slash( $percorso ) ) ) {
+					return false;
+				}
+
+				$file[] = $percorso;
 			}
 		}
 
-		foreach ( array_keys( $documenti ) as $documento ) {
+		// Anche i documenti ricordati che hanno perso la marca in una cancellazione a meta': sono ancora figli di questa bozza.
+		$da_togliere = self::figli_fra( $atto_id, $ricordati );
+
+		if ( null === $da_togliere ) {
+			return false;
+		}
+
+		foreach ( array_unique( array_merge( array_keys( $documenti ), $da_togliere ) ) as $documento ) {
 			wp_delete_attachment( $documento, true );
 			clean_post_cache( $documento );
 
@@ -1061,21 +1082,21 @@ final class Importazione {
 			}
 		}
 
-		foreach ( $ricordati as $file ) {
-			if ( ! self::file_dei_documenti( $file ) ) {
+		foreach ( $file as $percorso ) {
+			if ( ! self::file_dei_documenti( $percorso ) ) {
 				continue;
 			}
 
-			wp_delete_file( $file );
-			clearstatcache( true, $file );
+			wp_delete_file( $percorso );
+			clearstatcache( true, $percorso );
 
-			if ( file_exists( $file ) ) {
+			if ( file_exists( $percorso ) ) {
 				return false;
 			}
 		}
 
-		// Prima di togliere la bozza, una lettura che risponde davvero: nessun documento le e' rimasto.
-		if ( array() !== self::documenti_della_bozza( $atto_id ) ) {
+		// Prima di togliere la bozza, letture che rispondono davvero: nessun documento le e' rimasto, con la marca o senza.
+		if ( array() !== self::documenti_della_bozza( $atto_id ) || array() !== self::figli_fra( $atto_id, $ricordati ) ) {
 			return false;
 		}
 
@@ -1086,25 +1107,61 @@ final class Importazione {
 	}
 
 	/**
-	 * L'elenco dei file da togliere scritto sulla bozza, o nulla se la banca dati non risponde.
+	 * Un elenco scritto sulla bozza (documenti o file da togliere), o nulla se la banca dati non risponde.
 	 *
 	 * Letto dalla banca dati com'e': un elenco vuoto per errore farebbe
-	 * cancellare la bozza, che e' l'unica a ricordare dove stanno i file.
+	 * cancellare la bozza, che e' l'unica a ricordare cosa resta da togliere.
 	 *
-	 * @param int $atto_id Bozza.
+	 * @param int    $atto_id Bozza.
+	 * @param string $chiave  Nome del dato.
 	 * @return array<int, string>|null
 	 */
-	private static function file_ricordati( int $atto_id ): ?array {
+	private static function ricordati( int $atto_id, string $chiave ): ?array {
 		global $wpdb;
 
 		$righe = Lettura::righe(
-			$wpdb->prepare( 'SELECT meta_value FROM %i WHERE post_id = %d AND meta_key = %s ORDER BY meta_id', $wpdb->postmeta, $atto_id, self::META_FILE_DA_TOGLIERE ),
+			$wpdb->prepare( 'SELECT meta_value FROM %i WHERE post_id = %d AND meta_key = %s ORDER BY meta_id', $wpdb->postmeta, $atto_id, $chiave ),
 			array( 'meta_value' )
 		);
 
 		return null === $righe ? null : array_map(
 			static function ( array $riga ): string {
 				return (string) $riga['meta_value'];
+			},
+			$righe
+		);
+	}
+
+	/**
+	 * Fra i documenti ricordati, quelli che esistono ancora come figli della bozza, o nulla se la banca dati non risponde.
+	 *
+	 * @param int                $atto_id   Bozza.
+	 * @param array<int, string> $ricordati Identificativi ricordati.
+	 * @return array<int, int>|null
+	 */
+	private static function figli_fra( int $atto_id, array $ricordati ): ?array {
+		global $wpdb;
+
+		$id = array_values( array_filter( array_map( 'intval', $ricordati ) ) );
+
+		if ( array() === $id ) {
+			return array();
+		}
+
+		$segnaposto = implode( ', ', array_fill( 0, count( $id ), '%d' ) );
+		// phpcs:disable WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- i segnaposto degli identificativi sono costruiti qui sopra, uno per identificativo.
+		$righe = Lettura::righe(
+			$wpdb->prepare(
+				"SELECT ID FROM %i WHERE post_parent = %d AND post_type = %s AND ID IN ( {$segnaposto} ) ORDER BY ID",
+				array_merge( array( $wpdb->posts, $atto_id, 'attachment' ), $id )
+			),
+			array( 'ID' )
+		);
+		// phpcs:enable WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return null === $righe ? null : array_map(
+			static function ( array $riga ): int {
+				return (int) $riga['ID'];
 			},
 			$righe
 		);
@@ -1303,6 +1360,10 @@ final class Importazione {
 			'ruoli'      => array(),
 			'impronte'   => array(),
 		);
+		$attesi     = array(
+			'principale' => null,
+			'ulteriori'  => array(),
+		);
 
 		// Il principale per primo: gli allegati ulteriori restano nell'ordine del backup.
 		$ordine = array_keys( $atto['documenti'] );
@@ -1369,9 +1430,65 @@ final class Importazione {
 			$esito['titoli'][]   = (string) $documento['titolo'];
 			$esito['ruoli'][]    = $ruolo;
 			$esito['impronte'][] = $atteso;
+
+			if ( DocumentiAtto::PRINCIPALE === $ruolo ) {
+				$attesi['principale'] = (int) $allegato;
+			} else {
+				$attesi['ulteriori'][] = (int) $allegato;
+			}
+		}
+
+		// Ogni deposito e' riuscito: l'atto deve elencare proprio quei documenti, nell'ordine. Una lettura mancata in mezzo puo' averne perso uno.
+		if ( self::collegamenti( $atto_id ) !== $attesi ) {
+			return new \WP_Error( 'albo_importazione_collegamenti', __( 'L\'atto non e\' stato importato: dopo il deposito i documenti indicati dall\'atto non sono tutti e soli quelli depositati.', 'albo-pretorio-pa' ) );
 		}
 
 		return $esito;
+	}
+
+	/**
+	 * Il documento principale e gli allegati ulteriori come li indica la bozza, letti dalla banca dati com'e'.
+	 *
+	 * Nulla se la lettura non risponde o i dati non hanno la forma attesa: per
+	 * il confronto con i documenti depositati vale come una differenza.
+	 *
+	 * @param int $atto_id Bozza.
+	 * @return array{principale: int|null, ulteriori: array<int, int>}|null
+	 */
+	private static function collegamenti( int $atto_id ): ?array {
+		global $wpdb;
+
+		$righe = Lettura::righe(
+			$wpdb->prepare( 'SELECT meta_key, meta_value FROM %i WHERE post_id = %d AND meta_key IN ( %s, %s ) ORDER BY meta_id', $wpdb->postmeta, $atto_id, META_DOCUMENTO_PRINCIPALE, META_ALLEGATI_ULTERIORI ),
+			array( 'meta_key', 'meta_value' )
+		);
+
+		if ( null === $righe ) {
+			return null;
+		}
+
+		$valori = array();
+
+		foreach ( $righe as $riga ) {
+			// Una riga sola per dato: due righe sarebbero un dato che WordPress non sa leggere.
+			if ( isset( $valori[ $riga['meta_key'] ] ) ) {
+				return null;
+			}
+
+			$valori[ $riga['meta_key'] ] = maybe_unserialize( (string) $riga['meta_value'] );
+		}
+
+		$principale = $valori[ META_DOCUMENTO_PRINCIPALE ] ?? null;
+		$ulteriori  = $valori[ META_ALLEGATI_ULTERIORI ] ?? array();
+
+		if ( ( null !== $principale && ! is_numeric( $principale ) ) || ! is_array( $ulteriori ) ) {
+			return null;
+		}
+
+		return array(
+			'principale' => null === $principale ? null : (int) $principale,
+			'ulteriori'  => array_map( 'intval', array_values( $ulteriori ) ),
+		);
 	}
 
 	/**
