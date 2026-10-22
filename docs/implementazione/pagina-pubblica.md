@@ -335,7 +335,13 @@ prova li vede, nove, tutti visti: indicatore del fuoco tolto dal foglio di stile
 reso trasparente, etichetta tolta dal campo di testo, ordine di tabulazione cambiato sul
 pulsante "Cerca", documenti della scheda spariti, messaggio della ricerca scritta male tolto,
 spiegazione dell'errore tolta lasciando l'avviso, filtro dell'organo spento, collegamenti agli
-atti che non portano da nessuna parte.
+atti che non portano da nessuna parte, date di sola lettura, filtro dell'organo spostato a
+vista prima del testo con il foglio di stile.
+
+L'ordine del Tab si confronta con l'ordine della pagina, e i comandi della ricerca anche con
+l'ordine in cui si vedono: un foglio di stile può spostare a vista un campo senza cambiarne il
+posto nel Tab. Le date di una ricerca da tastiera si scrivono a cifre, e l'ordine di giorno,
+mese e anno dipende dalla lingua del browser: la prova lo ricava provando su un campo a parte.
 
 Oltre alle pagine aperte per indirizzo, la prova segue da tastiera i collegamenti che le
 uniscono: dall'elenco alla seconda pagina, alla scheda, e dalla scheda di nuovo all'elenco. I

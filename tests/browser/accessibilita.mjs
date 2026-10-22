@@ -98,6 +98,15 @@ const FILTRO_SPENTO = `<!doctype html><html lang="it"><head><meta charset="utf-8
 <label for="albo_al">Al</label><input type="date" id="albo_al" name="albo_al">
 <button type="submit">Cerca</button></form></div></main></body></html>`;
 
+// Le date di sola lettura: si raggiungono, ma non si compilano.
+const DATE_FERME = FILTRO_SPENTO.replace( ' disabled>', '>' ).replace( 'name="albo_dal">', 'name="albo_dal" readonly>' );
+
+// Organo spostato a vista prima del testo, mentre il Tab lo visita dopo il tipo.
+const FILTRO_RIORDINATO = FILTRO_SPENTO.replace( ' disabled>', '>' )
+	.replace( '<form>', '<form style="display: flex; flex-wrap: wrap; gap: 8px">' )
+	.replace( /<label for="(\w+)">([^<]+)<\/label>(<(?:input|select)[^>]*>(?:<option[^>]*>[^<]*<\/option><\/select>)?)/g, '<div class="campo-$1"><label for="$1">$2</label>$3</div>' )
+	.replace( '<div class="campo-albo_organo">', '<div class="campo-albo_organo" style="order: -1">' );
+
 // Collegamenti che hanno il fuoco ma non portano da nessuna parte.
 const COLLEGAMENTI_MORTI = `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Elenco</title></head>
 <body><main><div class="albo-pretorio"><nav><a class="albo-pretorio__collegamento" href="#">2</a></nav></div></main></body></html>`;
@@ -440,7 +449,7 @@ async function verifica_comandi( pagina ) {
 			const s = getComputedStyle( e );
 			const r = e.getBoundingClientRect();
 
-			return ! e.disabled && ! e.closest( '[inert]' ) && s.visibility !== 'hidden' && s.display !== 'none' && r.width > 0 && r.height > 0;
+			return ! e.disabled && ! e.readOnly && ! e.closest( '[inert]' ) && s.visibility !== 'hidden' && s.display !== 'none' && r.width > 0 && r.height > 0;
 		};
 
 		for ( const id of richiesti ) {
@@ -449,12 +458,38 @@ async function verifica_comandi( pagina ) {
 			if ( ! campo ) {
 				problemi.push( `il comando "${ id }" della ricerca manca` );
 			} else if ( ! usabile( campo ) ) {
-				problemi.push( `il comando "${ id }" della ricerca c'e' ma non si usa (spento o nascosto)` );
+				problemi.push( `il comando "${ id }" della ricerca c'e' ma non si usa (spento, di sola lettura o nascosto)` );
 			}
 		}
 
 		if ( pulsanti.length !== 1 || ! usabile( pulsanti[ 0 ] ) ) {
 			problemi.push( 'il pulsante "Cerca" manca o non si usa' );
+		}
+
+		/*
+		 * L'ordine in cui si vedono deve essere quello in cui li visita il Tab,
+		 * che il percorso confronta con l'ordine della pagina: per righe, dall'alto,
+		 * e in ogni riga da sinistra. Due comandi stanno nella stessa riga se i
+		 * loro riquadri si sovrappongono in altezza.
+		 */
+		const comandi = [ ...richiesti.map( ( id ) => albo?.querySelector( `#${ id }` ) ), pulsanti[ 0 ] ];
+
+		if ( problemi.length === 0 && comandi.every( Boolean ) ) {
+			const riquadri = comandi.map( ( e, posto ) => ( { posto, nome: e.id || e.textContent.trim(), r: e.getBoundingClientRect() } ) );
+			const righe = [];
+
+			for ( const q of [ ...riquadri ].sort( ( a, b ) => a.r.top - b.r.top ) ) {
+				const riga = righe.find( ( g ) => g.some( ( o ) => q.r.top < o.r.bottom && o.r.top < q.r.bottom ) );
+
+				( riga ?? righe[ righe.push( [] ) - 1 ] ).push( q );
+			}
+
+			const aVista = righe.flatMap( ( g ) => g.sort( ( a, b ) => a.r.left - b.r.left ) ).map( ( q ) => q.nome );
+			const nellaPagina = riquadri.map( ( q ) => q.nome );
+
+			if ( aVista.join( ',' ) !== nellaPagina.join( ',' ) ) {
+				problemi.push( `i comandi della ricerca si vedono nell'ordine ${ aVista.join( ', ' ) }, ma il Tab li visita nell'ordine ${ nellaPagina.join( ', ' ) }` );
+			}
 		}
 
 		return problemi;
@@ -497,8 +532,33 @@ async function segui_da_tastiera( pagina, testo, massimo = 80 ) {
 	return null;
 }
 
-async function tab_fino_a( pagina, id, massimo = 80 ) {
-	await pagina.evaluate( () => document.activeElement?.blur() );
+/**
+ * Le cifre da scrivere in un campo di data per quel giorno.
+ *
+ * L'ordine di giorno, mese e anno dipende dalla lingua del browser, che sulla
+ * macchina dei controlli non si sceglie: lo si prova su un campo a parte, e si
+ * usa quello che da' la data giusta.
+ */
+async function cifre_della_data( iso ) {
+	const [ anno, mese, giorno ] = iso.split( '-' );
+
+	for ( const cifre of [ giorno + mese + anno, mese + giorno + anno, anno + mese + giorno ] ) {
+		await confronto.setContent( '<input type="date" id="prova-data">' );
+		await confronto.focus( '#prova-data' );
+		await confronto.keyboard.type( cifre );
+
+		if ( iso === ( await confronto.evaluate( () => document.getElementById( 'prova-data' ).value ) ) ) {
+			return cifre;
+		}
+	}
+
+	throw new Error( `nessun ordine di scrittura da' la data ${ iso } in un campo di data` );
+}
+
+async function tab_fino_a( pagina, id, massimo = 80, daCapo = true ) {
+	if ( daCapo ) {
+		await pagina.evaluate( () => document.activeElement?.blur() );
+	}
 
 	for ( let i = 0; i < massimo; i++ ) {
 		await pagina.keyboard.press( 'Tab' );
@@ -571,6 +631,24 @@ try {
 
 		if ( ! ( await verifica_comandi( pagina ) ).some( ( p ) => p.includes( '"albo_organo"' ) ) ) {
 			sbaglia( 'controllo di realta\': la verifica dei comandi non vede il filtro dell\'organo spento' );
+		}
+
+		await pagina.setContent( DATE_FERME );
+
+		if ( ! ( await verifica_comandi( pagina ) ).some( ( p ) => p.includes( '"albo_dal"' ) ) ) {
+			sbaglia( 'controllo di realta\': la verifica dei comandi non vede la data di sola lettura' );
+		}
+
+		await pagina.setContent( FILTRO_RIORDINATO );
+
+		if ( ! ( await verifica_comandi( pagina ) ).some( ( p ) => p.startsWith( 'i comandi della ricerca si vedono nell\'ordine' ) ) ) {
+			sbaglia( 'controllo di realta\': la verifica dei comandi non vede l\'organo spostato a vista prima del testo' );
+		}
+
+		await pagina.setContent( FILTRO_SPENTO.replace( ' disabled>', '>' ) );
+
+		if ( ( await verifica_comandi( pagina ) ).length > 0 ) {
+			sbaglia( 'controllo di realta\': la verifica dei comandi rifiuta un modulo in ordine e funzionante' );
 		}
 
 		if ( conTastiera ) {
@@ -696,6 +774,40 @@ try {
 			}
 
 			/*
+			 * La ricerca per date senza mouse: Tab fino a "dal", si scrive la data di
+			 * oggi a cifre, Tab fino ad "al", la stessa, Tab fino a "Cerca", Invio.
+			 * Gli atti sono stati pubblicati oggi: li trova tutti.
+			 */
+			await pagina.goto( dati.elenco, { waitUntil: 'load' } );
+
+			const oggi = dati.oggi;
+			const cifre = await cifre_della_data( oggi );
+			let date = await tab_fino_a( pagina, 'albo_dal' );
+
+			if ( date ) {
+				await pagina.keyboard.type( cifre );
+				date = await tab_fino_a( pagina, 'albo_al', 10, false );
+			}
+
+			if ( date ) {
+				await pagina.keyboard.type( cifre );
+				date = await tab_fino_al_pulsante( pagina, 'Cerca' );
+			}
+
+			if ( ! date ) {
+				sbaglia( `${ tema }, ${ schermo }: i campi delle date o "Cerca" non si raggiungono con Tab` );
+			} else {
+				await Promise.all( [ pagina.waitForNavigation( { waitUntil: 'load' } ), pagina.keyboard.press( 'Enter' ) ] );
+
+				const indirizzo = new URL( pagina.url() );
+				const conteggio = ( await pagina.locator( '.albo-pretorio__conteggio' ).first().textContent() )?.trim();
+
+				if ( indirizzo.searchParams.get( 'albo_dal' ) !== oggi || indirizzo.searchParams.get( 'albo_al' ) !== oggi || conteggio !== `${ dati.oggetti.length } atti` ) {
+					sbaglia( `${ tema }, ${ schermo }: la ricerca per date da tastiera manda dal ${ indirizzo.searchParams.get( 'albo_dal' ) } al ${ indirizzo.searchParams.get( 'albo_al' ) } e trova "${ conteggio }", attesi ${ oggi } e ${ dati.oggetti.length } atti` );
+				}
+			}
+
+			/*
 			 * I collegamenti si seguono da tastiera e portano dove devono: dall'elenco
 			 * alla seconda pagina, dall'elenco alla scheda, dalla scheda all'elenco.
 			 * Le pagine aperte per indirizzo non lo dimostrano.
@@ -722,7 +834,7 @@ try {
 				}
 			}
 
-			console.log( `${ tema }, ${ schermo }: ricerca per testo e per tipo, seconda pagina, scheda e ritorno fatti da sola tastiera` );
+			console.log( `${ tema }, ${ schermo }: ricerca per testo, per tipo e per date, seconda pagina, scheda e ritorno fatti da sola tastiera` );
 		}
 
 		await contesto.close();

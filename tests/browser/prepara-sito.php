@@ -316,6 +316,8 @@ echo wp_json_encode( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEs
 		'oggetti del tipo scelto'           => $albo_pretorio_avvisi,
 		'documenti della scheda'            => array( 'Documento principale', 'Allegato 1', 'Allegato 2' ),
 		'atti per pagina'                   => \AlboPretorioPa\VistaPubblica::PER_PAGINA,
+		// Il giorno di pubblicazione degli atti, nel fuso del sito, per la ricerca per date.
+		'oggi'                              => wp_date( 'Y-m-d' ),
 		// La spiegazione che la ricerca scritta male deve dare, per il campo sbagliato.
 		'errore della ricerca scritta male' => 'La data "pubblicati dal" non è valida',
 	)
