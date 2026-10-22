@@ -72,14 +72,6 @@ final class Repertorio {
 	const ATTESA_ANNO = 3;
 
 	/**
-	 * Codice d'errore della banca dati per una variabile di sistema che non conosce.
-	 *
-	 * E' la sola risposta d'errore che dice "questa versione non tiene il
-	 * conto delle transazioni aperte", e non "la lettura non e' riuscita".
-	 */
-	const VARIABILE_SCONOSCIUTA = 1193;
-
-	/**
 	 * Il nome del blocco di un anno nella banca dati.
 	 *
 	 * Dichiarazione della partenza e importazione di un numero dello stesso anno
@@ -143,9 +135,9 @@ final class Repertorio {
 	 *
 	 * Scrittura automatica spenta, o una transazione gia' aperta dove la banca
 	 * dati lo dice (`@@in_transaction`, che non tutte le versioni hanno). Solo
-	 * due risposte dicono "nessuna transazione": zero, o la variabile che la
-	 * banca dati dichiara di non conoscere. Ogni altra risposta, un errore
-	 * compreso, vale come transazione esterna: e' la lettura prudente.
+	 * due risposte dicono "nessuna transazione": zero, o l'elenco delle
+	 * variabili, letto senza errori, che non la contiene. Ogni altra risposta,
+	 * un errore compreso, vale come transazione esterna: e' la lettura prudente.
 	 *
 	 * @return bool
 	 */
@@ -156,9 +148,15 @@ final class Repertorio {
 			return true;
 		}
 
-		$zitto       = $wpdb->suppress_errors( true );
-		$in          = $wpdb->get_var( 'SELECT @@in_transaction' );
-		$sconosciuta = null === $in && $wpdb->dbh instanceof \mysqli && self::VARIABILE_SCONOSCIUTA === mysqli_errno( $wpdb->dbh );
+		$zitto = $wpdb->suppress_errors( true );
+		$in    = $wpdb->get_var( 'SELECT @@in_transaction' );
+
+		// Senza risposta: si chiede se la variabile esiste. Solo un elenco letto senza errori e vuoto dice di no.
+		if ( null === $in ) {
+			$variabile   = $wpdb->get_var( "SHOW SESSION VARIABLES LIKE 'in\\_transaction'" );
+			$sconosciuta = '' === $wpdb->last_error && null === $variabile;
+		}
+
 		$wpdb->suppress_errors( $zitto );
 
 		if ( null === $in ) {
