@@ -8,9 +8,18 @@
  *    schermo largo: nessuna violazione;
  * 2. con `--tastiera`, il percorso da sola tastiera: ogni comando si raggiunge
  *    con il tasto Tab, nell'ordine in cui sta nella pagina, con l'indicatore del
- *    fuoco visibile, e dall'ultimo si esce; poi due ricerche fatte senza mouse.
+ *    fuoco visibile, e dall'ultimo si esce, come dal primo all'indietro; poi due
+ *    ricerche fatte senza mouse.
  *
- * Prima delle pagine vere, ogni controllo si fa girare su una pagina guastata
+ * Prima di esaminare una pagina se ne controlla il contenuto: gli atti attesi,
+ * il messaggio d'errore della ricerca scritta male, i tre documenti della
+ * scheda. Una pagina che non mostra cio' che deve non vale come esaminata.
+ *
+ * L'indicatore del fuoco si guarda nei pixel: lo stesso riquadro dello schermo
+ * con il fuoco e senza deve cambiare in modo visibile. Un contorno trasparente
+ * ha le sue proprieta' di stile ma non si vede, e non basta.
+ *
+ * Prima delle pagine vere, ogni controllo si fa girare su pagine guastate
  * apposta: se non vi trova i guasti, non e' un controllo, e la prova si ferma.
  *
  * Tutto da questo computer: le pagine dal sito di prova locale, il motore dalla
@@ -56,11 +65,25 @@ const SCHERMI = {
 const REGOLE = [ 'wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa' ];
 const motore = readFileSync( require.resolve( 'axe-core/axe.min.js' ), 'utf8' );
 
-// La pagina guastata apposta: un'immagine senza testo alternativo, un campo senza etichetta, un fuoco senza indicatore.
+/*
+ * La pagina guastata apposta: un'immagine senza testo alternativo, un campo
+ * senza etichetta, un fuoco senza indicatore, uno con il contorno e l'ombra
+ * trasparenti, e un ciclo che dall'ultimo comando riporta il fuoco al primo.
+ */
 const GUASTA = `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Pagina guastata</title>
-<style>.albo-pretorio a:focus { outline: none; }</style></head>
+<style>body { background: #fff; } .albo-pretorio a { display: inline-block; padding: 4px; margin: 8px; color: #000; }
+.albo-pretorio a:focus { outline: none; }
+.albo-pretorio a.trasparente:focus { outline: 3px solid transparent; box-shadow: 0 0 0 4px transparent; }</style></head>
 <body><main><div class="albo-pretorio"><h1>Prova</h1><img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">
-<form><input type="text" name="senza-etichetta"></form><a href="#uno">Uno</a> <a href="#due">Due</a></div></main></body></html>`;
+<form><input type="text" name="senza-etichetta"></form><a href="#uno" id="uno">Uno</a> <a href="#due" id="due" class="trasparente">Due</a></div></main>
+<script>document.addEventListener( 'keydown', ( e ) => { if ( e.key === 'Tab' && ! e.shiftKey && document.activeElement && document.activeElement.id === 'due' ) { e.preventDefault(); document.querySelector( 'input' ).focus(); } } );</script></body></html>`;
+
+// Le pagine con il codice dell'albo ma senza cio' che devono mostrare: la verifica del contenuto deve accorgersene.
+const SENZA_DOCUMENTI = `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Scheda</title></head>
+<body><main><div class="albo-pretorio"><h1 id="albo-pretorio-titolo-atto">OGGETTO</h1><p class="albo-pretorio__conteggio">Nessun documento.</p>
+<p class="albo-pretorio__torna"><a class="albo-pretorio__collegamento" href="#">Torna</a></p></div></main></body></html>`;
+const SENZA_ERRORE = `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Ricerca</title></head>
+<body><main><div class="albo-pretorio"><form><label for="albo_dal">Dal</label><input type="date" id="albo_dal" name="albo_dal"></form></div></main></body></html>`;
 
 let errori = 0;
 
@@ -98,8 +121,95 @@ async function esamina( pagina ) {
  * pagina; poi si preme Tab una volta per elemento, piu' due, e si annota dove
  * sta il fuoco e se l'indicatore si vede.
  */
+/**
+ * Quanti pixel cambiano, in modo visibile, fra due fotografie dello stesso riquadro.
+ *
+ * Il confronto si fa in una pagina a parte, con una tela: nessuna dipendenza in
+ * piu'. Cambia un pixel che in almeno un canale si sposta di 48 su 255.
+ */
+let confronto = null;
+
+async function pixel_cambiati( prima, dopo ) {
+	return confronto.evaluate( async ( [ a, b ] ) => {
+		const carica = ( dati ) => new Promise( ( fatto, rotto ) => {
+			const immagine = new Image();
+			immagine.onload = () => fatto( immagine );
+			immagine.onerror = rotto;
+			immagine.src = 'data:image/png;base64,' + dati;
+		} );
+		const [ uno, due ] = await Promise.all( [ carica( a ), carica( b ) ] );
+		const larghezza = Math.min( uno.width, due.width );
+		const altezza = Math.min( uno.height, due.height );
+		const leggi = ( immagine ) => {
+			const tela = document.createElement( 'canvas' );
+			tela.width = larghezza;
+			tela.height = altezza;
+			const disegno = tela.getContext( '2d' );
+			disegno.drawImage( immagine, 0, 0 );
+			return disegno.getImageData( 0, 0, larghezza, altezza ).data;
+		};
+		const x = leggi( uno );
+		const y = leggi( due );
+		let cambiati = 0;
+
+		for ( let i = 0; i < x.length; i += 4 ) {
+			if ( Math.max( Math.abs( x[ i ] - y[ i ] ), Math.abs( x[ i + 1 ] - y[ i + 1 ] ), Math.abs( x[ i + 2 ] - y[ i + 2 ] ) ) >= 48 ) {
+				cambiati++;
+			}
+		}
+
+		return cambiati;
+	}, [ prima.toString( 'base64' ), dopo.toString( 'base64' ) ] );
+}
+
+/**
+ * L'indicatore del fuoco dell'elemento che ha il fuoco si vede?
+ *
+ * Si fotografa il riquadro dell'elemento, con un margine per il contorno, con
+ * il fuoco e senza, e si contano i pixel cambiati: almeno quanti ne servono per
+ * un filo lungo tutto il perimetro. Poi il fuoco torna dov'era, e il Tab dopo
+ * riparte da li'.
+ */
+async function indicatore_visibile( pagina ) {
+	const riquadro = await pagina.evaluate( () => {
+		const r = document.activeElement.getBoundingClientRect();
+		const margine = 6;
+		const x = Math.max( 0, r.left - margine );
+		const y = Math.max( 0, r.top - margine );
+
+		return {
+			x,
+			y,
+			width: Math.max( 1, Math.min( window.innerWidth, r.right + margine ) - x ),
+			height: Math.max( 1, Math.min( window.innerHeight, r.bottom + margine ) - y ),
+			perimetro: 2 * ( r.width + r.height ),
+		};
+	} );
+	const { perimetro, ...clip } = riquadro;
+	const con = await pagina.screenshot( { clip, animations: 'disabled', caret: 'hide' } );
+
+	await pagina.evaluate( () => {
+		window.__alboFuoco = document.activeElement;
+		document.activeElement.blur();
+	} );
+	const senza = await pagina.screenshot( { clip, animations: 'disabled', caret: 'hide' } );
+	await pagina.evaluate( () => window.__alboFuoco.focus() );
+
+	return ( await pixel_cambiati( con, senza ) ) >= perimetro;
+}
+
 async function percorso( pagina ) {
 	const elementi = await pagina.evaluate( () => {
+		/*
+		 * Due pulsanti fuori dall'albo, in cima e in fondo alla pagina: dall'albo
+		 * si deve poter arrivare a loro, in avanti e all'indietro. Senza, in un
+		 * browser senza barra degli indirizzi il fuoco dopo l'ultimo comando
+		 * torna da se' al primo, e un ciclo voluto non si distinguerebbe.
+		 */
+		for ( const [ dove, nome ] of [ [ 'afterbegin', 'sentinella in cima' ], [ 'beforeend', 'sentinella in fondo' ] ] ) {
+			document.body.insertAdjacentHTML( dove, `<button type="button" data-sentinella-prova>${ nome }</button>` );
+		}
+
 		const selettore = 'a[href], button:not([disabled]), input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 		const visibili = [ ...document.querySelectorAll( selettore ) ].filter( ( e ) => {
 			const s = getComputedStyle( e );
@@ -128,27 +238,38 @@ async function percorso( pagina ) {
 
 	for ( let i = 0; i < pressioni; i++ ) {
 		await pagina.keyboard.press( 'Tab' );
-		passi.push(
-			await pagina.evaluate( () => {
-				const a = document.activeElement;
 
-				if ( ! a || a === document.body || ! a.hasAttribute( 'data-ordine-prova' ) ) {
-					return null;
-				}
+		const posto = await pagina.evaluate( () => {
+			const a = document.activeElement;
 
-				const s = getComputedStyle( a );
-				const contorno = s.outlineStyle !== 'none' && parseFloat( s.outlineWidth ) >= 2;
-				const ombra = s.boxShadow && s.boxShadow !== 'none';
+			return ! a || a === document.body || ! a.hasAttribute( 'data-ordine-prova' ) ? null : Number( a.getAttribute( 'data-ordine-prova' ) );
+		} );
 
-				return { posto: Number( a.getAttribute( 'data-ordine-prova' ) ), visibile: Boolean( contorno || ombra ) };
-			} )
-		);
+		if ( null === posto ) {
+			passi.push( null );
+			continue;
+		}
+
+		// Si fotografa all'arrivo sull'elemento, non a ogni pezzo di un campo di data.
+		const precedente = passi[ passi.length - 1 ];
+		const arrivo = ! precedente || precedente.posto !== posto;
+
+		passi.push( { posto, visibile: arrivo && elementi[ posto ].albo ? await indicatore_visibile( pagina ) : precedente?.visibile ?? true } );
 	}
 
-	return { elementi, passi };
+	// All'indietro: dal primo comando dell'albo, Maiuscolo e Tab portano fuori dall'albo.
+	await pagina.evaluate( () => document.querySelector( '.albo-pretorio [data-ordine-prova]' )?.focus() );
+	await pagina.keyboard.press( 'Shift+Tab' );
+	const indietro = await pagina.evaluate( () => {
+		const a = document.activeElement;
+
+		return ! a || a === document.body || ! a.hasAttribute( 'data-ordine-prova' ) ? null : Number( a.getAttribute( 'data-ordine-prova' ) );
+	} );
+
+	return { elementi, passi, indietro };
 }
 
-function controlla_percorso( { elementi, passi: grezzi }, etichetta ) {
+function controlla_percorso( { elementi, passi: grezzi, indietro }, etichetta ) {
 	const trovati = [];
 	const n = elementi.length;
 
@@ -164,6 +285,11 @@ function controlla_percorso( { elementi, passi: grezzi }, etichetta ) {
 		const passo = passi[ i ];
 
 		if ( ! passo || passo.posto !== i ) {
+			if ( passo && ! elementi[ i ].albo && elementi[ passo.posto ]?.albo ) {
+				trovati.push( `dopo l'ultimo comando dell'albo il fuoco resta nell'albo, su "${ elementi[ passo.posto ].nome }", invece di passare a "${ elementi[ i ].nome }"` );
+				break;
+			}
+
 			trovati.push( `al Tab numero ${ i + 1 } il fuoco doveva essere su "${ elementi[ i ].nome }" (posto ${ i }), e' su ${ passo ? `"${ elementi[ passo.posto ]?.nome }" (posto ${ passo.posto })` : 'nessun elemento' }` );
 			break;
 		}
@@ -173,14 +299,107 @@ function controlla_percorso( { elementi, passi: grezzi }, etichetta ) {
 		}
 	}
 
-	// Dall'ultimo si esce: il Tab dopo l'ultimo lascia la pagina, o ricomincia dal primo.
-	const dopo = passi[ n ];
-
-	if ( dopo && dopo.posto !== 0 ) {
-		trovati.push( `dopo l'ultimo elemento il fuoco resta in pagina, su "${ elementi[ dopo.posto ]?.nome }"` );
+	/*
+	 * Dall'albo si esce: in avanti lo dice l'ordine, che dopo l'ultimo comando
+	 * dell'albo vuole il primo che sta fuori (al piu' la sentinella in fondo);
+	 * all'indietro, dal primo comando dell'albo il fuoco va fuori dall'albo. Un
+	 * ritorno al primo o all'ultimo comando dell'albo e' un ciclo che trattiene
+	 * chi usa la tastiera.
+	 */
+	if ( null === indietro || elementi[ indietro ]?.albo ) {
+		trovati.push( `all'indietro dal primo comando dell'albo il fuoco resta nell'albo, su ${ null === indietro ? 'nessun elemento' : `"${ elementi[ indietro ].nome }"` }` );
 	}
 
 	return trovati;
+}
+
+/**
+ * Gli oggetti degli atti elencati nella pagina, nell'ordine.
+ */
+async function oggetti_elencati( pagina ) {
+	return ( await pagina.locator( 'tr.albo-pretorio__atto .albo-pretorio__cella--oggetto a.albo-pretorio__collegamento' ).allTextContents() ).map( ( t ) => t.trim() );
+}
+
+function stessi( trovati, attesi ) {
+	return trovati.length === attesi.length && [ ...trovati ].sort().join( '\n' ) === [ ...attesi ].sort().join( '\n' );
+}
+
+/**
+ * La pagina mostra cio' che il collaudo dice di esaminare? Elenco dei problemi.
+ *
+ * @param {Object} pagina  Pagina del browser.
+ * @param {string} nome    Quale pagina.
+ * @param {Object} attese  Cio' che deve mostrare, da `prepara-sito.php`.
+ * @param {Object} memoria Gli atti visti nell'elenco, per la seconda pagina.
+ */
+async function verifica_contenuto( pagina, nome, attese, memoria = {} ) {
+	const problemi = [];
+	const oggetti = await oggetti_elencati( pagina );
+	const tutti = attese.oggetti ?? [];
+	const perPagina = attese[ 'atti per pagina' ];
+
+	if ( 'elenco' === nome ) {
+		if ( oggetti.length !== Math.min( perPagina, tutti.length ) || ! oggetti.every( ( o ) => tutti.includes( o ) ) || new Set( oggetti ).size !== oggetti.length ) {
+			problemi.push( `l'elenco mostra ${ oggetti.length } atti, attesi i primi ${ Math.min( perPagina, tutti.length ) } dei ${ tutti.length } pubblicati` );
+		}
+
+		memoria.elenco = oggetti;
+	}
+
+	if ( 'seconda pagina' === nome ) {
+		const resto = tutti.filter( ( o ) => ! ( memoria.elenco ?? [] ).includes( o ) );
+
+		if ( ! memoria.elenco || ! stessi( oggetti, resto ) ) {
+			problemi.push( `la seconda pagina mostra ${ JSON.stringify( oggetti ) }, attesi gli atti che la prima non mostra (${ JSON.stringify( resto ) })` );
+		}
+	}
+
+	if ( 'ricerca con un filtro' === nome && ! stessi( oggetti, attese[ 'oggetti del tipo scelto' ] ?? [ '' ] ) ) {
+		problemi.push( `la ricerca per tipo mostra ${ oggetti.length } atti, attesi i ${ attese[ 'oggetti del tipo scelto' ]?.length } del tipo scelto` );
+	}
+
+	if ( 'ricerca senza risultati' === nome ) {
+		const conteggio = ( await pagina.locator( '.albo-pretorio__conteggio' ).allTextContents() ).join( ' ' );
+
+		if ( oggetti.length !== 0 || ! conteggio.includes( 'Nessun atto' ) ) {
+			problemi.push( `la ricerca senza risultati mostra ${ oggetti.length } atti e il messaggio "${ conteggio.trim() }"` );
+		}
+	}
+
+	if ( 'ricerca scritta male' === nome ) {
+		const errore = pagina.locator( '#albo-pretorio-errore-ricerca' );
+		const campo = pagina.locator( 'input[name="albo_dal"]' );
+		const visibile = ( await errore.count() ) === 1 && ( await errore.isVisible() ) && ( await errore.getAttribute( 'role' ) ) === 'alert';
+		const legato = ( await campo.count() ) === 1 && ( await campo.getAttribute( 'aria-invalid' ) ) === 'true' && ( ( await campo.getAttribute( 'aria-describedby' ) ) ?? '' ).split( ' ' ).includes( 'albo-pretorio-errore-ricerca' );
+
+		if ( ! visibile || ! legato || oggetti.length !== 0 ) {
+			problemi.push( `la ricerca scritta male non mostra l'errore legato al campo (messaggio visibile: ${ visibile }, legato al campo: ${ legato }, atti: ${ oggetti.length })` );
+		}
+	}
+
+	if ( 'scheda con allegati' === nome ) {
+		const titolo = ( await pagina.locator( '#albo-pretorio-titolo-atto' ).allTextContents() ).map( ( t ) => t.trim() );
+		const documenti = pagina.locator( 'li.albo-pretorio__documento a.albo-pretorio__collegamento' );
+		const nomi = ( await documenti.allTextContents() ).map( ( t ) => t.trim() );
+
+		if ( titolo.length !== 1 || titolo[ 0 ] !== attese[ 'oggetto della scheda' ] ) {
+			problemi.push( `la scheda ha il titolo ${ JSON.stringify( titolo ) }, atteso "${ attese[ 'oggetto della scheda' ] }"` );
+		}
+
+		if ( JSON.stringify( nomi ) !== JSON.stringify( attese[ 'documenti della scheda' ] ?? [] ) ) {
+			problemi.push( `la scheda ha i documenti ${ JSON.stringify( nomi ) }, attesi ${ JSON.stringify( attese[ 'documenti della scheda' ] ) }` );
+		} else {
+			for ( const indirizzo of await documenti.evaluateAll( ( a ) => a.map( ( e ) => e.href ) ) ) {
+				const risposta = await pagina.request.get( indirizzo );
+
+				if ( risposta.status() !== 200 || ! ( await risposta.body() ).subarray( 0, 5 ).equals( Buffer.from( '%PDF-' ) ) ) {
+					problemi.push( `il documento ${ indirizzo } risponde ${ risposta.status() } senza il PDF` );
+				}
+			}
+		}
+	}
+
+	return problemi;
 }
 
 async function tab_fino_a( pagina, id, massimo = 80 ) {
@@ -212,6 +431,8 @@ async function tab_fino_al_pulsante( pagina, testo, massimo = 20 ) {
 const browser = await chromium.launch( { executablePath: process.env.CHROME } );
 
 try {
+	confronto = await ( await browser.newContext() ).newPage();
+
 	// Controllo di realta': il motore e il percorso vedono i guasti della pagina guastata.
 	{
 		const contesto = await browser.newContext( { viewport: SCHERMI.largo } );
@@ -232,8 +453,22 @@ try {
 			await pagina.setContent( GUASTA );
 			const trovati = controlla_percorso( await percorso( pagina ), 'pagina guastata' );
 
-			if ( ! trovati.some( ( t ) => t.includes( 'senza un indicatore visibile' ) ) ) {
-				sbaglia( 'controllo di realta\': sulla pagina guastata il percorso da tastiera non vede il fuoco senza indicatore' );
+			for ( const [ nome, attesa ] of [ [ 'uno', 'il fuoco senza indicatore' ], [ 'due', 'il contorno trasparente' ] ] ) {
+				if ( ! trovati.some( ( t ) => t.startsWith( `"${ nome }" riceve il fuoco senza un indicatore visibile` ) ) ) {
+					sbaglia( `controllo di realta': sulla pagina guastata il percorso da tastiera non vede ${ attesa }` );
+				}
+			}
+
+			if ( ! trovati.some( ( t ) => t.startsWith( 'dopo l\'ultimo comando dell\'albo il fuoco resta nell\'albo' ) ) ) {
+				sbaglia( 'controllo di realta\': sulla pagina guastata il percorso da tastiera non vede il ciclo dall\'ultimo comando al primo' );
+			}
+		}
+
+		for ( const [ html, nome, attesa ] of [ [ SENZA_DOCUMENTI, 'scheda con allegati', 'la scheda senza documenti' ], [ SENZA_ERRORE, 'ricerca scritta male', 'la ricerca scritta male senza messaggio' ] ] ) {
+			await pagina.setContent( html.replace( 'OGGETTO', dati[ 'oggetto della scheda' ] ) );
+
+			if ( ( await verifica_contenuto( pagina, nome, dati ) ).length === 0 ) {
+				sbaglia( `controllo di realta': la verifica del contenuto non vede ${ attesa }` );
 			}
 		}
 
@@ -248,6 +483,7 @@ try {
 	for ( const [ schermo, viewport ] of Object.entries( SCHERMI ) ) {
 		const contesto = await browser.newContext( { viewport } );
 		const pagina = await contesto.newPage();
+		const memoria = {};
 
 		for ( const nome of PAGINE ) {
 			const risposta = await pagina.goto( dati[ nome ], { waitUntil: 'load' } );
@@ -260,6 +496,13 @@ try {
 
 			if ( ( await pagina.locator( '.albo-pretorio' ).count() ) === 0 ) {
 				sbaglia( `${ etichetta }: la pagina non contiene l'albo` );
+				continue;
+			}
+
+			const problemi = await verifica_contenuto( pagina, nome, dati, memoria );
+
+			if ( problemi.length > 0 ) {
+				problemi.forEach( ( p ) => sbaglia( `${ etichetta }: ${ p }` ) );
 				continue;
 			}
 
@@ -319,9 +562,10 @@ try {
 
 					const indirizzo = new URL( pagina.url() );
 					const conteggio = ( await pagina.locator( '.albo-pretorio__conteggio' ).first().textContent() )?.trim();
+					const attesi = dati[ 'oggetti del tipo scelto' ];
 
-					if ( indirizzo.searchParams.get( 'albo_tipo' ) !== String( dati[ 'tipo scelto' ] ) || conteggio !== '10 atti' ) {
-						sbaglia( `${ tema }, ${ schermo }: la ricerca per tipo da tastiera da' "${ conteggio }" con tipo ${ indirizzo.searchParams.get( 'albo_tipo' ) }, attesi "10 atti" e tipo ${ dati[ 'tipo scelto' ] }` );
+					if ( indirizzo.searchParams.get( 'albo_tipo' ) !== String( dati[ 'tipo scelto' ] ) || conteggio !== `${ attesi.length } atti` || ! stessi( await oggetti_elencati( pagina ), attesi ) ) {
+						sbaglia( `${ tema }, ${ schermo }: la ricerca per tipo da tastiera da' "${ conteggio }" con tipo ${ indirizzo.searchParams.get( 'albo_tipo' ) }, attesi i ${ attesi.length } atti del tipo ${ dati[ 'tipo scelto' ] }` );
 					}
 				}
 			}

@@ -311,16 +311,33 @@ Twenty Twenty-Five e sul tema spoglio di prova (`tests/browser/tema-spoglio`), e
 sola tastiera sul tema spoglio, più due ricerche fatte senza mouse. Nessuna rete esterna
 durante la prova: sito, motore e browser sono sulla macchina dei controlli.
 
+Prima di esaminare una pagina si controlla che mostri ciò che deve: gli atti attesi, il
+messaggio della ricerca senza risultati, l'errore visibile e legato al campo della ricerca
+scritta male, i tre documenti della scheda, che si scaricano. Una pagina vuota o sbagliata
+non vale come esaminata.
+
 Il percorso da tastiera preme Tab dall'inizio della pagina e pretende che il fuoco passi per
-ogni comando nell'ordine in cui sta, con un indicatore visibile, e che dopo l'ultimo lasci la
-pagina. Un campo di data in Chrome si percorre a pezzi, giorno, mese e anno: i Tab di seguito
+ogni comando nell'ordine in cui sta, con un indicatore visibile, e che dall'albo si esca in
+avanti e all'indietro. L'indicatore si guarda nei pixel: il riquadro del comando fotografato
+con il fuoco e senza deve cambiare almeno quanto un filo lungo tutto il perimetro, quindi un
+contorno trasparente non passa. Per l'uscita si mettono due pulsanti fuori dall'albo, in cima
+e in fondo alla pagina: un browser senza barra degli indirizzi, dopo l'ultimo comando, riporta
+da sé il fuoco al primo, e senza un punto d'arrivo fuori un ciclo voluto non si
+distinguerebbe. Un campo di data in Chrome si percorre a pezzi, giorno, mese e anno: i Tab di seguito
 sullo stesso campo di data contano come uno.
 
-Prima delle pagine vere, motore e percorso girano su una pagina guastata apposta (immagine
-senza testo alternativo, campo senza etichetta, collegamento senza indicatore del fuoco): se
-non vi trovano i guasti, la prova si ferma. Guasti introdotti nell'albo per vedere se la prova
-li vede, tre, tutti visti: indicatore del fuoco tolto dal foglio di stile, etichetta tolta dal
-campo di testo, ordine di tabulazione cambiato sul pulsante "Cerca".
+Prima delle pagine vere, motore, percorso e verifica del contenuto girano su pagine guastate
+apposta (immagine senza testo alternativo, campo senza etichetta, collegamento senza
+indicatore del fuoco, collegamento con contorno e ombra trasparenti, ciclo del fuoco
+dall'ultimo comando al primo, scheda senza documenti, ricerca scritta male senza messaggio):
+se non vi trovano i guasti, la prova si ferma. Guasti introdotti nell'albo per vedere se la
+prova li vede, sei, tutti visti: indicatore del fuoco tolto dal foglio di stile, indicatore
+reso trasparente, etichetta tolta dal campo di testo, ordine di tabulazione cambiato sul
+pulsante "Cerca", documenti della scheda spariti, messaggio della ricerca scritta male tolto.
+
+Il sito di prova è sempre nuovo: lo script crea una cartella e una banca dati sue, le toglie
+alla fine, e se quelle indicate esistono già si ferma prima di scrivere. Non può quindi
+sovrascrivere un sito che c'era.
 
 Due cose imparate mettendola in piedi:
 

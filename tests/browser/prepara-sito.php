@@ -261,9 +261,19 @@ if ( is_wp_error( $albo_pretorio_esito ) ) {
 // Ventuno atti: l'elenco ha una seconda pagina. Il primo ha due allegati, per la scheda.
 $albo_pretorio_scheda = pubblicato( 'Deliberazione sulla manutenzione dei sentieri', $albo_pretorio_normativo, $albo_pretorio_organo, $albo_pretorio_redattore, $albo_pretorio_editore, array( 'planimetria.pdf', 'computo.pdf' ) );
 
+$albo_pretorio_oggetti = array( get_the_title( $albo_pretorio_scheda ) );
+$albo_pretorio_avvisi  = array();
+
 for ( $albo_pretorio_n = 2; $albo_pretorio_n <= 21; $albo_pretorio_n++ ) {
+	$albo_pretorio_oggetto   = sprintf( 'Avviso di prova numero %d', $albo_pretorio_n );
+	$albo_pretorio_oggetti[] = $albo_pretorio_oggetto;
+
+	if ( 0 === $albo_pretorio_n % 2 ) {
+		$albo_pretorio_avvisi[] = $albo_pretorio_oggetto;
+	}
+
 	pubblicato(
-		sprintf( 'Avviso di prova numero %d', $albo_pretorio_n ),
+		$albo_pretorio_oggetto,
 		0 === $albo_pretorio_n % 2 ? $albo_pretorio_scelto : $albo_pretorio_normativo,
 		$albo_pretorio_organo,
 		$albo_pretorio_redattore,
@@ -301,6 +311,11 @@ echo wp_json_encode( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEs
 		'scheda con allegati'     => add_query_arg( 'albo_atto', $albo_pretorio_scheda, $albo_pretorio_base ),
 		'tipo scelto'             => $albo_pretorio_scelto,
 		'oggetto della scheda'    => get_the_title( $albo_pretorio_scheda ),
+		// Cio' che ogni pagina deve mostrare: la prova lo confronta prima di esaminarla.
+		'oggetti'                 => $albo_pretorio_oggetti,
+		'oggetti del tipo scelto' => $albo_pretorio_avvisi,
+		'documenti della scheda'  => array( 'Documento principale', 'Allegato 1', 'Allegato 2' ),
+		'atti per pagina'         => \AlboPretorioPa\VistaPubblica::PER_PAGINA,
 	)
 );
 echo "\n";

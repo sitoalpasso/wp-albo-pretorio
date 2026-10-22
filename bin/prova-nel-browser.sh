@@ -12,12 +12,17 @@
 #
 # Uso: bin/prova-nel-browser.sh
 #
+# La prova crea da se' una cartella nuova e una banca dati nuova, e alla fine le
+# toglie: non riusa ne' tocca niente che esisteva prima. Se la cartella o la banca
+# dati indicate esistono gia', si ferma prima di scrivere.
+#
 # Variabili (con il valore che si usa se mancano):
-#   WP_DIR       cartella del sito di prova (/tmp/wordpress-pagine); se non
-#                contiene WordPress, lo scarica wp-cli nella versione WP_VERSION
+#   WP_DIR       cartella del sito di prova, che non deve esistere (una nuova sotto /tmp)
+#   WP_SORGENTE  cartella con WordPress da copiare invece di scaricarlo (nessuna)
 #   WP_VERSION   versione da scaricare (latest)
 #   WP_CLI       comando di wp-cli (wp)
-#   DB_NAME, DB_USER, DB_PASS, DB_HOST  banca dati (albo_pagine, root, root, 127.0.0.1)
+#   DB_NAME      banca dati, che non deve esistere (albo_prova_ seguito da un codice casuale)
+#   DB_USER, DB_PASS, DB_HOST  accesso alla banca dati (root, root, 127.0.0.1)
 #   CHROME       percorso del browser (obbligatoria)
 #   PORTA        porta del server di prova (8889)
 #   TEMA_PREDEFINITO  tema di WordPress da esaminare (twentytwentyfive)
@@ -25,10 +30,11 @@
 set -euo pipefail
 
 RADICE="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
-WP_DIR="${WP_DIR:-/tmp/wordpress-pagine}"
+CODICE="$( openssl rand -hex 6 )"
+WP_DIR="${WP_DIR:-/tmp/albo-prova-${CODICE}}"
 WP_VERSION="${WP_VERSION:-latest}"
 read -r -a WP <<< "${WP_CLI:-wp}"
-DB_NAME="${DB_NAME:-albo_pagine}"
+DB_NAME="${DB_NAME:-albo_prova_${CODICE}}"
 DB_USER="${DB_USER:-root}"
 DB_PASS="${DB_PASS:-root}"
 DB_HOST="${DB_HOST:-127.0.0.1}"
@@ -37,6 +43,9 @@ TEMA_PREDEFINITO="${TEMA_PREDEFINITO:-twentytwentyfive}"
 TEMA_SPOGLIO="albo-prova-tema-spoglio"
 INDIRIZZO="http://127.0.0.1:${PORTA}"
 PAGINE="$( mktemp )"
+SERVER=""
+CARTELLA_CREATA=""
+BANCA_CREATA=""
 
 : "${CHROME:?indicare il percorso del browser nella variabile CHROME}"
 
@@ -44,12 +53,56 @@ wp_sito() {
 	"${WP[@]}" --path="${WP_DIR}" --url="${INDIRIZZO}" "$@"
 }
 
-if [ ! -f "${WP_DIR}/wp-load.php" ]; then
+# Si toglie solo cio' che questa esecuzione ha creato.
+pulisci() {
+	if [ -n "${SERVER}" ]; then
+		kill "${SERVER}" 2> /dev/null || true
+	fi
+
+	if [ -n "${BANCA_CREATA}" ]; then
+		wp_sito db drop --yes > /dev/null 2>&1 || true
+	fi
+
+	if [ -n "${CARTELLA_CREATA}" ]; then
+		rm -rf -- "${CARTELLA_CREATA}"
+	fi
+
+	rm -f "${PAGINE}"
+}
+trap pulisci EXIT
+
+case "${DB_NAME}" in
+	*[!A-Za-z0-9_]*)
+		echo "Nome della banca dati non accettato: ${DB_NAME}" >&2
+		exit 2
+		;;
+esac
+
+if [ -e "${WP_DIR}" ] || [ -L "${WP_DIR}" ]; then
+	echo "La cartella ${WP_DIR} esiste gia': la prova ne vuole una nuova e non tocca quelle che ci sono." >&2
+	exit 2
+fi
+
+mkdir -p -- "$( dirname -- "${WP_DIR}" )"
+mkdir -- "${WP_DIR}"
+CARTELLA_CREATA="$( cd -- "${WP_DIR}" && pwd -P )"
+WP_DIR="${CARTELLA_CREATA}"
+
+if [ -n "${WP_SORGENTE:-}" ]; then
+	cp -R -- "${WP_SORGENTE}/." "${WP_DIR}/"
+else
 	"${WP[@]}" core download --path="${WP_DIR}" --version="${WP_VERSION}"
 fi
 
-wp_sito config create --dbname="${DB_NAME}" --dbuser="${DB_USER}" --dbpass="${DB_PASS}" --dbhost="${DB_HOST}" --skip-check --force
-wp_sito db reset --yes 2> /dev/null || wp_sito db create
+wp_sito config create --dbname="${DB_NAME}" --dbuser="${DB_USER}" --dbpass="${DB_PASS}" --dbhost="${DB_HOST}" --skip-check
+
+# `db create` si rifiuta se la banca dati esiste gia': niente di esistente viene azzerato.
+if ! wp_sito db create; then
+	echo "La banca dati ${DB_NAME} non si crea (esiste gia'?): la prova si ferma senza toccarla." >&2
+	exit 2
+fi
+BANCA_CREATA=1
+
 wp_sito core install --url="${INDIRIZZO}" --title="Sito di prova" --admin_user=amministratore --admin_password="$( openssl rand -hex 16 )" --admin_email=amministratore@example.org --skip-email
 
 # L'indirizzo del sito lo si scrive: wp-cli lo indovinerebbe dalla cartella.
@@ -58,7 +111,6 @@ wp_sito option update home "${INDIRIZZO}"
 
 # Copiati e non collegati: con un collegamento simbolico WordPress calcola male
 # l'indirizzo del foglio di stile dell'albo, e la pagina uscirebbe senza.
-rm -rf "${WP_DIR}/wp-content/plugins/albo-pretorio-pa" "${WP_DIR}/wp-content/themes/${TEMA_SPOGLIO}"
 rsync -a --exclude=.git --exclude=vendor --exclude=node_modules --exclude=tests "${RADICE}/" "${WP_DIR}/wp-content/plugins/albo-pretorio-pa/"
 cp -r "${RADICE}/tests/browser/tema-spoglio" "${WP_DIR}/wp-content/themes/${TEMA_SPOGLIO}"
 
@@ -71,7 +123,6 @@ wp_sito eval-file "${RADICE}/tests/browser/prepara-sito.php" > "${PAGINE}"
 
 php -S "127.0.0.1:${PORTA}" -t "${WP_DIR}" > "${WP_DIR}/server-di-prova.log" 2>&1 &
 SERVER=$!
-trap 'kill "${SERVER}" 2> /dev/null || true; rm -f "${PAGINE}"' EXIT
 
 for _ in $( seq 1 50 ); do
 	curl -fs -o /dev/null "${INDIRIZZO}/" && break

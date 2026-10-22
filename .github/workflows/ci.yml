@@ -108,7 +108,6 @@ jobs:
         image: mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: albo_pagine
         ports:
           - 3306:3306
         options: >-
