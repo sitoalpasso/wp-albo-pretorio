@@ -963,6 +963,24 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$this->assertSame( 'albo_repertorio_importato_anno_tenuto_qui', $tenuto->get_error_code() );
 		$this->assertNull( Repertorio::di( $bozza ) );
 
+		// Se la lettura degli anni precedenti non risponde, non vale "nessun anno prima": il numero non si registra.
+		$cieca = static function ( $query ) {
+			return false !== strpos( (string) $query, 'COUNT(*) AS quanti' ) ? 'SELECT * FROM tabella_che_non_esiste' : $query;
+		};
+
+		add_filter( 'query', $cieca );
+		$non_letto = Repertorio::registra_importato( $bozza, 2042, 1 );
+		$prossimo  = Repertorio::prossimo( 2042 );
+		remove_filter( 'query', $cieca );
+
+		$this->assertWPError( $non_letto );
+		$this->assertSame( 'albo_repertorio_non_letto', $non_letto->get_error_code() );
+		$this->assertWPError( $prossimo );
+		$this->assertSame( 'albo_repertorio_non_letto', $prossimo->get_error_code() );
+		$this->assertNull( Repertorio::di( $bozza ) );
+		$this->assertSame( array(), Repertorio::atti_numerati( 2042 ), 'Nessuna assegnazione nel 2042.' );
+		$this->assertSame( 1, Repertorio::prossimo( 2042 ), 'Il primo atto nuovo del 2042 prende 1.' );
+
 		/*
 		 * Una dichiarazione e un'importazione insieme, su un anno senza riga:
 		 * il numero 5/2039 si registra dopo il controllo della dichiarazione e
@@ -1686,6 +1704,70 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-215. La bozza la cui riga non si cancella, con la lettura finale che non risponde, resta ritrovabile.
+	 */
+	public function test_a215_bozza_cancellata_a_meta(): void {
+		global $wpdb;
+
+		$percorso = $this->backup_nella_cartella();
+		$prima    = $this->documenti_sul_disco();
+
+		/*
+		 * Il passaggio dell'atto 12/2041 (numero interno 3) fallisce; poi la
+		 * cancellazione della riga della sua bozza fallisce, quando WordPress
+		 * ne ha gia' cancellato i dati, ricordo dell'origine compreso; e da li'
+		 * ogni lettura di quella riga non risponde.
+		 */
+		$rotta  = false;
+		$bozza  = 0;
+		$guasto = static function ( $query ) use ( &$rotta, &$bozza, $wpdb ) {
+			$query = (string) $query;
+
+			if ( false !== stripos( $query, 'INSERT IGNORE' ) && 1 === preg_match( '/VALUES\s*\(\s*2041\s*,\s*12\s*,/i', $query ) ) {
+				$rotta = true;
+
+				return 'SELECT * FROM tabella_che_non_esiste';
+			}
+
+			if ( $rotta && 0 === $bozza && 1 === preg_match( '/^DELETE FROM `?' . preg_quote( $wpdb->posts, '/' ) . '`? WHERE `ID` = (\d+)/', $query, $trovato ) && TIPO === get_post_type( (int) $trovato[1] ) ) {
+				$bozza = (int) $trovato[1];
+			}
+
+			if ( $bozza > 0 && 1 === preg_match( '/' . preg_quote( $wpdb->posts, '/' ) . '.*\bID`? = ' . $bozza . '\b/', $query ) && 1 !== preg_match( '/^SELECT\s+\*\s+FROM\s+tabella/', $query ) ) {
+				return 'SELECT * FROM tabella_che_non_esiste';
+			}
+
+			return $query;
+		};
+
+		add_filter( 'query', $guasto );
+		$this->avvia_diretto( $percorso );
+		$fermo = Importazione::prosegui( 50, microtime( true ) + 60 );
+		remove_filter( 'query', $guasto );
+
+		$this->assertGreaterThan( 0, $bozza, 'Precondizione: la cancellazione della bozza e\' fallita.' );
+		$this->assertSame( 2, $fermo['posizione'] );
+		$this->assertStringContainsString( 'Stato incerto', $fermo['non_riusciti'][0]['testo'] );
+		$this->assertNotEmpty( Importazione::stato()['lavorazione']['3'] ?? array(), 'I segni della bozza restano.' );
+
+		clean_post_cache( $bozza );
+
+		$this->assertSame( 'draft', get_post_status( $bozza ), 'Precondizione: la riga della bozza e\' rimasta.' );
+		$this->assertSame( '', (string) get_post_meta( $bozza, META_ORIGINE_IMPORTAZIONE, true ), 'Precondizione: senza il ricordo dell\'origine.' );
+
+		// Il rilancio la ritrova dal segno nel nome e la toglie.
+		$this->assertSame( 'interrotta', Importazione::interrompi()['stato'] );
+		$this->importa_tutto( $percorso );
+
+		clean_post_cache( $bozza );
+
+		$this->assertNull( get_post( $bozza ) );
+		$this->assertSame( $this->importati_per_inventario(), $this->inventario() );
+		$this->assertSame( $this->file_attesi( $prima ), $this->documenti_sul_disco() );
+		$this->assertSame( array(), $this->documenti_senza_atto() );
+	}
+
+	/**
 	 * A-215. Un documento depositato che l'atto non registra, con il file che resta, lascia la bozza da ritrovare.
 	 */
 	public function test_a215_deposito_non_registrato(): void {
@@ -2390,10 +2472,30 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 			),
 		);
 
-		ob_start();
-		SchermataImportazione::mostra();
-		$pagina = (string) ob_get_clean();
+		// Il file della prova non arriva da un caricamento HTTP: lo si accetta come tale, solo qui.
+		$verifica = new \ReflectionProperty( SchermataImportazione::class, 'verifica_caricamento' );
+		$verifica->setAccessible( true );
+		$verifica->setValue(
+			null,
+			static function ( string $file ) use ( $percorso ): bool {
+				return $percorso === $file;
+			}
+		);
 
+		try {
+			ob_start();
+			SchermataImportazione::mostra();
+			$pagina = (string) ob_get_clean();
+		} finally {
+			$verifica->setValue( null, null );
+		}
+
+		ob_start();
+		SchermataImportazione::stampa( Importazione::rapporto( $percorso ) );
+		$rapporto = (string) ob_get_clean();
+
+		$this->assertNotSame( '', $rapporto );
+		$this->assertStringContainsString( $rapporto, $pagina, 'Precondizione: il file caricato si e\' letto e il suo rapporto c\'e\'.' );
 		$this->assertStringNotContainsString( 'name="' . SchermataImportazione::CAMPO_GETTONE_IMPORTA . '"', $pagina );
 	}
 
