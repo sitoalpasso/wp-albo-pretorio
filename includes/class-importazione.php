@@ -1036,11 +1036,15 @@ final class Importazione {
 		}
 
 		// Prima l'elenco dei file, scritto sulla bozza: la bozza si cancella per ultima, quindi resta finche' resta un file.
-		$ricordati = array_map( 'strval', get_post_meta( $atto_id, self::META_FILE_DA_TOGLIERE, false ) );
+		$ricordati = self::file_ricordati( $atto_id );
+
+		if ( null === $ricordati ) {
+			return false;
+		}
 
 		foreach ( $documenti as $documento => $file ) {
 			if ( '' !== $file && ! in_array( $file, $ricordati, true ) ) {
-				if ( false === add_post_meta( $atto_id, self::META_FILE_DA_TOGLIERE, $file ) ) {
+				if ( false === add_post_meta( $atto_id, self::META_FILE_DA_TOGLIERE, wp_slash( $file ) ) ) {
 					return false;
 				}
 
@@ -1079,6 +1083,31 @@ final class Importazione {
 		clean_post_cache( $atto_id );
 
 		return ! get_post( $atto_id ) instanceof \WP_Post;
+	}
+
+	/**
+	 * L'elenco dei file da togliere scritto sulla bozza, o nulla se la banca dati non risponde.
+	 *
+	 * Letto dalla banca dati com'e': un elenco vuoto per errore farebbe
+	 * cancellare la bozza, che e' l'unica a ricordare dove stanno i file.
+	 *
+	 * @param int $atto_id Bozza.
+	 * @return array<int, string>|null
+	 */
+	private static function file_ricordati( int $atto_id ): ?array {
+		global $wpdb;
+
+		$righe = Lettura::righe(
+			$wpdb->prepare( 'SELECT meta_value FROM %i WHERE post_id = %d AND meta_key = %s ORDER BY meta_id', $wpdb->postmeta, $atto_id, self::META_FILE_DA_TOGLIERE ),
+			array( 'meta_value' )
+		);
+
+		return null === $righe ? null : array_map(
+			static function ( array $riga ): string {
+				return (string) $riga['meta_value'];
+			},
+			$righe
+		);
 	}
 
 	/**
@@ -1355,14 +1384,26 @@ final class Importazione {
 	 */
 	private static function estrai( string $percorso, string $nome, string $atteso ) {
 		$errore     = new \WP_Error( 'albo_importazione_estrazione', __( 'L\'atto non e\' stato importato: un suo file non si e\' copiato dall\'archivio.', 'albo-pretorio-pa' ) );
-		$archivio   = new \ZipArchive();
 		$temporaneo = wp_tempnam( wp_basename( $nome ) );
 
-		if ( '' === $temporaneo || true !== $archivio->open( $percorso, \ZipArchive::RDONLY ) ) {
+		if ( '' === $temporaneo ) {
 			return $errore;
 		}
 
+		// Il temporaneo passa a chi chiama solo con il file intero: ogni altra uscita lo cancella qui.
+		$archivio = new \ZipArchive();
+		$aperto   = false;
+		$flusso   = false;
+		$uscita   = false;
+		$riuscito = false;
+
 		try {
+			$aperto = true === $archivio->open( $percorso, \ZipArchive::RDONLY );
+
+			if ( ! $aperto ) {
+				return $errore;
+			}
+
 			$flusso = $archivio->getStream( $nome );
 
 			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- si copia a pezzi un file che puo' essere grande.
@@ -1393,20 +1434,31 @@ final class Importazione {
 				}
 			}
 
-			// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- chiusura dei due flussi aperti qui.
-			fclose( $flusso );
-			fclose( $uscita );
-			// phpcs:enable WordPress.WP.AlternativeFunctions.file_system_operations_fclose
-
 			if ( ! $intero || ! hash_equals( $atteso, hash_final( $calcolo ) ) ) {
-				wp_delete_file( $temporaneo );
-
 				return $errore;
 			}
 
+			$riuscito = true;
+
 			return $temporaneo;
 		} finally {
-			$archivio->close();
+			// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- chiusura dei flussi aperti qui.
+			if ( is_resource( $flusso ) ) {
+				fclose( $flusso );
+			}
+
+			if ( is_resource( $uscita ) ) {
+				fclose( $uscita );
+			}
+			// phpcs:enable WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+
+			if ( $aperto ) {
+				$archivio->close();
+			}
+
+			if ( ! $riuscito && file_exists( $temporaneo ) ) {
+				wp_delete_file( $temporaneo );
+			}
 		}
 	}
 
