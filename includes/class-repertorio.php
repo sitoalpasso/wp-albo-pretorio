@@ -158,6 +158,7 @@ final class Repertorio {
 
 		$zitto       = $wpdb->suppress_errors( true );
 		$in          = $wpdb->get_var( 'SELECT @@in_transaction' );
+		// phpcs:ignore WordPress.DB.RestrictedFunctions.mysql_mysqli_errno -- $wpdb non espone il codice d'errore, che distingue la variabile sconosciuta da un guasto.
 		$sconosciuta = null === $in && $wpdb->dbh instanceof \mysqli && self::VARIABILE_SCONOSCIUTA === mysqli_errno( $wpdb->dbh );
 		$wpdb->suppress_errors( $zitto );
 
