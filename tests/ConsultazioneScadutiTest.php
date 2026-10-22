@@ -657,4 +657,56 @@ class ConsultazioneScadutiTest extends \WP_UnitTestCase {
 			$this->assertNotContains( $in_corso, $insieme, $caso . ': l\'atto in corso non c\'e\'.' );
 		}
 	}
+
+	/**
+	 * A-230: un annullato scaduto resta nella consultazione riservata, con il motivo.
+	 *
+	 * Si elenca come gli altri scaduti, con la data e il motivo
+	 * dell'annullamento. I suoi documenti si aprono a chi gestisce gli atti
+	 * dell'albo; a chi ha il solo permesso di consultare la schermata lo dice,
+	 * invece di mostrare un collegamento che la consegna rifiuterebbe.
+	 */
+	public function test_a230_annullato_scaduto_in_consultazione(): void {
+		$atto      = $this->pubblicato_il( '2041-10-01 09:30:00', 'Graduatoria annullata di prova' );
+		$documento = (int) DocumentiAtto::principale( $atto );
+
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+		$esito = $this->come(
+			$this->amministratore,
+			static function () use ( $atto ) {
+				return albo_pretorio_annulla( $atto, 'Atto adottato per errore materiale.' );
+			}
+		);
+		$this->assertIsInt( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : 'Precondizione: l\'annullamento.' );
+
+		$this->fissa_orologi( self::ULTIMO_ISTANTE );
+		$this->assertNotContains( $atto, $this->elencati( (string) $this->schermata( $this->consultatore ) ), 'Fino alla scadenza l\'annullato non e\' fra gli scaduti.' );
+
+		$this->fissa_orologi( self::PRIMO_ISTANTE_SCADUTO );
+
+		foreach ( array(
+			'chi consulta'   => $this->consultatore,
+			'amministratore' => $this->amministratore,
+		) as $chi => $utente ) {
+			$contenuto = (string) $this->schermata( $utente );
+			$this->assertContains( $atto, $this->elencati( $contenuto ), $chi . ': l\'annullato scaduto e\' elencato.' );
+			$this->assertSame( 1, preg_match( '/<tr data-atto="' . $atto . '">(.*?)<\/tr>/s', $contenuto, $riga ), $chi . ': la riga dell\'atto.' );
+			$this->assertStringContainsString( '<strong>Annullato il</strong>: 05/10/2041', $riga[1], $chi . ': la data dell\'annullamento.' );
+			$this->assertStringContainsString( '<strong>Motivo dell&#039;annullamento</strong>: Atto adottato per errore materiale.', $riga[1], $chi . ': il motivo.' );
+
+			if ( $this->consultatore === $utente ) {
+				$this->assertStringNotContainsString( '<a href', $riga[1], 'Chi consulta: nessun collegamento ai documenti.' );
+				$this->assertStringContainsString( 'si aprono a chi gestisce gli atti dell&#039;albo', $riga[1], 'Chi consulta: la spiegazione al posto del collegamento.' );
+			} else {
+				$this->assertSame( 1, preg_match( '/<a href="([^"]+)"/', $riga[1], $collegamento ), 'Amministratore: il collegamento al documento.' );
+				$consegnate = $this->consegna_come( $utente, $documento, html_entity_decode( $collegamento[1] ) );
+				$this->assertCount( 1, $consegnate );
+				$this->assertSame( 200, $consegnate[0]['stato'], 'Amministratore: il documento dell\'annullato si apre.' );
+			}
+		}
+
+		$consegnate = $this->consegna_come( $this->consultatore, $documento );
+		$this->assertCount( 1, $consegnate );
+		$this->assertSame( 404, $consegnate[0]['stato'], 'Chi consulta non apre il documento dell\'annullato nemmeno con un collegamento suo.' );
+	}
 }
