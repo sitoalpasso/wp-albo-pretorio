@@ -474,7 +474,13 @@ final class Repertorio {
 			return $riga['ultimo'] + 1;
 		}
 
-		if ( self::anni_precedenti( $anno ) ) {
+		$precedenti = self::anni_precedenti( $anno );
+
+		if ( null === $precedenti ) {
+			return self::errore_lettura();
+		}
+
+		if ( $precedenti ) {
 			return 1;
 		}
 
@@ -551,7 +557,13 @@ final class Repertorio {
 			}
 		}
 
-		if ( self::anni_precedenti( $anno ) ) {
+		$precedenti = self::anni_precedenti( $anno );
+
+		if ( null === $precedenti ) {
+			return self::errore_lettura();
+		}
+
+		if ( $precedenti ) {
 			return new \WP_Error(
 				'albo_repertorio_partenza_non_dichiarabile',
 				sprintf(
@@ -679,7 +691,13 @@ final class Repertorio {
 		$anno = self::anno_di( $istante );
 
 		if ( null === self::anno( $anno ) ) {
-			if ( ! self::anni_precedenti( $anno ) ) {
+			$precedenti = self::anni_precedenti( $anno );
+
+			if ( null === $precedenti ) {
+				return self::errore_lettura();
+			}
+
+			if ( ! $precedenti ) {
 				return self::errore_partenza( $anno );
 			}
 
@@ -828,7 +846,13 @@ final class Repertorio {
 		 * Un anno senza riga che segue anni tenuti qui riparte da 1 senza
 		 * dichiarazione: un numero importato in quell'anno sarebbe ridato.
 		 */
-		if ( array() === $riga && self::anni_precedenti( $anno ) ) {
+		$precedenti = array() === $riga ? self::anni_precedenti( $anno ) : false;
+
+		if ( null === $precedenti ) {
+			return self::errore_lettura();
+		}
+
+		if ( $precedenti ) {
 			return new \WP_Error(
 				'albo_repertorio_importato_anno_tenuto_qui',
 				sprintf(
@@ -958,19 +982,27 @@ final class Repertorio {
 	}
 
 	/**
-	 * Vero se la banca dati contiene un anno precedente a quello dato.
+	 * Vero se la banca dati contiene un anno precedente a quello dato, nulla se non ha risposto.
+	 *
+	 * Una lettura fallita non vale "nessun anno prima": cambierebbe quale
+	 * numero e' ammesso, e chi chiama si ferma con l'errore di lettura.
 	 *
 	 * @param int $anno Anno.
-	 * @return bool
+	 * @return bool|null
 	 */
-	private static function anni_precedenti( int $anno ): bool {
+	private static function anni_precedenti( int $anno ): ?bool {
 		global $wpdb;
 
-		$conteggio = $wpdb->get_var(
-			$wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE anno < %d', self::tabella_anni(), $anno )
+		$righe = Lettura::righe(
+			$wpdb->prepare( 'SELECT COUNT(*) AS quanti FROM %i WHERE anno < %d', self::tabella_anni(), $anno ),
+			array( 'quanti' )
 		);
 
-		return (int) $conteggio > 0;
+		if ( null === $righe || 1 !== count( $righe ) || ! is_numeric( $righe[0]['quanti'] ) ) {
+			return null;
+		}
+
+		return (int) $righe[0]['quanti'] > 0;
 	}
 
 	/**

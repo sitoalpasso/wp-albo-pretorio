@@ -1038,6 +1038,8 @@ final class Importazione {
 	 * @return bool Se la bozza non c'e' piu'.
 	 */
 	private static function togli_bozza( int $atto_id ): bool {
+		global $wpdb;
+
 		$documenti = self::documenti_della_bozza( $atto_id );
 
 		// Prima gli elenchi dei documenti e dei file, scritti sulla bozza: la bozza si cancella per ultima, quindi resta finche' resta qualcosa.
@@ -1103,7 +1105,8 @@ final class Importazione {
 		wp_delete_post( $atto_id, true );
 		clean_post_cache( $atto_id );
 
-		return ! get_post( $atto_id ) instanceof \WP_Post;
+		// Solo una lettura che risponde, e vuota, dice che la bozza non c'e' piu': una lettura fallita lascerebbe l'esito certo e la bozza dimenticata.
+		return array() === Lettura::righe( $wpdb->prepare( 'SELECT ID FROM %i WHERE ID = %d', $wpdb->posts, $atto_id ), array( 'ID' ) );
 	}
 
 	/**
