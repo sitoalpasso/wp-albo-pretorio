@@ -29,7 +29,7 @@ trovata" per ciò che non è in pubblicazione). Gli altri due codici del plugin 
 `[AlboAtto]` e `[AlboGruppiAtti]`, li prende allo stesso modo e non disegnano niente. Sulla
 pagina dell'albo, un indirizzo con `action` uguale a `visatto`, `printatto` o `dwnalle` si
 legge prima del tema: si prende il numero interno (`id` per i primi due, `idAtto` per il
-terzo), si cerca l'unico atto pubblicato che lo ricorda come origine, e se quell'atto è in
+terzo), si cerca l'unico atto, in qualunque stato, che lo ricorda come origine, e se quell'atto è in
 pubblicazione si rinvia con un rinvio temporaneo alla sua scheda; altrimenti la richiesta
 diventa la stessa "non trovata" della scheda nuova.
 
@@ -87,10 +87,14 @@ visitatore e per l'amministratore (A-222).
   le riconosce, non le disegna, non ci applica nessuna regola, non apre il tipo per loro
   (A-221). L'albo nuovo si prova, nel frattempo, su un'altra pagina con `[albo_pretorio]`.
 - **Un componente che prende `[Albo]` dopo l'albo**: chi possiede il codice si guarda quando
-  si chiede quali sono le pagine dell'albo, e quelle pagine smettono di esserlo (A-221).
-- **Due atti che ricordano la stessa origine** (non dovrebbe succedere: l'importazione non
-  crea doppioni): l'indirizzo non sa quale dei due è il suo, e risponde "non trovata"
-  (A-222).
+  si chiede quali sono le pagine dell'albo, anche se l'albo le aveva già lette, e quelle
+  pagine smettono di esserlo (A-221).
+- **Due atti che ricordano la stessa origine**, anche se uno è in bozza o annullato (non
+  dovrebbe succedere: l'importazione non crea doppioni): l'indirizzo non sa quale dei due è
+  il suo, e risponde "non trovata" (A-222).
+- **La mezzanotte che passa durante la richiesta**: l'atto si controlla quando si legge la
+  richiesta e di nuovo un attimo prima del rinvio. Se nel frattempo è scaduto, la risposta è
+  la stessa "non trovata" di un atto mai esistito, non la pagina dell'elenco (A-222).
 - **La banca dati che non risponde** sulla ricerca dell'origine: "non trovata". Nel dubbio
   si chiude.
 - **Un numero scritto in un altro modo** (`0123`, lettere, vuoto, ripetuto): "non trovata".
@@ -160,3 +164,10 @@ riconosciute anche se il codice è d'altri (A-221), origine su due atti accettat
 codici minori che disegnano (A-221), numero ripulito dagli zeri davanti (A-222), azione letta
 senza distinguere maiuscole (A-222), numero dell'atto del documento letto dal parametro
 sbagliato (A-223).
+
+Primo giro di revisione indipendente: tre correzioni, fatte. La memoria delle pagine si
+rilegge se cambia chi possiede `[Albo]`; la ricerca dell'origine guarda gli atti in ogni
+stato; un rinvio che all'ultimo non parte più dà la "non trovata" intera. Altri quattro
+guasti introdotti, tutti visti: memoria che non guarda il proprietario del codice (A-221),
+ricerca dell'origine sui soli pubblicati (A-222), rinvio mancato senza "non trovata" (A-222),
+stato 200 scritto prima del rinvio (A-222).

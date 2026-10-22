@@ -105,6 +105,16 @@ final class PaginaPubblica {
 	private static ?array $pagine = null;
 
 	/**
+	 * I codici brevi con cui le pagine ricordate sono state lette.
+	 *
+	 * Se chi possiede `[Albo]` cambia dopo la lettura, le pagine si rileggono
+	 * (A-221).
+	 *
+	 * @var array<int, string>
+	 */
+	private static array $codici_letti = array();
+
+	/**
 	 * In questa richiesta la scheda chiesta e' stata trasformata in "non trovata".
 	 *
 	 * Dopo `set_404()` la richiesta non e' piu' una pagina singola, quindi
@@ -273,7 +283,9 @@ final class PaginaPubblica {
 	public static function pagine(): array {
 		global $wpdb;
 
-		if ( null !== self::$pagine ) {
+		$codici = self::codici();
+
+		if ( null !== self::$pagine && $codici === self::$codici_letti ) {
 			return self::$pagine;
 		}
 
@@ -282,7 +294,8 @@ final class PaginaPubblica {
 			return array();
 		}
 
-		self::$pagine = array();
+		self::$pagine       = array();
+		self::$codici_letti = $codici;
 
 		$tipi = array_values(
 			array_diff(
@@ -295,7 +308,6 @@ final class PaginaPubblica {
 			return self::$pagine;
 		}
 
-		$codici = self::codici();
 		$simili = implode( ' OR ', array_fill( 0, count( $codici ), 'post_content LIKE %s' ) );
 		$righe  = Lettura::righe(
 			$wpdb->prepare(
@@ -473,10 +485,12 @@ final class PaginaPubblica {
 	}
 
 	/**
-	 * L'atto pubblicato che l'importazione ha portato da quel numero interno, o zero.
+	 * L'atto che l'importazione ha portato da quel numero interno, o zero.
 	 *
-	 * Uno solo: se due atti pubblicati ricordano la stessa origine, nessuno,
-	 * perche' l'indirizzo non saprebbe quale dei due e' il suo.
+	 * Uno solo, in qualunque stato: se due atti ricordano la stessa origine,
+	 * anche uno in bozza o annullato, nessuno, perche' l'indirizzo non saprebbe
+	 * quale dei due e' il suo. Se l'atto e' in pubblicazione lo dice poi
+	 * `in_pubblicazione()` (A-222).
 	 *
 	 * @param string $origine Numero interno in "Albo Pretorio On line".
 	 * @return int
@@ -486,7 +500,7 @@ final class PaginaPubblica {
 
 		$righe = Lettura::righe(
 			$wpdb->prepare(
-				"SELECT p.ID FROM %i p JOIN %i m ON m.post_id = p.ID WHERE m.meta_key = %s AND m.meta_value = %s AND p.post_type = %s AND p.post_status = 'publish' ORDER BY p.ID ASC",
+				'SELECT DISTINCT p.ID FROM %i p JOIN %i m ON m.post_id = p.ID WHERE m.meta_key = %s AND m.meta_value = %s AND p.post_type = %s ORDER BY p.ID ASC',
 				$wpdb->posts,
 				$wpdb->postmeta,
 				META_ORIGINE_IMPORTAZIONE,
@@ -595,24 +609,32 @@ final class PaginaPubblica {
 	 * temporaneo e non si conserva: l'indirizzo vecchio vale solo finche'
 	 * l'atto e' in pubblicazione, e la scheda nuova ricontrolla l'atto quando
 	 * si apre (A-222, A-223).
+	 *
+	 * L'atto si ricontrolla qui. Se fra la lettura della richiesta e questo
+	 * momento e' passata la mezzanotte, o il rinvio non riesce, la risposta e'
+	 * la stessa di un atto mai esistito, non la pagina dell'elenco (A-222).
 	 */
 	public static function da_template_redirect(): void {
 		$atto = self::$rinvio;
 
-		if ( $atto < 1 || ! self::richiesta_dell_albo() || ! self::in_pubblicazione( $atto ) ) {
+		if ( $atto < 1 ) {
 			return;
 		}
 
-		$scheda = self::indirizzo_scheda( $atto );
+		self::$rinvio = 0;
 
-		if ( null === $scheda ) {
-			return;
+		$scheda = self::richiesta_dell_albo() && self::in_pubblicazione( $atto ) ? self::indirizzo_scheda( $atto ) : null;
+
+		if ( null !== $scheda ) {
+			nocache_headers();
+
+			if ( wp_safe_redirect( $scheda, 302, 'Albo Pretorio' ) ) {
+				exit;
+			}
 		}
 
-		nocache_headers();
-
-		if ( wp_safe_redirect( $scheda, 302, 'Albo Pretorio' ) ) {
-			exit;
+		if ( $GLOBALS['wp_query'] instanceof \WP_Query ) {
+			self::nega( $GLOBALS['wp_query'] );
 		}
 	}
 
@@ -735,15 +757,31 @@ final class PaginaPubblica {
 				return $anticipato;
 			}
 
+			/*
+			 * Il rinvio parte dopo, prima del tema. Intanto nessuno stato:
+			 * `true` ferma il 200 di WordPress, e se all'ultimo l'atto non
+			 * e' piu' in pubblicazione la risposta resta da scrivere tutta.
+			 */
 			if ( self::in_pubblicazione( $atto ) ) {
 				self::$rinvio = $atto;
 
-				return $anticipato;
+				return true;
 			}
 		} elseif ( self::in_pubblicazione( $atto ) ) {
 			return $anticipato;
 		}
 
+		self::nega( $interrogazione );
+
+		return true;
+	}
+
+	/**
+	 * La risposta "non trovata" della pagina dell'albo, uguale per ogni atto che non si mostra.
+	 *
+	 * @param \WP_Query $interrogazione Interrogazione principale.
+	 */
+	private static function nega( \WP_Query $interrogazione ): void {
 		self::$scheda_negata = true;
 
 		$interrogazione->set_404();
@@ -762,8 +800,6 @@ final class PaginaPubblica {
 
 		status_header( 404 );
 		nocache_headers();
-
-		return true;
 	}
 
 	/**

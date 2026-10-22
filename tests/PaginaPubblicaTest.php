@@ -337,6 +337,15 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 		$this->righe = array();
 		$this->richiesta_pubblica( $indirizzo );
 
+		return $this->fotografia();
+	}
+
+	/**
+	 * Quello che la richiesta appena fatta risponde, fin qui.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function fotografia(): array {
 		return array(
 			'non trovata'  => is_404(),
 			'stati'        => array_values( array_unique( $this->stati ) ),
@@ -1739,6 +1748,15 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	private function rinvio( string $indirizzo ): ?array {
 		$this->richiesta_pubblica( $indirizzo );
 
+		return $this->rinvio_predisposto();
+	}
+
+	/**
+	 * Il rinvio che l'aggancio dell'albo fa per la richiesta appena letta, o nullo.
+	 *
+	 * @return array{indirizzo: string, stato: int}|null
+	 */
+	private function rinvio_predisposto(): ?array {
 		$ferma = static function ( $luogo, $stato ) {
 			throw new \RuntimeException( (string) $luogo, (int) $stato ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- porta l'indirizzo alla prova, non esce mai.
 		};
@@ -1884,7 +1902,15 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			$this->assertSame( 'prima  dopo', do_shortcode( 'prima [' . $codice . ' numero="1" anno="2041" meta="x" valore="y"] dopo' ), $codice . ': non disegna niente, e il codice fra parentesi quadre non resta sul sito.' );
 		}
 
-		// Un componente che prende `[Albo]` dopo l'albo: le pagine non sono piu' dell'albo.
+		/*
+		 * Un componente che prende `[Albo]` dopo che l'albo ha gia' letto le
+		 * sue pagine: le pagine non sono piu' dell'albo, senza aspettare che
+		 * qualcosa faccia dimenticare quelle lette.
+		 */
+		wp_delete_post( $nuova, true );
+		$this->assertSame( array( $vecchia ), PaginaPubblica::pagine(), 'Precondizione: l\'albo ricorda la pagina con `[Albo]`.' );
+		$this->assertTrue( is_post_type_viewable( TIPO ), 'Precondizione: con quella pagina il tipo e\' consultabile.' );
+
 		remove_shortcode( PaginaPubblica::CODICE_VECCHIO );
 		add_shortcode(
 			PaginaPubblica::CODICE_VECCHIO,
@@ -1892,10 +1918,26 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 				return 'altro';
 			}
 		);
-		PaginaPubblica::azzera();
 
 		try {
-			$this->assertNotContains( $vecchia, PaginaPubblica::pagine(), 'Chi possiede il codice si guarda quando si chiede quali sono le pagine.' );
+			$this->assertSame( array(), PaginaPubblica::pagine(), 'Chi possiede il codice si guarda quando si chiede quali sono le pagine.' );
+			$this->assertFalse( is_post_type_viewable( TIPO ), 'Il tipo si chiude: nessun documento esce.' );
+
+			$this->pagina = $vecchia;
+			$html         = (string) $this->pagina_disegnata( $this->indirizzo() );
+			$this->assertStringContainsString( 'altro', $html, 'La pagina la disegna chi ha preso il codice.' );
+			$this->assertNotContains( 'X-Robots-Tag: noindex', $this->righe, 'Le regole dell\'albo non si applicano piu\'.' );
+			$this->assertNull(
+				$this->rinvio(
+					$this->indirizzo(
+						array(
+							'action' => 'visatto',
+							'id'     => '1',
+						)
+					)
+				),
+				'Nessun rinvio.'
+			);
 		} finally {
 			$this->vecchio_plugin_spento();
 		}
@@ -1916,6 +1958,9 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 		$nuovo = $this->pubblicato_il( '2041-10-02 09:30:00', 'Atto nato in questo albo' );
 		$bozza = $this->atto_completo( 'normativo', array( 'post_title' => 'Bozza con origine' ) );
 		add_post_meta( $bozza, META_ORIGINE_IMPORTAZIONE, '77', true );
+		$this->importato_il( '2041-10-01 09:30:00', 'In corso con la stessa origine di una bozza', '66' );
+		$gemella = $this->atto_completo( 'normativo', array( 'post_title' => 'Bozza con la stessa origine' ) );
+		add_post_meta( $gemella, META_ORIGINE_IMPORTAZIONE, '66', true );
 
 		$this->fissa_orologi( self::ULTIMO_ISTANTE );
 
@@ -1958,45 +2003,49 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			$this->assertTrue( $mai['non trovata'], $chi . ': precondizione, un numero mai dato risponde "non trovata".' );
 
 			foreach ( array(
-				'scaduto'               => array(
+				'scaduto'                => array(
 					'action' => 'visatto',
 					'id'     => '45',
 				),
-				'stampa dello scaduto'  => array(
+				'stampa dello scaduto'   => array(
 					'action' => 'printatto',
 					'id'     => '45',
 					'pdf'    => 'c',
 				),
-				'origine doppia'        => array(
+				'origine doppia'         => array(
 					'action' => 'visatto',
 					'id'     => '88',
 				),
-				'bozza con origine'     => array(
+				'bozza con origine'      => array(
 					'action' => 'visatto',
 					'id'     => '77',
 				),
-				'mai importato'         => array(
+				'origine anche in bozza' => array(
+					'action' => 'visatto',
+					'id'     => '66',
+				),
+				'mai importato'          => array(
 					'action' => 'visatto',
 					'id'     => '999',
 				),
-				'numero di questo albo' => array(
+				'numero di questo albo'  => array(
 					'action' => 'visatto',
 					'id'     => (string) $nuovo,
 				),
-				'zero davanti'          => array(
+				'zero davanti'           => array(
 					'action' => 'visatto',
 					'id'     => '0123',
 				),
-				'lettere'               => array(
+				'lettere'                => array(
 					'action' => 'visatto',
 					'id'     => 'abc',
 				),
-				'senza numero'          => array( 'action' => 'visatto' ),
-				'numero vuoto'          => array(
+				'senza numero'           => array( 'action' => 'visatto' ),
+				'numero vuoto'           => array(
 					'action' => 'printatto',
 					'id'     => '',
 				),
-				'elenco'                => array(
+				'elenco'                 => array(
 					'action' => 'visatto',
 					'id'     => array( '123' ),
 				),
@@ -2063,6 +2112,17 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 
 			$this->assertNull( $this->rinvio( $indirizzo ), $azione . ': dalla mezzanotte, nessun rinvio.' );
 			$this->assertSame( $mai, $this->risposta( $indirizzo ), $azione . ': dalla mezzanotte, come un atto mai esistito.' );
+
+			// Una richiesta letta all'ultimo secondo, con il rinvio che parte dopo la mezzanotte.
+			$this->fissa_orologi( self::ULTIMO_ISTANTE );
+			$this->stati = array();
+			$this->righe = array();
+			$this->richiesta_pubblica( $indirizzo );
+			$this->assertSame( array(), $this->stati, $azione . ': precondizione, il rinvio e\' predisposto e nessuno stato e\' scritto.' );
+
+			$this->fissa_orologi( self::PRIMO_ISTANTE_SCADUTO );
+			$this->assertNull( $this->rinvio_predisposto(), $azione . ': a cavallo della mezzanotte, nessun rinvio.' );
+			$this->assertSame( $mai, $this->fotografia(), $azione . ': a cavallo della mezzanotte, come un atto mai esistito.' );
 		}
 	}
 
