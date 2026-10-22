@@ -365,6 +365,18 @@ function stessi( trovati, attesi ) {
 }
 
 /**
+ * I testi degli elementi che ci sono nel codice ma non si vedono: nascosti,
+ * trasparenti (anche per un antenato), senza riquadro o resi inerti.
+ */
+async function nascosti( locatore ) {
+	return locatore.evaluateAll( ( elementi ) => elementi.filter( ( e ) => {
+		const r = e.getBoundingClientRect();
+
+		return ! e.checkVisibility( { checkOpacity: true, checkVisibilityCSS: true } ) || r.width === 0 || r.height === 0 || e.closest( '[inert]' ) !== null;
+	} ).map( ( e ) => e.textContent.trim() ) );
+}
+
+/**
  * La pagina mostra cio' che il collaudo dice di esaminare? Elenco dei problemi.
  *
  * @param {Object} pagina  Pagina del browser.
@@ -377,6 +389,11 @@ async function verifica_contenuto( pagina, nome, attese, memoria = {} ) {
 	const oggetti = await oggetti_elencati( pagina );
 	const tutti = attese.oggetti ?? [];
 	const perPagina = attese[ 'atti per pagina' ];
+
+	// I messaggi dell'albo, conteggio ed errore, devono vedersi: esserci nel codice non basta.
+	for ( const t of await nascosti( pagina.locator( '.albo-pretorio .albo-pretorio__conteggio, #albo-pretorio-errore-ricerca' ) ) ) {
+		problemi.push( `il messaggio "${ t }" c'e' nel codice ma non si vede` );
+	}
 
 	if ( 'elenco' === nome ) {
 		if ( oggetti.length !== Math.min( perPagina, tutti.length ) || ! oggetti.every( ( o ) => tutti.includes( o ) ) || new Set( oggetti ).size !== oggetti.length ) {
@@ -410,7 +427,7 @@ async function verifica_contenuto( pagina, nome, attese, memoria = {} ) {
 		const errore = pagina.locator( '#albo-pretorio-errore-ricerca' );
 		const campo = pagina.locator( 'input[name="albo_dal"]' );
 		const testo = ( await errore.count() ) === 1 ? ( await errore.innerText() ).trim() : '';
-		const visibile = ( await errore.count() ) === 1 && ( await errore.isVisible() ) && ( await errore.getAttribute( 'role' ) ) === 'alert' && testo.includes( attese[ 'errore della ricerca scritta male' ] ?? '\u0000' );
+		const visibile = ( await errore.count() ) === 1 && ( await nascosti( errore ) ).length === 0 && ( await errore.getAttribute( 'role' ) ) === 'alert' && testo.includes( attese[ 'errore della ricerca scritta male' ] ?? '\u0000' );
 		const legato = ( await campo.count() ) === 1 && ( await campo.getAttribute( 'aria-invalid' ) ) === 'true' && ( ( await campo.getAttribute( 'aria-describedby' ) ) ?? '' ).split( ' ' ).includes( 'albo-pretorio-errore-ricerca' );
 
 		if ( ! visibile || ! legato || oggetti.length !== 0 ) {
@@ -428,16 +445,12 @@ async function verifica_contenuto( pagina, nome, attese, memoria = {} ) {
 		}
 
 		// Nel codice non basta: ogni documento si deve vedere, o nessuno lo apre.
-		const nascosti = await documenti.evaluateAll( ( a ) => a.filter( ( e ) => {
-			const r = e.getBoundingClientRect();
-
-			return ! e.checkVisibility( { checkOpacity: true, checkVisibilityCSS: true } ) || r.width === 0 || r.height === 0 || e.closest( '[inert]' ) !== null;
-		} ).map( ( e ) => e.textContent.trim() ) );
+		const invisibili = await nascosti( documenti );
 
 		if ( JSON.stringify( nomi ) !== JSON.stringify( attese[ 'documenti della scheda' ] ?? [] ) ) {
 			problemi.push( `la scheda ha i documenti ${ JSON.stringify( nomi ) }, attesi ${ JSON.stringify( attese[ 'documenti della scheda' ] ) }` );
-		} else if ( nascosti.length > 0 ) {
-			problemi.push( `i documenti ${ JSON.stringify( nascosti ) } della scheda ci sono nel codice ma non si vedono` );
+		} else if ( invisibili.length > 0 ) {
+			problemi.push( `i documenti ${ JSON.stringify( invisibili ) } della scheda ci sono nel codice ma non si vedono` );
 		} else {
 			for ( const indirizzo of await documenti.evaluateAll( ( a ) => a.map( ( e ) => e.href ) ) ) {
 				const risposta = await pagina.request.get( indirizzo );
@@ -784,6 +797,19 @@ try {
 
 			if ( documenti_fuori_dal_percorso( await percorso( pagina ), 'scheda con allegati', dati ).length === 0 ) {
 				sbaglia( 'controllo di realta\': il percorso da tastiera non vede i documenti della scheda nascosti' );
+			}
+
+			// I messaggi veri resi invisibili: l'errore trasparente, il "Nessun atto" nascosto.
+			for ( const [ nome, stile, attesa ] of [
+				[ 'ricerca scritta male', '.albo-pretorio__avviso { opacity: 0 !important; }', 'l\'errore della ricerca trasparente' ],
+				[ 'ricerca senza risultati', '.albo-pretorio__conteggio { display: none !important; }', 'il messaggio senza risultati nascosto' ],
+			] ) {
+				await pagina.goto( dati[ nome ], { waitUntil: 'load' } );
+				await pagina.addStyleTag( { content: stile } );
+
+				if ( ( await verifica_contenuto( pagina, nome, dati ) ).length === 0 ) {
+					sbaglia( `controllo di realta': la verifica del contenuto non vede ${ attesa }` );
+				}
 			}
 
 			// L'elenco vero senza l'organo da scegliere, poi con l'organo spento.

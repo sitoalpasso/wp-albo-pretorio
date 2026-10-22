@@ -331,7 +331,7 @@ apposta (immagine senza testo alternativo, campo senza etichetta, collegamento s
 indicatore del fuoco, collegamento con contorno e ombra trasparenti, ciclo del fuoco
 dall'ultimo comando al primo, scheda senza documenti, ricerca scritta male senza messaggio):
 se non vi trovano i guasti, la prova si ferma. Guasti introdotti nell'albo per vedere se la
-prova li vede, quindici, tutti visti: indicatore del fuoco tolto dal foglio di stile, indicatore
+prova li vede, diciassette, tutti visti: indicatore del fuoco tolto dal foglio di stile, indicatore
 reso trasparente, etichetta tolta dal campo di testo, ordine di tabulazione cambiato sul
 pulsante "Cerca", documenti della scheda spariti, messaggio della ricerca scritta male tolto,
 spiegazione dell'errore tolta lasciando l'avviso, filtro dell'organo spento, collegamenti agli
@@ -339,7 +339,8 @@ atti che non portano da nessuna parte, date di sola lettura, filtro dell'organo 
 vista prima del testo con il foglio di stile, tipo e organo scambiati nel codice e rimessi in
 ordine a vista con il foglio di stile, tabella dei risultati tolta quando la ricerca ha tutte e
 due le date, lista dei documenti della scheda nascosta con il foglio di stile, organo da
-scegliere spento nell'elenco degli organi.
+scegliere spento nell'elenco degli organi, avviso d'errore della ricerca reso trasparente,
+messaggio del conteggio nascosto.
 
 L'ordine del Tab si confronta con l'ordine della pagina, e i comandi della ricerca anche con
 l'ordine in cui si vedono: un foglio di stile può spostare a vista un campo senza cambiarne il
@@ -350,8 +351,10 @@ Della ricerca per date non basta il conteggio: si leggono le righe della prima p
 alla seconda da tastiera, che deve conservare le due date, e le righe insieme devono essere
 esattamente tutti gli atti, senza doppioni. Allo stesso modo la ricerca per organo si fa da
 tastiera, scegliendo un organo fra i due della preparazione, e deve dare i soli atti di
-quell'organo. I documenti della scheda devono vedersi e stare nel percorso del Tab: esserci
-nel codice non basta.
+quell'organo. I documenti della scheda devono vedersi e stare nel percorso del Tab, e i messaggi
+dell'albo (il conteggio, l'avviso d'errore) devono vedersi: esserci nel codice non basta.
+Vedersi vuol dire non nascosto, non trasparente nemmeno per un contenitore, con un riquadro
+non nullo e fuori da una parte resa inerte.
 
 Oltre alle pagine aperte per indirizzo, la prova segue da tastiera i collegamenti che le
 uniscono: dall'elenco alla seconda pagina, alla scheda, e dalla scheda di nuovo all'elenco. I
