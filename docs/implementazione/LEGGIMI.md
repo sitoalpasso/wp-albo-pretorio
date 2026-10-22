@@ -65,3 +65,6 @@ Schede presenti:
 - [`vecchi-indirizzi.md`](vecchi-indirizzi.md): il codice breve `[Albo]` e gli indirizzi di
   scheda, stampa e documenti di Albo Pretorio On line dopo il passaggio, e la convivenza dei
   due plugin. Righe di collaudo A-220..A-223.
+- [`annullamento.md`](annullamento.md): l'annullamento di un atto pubblicato, con il motivo
+  nel registro, il permesso apposito, l'avviso pubblico fino alla scadenza senza documenti e
+  l'annullato nella consultazione riservata. Righe di collaudo A-224..A-230.
