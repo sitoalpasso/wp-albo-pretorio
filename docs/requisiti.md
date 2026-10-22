@@ -358,8 +358,10 @@ pagine che lo contengono diventano pagine dell'albo senza toccarle; i due codici
 `[AlboAtto]` e `[AlboGruppiAtti]` non mostrano niente. Finché il plugin precedente è acceso
 i suoi codici restano suoi. **I vecchi indirizzi della scheda, della stampa e dei documenti
 di un atto importato** portano alla scheda nuova solo finché l'atto è in pubblicazione; per
-un atto scaduto, annullato, non importato o per un indirizzo scritto male rispondono "pagina
-non trovata", come un atto mai esistito, perché un rinvio direbbe che l'atto c'è (ALBO-05).
+un atto scaduto, non importato o per un indirizzo scritto male rispondono "pagina non
+trovata", come un atto mai esistito, perché un rinvio direbbe che l'atto c'è (ALBO-05). Un
+atto annullato porta, fino alla scadenza, alla scheda con l'avviso dell'annullamento
+(sotto-decisione 1 di ALBO-22).
 Nessuna impostazione nuova. La scheda è `implementazione/vecchi-indirizzi.md`.
 
 ## Cosa resta all'ente

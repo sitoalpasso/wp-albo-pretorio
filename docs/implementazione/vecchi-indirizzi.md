@@ -17,8 +17,9 @@ o il certificato (`?action=printatto&id=123&pdf=c`), il documento da scaricare
 (`?action=dwnalle&id=45&idAtto=123`). Spento il plugin precedente, la stessa pagina mostra
 l'albo nuovo senza che nessuno la riscriva, e gli indirizzi vecchi di un atto importato
 portano alla sua scheda nuova **solo finché l'atto è in pubblicazione**. Per un atto scaduto,
-annullato, mai importato, o per un indirizzo scritto male, la risposta è "pagina non
-trovata", identica a quella di un atto mai esistito. **Nessuna impostazione nuova.**
+mai importato, o per un indirizzo scritto male, la risposta è "pagina non trovata", identica
+a quella di un atto mai esistito. Un atto annullato dopo l'importazione porta, fino alla sua
+scadenza, alla scheda con l'avviso dell'annullamento (scheda `annullamento.md`, A-228). **Nessuna impostazione nuova.**
 
 **Come la costruiamo.** All'inizio di `init`, quando tutti i plugin sono caricati, l'albo
 prende il codice `[Albo]` solo se nessuno lo ha già registrato: con il plugin precedente

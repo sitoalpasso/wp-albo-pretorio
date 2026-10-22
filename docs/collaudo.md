@@ -166,9 +166,9 @@ transizioni consentite, chi le compie e cosa accade a una rifiutata stanno nella
 `requisiti.md`, il diagramma in `architettura.md`. Le righe sono **da fare**: il codice non
 esiste ancora, e nascono prima di esso come prescrive il processo.
 
-**Tre sotto-decisioni restano aperte**, ed è visibile nelle righe. Se un atto annullato prima
-della scadenza resti visibile al pubblico non è deciso, quindi **non ha riga**: scriverla
-adesso significherebbe misurare quello che il codice avrà fatto. Chi possa disporre la
+**Due sotto-decisioni restano aperte**, ed è visibile nelle righe. Se un atto annullato prima
+della scadenza resti visibile al pubblico è deciso il 2026-10-22 ("Solo l'avviso"), e ha le
+sue righe A-224..A-230 nella sezione sull'annullamento. Chi possa disporre la
 defissione anticipata è attribuito a chi pubblica in via provvisoria, e la riga lo prova in
 quella forma dichiarandola tale. Se il giorno civile basti come granularità del termine è
 aperto allo stesso modo: le righe provano la forma provvisoria, cioè il giorno precedente,
