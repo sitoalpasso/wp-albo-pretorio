@@ -130,7 +130,12 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
   dell'importazione un segno casuale; la bozza nasce con un nome nell'indirizzo che contiene
   quel segno, scritto insieme alla bozza stessa, e poco dopo riceve anche il ricordo
   dell'origine. Il rilancio la ritrova dall'uno o dall'altro e la cancella con i suoi file
-  prima di rifarla, anche se il blocco si è fermato prima del ricordo. Una bozza scritta da
+  prima di rifarla, anche se il blocco si è fermato prima del ricordo. La cancellazione va
+  in ordine: prima l'elenco dei file dei documenti, scritto sulla bozza; poi i documenti,
+  verificando che non ci siano più; poi i file, verificando che non siano più sul disco
+  (solo dentro la cartella protetta); per ultima la bozza. Se un passo non riesce l'esito
+  è incerto, la bozza resta con l'elenco, e il rilancio riprende da lì: nessun documento e
+  nessun file resta senza qualcuno che lo ritrovi. Una bozza scritta da
   una persona non ha né il ricordo né un segno salvato, e non si tocca mai, qualunque nome
   abbia. I segni delle bozze rimaste incerte passano all'importazione successiva.
 - Il passaggio a pubblicato senza verifica si concede soltanto alla bozza che l'importazione
@@ -150,7 +155,8 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
 - Se la richiesta si ferma fra la conferma di un atto e il salvataggio dello stato,
   "Continua" ritrova l'atto fra quelli importati da questa importazione e ne ricostruisce
   l'esito dalla voce di registro, compreso il documento principale da scegliere. Se la banca
-  dati non salva lo stato, il blocco si ferma e lo dice.
+  dati non salva lo stato, il blocco si ferma e lo dice; lo stesso vale per l'avvio e per
+  "Interrompi", che non si dichiarano riusciti se lo stato non si è salvato.
 - La dichiarazione della partenza e l'importazione di un numero dello stesso anno non si
   scavalcano: entrambe prendono lo stesso blocco dell'anno nella banca dati (`GET_LOCK`,
   attesa di pochi secondi) e lo tengono fino alla fine della scrittura, transazione
@@ -162,7 +168,11 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
 - L'importazione non comincia, e non prosegue, se la connessione alla banca dati è dentro una
   transazione aperta da un altro componente (scrittura automatica spenta, o transazione già
   aperta dove la banca dati lo dice): bozze, documenti e numeri non sarebbero definitivi, e
-  un annullamento esterno lascerebbe i file sul disco.
+  un annullamento esterno lascerebbe i file sul disco. Se la domanda "c'è una transazione
+  aperta?" non ha risposta, vale come sì: l'unica eccezione è la banca dati che dichiara di
+  non conoscere la variabile (MySQL non la ha; MariaDB sì). Su MySQL, quindi, una
+  transazione aperta a mano con la scrittura automatica accesa non si vede: è un limite
+  dichiarato, che richiede un componente insolito.
 - Alla ripresa, se il registro non si legge, l'esito dell'atto già confermato non si
   ricostruisce: il blocco si ferma su quell'atto senza avanzare, e "Continua" riprova.
 - La prima versione della bozza si salva solo se le revisioni sono attive per quella bozza:
@@ -228,6 +238,14 @@ segnato documento, quello. Negli altri casi nessuno: tutti allegati, segnalato.
   compilati (ora sì, conservati anche se l'amministrazione non li mostra). Le prove girano
   dentro la transazione della suite, che annullano alla fine: lì l'importazione è ammessa da
   un valore che solo le prove scrivono, e una riga apposta prova il rifiuto.
+- La quarta revisione esterna ha chiesto tre correzioni, fatte: la cancellazione di una
+  bozza guardava solo la bozza, e un documento o un file che non se ne andava restava senza
+  nessuno che lo ritrovasse (ora l'ordine descritto sopra, con l'elenco dei file scritto
+  prima); una lettura fallita di "c'è una transazione aperta?" valeva come no (ora come
+  sì); avvio e interruzione non controllavano il salvataggio dello stato (ora sì). Ogni
+  caso ha la sua prova, e la mutazione corrispondente la rende rossa. Nelle prove, il
+  blocco dell'anno preso dentro la transazione della suite si rilascia alla fine di ogni
+  prova, come alla fine di una richiesta vera.
 - La riga A-193 dell'importazione a secco fallisce in questo ambiente di prova anche sul ramo
   principale, per la versione di `iconv`: non dipende da questo lavoro.
 
