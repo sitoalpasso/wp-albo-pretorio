@@ -57,6 +57,37 @@ final class VistaPubblica {
 	const ID_ERRORE = 'albo-pretorio-errore-ricerca';
 
 	/**
+	 * Lo stesso codice con gli identificativi di un'altra istanza.
+	 *
+	 * Ogni identificativo, e ogni riferimento a un identificativo (etichette,
+	 * descrizioni, titoli di regione), prende in coda il numero dell'istanza.
+	 * Gli identificativi li scrive solo questa classe, e solo in questi
+	 * quattro attributi; i nomi dei campi non cambiano, quindi il modulo manda
+	 * la stessa ricerca (A-207).
+	 *
+	 * @param string $html     Codice disegnato.
+	 * @param int    $istanza  Numero dell'istanza, dal secondo.
+	 * @return string
+	 */
+	public static function distingui( string $html, int $istanza ): string {
+		return (string) preg_replace_callback(
+			'/ (id|for|aria-describedby|aria-labelledby)="([^"]*)"/',
+			static function ( array $parti ) use ( $istanza ): string {
+				$voci = preg_split( '/\s+/', trim( $parti[2] ), -1, PREG_SPLIT_NO_EMPTY );
+				$voci = array_map(
+					static function ( string $voce ) use ( $istanza ): string {
+						return $voce . '-' . $istanza;
+					},
+					false === $voci ? array() : $voci
+				);
+
+				return ' ' . $parti[1] . '="' . esc_attr( implode( ' ', $voci ) ) . '"';
+			},
+			$html
+		);
+	}
+
+	/**
 	 * La pagina, per la richiesta indicata.
 	 *
 	 * @param array<string, mixed> $richiesta Parametri della richiesta.
@@ -90,7 +121,16 @@ final class VistaPubblica {
 	public static function ricerca( array $richiesta ): array {
 		$errori = array();
 
-		$testo_di = static function ( string $campo ) use ( $richiesta, &$errori ): string {
+		/*
+		 * Si guarda prima il valore com'e' arrivato, e solo dopo lo si ripulisce:
+		 * ripulito, un valore fatto di soli segni come `<b></b>` diventerebbe
+		 * un campo vuoto, e un campo vuoto non restringe, quindi la pagina
+		 * mostrerebbe l'elenco intero al posto del rifiuto (A-199). Vuoto e'
+		 * solo cio' che e' vuoto gia' prima. I campi rigidi (numeri e date) non
+		 * si ripuliscono affatto: si controllano cosi' come sono, e un valore
+		 * fuori dalla forma e' un errore.
+		 */
+		$testo_di = static function ( string $campo, bool $rigido = false ) use ( $richiesta, &$errori ): string {
 			if ( ! isset( $richiesta[ $campo ] ) ) {
 				return '';
 			}
@@ -100,11 +140,23 @@ final class VistaPubblica {
 				return '';
 			}
 
-			return trim( sanitize_text_field( wp_unslash( (string) $richiesta[ $campo ] ) ) );
+			$grezzo = trim( wp_unslash( (string) $richiesta[ $campo ] ) );
+
+			if ( $rigido || '' === $grezzo ) {
+				return $grezzo;
+			}
+
+			$pulito = trim( sanitize_text_field( $grezzo ) );
+
+			if ( '' === $pulito ) {
+				$errori[ $campo ] = '';
+			}
+
+			return $pulito;
 		};
 
 		$voce = static function ( string $campo, string $tassonomia ) use ( $testo_di, &$errori ): ?int {
-			$testo = $testo_di( $campo );
+			$testo = $testo_di( $campo, true );
 
 			if ( '' === $testo ) {
 				return null;
@@ -124,9 +176,21 @@ final class VistaPubblica {
 		};
 
 		$data = static function ( string $campo ) use ( $testo_di, &$errori ): string {
-			$testo = $testo_di( $campo );
+			$testo = $testo_di( $campo, true );
 
 			if ( '' === $testo ) {
+				return '';
+			}
+
+			/*
+			 * Prima la forma, poi la lettura: un valore con un carattere nullo
+			 * dentro fa sollevare un'eccezione alla lettura della data, e la
+			 * pagina si interromperebbe invece di dire che la ricerca e' scritta
+			 * male (A-199).
+			 */
+			if ( 1 !== preg_match( '/\A[0-9]{4}-[0-9]{2}-[0-9]{2}\z/', $testo ) ) {
+				$errori[ $campo ] = '';
+
 				return '';
 			}
 
@@ -155,7 +219,7 @@ final class VistaPubblica {
 			}
 		}
 
-		$pagina = $testo_di( self::CAMPO_PAGINA );
+		$pagina = $testo_di( self::CAMPO_PAGINA, true );
 
 		if ( '' !== $pagina && 1 !== preg_match( '/^[1-9][0-9]{0,8}$/', $pagina ) ) {
 			$errori[ self::CAMPO_PAGINA ] = '';
@@ -316,9 +380,31 @@ final class VistaPubblica {
 			}
 		}
 
+		$totale = (int) $interrogazione->found_posts;
+
+		/*
+		 * Oltre l'ultima pagina WordPress non conta niente: senza atti nella
+		 * pagina il totale resta zero. Si conta di nuovo dalla prima, cosi'
+		 * una pagina che non c'e' piu', per esempio salvata prima che un atto
+		 * scadesse, non si legge come un albo vuoto (A-208).
+		 */
+		if ( array() === $interrogazione->posts && $argomenti['paged'] > 1 ) {
+			$conta  = new \WP_Query(
+				array_merge(
+					$argomenti,
+					array(
+						'paged'          => 1,
+						'posts_per_page' => 1,
+						'fields'         => 'ids',
+					)
+				)
+			);
+			$totale = (int) $conta->found_posts;
+		}
+
 		return array(
 			'atti'   => $atti,
-			'totale' => (int) $interrogazione->found_posts,
+			'totale' => $totale,
 		);
 	}
 
@@ -474,6 +560,19 @@ final class VistaPubblica {
 			$html .= '<p id="' . esc_attr( self::ID_ERRORE ) . '" class="albo-pretorio__avviso" role="alert">' . esc_html__( 'La ricerca non è stata fatta.', 'albo-pretorio-pa' ) . ' ' . esc_html( $esito->get_error_message() ) . '</p>';
 
 			return $html . '</section>';
+		}
+
+		if ( array() === $esito['atti'] && $esito['totale'] > 0 ) {
+			$html .= '<p class="albo-pretorio__conteggio">' . esc_html(
+				sprintf(
+					/* translators: %s: numero degli atti. */
+					_n( 'In questa pagina dell\'elenco non ci sono atti: l\'elenco ne ha %s.', 'In questa pagina dell\'elenco non ci sono atti: l\'elenco ne ha %s.', $esito['totale'], 'albo-pretorio-pa' ),
+					number_format_i18n( $esito['totale'] )
+				)
+			) . '</p>';
+			$html .= '<p class="albo-pretorio__torna"><a class="albo-pretorio__collegamento" href="' . esc_url( add_query_arg( self::parametri( $ricerca ), (string) PaginaPubblica::indirizzo() ) ) . '">' . esc_html__( 'Vai alla prima pagina', 'albo-pretorio-pa' ) . '</a></p>';
+
+			return $html . self::pagine( $ricerca, $esito['totale'] ) . '</section>';
 		}
 
 		if ( array() === $esito['atti'] ) {
@@ -780,21 +879,9 @@ final class VistaPubblica {
 			return '';
 		}
 
-		$parametri = array_filter(
-			array(
-				self::CAMPO_TESTO  => '' === $ricerca['testo'] ? null : rawurlencode( $ricerca['testo'] ),
-				self::CAMPO_TIPO   => $ricerca['tipo'],
-				self::CAMPO_ORGANO => $ricerca['organo'],
-				self::CAMPO_DAL    => '' === $ricerca['dal'] ? null : $ricerca['dal'],
-				self::CAMPO_AL     => '' === $ricerca['al'] ? null : $ricerca['al'],
-			),
-			static function ( $valore ): bool {
-				return null !== $valore;
-			}
-		);
-
-		$base = (string) PaginaPubblica::indirizzo();
-		$html = '<nav class="albo-pretorio__pagine" aria-label="' . esc_attr__( 'Pagine dell\'elenco', 'albo-pretorio-pa' ) . '"><ul class="albo-pretorio__numeri">';
+		$parametri = self::parametri( $ricerca );
+		$base      = (string) PaginaPubblica::indirizzo();
+		$html      = '<nav class="albo-pretorio__pagine" aria-label="' . esc_attr__( 'Pagine dell\'elenco', 'albo-pretorio-pa' ) . '"><ul class="albo-pretorio__numeri">';
 
 		for ( $pagina = 1; $pagina <= $quante; $pagina++ ) {
 			/* translators: %d: numero della pagina. */
@@ -812,6 +899,27 @@ final class VistaPubblica {
 		}
 
 		return $html . '</ul></nav>';
+	}
+
+	/**
+	 * I parametri della ricerca, senza la pagina, per i collegamenti dell'elenco.
+	 *
+	 * @param array<string, mixed> $ricerca Ricerca ripulita.
+	 * @return array<string, mixed>
+	 */
+	private static function parametri( array $ricerca ): array {
+		return array_filter(
+			array(
+				self::CAMPO_TESTO  => '' === $ricerca['testo'] ? null : rawurlencode( $ricerca['testo'] ),
+				self::CAMPO_TIPO   => $ricerca['tipo'],
+				self::CAMPO_ORGANO => $ricerca['organo'],
+				self::CAMPO_DAL    => '' === $ricerca['dal'] ? null : $ricerca['dal'],
+				self::CAMPO_AL     => '' === $ricerca['al'] ? null : $ricerca['al'],
+			),
+			static function ( $valore ): bool {
+				return null !== $valore;
+			}
+		);
 	}
 
 	/**

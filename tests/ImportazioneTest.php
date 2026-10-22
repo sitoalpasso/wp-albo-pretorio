@@ -1,6 +1,6 @@
 <?php
 /**
- * L'importazione a secco dal backup del vecchio albo: righe A-186..A-194 (ALBO-35).
+ * L'importazione a secco dal backup di Albo Pretorio On line: righe A-186..A-194 (ALBO-35).
  *
  * I backup di prova sono scritti come li scrive il plugin di provenienza (vedi
  * `backup-di-prova.php`). L'orologio e' fissato a mezzanotte e mezza del 16
@@ -42,7 +42,7 @@ class ImportazioneTest extends \WP_UnitTestCase {
 	private const ADESSO = '2041-10-16 00:30:00';
 
 	/**
-	 * La partenza dichiarata per il 2041 nel nuovo albo.
+	 * La partenza dichiarata per il 2041 in questo albo.
 	 */
 	private const PARTENZA = 40;
 
@@ -92,7 +92,7 @@ class ImportazioneTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Legge un backup e ne fa il rapporto, con lo stato attuale del nuovo albo.
+	 * Legge un backup e ne fa il rapporto, con lo stato attuale di questo albo.
 	 *
 	 * @param string $percorso Backup.
 	 * @return array<string, mixed>
@@ -319,6 +319,57 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertSame( array( 'allegato', 'allegato' ), array_column( $atto['documenti'], 'ruolo' ) );
 		$this->assertSame( 'dubbio', $this->codici( $atto['segnalazioni'] )['principale_assente'] ?? null );
 		$this->assertStringContainsString( 'non distingue documento e allegati', $this->testo_di( $atto['segnalazioni'], 'principale_assente' ) );
+
+		// Con la colonna, un file solo segnato come allegato e' il documento; con due file segnati allegato si sceglie.
+		$zip      = $this->zip_vecchio(
+			$this->sql_vecchio(
+				$this->tabelle_vecchie(
+					array(
+						$this->atto_vecchio( array() ),
+						$this->atto_vecchio(
+							array(
+								'IdAtto' => 2,
+								'Numero' => 2,
+							)
+						),
+						$this->atto_vecchio(
+							array(
+								'IdAtto' => 3,
+								'Numero' => 3,
+							)
+						),
+					),
+					array(
+						$this->documento( 1, 1, 'solo.pdf', 'solo', 'A' ),
+						$this->documento( 2, 2, 'primo.pdf', 'primo', 'A' ),
+						$this->documento( 3, 2, 'secondo.pdf', 'secondo', 'A' ),
+						$this->documento( 4, 3, 'segnato.pdf', 'segnato', 'D' ),
+					)
+				)
+			),
+			array(
+				'solo.pdf'    => 'solo',
+				'primo.pdf'   => 'primo',
+				'secondo.pdf' => 'secondo',
+				'segnato.pdf' => 'segnato',
+			)
+		);
+		$rapporto = $this->rapporto_di( $zip );
+		$solo     = $this->atto( $rapporto, '1' );
+
+		$this->assertSame( array( 'documento' ), array_column( $solo['documenti'], 'ruolo' ), 'L\'unico file segnato allegato e\' il documento.' );
+		$this->assertSame( 'nota', $this->codici( $solo['segnalazioni'] )['principale_unico'] ?? null );
+		$this->assertStringContainsString( 'segna l\'unico file dell\'atto come allegato', $this->testo_di( $solo['segnalazioni'], 'principale_unico' ) );
+		$this->assertArrayNotHasKey( 'principale_assente', $this->codici( $solo['segnalazioni'] ) );
+
+		$due = $this->atto( $rapporto, '2' );
+		$this->assertSame( array( 'allegato', 'allegato' ), array_column( $due['documenti'], 'ruolo' ) );
+		$this->assertSame( 'dubbio', $this->codici( $due['segnalazioni'] )['principale_assente'] ?? null );
+		$this->assertArrayNotHasKey( 'principale_unico', $this->codici( $due['segnalazioni'] ) );
+
+		$segnato = $this->codici( $this->atto( $rapporto, '3' )['segnalazioni'] );
+		$this->assertArrayNotHasKey( 'principale_unico', $segnato, 'Un file solo gia\' segnato come documento non ha bisogno di nota.' );
+		$this->assertArrayNotHasKey( 'principale_assente', $segnato );
 	}
 
 	/**
@@ -798,7 +849,7 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertSame( 'bozza', $per_nome['bozza']['stato'] );
 
 		$this->assertArrayHasKey( 'fine_assente', $this->codici( $per_nome['senza_fine']['segnalazioni'] ) );
-		$this->assertFalse( $per_nome['senza_fine']['in_vista'], 'Senza fine arriva invisibile, come lo tratta la scadenza del nuovo albo.' );
+		$this->assertFalse( $per_nome['senza_fine']['in_vista'], 'Senza fine arriva invisibile, come lo tratta la scadenza di questo albo.' );
 
 		$this->assertSame( 'futuro', $per_nome['futuro']['stato'] );
 		$this->assertArrayHasKey( 'inizio_futuro', $this->codici( $per_nome['futuro']['segnalazioni'] ) );
@@ -971,7 +1022,7 @@ class ImportazioneTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 15, $per_nome['giusta']['giorni'] );
 		$this->assertSame( array(), $durate['giusta'] );
-		$this->assertSame( '15 giorni, origine: date scritte nel vecchio albo', $per_nome['giusta']['dati']['Durata'], 'Ogni durata dichiara la sua origine.' );
+		$this->assertSame( '15 giorni, origine: date scritte in Albo Pretorio On line', $per_nome['giusta']['dati']['Durata'], 'Ogni durata dichiara la sua origine.' );
 		$this->assertSame( array( 'durata_breve' ), array_values( $durate['breve'] ) );
 		$this->assertSame( array( 'slittamento_festivi' ), array_values( $durate['festiva'] ) );
 		$this->assertStringContainsString( '06/10/2041 Domenica', $this->testo_di( $per_nome['festiva']['segnalazioni'], 'slittamento_festivi' ) );
@@ -989,7 +1040,7 @@ class ImportazioneTest extends \WP_UnitTestCase {
 			$this->assertSame( AnalisiImportazione::DA_DECIDERE, $per_nome[ $nome ]['esito'], 'Una decisione aperta sul tipo cambia l\'esito dell\'atto: ' . $nome );
 		}
 
-		$this->assertStringContainsString( 'Nel nuovo albo non c\'e\' un tipo di atto con questo nome.', $this->testo_di( $per_nome['bando_finito']['segnalazioni'], 'tipo_da_decidere' ) );
+		$this->assertStringContainsString( 'In questo albo non c\'e\' un tipo di atto con questo nome.', $this->testo_di( $per_nome['bando_finito']['segnalazioni'], 'tipo_da_decidere' ) );
 		$this->assertStringContainsString( 'La categoria ha 30 giorni', $this->testo_di( $per_nome['avviso_finito']['segnalazioni'], 'tipo_da_decidere' ) );
 
 		$categorie = array();
@@ -1023,7 +1074,7 @@ class ImportazioneTest extends \WP_UnitTestCase {
 				'numero' => self::PARTENZA + 1,
 			),
 			Repertorio::di( $pubblicato ),
-			'Precondizione: il nuovo albo ha dato il 41/2041.'
+			'Precondizione: questo albo ha dato il 41/2041.'
 		);
 		$this->fissa_orologi( self::ADESSO );
 
@@ -1102,7 +1153,7 @@ class ImportazioneTest extends \WP_UnitTestCase {
 					'Numero' => "'12a'",
 				)
 			),
-			// Il confine del registro del nuovo albo, in un anno senza numerazione dichiarata.
+			// Il confine del registro di questo albo, in un anno senza numerazione dichiarata.
 			$this->atto_vecchio(
 				array(
 					'IdAtto'     => 11,
@@ -1148,7 +1199,7 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertSame( 'conflitto', $this->codici( $this->atto( $rapporto, '5' )['segnalazioni'] )['numero_gia_usato'] ?? null );
 		$this->assertSame( 'conflitto', $this->codici( $this->atto( $rapporto, '6' )['segnalazioni'] )['numero_oltre_partenza'] ?? null );
 		$this->assertSame( 'conflitto', $this->codici( $this->atto( $rapporto, '7' )['segnalazioni'] )['anno_non_valido'] ?? null, 'Un anno zero non e\' un anno.' );
-		$this->assertArrayNotHasKey( 'numerazione_non_letta', $this->codici( $rapporto['segnalazioni'] ), 'L\'anno zero non si chiede alla numerazione del nuovo albo.' );
+		$this->assertArrayNotHasKey( 'numerazione_non_letta', $this->codici( $rapporto['segnalazioni'] ), 'L\'anno zero non si chiede alla numerazione di questo albo.' );
 
 		foreach ( array(
 			'8'  => 'NULL',
@@ -1258,7 +1309,7 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertNull( $rapporto['numerazione']['proposta'] );
 		$this->assertSame( self::PARTENZA + 1, Repertorio::anno( 2041 )['ultimo'], 'La lettura non ha toccato la numerazione.' );
 
-		// L'anno senza riga nel nuovo albo non e' una lettura mancata.
+		// L'anno senza riga in questo albo non e' una lettura mancata.
 		$this->assertArrayNotHasKey( 'numerazione_non_letta', $this->codici( $this->atto( $rapporto, '12' )['segnalazioni'] ), 'Il 2030 non ha riga: e\' un anno da numerare, non un guasto.' );
 		$this->assertArrayNotHasKey( 'numerazione_non_letta', $this->codici( $rapporto['segnalazioni'] ) );
 
@@ -1437,7 +1488,7 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$cinque = $this->codici( $this->atto( $rapporto, '5' )['segnalazioni'] );
 		$this->assertSame( 'dubbio', $cinque['principali_multipli'] ?? null );
 		$this->assertSame( 'dubbio', $cinque['per_estratto'] ?? null );
-		$this->assertSame( 'trovato; impronta non registrata nel vecchio albo', $this->atto( $rapporto, '5' )['documenti'][1]['verifica'] );
+		$this->assertSame( 'trovato; impronta non registrata in Albo Pretorio On line', $this->atto( $rapporto, '5' )['documenti'][1]['verifica'] );
 		$this->assertSame( 'allegato', $this->atto( $rapporto, '5' )['documenti'][2]['ruolo'] );
 
 		$this->assertSame( 'dubbio', $this->codici( $this->atto( $rapporto, '6' )['segnalazioni'] )['principale_assente'] ?? null );
