@@ -31,7 +31,8 @@ Le tabelle lette sono sette, con il prefisso del sito: `albopretorio_atti`,
 `albopretorio_resprocedura`, `albopretorio_attimeta`, `albopretorio_unitaorganizzative`. Il
 registro delle operazioni non è nel backup.
 
-Si accettano anche il **solo file SQL** (gli allegati risultano allora non verificabili) e
+Si accettano anche il **solo file SQL** (gli allegati risultano allora non verificabili, e ogni
+atto con documenti ha un dubbio: non è portabile così com'è) e
 una **copia intera della banca dati** fatta con mysqldump: le righe con l'elenco delle
 colonne, più righe per istruzione, i commenti e le impostazioni di sessione si leggono; delle
 altre tabelle si annota il nome e basta, e delle impostazioni si tengono solo quelle del
@@ -49,7 +50,7 @@ predefinito della colonna, o `NULL`. Le impostazioni valgono solo se stanno nell
 opzioni con lo stesso prefisso delle tabelle dell'albo: in una copia intera di più siti, quelle
 degli altri non entrano. L'ultima istruzione può mancare del punto e virgola (il backup del
 plugin finisce così) e allora si accetta solo se è intera. Il file si rifiuta, con il motivo, se: non c'è il file SQL alla radice o ce n'è più
-d'uno; due file dell'archivio hanno lo stesso nome; il testo finisce a metà di un valore o di
+d'uno; due file dell'archivio hanno lo stesso nome e contenuto diverso (lo stesso file aggiunto due volte, come fa il plugin di provenienza quando due allegati lo citano, si tiene una volta sola: le due voci si confrontano con l'impronta SHA-256 di ciascuna, non con il controllo dello zip; dove PHP non apre una voce per posizione, cioè prima della versione 8.2, si confrontano solo voci fino a 64 MB); il testo finisce a metà di un valore o di
 un'istruzione (una creazione senza la parentesi che la chiude, un aggiornamento delle
 impostazioni che non arriva alla condizione); una riga ha più o meno valori delle colonne; i
 dati di una tabella arrivano senza colonne note; ci sono le tabelle dell'albo di due siti.
@@ -87,14 +88,16 @@ scritta non lo è, e allora è una nota sullo slittamento; altrimenti è un dubb
 una correzione a mano).
 
 **Categorie e tipi.** Ogni categoria si confronta per nome, senza maiuscole e spazi ai lati,
-con i tipi di atto di questo albo. Se il tipo c'è si mostrano durata e origine; se non c'è,
+con i tipi di atto di questo albo. Gli atti si contano per categoria, non per tipo: due
+categorie che diventano lo stesso tipo restano distinte. Se il tipo c'è si mostrano durata e origine; se non c'è,
 "tipo da creare", e **l'origine della durata la dichiara chi importa, senza valore proposto**.
 Una categoria senza giorni darebbe un tipo senza durata. Le categorie annidate si mostrano con
 la madre davanti. Le decisioni aperte su un tipo (da creare, giorni diversi, senza giorni) sono
 anche un dubbio su ciascun atto di quella categoria, che quindi non risulta importabile finché
 il tipo non è deciso.
 
-**Numerazione.** Conflitti: lo stesso numero e anno su due atti; un numero già dato da questo
+**Numerazione.** Conflitti: lo stesso numero e anno su due atti (sull'atto si dice quanti sono, l'elenco dei
+numeri interni sta una volta sola fra le segnalazioni generali); un numero già dato da questo
 albo; un numero oltre l'ultimo numero del registro precedente dichiarato in questo albo per
 quell'anno. Dubbio: l'anno del numero diverso dall'anno di inizio. Per ogni anno si contano
 i numeri mancanti nella serie. Dal contatore (`opt_AP_NumeroProgressivo`,
@@ -113,7 +116,13 @@ quindi nota: le altre persone collegate (`Soggetti`), le note (`Informazioni`), 
 di raggruppamento, nominate con il loro valore. Un atto di un'altra amministrazione (`Ente` diverso da 0) è un dubbio
 finché le amministrazioni ospitate (ALBO-29) non ci sono. `Data` e `DataOblio` si riconoscono
 e non servono. Un testo che questo albo non conserverebbe alla lettera, o non in UTF-8, è un
-dubbio.
+dubbio; per responsabile, ufficio e richiedente vale anche un carattere di controllo (a capo,
+tabulazione) ai margini, che togliendo gli spazi ai lati si perderebbe. Lunghezza e caratteri
+di controllo si guardano prima di leggere il nome: un testo con molti a capo non si divide in
+righe, è già un dubbio. Di un richiedente o di un riferimento più lungo di 1000 byte il rapporto
+mostra solo l'inizio. Delle altre persone
+collegate se ne nominano venti e le altre si contano; l'elenco si legge una voce alla volta e
+oltre mille voci la lettura si ferma e lo dice ("e altre ancora").
 
 **Documenti.** Il percorso registrato è completo, sul server di provenienza: vince il file
 dell'archivio il cui nome coincide con la parte finale più lunga del percorso, così si trova
@@ -121,9 +130,19 @@ anche se il sito è stato spostato. Altrimenti un file con lo stesso nome in un'
 purché uno solo (nota). Con l'impronta registrata si dice se il file è quello caricato. Un
 file mancante o diverso è un conflitto su un atto visibile e un dubbio sugli altri. Natura `D`
 è documento, `A` allegato: zero o più documenti sono un dubbio, perché il principale è uno e
-lo sceglie chi importa. "Pubblicato per estratto" non ha posto: dubbio. I file dell'archivio
-non citati da nessun allegato di un atto restano fuori, e la schermata li elenca per nome;
+lo sceglie chi importa. Un atto con un solo file ha quel file come documento principale (nota),
+anche se è segnato `A`: nelle versioni precedenti la colonna `Natura` non c'è, e in quelle
+successive chi pubblicava lasciava spesso la scelta preimpostata ad allegato (su un backup vero
+quasi tutti i file sono `A`). Con più file e nessun `D` il principale lo sceglie chi importa. "Pubblicato per estratto" non ha posto: dubbio. I file dell'archivio
+non citati da nessun allegato di un atto restano fuori (gli allegati di atti che nel backup non
+ci sono stanno in una nota sola, con i numeri interni), e la schermata li elenca per nome;
 accanto a ogni documento trovato mostra il file dell'archivio scelto.
+
+**Identificativi.** Un numero interno di atto assente o portato da più atti è un conflitto:
+quegli atti non ricevono allegati né etichette (neppure come nota), e l'elenco degli identificativi sta una volta
+sola fra le segnalazioni generali. Un identificativo ripetuto nelle tabelle di categorie,
+enti, responsabili e uffici è un conflitto generale, e gli atti che lo citano lo trovano
+assente invece di riceverne una riga a caso.
 
 **Campi.** Ogni colonna fuori dall'elenco conosciuto è "non riconosciuta", con il numero di
 righe in cui è compilata; ogni colonna conosciuta che manca è "assente", come nelle versioni
@@ -162,12 +181,28 @@ Il rapporto vive solo nella pagina che lo mostra. Ogni testo esce sfuggito.
   interpretarla), o dati dell'albo conservati oltre 128 MB stimati (ogni valore conta la sua
   lunghezza più 80 byte): rifiuto con il motivo. Le righe si leggono una alla volta e il conto
   si fa prima di tenerle; contano anche le impostazioni del plugin, di qualunque tabella delle
-  opzioni. Una riga con più di 4096 valori (il massimo di colonne di una tabella MySQL) si
-  ferma mentre si legge; un archivio con più di 200000 file si rifiuta prima di guardarli. Le
+  opzioni, i nomi e le colonne delle tabelle dell'albo e delle opzioni, e i nomi delle altre
+  tabelle (delle quali le colonne non si tengono). Una riga con più di 4096 valori (il massimo di colonne di una tabella MySQL) si
+  ferma mentre si legge, e così una creazione con più di 4096 colonne o più di 8192
+  definizioni, anche di un'altra tabella. L'elenco esplicito delle colonne di un inserimento si
+  legge un nome alla volta e si rifiuta alla colonna 4097, a un nome vuoto o a un nome ripetuto,
+  senza costruire il resto dell'elenco. Due colonne con lo stesso nome, nella creazione o
+  nell'elenco dell'inserimento, anche scritte con e senza accenti gravi o con maiuscole diverse
+  (per MySQL sono la stessa colonna), fanno rifiutare il backup: un valore coprirebbe l'altro; un archivio con più di 200000 file si rifiuta prima di guardarli. Le
   righe delle altre tabelle non si tengono e non contano. Il backup del plugin scrive un'istruzione per record e mysqldump le unisce fino
   a un megabyte circa: i limiti stanno molto sopra un albo vero.
-- La numerazione di questo albo non risponde: conflitto generale, perché non si può dire se i
-  numeri sono già stati dati.
+- Un nome di categoria, amministrazione, persona o ufficio più lungo di 1000 byte si
+  ricopierebbe su ogni atto che lo cita: la riga non si usa (conflitto generale) e gli atti la
+  trovano assente. Il rapporto si misura atto per atto: oltre 64 MB stimati si ferma, dice
+  quanti atti ha analizzato su quanti, e gli altri non li analizza. Il riepilogo e le categorie
+  contano allora solo gli atti analizzati, e la schermata lo dice sopra i conteggi; la
+  numerazione (ultimo numero usato, proposta di partenza) e i file non citati si calcolano invece
+  su tutti gli atti del backup, perché un risultato parziale presentato come intero sarebbe
+  sbagliato.
+- La numerazione di questo albo non risponde, per i numeri usati o per la riga dell'anno con la
+  partenza dichiarata: conflitto generale e conflitto su ogni atto di quell'anno, perché non si
+  può dire se i numeri sono già stati dati o oltre la partenza. Un anno senza riga non è un
+  guasto: è un anno ancora da numerare.
 
 ## Cosa non fa
 

@@ -36,6 +36,11 @@ produrre un rifiuto rumoroso, mai un permesso silenzioso.
 - Il nonce non è un controllo di permesso: protegge dal CSRF, cioè dal far compiere
   a un utente autenticato un'azione che non voleva. Serve **insieme** alla
   capability, non al suo posto.
+- **Un'eccezione dichiarata al nonce**: il modulo di ricerca della pagina pubblica
+  dell'albo non ne ha. Non cambia niente, mostra a tutti la stessa cosa e non dipende da
+  chi è collegato; un nonce legato alla sessione renderebbe la pagina diversa per ogni
+  visitatore e scadrebbe in mano a chi ha salvato l'indirizzo di una ricerca. I suoi
+  parametri si validano comunque uno per uno, e uno scritto male ferma la ricerca.
 - Nessuna operazione privilegiata decisa solo da dati che arrivano dal browser: lo
   stato, il numero di repertorio, le date, l'autore li assegna il server. Se il
   client manda un campo che non gli spetta, il campo si ignora o la richiesta si

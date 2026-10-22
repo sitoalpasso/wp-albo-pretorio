@@ -58,6 +58,34 @@ final class AnalisiImportazione {
 	const ESCLUSO = 'escluso';
 
 	/**
+	 * Byte oltre i quali un nome di categoria, amministrazione, persona o ufficio non e' un nome vero.
+	 *
+	 * @var int
+	 */
+	const NOME_MASSIMO = 1000;
+
+	/**
+	 * Le altre persone collegate a un atto che il rapporto nomina; le successive si contano.
+	 *
+	 * @var int
+	 */
+	const SOGGETTI_NOMINATI = 20;
+
+	/**
+	 * Le voci dell'elenco delle altre persone che si leggono al massimo: oltre, l'elenco non e' piu' un elenco vero.
+	 *
+	 * @var int
+	 */
+	const SOGGETTI_LETTI = 1000;
+
+	/**
+	 * Byte stimati oltre i quali il rapporto si ferma: gli atti successivi non si analizzano.
+	 *
+	 * @var int
+	 */
+	const RAPPORTO_MASSIMO = 67108864;
+
+	/**
 	 * Livelli delle segnalazioni, dal piu' grave.
 	 *
 	 * @var array<int, string>
@@ -138,7 +166,7 @@ final class AnalisiImportazione {
 
 		foreach ( array_unique( $anni ) as $anno ) {
 			$numerazione[ $anno ] = array(
-				'riga'  => Repertorio::anno( $anno ),
+				'riga'  => Repertorio::anno_verificato( $anno ),
 				'usati' => Repertorio::numeri_usati( $anno ),
 			);
 		}
@@ -207,21 +235,72 @@ final class AnalisiImportazione {
 			}
 		}
 
-		$per_id    = static function ( array $righe, string $chiave ): array {
+		// Un identificativo che compare due volte non dice quale riga valga: si toglie dall'indice e si segnala, invece di tenere l'ultima.
+		$per_id    = static function ( array $righe, string $chiave, string $tabella, array $campi ) use ( &$generali, $letto ): array {
 			$indice = array();
+			$doppi  = array();
+			$lunghi = array();
 
 			foreach ( $righe as $riga ) {
 				if ( isset( $riga[ $chiave ] ) ) {
-					$indice[ (string) $riga[ $chiave ] ] = $riga;
+					$id = (string) $riga[ $chiave ];
+
+					// Un nome piu' lungo di qualunque nome vero si ricopierebbe su ogni atto che lo cita: la riga non si usa.
+					foreach ( $campi as $campo ) {
+						if ( strlen( (string) ( $riga[ $campo ] ?? '' ) ) > self::NOME_MASSIMO ) {
+							$lunghi[ $id ] = true;
+						}
+					}
+
+					if ( isset( $indice[ $id ] ) || isset( $doppi[ $id ] ) ) {
+						$doppi[ $id ] = true;
+					}
+
+					$indice[ $id ] = $riga;
 				}
+			}
+
+			if ( array() !== $lunghi ) {
+				$indice = array_diff_key( $indice, $lunghi );
+				$elenco = array_keys( $lunghi );
+				sort( $elenco, SORT_NATURAL );
+
+				$generali[] = self::segnalazione(
+					'conflitto',
+					'nome_troppo_lungo',
+					sprintf(
+						/* translators: 1: nome della tabella, 2: identificativi, 3: lunghezza massima. */
+						__( 'Nella tabella %1$s alcune righe hanno un nome piu\' lungo di %3$d caratteri (identificativi %2$s): non si usano, e gli atti che le citano le trovano assenti.', 'albo-pretorio-pa' ),
+						$letto['prefisso'] . $tabella,
+						implode( ', ', $elenco ),
+						self::NOME_MASSIMO
+					)
+				);
+			}
+
+			if ( array() !== $doppi ) {
+				$indice = array_diff_key( $indice, $doppi );
+				$elenco = array_keys( $doppi );
+				sort( $elenco, SORT_NATURAL );
+
+				$generali[] = self::segnalazione(
+					'conflitto',
+					'id_doppio_tabella',
+					sprintf(
+						/* translators: 1: nome della tabella, 2: identificativi. */
+						__( 'Nella tabella %1$s piu\' righe hanno lo stesso identificativo (%2$s): non si sa quale valga, e gli atti che le citano le trovano assenti.', 'albo-pretorio-pa' ),
+						$letto['prefisso'] . $tabella,
+						implode( ', ', $elenco )
+					)
+				);
 			}
 
 			return $indice;
 		};
-		$categorie = $per_id( $tabelle['albopretorio_categorie'] ?? array(), 'IdCategoria' );
-		$enti      = $per_id( $tabelle['albopretorio_enti'] ?? array(), 'IdEnte' );
-		$persone   = $per_id( $tabelle['albopretorio_resprocedura'] ?? array(), 'IdResponsabile' );
-		$uffici    = $per_id( $tabelle['albopretorio_unitaorganizzative'] ?? array(), 'IdUO' );
+		$categorie = $per_id( $tabelle['albopretorio_categorie'] ?? array(), 'IdCategoria', 'albopretorio_categorie', array( 'Nome' ) );
+		$enti      = $per_id( $tabelle['albopretorio_enti'] ?? array(), 'IdEnte', 'albopretorio_enti', array( 'Nome' ) );
+		$persone   = $per_id( $tabelle['albopretorio_resprocedura'] ?? array(), 'IdResponsabile', 'albopretorio_resprocedura', array( 'Cognome', 'Nome' ) );
+		$uffici    = $per_id( $tabelle['albopretorio_unitaorganizzative'] ?? array(), 'IdUO', 'albopretorio_unitaorganizzative', array( 'Nome' ) );
 		$etichette = array();
 
 		foreach ( $tabelle['albopretorio_attimeta'] ?? array() as $riga ) {
@@ -240,6 +319,43 @@ final class AnalisiImportazione {
 		$atti_letti = $tabelle['albopretorio_atti'] ?? array();
 		$doppioni   = array();
 
+		// Un numero interno assente o portato da piu' atti non dice di chi siano allegati ed etichette: quegli atti non li ricevono.
+		$id_contati = array_count_values(
+			array_map(
+				static function ( array $riga ): string {
+					return (string) ( $riga['IdAtto'] ?? '' );
+				},
+				$atti_letti
+			)
+		);
+		$id_doppi   = array();
+
+		foreach ( $id_contati as $id_atto => $quante ) {
+			if ( $quante > 1 || '' === trim( (string) $id_atto ) ) {
+				$id_doppi[ (string) $id_atto ] = true;
+			}
+		}
+
+		if ( array() !== $id_doppi ) {
+			$elenco = array_map(
+				static function ( string $id_atto ): string {
+					return '' === trim( $id_atto ) ? __( 'vuoto', 'albo-pretorio-pa' ) : $id_atto;
+				},
+				array_map( 'strval', array_keys( $id_doppi ) )
+			);
+			sort( $elenco, SORT_NATURAL );
+
+			$generali[] = self::segnalazione(
+				'conflitto',
+				'id_atto_doppio',
+				sprintf(
+					/* translators: %s: numeri interni. */
+					__( 'Piu\' atti hanno lo stesso numero interno, o non ce l\'hanno (%s): i loro allegati e le loro etichette non si possono attribuire.', 'albo-pretorio-pa' ),
+					implode( ', ', $elenco )
+				)
+			);
+		}
+
 		foreach ( $atti_letti as $riga ) {
 			$numero = self::intero( $riga['Numero'] ?? null );
 
@@ -248,11 +364,46 @@ final class AnalisiImportazione {
 			}
 		}
 
+		// L'elenco degli atti con lo stesso numero sta una volta sola, fra le segnalazioni generali: sugli atti c'e' solo quanti sono.
+		foreach ( $doppioni as $chiave => $doppi ) {
+			if ( count( $doppi ) > 1 ) {
+				list( $anno_doppio, $numero_doppio ) = explode( '/', (string) $chiave );
+
+				$generali[] = self::segnalazione(
+					'conflitto',
+					'numero_doppio',
+					sprintf(
+						/* translators: 1: numero/anno, 2: elenco dei numeri interni. */
+						__( 'Il numero %1$s e\' portato da piu\' atti: numeri interni %2$s.', 'albo-pretorio-pa' ),
+						$numero_doppio . '/' . $anno_doppio,
+						implode( ', ', $doppi )
+					)
+				);
+			}
+		}
+
 		$file_usati = array();
 		$atti       = array();
+		$misura     = 0;
+		$massimo    = (int) ( $contesto['rapporto_massimo'] ?? self::RAPPORTO_MASSIMO );
 
 		foreach ( $atti_letti as $riga ) {
-			$atti[] = self::atto(
+			// Il rapporto si misura atto per atto: oltre il massimo ci si ferma e lo si dice, invece di esaurire la memoria.
+			if ( $misura > $massimo ) {
+				$generali[] = self::segnalazione(
+					'conflitto',
+					'rapporto_troppo_grande',
+					sprintf(
+						/* translators: 1: atti analizzati, 2: atti nel backup. */
+						__( 'Il rapporto e\' diventato troppo grande per essere mostrato: atti analizzati %1$d su %2$d, gli altri no. Il riepilogo e le categorie contano solo gli atti analizzati; la numerazione e i file non citati si calcolano invece su tutto il backup.', 'albo-pretorio-pa' ),
+						count( $atti ),
+						count( $atti_letti )
+					)
+				);
+				break;
+			}
+
+			$atti[]  = self::atto(
 				$riga,
 				array(
 					'categorie' => $categorie,
@@ -262,12 +413,31 @@ final class AnalisiImportazione {
 					'etichette' => $etichette,
 					'allegati'  => $allegati,
 					'doppioni'  => $doppioni,
+					'id_doppi'  => $id_doppi,
 					'file'      => $letto['file'],
 					'zip'       => $letto['zip'],
 				),
 				$contesto,
 				$file_usati
 			);
+			$misura += strlen( serialize( end( $atti ) ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize -- solo per misurare la grandezza dell'atto nel rapporto.
+		}
+
+		// Gli atti non analizzati contano lo stesso per i file citati: un file di quegli atti non e' un file che nessuno cita.
+		foreach ( array_slice( $atti_letti, count( $atti ) ) as $riga ) {
+			$id = (string) ( $riga['IdAtto'] ?? '' );
+
+			if ( ! $letto['zip'] || self::bozza( $riga ) || isset( $id_doppi[ $id ] ) ) {
+				continue;
+			}
+
+			foreach ( $allegati[ $id ] ?? array() as $allegato ) {
+				$file = self::trova_file( (string) ( $allegato['Allegato'] ?? '' ), $letto['file'] );
+
+				if ( null !== $file['nome'] ) {
+					$file_usati[ $file['nome'] ] = true;
+				}
+			}
 		}
 
 		$ids = array_flip(
@@ -279,19 +449,31 @@ final class AnalisiImportazione {
 			)
 		);
 
+		// Gli allegati di atti che non ci sono: una nota sola, con i numeri interni, anche quando sono molti.
+		$senza_atto = array();
+		$quanti     = 0;
+
 		foreach ( $allegati as $id_atto => $righe ) {
 			if ( ! isset( $ids[ $id_atto ] ) ) {
-				$generali[] = self::segnalazione(
-					'nota',
-					'allegati_senza_atto',
-					sprintf(
-						/* translators: 1: numero di allegati, 2: numero interno dell'atto. */
-						_n( '%1$d allegato rimanda all\'atto interno %2$s, che nel backup non c\'e\': non si porterebbe.', '%1$d allegati rimandano all\'atto interno %2$s, che nel backup non c\'e\': non si porterebbero.', count( $righe ), 'albo-pretorio-pa' ),
-						count( $righe ),
-						$id_atto
-					)
-				);
+				$senza_atto[] = (string) $id_atto;
+				$quanti      += count( $righe );
 			}
+		}
+
+		if ( array() !== $senza_atto ) {
+			sort( $senza_atto, SORT_NATURAL );
+
+			$generali[] = self::segnalazione(
+				'nota',
+				'allegati_senza_atto',
+				sprintf(
+					/* translators: 1: numero di allegati, 2: numero di atti, 3: numeri interni degli atti. */
+					__( 'Allegati che rimandano ad atti che nel backup non ci sono: %1$d, di %2$d atti (numeri interni %3$s). Non si porterebbero.', 'albo-pretorio-pa' ),
+					$quanti,
+					count( $senza_atto ),
+					implode( ', ', $senza_atto )
+				)
+			);
 		}
 
 		$orfani = array_values( array_diff( array_keys( $letto['file'] ), array_keys( $file_usati ) ) );
@@ -317,8 +499,9 @@ final class AnalisiImportazione {
 			);
 		}
 
-		$numerazione = self::numerazione( $atti, $letto['opzioni'], $contesto, $generali );
-		$riepilogo   = self::riepilogo( $atti );
+		// La numerazione guarda tutti gli atti del backup, anche quelli che il rapporto non ha potuto analizzare.
+		$numerazione = self::numerazione( array_map( array( self::class, 'numero_anno' ), $atti_letti ), $letto['opzioni'], $contesto, $generali );
+		$riepilogo   = self::riepilogo( $atti, count( $atti_letti ) );
 
 		return array(
 			'pacchetto'    => array(
@@ -371,7 +554,7 @@ final class AnalisiImportazione {
 
 		$atto = array(
 			'id'           => $id,
-			'numero'       => ( null !== $numero && $numero > 0 && $numero <= Repertorio::MASSIMO ) ? $numero : 0,
+			'numero'       => self::numero_anno( $riga )['numero'],
 			'scritto'      => null === $grezzo ? 'NULL' : (string) $grezzo,
 			'anno'         => $anno,
 			'oggetto'      => $oggetto,
@@ -382,6 +565,7 @@ final class AnalisiImportazione {
 			'pubblico'     => '',
 			'in_vista'     => false,
 			'tipo'         => '',
+			'categoria'    => (string) ( $riga['IdCategoria'] ?? '' ),
 			'dati'         => array(),
 			'documenti'    => array(),
 			'esito'        => '',
@@ -389,7 +573,7 @@ final class AnalisiImportazione {
 		);
 
 		// Solo lo zero vero e' una bozza: un numero assente, negativo o illeggibile e' un dato da correggere.
-		if ( null !== $grezzo && '0' === trim( $grezzo ) ) {
+		if ( self::bozza( $riga ) ) {
 			$atto['stato']        = 'bozza';
 			$atto['pubblico']     = __( 'Non si porta: e\' una bozza mai pubblicata. Si chiude prima in Albo Pretorio On line, o si ricrea qui.', 'albo-pretorio-pa' );
 			$atto['esito']        = self::ESCLUSO;
@@ -432,15 +616,28 @@ final class AnalisiImportazione {
 				'conflitto',
 				'numero_doppio',
 				sprintf(
-					/* translators: 1: numero/anno, 2: elenco dei numeri interni. */
-					__( 'Il numero %1$s e\' portato da piu\' atti (numeri interni %2$s): in questo albo un numero e\' di un atto solo.', 'albo-pretorio-pa' ),
+					/* translators: 1: numero/anno, 2: quanti atti lo portano. */
+					__( 'Il numero %1$s e\' portato da %2$d atti, elencati fra le segnalazioni generali: in questo albo un numero e\' di un atto solo.', 'albo-pretorio-pa' ),
 					$numero . '/' . $anno,
-					implode( ', ', $doppi )
+					count( $doppi )
 				)
 			);
 		}
 
 		$numerazione = $contesto['numerazione'][ $anno ] ?? null;
+
+		// Se la numerazione di questo albo non ha risposto, non si sa se il numero e' gia' dato o oltre la partenza: l'atto non e' portabile.
+		if ( $numero > 0 && $anno >= 1 && $anno <= 9999 && ( ! is_array( $numerazione ) || null === $numerazione['usati'] || false === $numerazione['riga'] ) ) {
+			$segnala[] = self::segnalazione(
+				'conflitto',
+				'numerazione_non_letta',
+				sprintf(
+					/* translators: %d: anno. */
+					__( 'La numerazione di questo albo per il %d non ha risposto: non si puo\' dire se il numero e\' gia\' stato dato.', 'albo-pretorio-pa' ),
+					$anno
+				)
+			);
+		}
 
 		if ( is_array( $numerazione ) && is_array( $numerazione['usati'] ) && isset( $numerazione['usati'][ $numero ] ) ) {
 			$segnala[] = self::segnalazione(
@@ -526,8 +723,12 @@ final class AnalisiImportazione {
 		// Dati dell'atto e del procedimento.
 		self::dati( $atto, $riga, $indici, $contesto, $segnala );
 
-		// Documenti.
-		self::documenti( $atto, $indici, $file_usati, $segnala );
+		// Documenti, solo se il numero interno dice di chi sono.
+		if ( isset( $indici['id_doppi'][ $id ] ) ) {
+			$segnala[] = self::segnalazione( 'conflitto', 'id_atto_doppio', __( 'Il numero interno di questo atto e\' assente o portato anche da altri atti: allegati ed etichette non si possono attribuire.', 'albo-pretorio-pa' ) );
+		} else {
+			self::documenti( $atto, $indici, $file_usati, $segnala );
+		}
 
 		$atto['segnalazioni'] = $segnala;
 		$atto['esito']        = self::esito( $segnala );
@@ -725,7 +926,8 @@ final class AnalisiImportazione {
 		if ( '' !== $riferimento ) {
 			$pulito = DatiAtto::numero_da_ingresso( $riferimento );
 
-			$atto['dati'][ __( 'Numero proprio (proposto dal riferimento)', 'albo-pretorio-pa' ) ] = $riferimento;
+			// Come per i dati del procedimento, di un testo lunghissimo il rapporto mostra solo l'inizio.
+			$atto['dati'][ __( 'Numero proprio (proposto dal riferimento)', 'albo-pretorio-pa' ) ] = strlen( $riferimento ) > self::NOME_MASSIMO ? mb_strcut( $riferimento, 0, self::NOME_MASSIMO, 'UTF-8' ) . ' [...]' : $riferimento;
 
 			if ( $pulito !== $riferimento ) {
 				$segnala[] = self::segnalazione( 'dubbio', 'riferimento_non_conservabile', __( 'Il riferimento contiene a capo, marcatori o caratteri che il numero proprio non accetta: non si conserverebbe alla lettera.', 'albo-pretorio-pa' ) );
@@ -761,6 +963,10 @@ final class AnalisiImportazione {
 			DatiProcedimento::UFFICIO      => '',
 			DatiProcedimento::RICHIEDENTE  => trim( (string) ( $riga['Richiedente'] ?? '' ) ),
 		);
+		// Il testo com'e' scritto nel backup, prima di togliere gli spazi ai lati: un carattere di controllo ai margini si perderebbe.
+		$grezzi = array(
+			DatiProcedimento::RICHIEDENTE => (string) ( $riga['Richiedente'] ?? '' ),
+		);
 
 		$responsabile = (string) ( $riga['RespProc'] ?? '' );
 
@@ -771,6 +977,7 @@ final class AnalisiImportazione {
 				$segnala[] = self::segnalazione( 'dubbio', 'responsabile_assente', __( 'Il responsabile del procedimento indicato non c\'e\' fra le persone del backup.', 'albo-pretorio-pa' ) );
 			} else {
 				$valori[ DatiProcedimento::RESPONSABILE ] = self::persona( $persona );
+				$grezzi[ DatiProcedimento::RESPONSABILE ] = (string) ( $persona['Cognome'] ?? '' ) . (string) ( $persona['Nome'] ?? '' );
 			}
 		}
 
@@ -779,6 +986,7 @@ final class AnalisiImportazione {
 		if ( '' !== $ufficio && '0' !== $ufficio ) {
 			if ( isset( $indici['uffici'][ $ufficio ] ) ) {
 				$valori[ DatiProcedimento::UFFICIO ] = trim( (string) ( $indici['uffici'][ $ufficio ]['Nome'] ?? '' ) );
+				$grezzi[ DatiProcedimento::UFFICIO ] = (string) ( $indici['uffici'][ $ufficio ]['Nome'] ?? '' );
 			} else {
 				$segnala[] = self::segnalazione( 'dubbio', 'ufficio_assente', __( 'L\'ufficio indicato non c\'e\' fra gli uffici del backup.', 'albo-pretorio-pa' ) );
 			}
@@ -794,11 +1002,23 @@ final class AnalisiImportazione {
 				? __( 'si mostra', 'albo-pretorio-pa' )
 				: ( DatiProcedimento::NON_USA === $scelta ? __( 'si conserva e non si mostra', 'albo-pretorio-pa' ) : __( 'si conserva; si mostra se l\'amministrazione sceglie di usarlo', 'albo-pretorio-pa' ) );
 
-			$atto['dati'][ DatiProcedimento::etichetta( $dato ) ] = $valore . ' (' . $come . ')';
+			// Un testo lunghissimo non si ricopia per intero nel rapporto: se ne mostra l'inizio.
+			$mostrato = strlen( $valore ) > self::NOME_MASSIMO ? mb_strcut( $valore, 0, self::NOME_MASSIMO, 'UTF-8' ) . ' [...]' : $valore;
 
-			$letto = DatiProcedimento::leggi_elenco( $valore );
+			$atto['dati'][ DatiProcedimento::etichetta( $dato ) ] = $mostrato . ' (' . $come . ')';
 
-			if ( is_wp_error( $letto ) || array( $valore ) !== $letto ) {
+			// Lunghezza e caratteri di controllo si guardano prima di leggere il nome come elenco: un testo
+			// con milioni di a capo non si divide in milioni di righe.
+			$valido = strlen( $valore ) <= 4 * DatiProcedimento::LUNGHEZZA_MASSIMA
+				&& 1 !== preg_match( '/[\x00-\x1F\x7F]/', $grezzi[ $dato ] ?? $valore )
+				&& 1 !== preg_match( '/[\x00-\x1F\x7F]/', $valore );
+
+			if ( $valido ) {
+				$letto  = DatiProcedimento::leggi_elenco( $valore );
+				$valido = ! is_wp_error( $letto ) && array( $valore ) === $letto;
+			}
+
+			if ( ! $valido ) {
 				$segnala[] = self::segnalazione(
 					'dubbio',
 					'nome_non_conservabile',
@@ -827,13 +1047,31 @@ final class AnalisiImportazione {
 			}
 		}
 
-		$soggetti = self::soggetti( (string) ( $riga['Soggetti'] ?? '' ) );
+		$letti    = self::soggetti( (string) ( $riga['Soggetti'] ?? '' ) );
+		$soggetti = $letti['ids'];
 
 		if ( array() !== $soggetti ) {
 			$nomi = array();
 
-			foreach ( $soggetti as $soggetto ) {
+			// Si nominano le prime persone e si contano le altre: il rapporto non ricopia un elenco senza fine su ogni atto.
+			foreach ( array_slice( $soggetti, 0, self::SOGGETTI_NOMINATI ) as $soggetto ) {
 				$nomi[] = isset( $indici['persone'][ $soggetto ] ) ? self::persona( $indici['persone'][ $soggetto ] ) : '?';
+			}
+
+			if ( count( $soggetti ) > self::SOGGETTI_NOMINATI ) {
+				$nomi[] = sprintf(
+					/* translators: %d: numero di altre persone. */
+					__( 'e altre %d', 'albo-pretorio-pa' ),
+					count( $soggetti ) - self::SOGGETTI_NOMINATI
+				);
+			}
+
+			if ( $letti['troncato'] ) {
+				$nomi[] = sprintf(
+					/* translators: %d: numero di voci lette. */
+					__( 'e altre ancora: l\'elenco supera %d voci e non si legge per intero', 'albo-pretorio-pa' ),
+					self::SOGGETTI_LETTI
+				);
 			}
 
 			$segnala[] = self::segnalazione(
@@ -851,7 +1089,7 @@ final class AnalisiImportazione {
 			$segnala[] = self::segnalazione( 'nota', 'informazioni_senza_posto', __( 'L\'atto ha delle note (campo Informazioni): questo albo non ha un campo per loro, non si porterebbero.', 'albo-pretorio-pa' ) );
 		}
 
-		if ( isset( $indici['etichette'][ $atto['id'] ] ) ) {
+		if ( isset( $indici['etichette'][ $atto['id'] ] ) && ! isset( $indici['id_doppi'][ $atto['id'] ] ) ) {
 			$segnala[] = self::segnalazione(
 				'nota',
 				'etichette_senza_posto',
@@ -873,12 +1111,18 @@ final class AnalisiImportazione {
 	 * @param array<int, array>    $segnala    Segnalazioni dell'atto, aggiornate.
 	 */
 	private static function documenti( array &$atto, array $indici, array &$file_usati, array &$segnala ): void {
-		$righe      = $indici['allegati'][ $atto['id'] ] ?? array();
-		$principali = 0;
-		$grave      = self::visibile( $atto ) ? 'conflitto' : 'dubbio';
+		$righe          = $indici['allegati'][ $atto['id'] ] ?? array();
+		$principali     = 0;
+		$senza_archivio = false;
+		$grave          = self::visibile( $atto ) ? 'conflitto' : 'dubbio';
+
+		// Le versioni precedenti di Albo Pretorio On line non distinguono documento e allegati, e nelle successive chi pubblicava
+		// lasciava spesso la scelta preimpostata ad allegato: un file solo e' per forza il documento.
+		$senza_natura = array() !== $righe && ! array_key_exists( 'Natura', reset( $righe ) );
+		$unico        = 1 === count( $righe ) && ( $senza_natura || 'D' !== strtoupper( trim( (string) ( reset( $righe )['Natura'] ?? '' ) ) ) );
 
 		foreach ( $righe as $riga ) {
-			$natura = strtoupper( trim( (string) ( $riga['Natura'] ?? 'A' ) ) );
+			$natura = $unico ? 'D' : strtoupper( trim( (string) ( $riga['Natura'] ?? 'A' ) ) );
 			$titolo = trim( (string) ( $riga['TitoloAllegato'] ?? '' ) );
 			$file   = self::trova_file( (string) ( $riga['Allegato'] ?? '' ), $indici['file'] );
 
@@ -895,6 +1139,7 @@ final class AnalisiImportazione {
 
 			if ( ! $indici['zip'] ) {
 				$documento['verifica'] = __( 'non verificabile senza archivio', 'albo-pretorio-pa' );
+				$senza_archivio        = true;
 			} elseif ( null === $file['nome'] ) {
 				$documento['verifica'] = __( 'file mancante nell\'archivio', 'albo-pretorio-pa' );
 				$segnala[]             = self::segnalazione(
@@ -956,7 +1201,17 @@ final class AnalisiImportazione {
 			$atto['documenti'][] = $documento;
 		}
 
-		if ( 0 === $principali ) {
+		if ( $senza_archivio ) {
+			$segnala[] = self::segnalazione( 'dubbio', 'documenti_non_verificabili', __( 'E\' stato letto il solo file SQL: i file dei documenti di questo atto non si possono controllare.', 'albo-pretorio-pa' ) );
+		}
+
+		if ( $unico && $senza_natura ) {
+			$segnala[] = self::segnalazione( 'nota', 'principale_unico', __( 'Questa versione di Albo Pretorio On line non distingue documento e allegati: l\'unico file dell\'atto diventa il documento principale.', 'albo-pretorio-pa' ) );
+		} elseif ( $unico ) {
+			$segnala[] = self::segnalazione( 'nota', 'principale_unico', __( 'Albo Pretorio On line segna l\'unico file dell\'atto come allegato: diventa il documento principale.', 'albo-pretorio-pa' ) );
+		} elseif ( $senza_natura ) {
+			$segnala[] = self::segnalazione( 'dubbio', 'principale_assente', __( 'Questa versione di Albo Pretorio On line non distingue documento e allegati: il documento principale lo sceglie chi importa.', 'albo-pretorio-pa' ) );
+		} elseif ( 0 === $principali ) {
 			$segnala[] = self::segnalazione( 'dubbio', 'principale_assente', __( 'Nessun allegato e\' segnato come documento: il documento principale lo sceglie chi importa.', 'albo-pretorio-pa' ) );
 		} elseif ( $principali > 1 ) {
 			$segnala[] = self::segnalazione(
@@ -1029,10 +1284,9 @@ final class AnalisiImportazione {
 	private static function categorie( array $righe, array $per_id, array $atti, array $contesto ): array {
 		$conteggio = array();
 
+		// Si conta per identificativo della categoria: due categorie che diventano lo stesso tipo restano distinte.
 		foreach ( $atti as $atto ) {
-			if ( '' !== $atto['tipo'] ) {
-				$conteggio[ $atto['tipo'] ] = ( $conteggio[ $atto['tipo'] ] ?? 0 ) + 1;
-			}
+			$conteggio[ $atto['categoria'] ] = ( $conteggio[ $atto['categoria'] ] ?? 0 ) + 1;
 		}
 
 		$esito = array();
@@ -1048,7 +1302,7 @@ final class AnalisiImportazione {
 				'nome'         => $nome,
 				'madre'        => ( '0' !== $genitore && isset( $per_id[ $genitore ] ) ) ? trim( (string) ( $per_id[ $genitore ]['Nome'] ?? '' ) ) : '',
 				'giorni'       => $giorni,
-				'atti'         => $conteggio[ $tipo['chiave'] ] ?? 0,
+				'atti'         => $conteggio[ (string) ( $riga['IdCategoria'] ?? '' ) ] ?? 0,
 				'corrisponde'  => $tipo['corrisponde'],
 				'segnalazioni' => $tipo['segnalazioni'],
 			);
@@ -1119,9 +1373,34 @@ final class AnalisiImportazione {
 	}
 
 	/**
+	 * Se una riga degli atti e' una bozza: solo lo zero vero, non un numero assente o illeggibile.
+	 *
+	 * @param array<string, string|null> $riga Riga della tabella degli atti.
+	 * @return bool
+	 */
+	private static function bozza( array $riga ): bool {
+		return null !== ( $riga['Numero'] ?? null ) && '0' === trim( (string) $riga['Numero'] );
+	}
+
+	/**
+	 * Numero di registro e anno di una riga degli atti, come li legge il rapporto: un numero non valido vale zero.
+	 *
+	 * @param array<string, string|null> $riga Riga della tabella degli atti.
+	 * @return array{numero: int, anno: int}
+	 */
+	private static function numero_anno( array $riga ): array {
+		$numero = self::intero( $riga['Numero'] ?? null );
+
+		return array(
+			'numero' => ( null !== $numero && $numero > 0 && $numero <= Repertorio::MASSIMO ) ? $numero : 0,
+			'anno'   => self::intero( $riga['Anno'] ?? null ) ?? 0,
+		);
+	}
+
+	/**
 	 * La numerazione: per anno, il contatore e la proposta di partenza.
 	 *
-	 * @param array<int, array<string, mixed>> $atti     Atti ricostruiti.
+	 * @param array<int, array<string, mixed>> $atti     Numero e anno di tutti gli atti del backup.
 	 * @param array<string, string|null>       $opzioni  Impostazioni del plugin di provenienza.
 	 * @param array<string, mixed>             $contesto Stato di questo albo.
 	 * @param array<int, array>                $generali Segnalazioni generali, aggiornate.
@@ -1145,7 +1424,7 @@ final class AnalisiImportazione {
 				continue;
 			}
 
-			if ( ! isset( $contesto['numerazione'][ $anno ] ) || null === $contesto['numerazione'][ $anno ]['usati'] ) {
+			if ( ! isset( $contesto['numerazione'][ $anno ] ) || null === $contesto['numerazione'][ $anno ]['usati'] || false === $contesto['numerazione'][ $anno ]['riga'] ) {
 				$generali[] = self::segnalazione(
 					'conflitto',
 					'numerazione_non_letta',
@@ -1168,7 +1447,7 @@ final class AnalisiImportazione {
 				'atti'     => count( $numeri ),
 				'massimo'  => $massimo,
 				'mancanti' => $mancanti,
-				'nuovo'    => $contesto['numerazione'][ $anno ]['riga'] ?? null,
+				'nuovo'    => is_array( $contesto['numerazione'][ $anno ]['riga'] ?? null ) ? $contesto['numerazione'][ $anno ]['riga'] : null,
 			);
 
 			if ( $mancanti > 0 ) {
@@ -1255,10 +1534,11 @@ final class AnalisiImportazione {
 	/**
 	 * I conteggi del rapporto.
 	 *
-	 * @param array<int, array<string, mixed>> $atti Atti ricostruiti.
+	 * @param array<int, array<string, mixed>> $atti       Atti ricostruiti.
+	 * @param int                              $nel_backup Atti nel backup, analizzati o no.
 	 * @return array<string, array<string, int>>
 	 */
-	private static function riepilogo( array $atti ): array {
+	private static function riepilogo( array $atti, int $nel_backup ): array {
 		$riepilogo = array(
 			'esiti' => array(
 				self::IMPORTABILE => 0,
@@ -1274,7 +1554,10 @@ final class AnalisiImportazione {
 			$riepilogo['stati'][ $atto['stato'] ] = ( $riepilogo['stati'][ $atto['stato'] ] ?? 0 ) + 1;
 		}
 
-		$riepilogo['totale'] = array( 'atti' => count( $atti ) );
+		$riepilogo['totale'] = array(
+			'atti'       => count( $atti ),
+			'nel_backup' => $nel_backup,
+		);
 
 		return $riepilogo;
 	}
@@ -1428,21 +1711,31 @@ final class AnalisiImportazione {
 	 * Il testo non si deserializza: se ne leggono solo i valori numerici
 	 * dell'elenco, chiave per valore.
 	 *
+	 * Le voci si leggono una alla volta e la lettura si ferma alla voce
+	 * SOGGETTI_LETTI: un campo enorme non si espande in memoria.
+	 *
 	 * @param string $testo Valore del campo.
-	 * @return array<int, string>
+	 * @return array{ids: array<int, string>, troncato: bool} Gli identificativi distinti e se l'elenco e' stato letto solo in parte.
 	 */
 	private static function soggetti( string $testo ): array {
-		if ( '' === trim( $testo ) || 0 === preg_match_all( '/i:\d+;(?:i:(\d+)|s:\d+:"(\d+)");/', $testo, $trovati, PREG_SET_ORDER ) ) {
-			return array();
+		$ids    = array();
+		$voci   = 0;
+		$inizio = 0;
+
+		while ( 1 === preg_match( '/i:\d+;(?:i:(\d+)|s:\d+:"(\d+)");/', $testo, $trovato, PREG_OFFSET_CAPTURE, $inizio ) ) {
+			if ( ++$voci > self::SOGGETTI_LETTI ) {
+				break;
+			}
+
+			$ids[ isset( $trovato[2] ) && '' !== $trovato[2][0] ? $trovato[2][0] : $trovato[1][0] ] = true;
+
+			$inizio = $trovato[0][1] + strlen( $trovato[0][0] );
 		}
 
-		$ids = array();
-
-		foreach ( $trovati as $trovato ) {
-			$ids[] = '' !== $trovato[1] ? $trovato[1] : $trovato[2];
-		}
-
-		return array_values( array_unique( $ids ) );
+		return array(
+			'ids'      => array_map( 'strval', array_keys( $ids ) ),
+			'troncato' => $voci > self::SOGGETTI_LETTI,
+		);
 	}
 
 	/**

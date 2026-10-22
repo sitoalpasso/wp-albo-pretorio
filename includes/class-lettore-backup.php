@@ -105,6 +105,13 @@ final class LettoreBackup {
 	const FILE_MASSIMI = 200000;
 
 	/**
+	 * Byte oltre i quali due voci con lo stesso nome non si confrontano dove PHP non apre un flusso per posizione.
+	 *
+	 * @var int
+	 */
+	const DOPPIO_MASSIMO = 67108864;
+
+	/**
 	 * La lunghezza massima di un pezzo letto dal flusso, in byte.
 	 *
 	 * @var int
@@ -196,8 +203,16 @@ final class LettoreBackup {
 
 			$nome = (string) $voce['name'];
 
-			// I file si aprono per nome: due voci con lo stesso nome darebbero l'impronta di una sola.
+			// I file si aprono per nome. Il plugin di provenienza aggiunge due volte lo stesso file quando due allegati lo citano:
+			// due voci con la stessa impronta, letta per posizione, sono lo stesso file e se ne tiene una. Diverse, l'impronta sarebbe di una sola.
 			if ( isset( $visti[ $nome ] ) ) {
+				$prima   = self::impronta_indice( $archivio, $visti[ $nome ] );
+				$seconda = self::impronta_indice( $archivio, $indice );
+
+				if ( null !== $prima && $prima === $seconda ) {
+					continue;
+				}
+
 				$archivio->close();
 
 				return self::errore(
@@ -209,7 +224,7 @@ final class LettoreBackup {
 				);
 			}
 
-			$visti[ $nome ] = true;
+			$visti[ $nome ] = $indice;
 
 			if ( false === strpos( $nome, '/' ) && 1 === preg_match( '/\.sql\z/i', $nome ) ) {
 				$sql[] = array(
@@ -308,6 +323,51 @@ final class LettoreBackup {
 		fclose( $flusso ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- chiusura del flusso aperto qui.
 
 		return hash_final( $contesto );
+	}
+
+	/**
+	 * L'impronta SHA-256 di una voce dell'archivio, per posizione: serve per i nomi doppi.
+	 * Dove PHP non apre un flusso per posizione la voce si legge intera, solo se piccola.
+	 *
+	 * @param \ZipArchive $archivio Archivio aperto.
+	 * @param int         $indice   Posizione della voce.
+	 * @return string|null
+	 */
+	private static function impronta_indice( \ZipArchive $archivio, int $indice ): ?string {
+		if ( method_exists( $archivio, 'getStreamIndex' ) ) {
+			$flusso = $archivio->getStreamIndex( $indice );
+
+			if ( false === $flusso ) {
+				return null;
+			}
+
+			$contesto = hash_init( 'sha256' );
+
+			while ( ! feof( $flusso ) ) {
+				$pezzo = fread( $flusso, 1048576 ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread -- lettura a pezzi di un flusso dell'archivio.
+
+				if ( false === $pezzo ) {
+					fclose( $flusso ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- chiusura del flusso aperto qui.
+					return null;
+				}
+
+				hash_update( $contesto, $pezzo );
+			}
+
+			fclose( $flusso ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- chiusura del flusso aperto qui.
+
+			return hash_final( $contesto );
+		}
+
+		$voce = $archivio->statIndex( $indice );
+
+		if ( false === $voce || (int) $voce['size'] > self::DOPPIO_MASSIMO ) {
+			return null;
+		}
+
+		$contenuto = $archivio->getFromIndex( $indice );
+
+		return false === $contenuto ? null : hash( 'sha256', $contenuto );
 	}
 
 	/**
@@ -629,8 +689,38 @@ final class LettoreBackup {
 				return self::troncato();
 			}
 
+			if ( 'troppe' === $colonne ) {
+				return self::errore(
+					sprintf(
+						/* translators: %s: nome della tabella. */
+						__( 'la creazione della tabella %s ha piu\' colonne di quante una tabella ne possa avere.', 'albo-pretorio-pa' ),
+						$nome
+					)
+				);
+			}
+
+			if ( 'doppia' === $colonne ) {
+				return self::errore(
+					sprintf(
+						/* translators: %s: nome della tabella. */
+						__( 'la creazione della tabella %s ha due colonne con lo stesso nome: non si puo\' sapere quale valore vale.', 'albo-pretorio-pa' ),
+						$nome
+					)
+				);
+			}
+
+			// Delle altre tabelle si tiene solo il nome; le colonne si tengono, e si contano, solo per le tabelle che servono.
+			if ( null === self::nota_tabella( $nome, $stato ) ) {
+				return self::ignora( $nome, $stato );
+			}
+
+			$esito = self::conta( $stato, array_merge( array( $nome ), $colonne ) );
+
+			if ( is_wp_error( $esito ) ) {
+				return $esito;
+			}
+
 			$stato['colonne'][ $nome ] = $colonne;
-			self::nota_tabella( $nome, $stato );
 
 			return true;
 		}
@@ -640,7 +730,7 @@ final class LettoreBackup {
 			$tipo = self::nota_tabella( $nome, $stato );
 
 			if ( null === $tipo ) {
-				return $ultima ? self::troncato() : true;
+				return $ultima ? self::troncato() : self::ignora( $nome, $stato );
 			}
 
 			$esito = self::inserimento( $nome, $tipo, substr( $testo, strlen( $parti[0] ) ), $stato );
@@ -741,9 +831,30 @@ final class LettoreBackup {
 			return 'opzioni';
 		}
 
+		return null;
+	}
+
+	/**
+	 * Annota il nome di una tabella che non serve: una volta sola, e contato come i dati.
+	 *
+	 * @param string               $nome  Tabella.
+	 * @param array<string, mixed> $stato Stato della lettura, aggiornato.
+	 * @return true|\WP_Error
+	 */
+	private static function ignora( string $nome, array &$stato ) {
+		if ( isset( $stato['ignorate'][ $nome ] ) ) {
+			return true;
+		}
+
+		$esito = self::conta( $stato, array( $nome ) );
+
+		if ( is_wp_error( $esito ) ) {
+			return $esito;
+		}
+
 		$stato['ignorate'][ $nome ] = true;
 
-		return null;
+		return true;
 	}
 
 	/**
@@ -766,11 +877,19 @@ final class LettoreBackup {
 				return self::errore_tabella( $nome );
 			}
 
-			$colonne = array_map(
-				array( self::class, 'nome' ),
-				array_map( 'trim', explode( ',', substr( $resto, 1, $chiusa - 1 ) ) )
-			);
-			$resto   = ltrim( substr( $resto, $chiusa + 1 ) );
+			$colonne = self::colonne_inserimento( substr( $resto, 1, $chiusa - 1 ) );
+
+			if ( null === $colonne ) {
+				return self::errore(
+					sprintf(
+						/* translators: %s: nome della tabella. */
+						__( 'nel file SQL i dati della tabella %s portano un elenco di colonne non valido: vuoto, ripetuto o piu\' lungo di quanto una tabella possa avere.', 'albo-pretorio-pa' ),
+						$nome
+					)
+				);
+			}
+
+			$resto = ltrim( substr( $resto, $chiusa + 1 ) );
 		}
 
 		if ( 1 !== preg_match( '/\AVALUES?\s*/i', $resto, $parti ) ) {
@@ -1026,10 +1145,12 @@ final class LettoreBackup {
 	 * cominciano con una parola chiave di indice o vincolo non sono colonne.
 	 *
 	 * @param string $corpo Testo dopo la parentesi aperta.
-	 * @return array<int, string>|null Nullo se la parentesi della creazione non si chiude: istruzione troncata.
+	 * @return array<int, string>|string|null Nullo se la parentesi della creazione non si chiude (istruzione troncata), 'troppe' oltre il massimo di colonne o di definizioni, 'doppia' con due colonne dallo stesso nome.
 	 */
-	private static function colonne_create( string $corpo ): ?array {
-		$definizioni = array();
+	private static function colonne_create( string $corpo ) {
+		$colonne     = array();
+		$visti       = array();
+		$definizioni = 0;
 		$corrente    = '';
 		$livello     = 0;
 		$apice       = '';
@@ -1067,8 +1188,14 @@ final class LettoreBackup {
 				}
 				--$livello;
 			} elseif ( ',' === $carattere && 0 === $livello ) {
-				$definizioni[] = $corrente;
-				$corrente      = '';
+				// Ogni definizione si guarda appena finisce: oltre il massimo la lettura si ferma, senza accumulare.
+				$motivo = self::definizione( $corrente, $colonne, $visti, $definizioni );
+
+				if ( '' !== $motivo ) {
+					return $motivo;
+				}
+
+				$corrente = '';
 				continue;
 			}
 
@@ -1079,21 +1206,79 @@ final class LettoreBackup {
 			return null;
 		}
 
-		$definizioni[] = $corrente;
-		$colonne       = array();
+		$motivo = self::definizione( $corrente, $colonne, $visti, $definizioni );
 
-		foreach ( $definizioni as $definizione ) {
-			$definizione = trim( $definizione );
+		return '' === $motivo ? $colonne : $motivo;
+	}
 
-			if ( 1 !== preg_match( '/\A(`[^`]+`|[A-Za-z0-9_$]+)/', $definizione, $parti ) ) {
-				continue;
+	/**
+	 * Una definizione della creazione: se e' una colonna, il suo nome si aggiunge.
+	 *
+	 * @param string              $definizione Testo della definizione.
+	 * @param array<int, string>  $colonne     Colonne trovate, aggiornate.
+	 * @param array<string, bool> $visti      Nomi gia' visti, in minuscolo, aggiornati.
+	 * @param int                 $definizioni Definizioni viste, aggiornate.
+	 * @return string Vuoto se la definizione va bene; 'troppe' oltre il massimo di colonne o di definizioni; 'doppia' con un nome gia' visto.
+	 */
+	private static function definizione( string $definizione, array &$colonne, array &$visti, int &$definizioni ): string {
+		// Indici e vincoli si aggiungono alle colonne: il doppio del massimo di colonne e' gia' oltre ogni tabella vera.
+		if ( ++$definizioni > 2 * self::COLONNE_MASSIME ) {
+			return 'troppe';
+		}
+
+		$definizione = trim( $definizione );
+
+		if ( 1 !== preg_match( '/\A(`[^`]+`|[A-Za-z0-9_$]+)/', $definizione, $parti ) ) {
+			return '';
+		}
+
+		if ( '`' !== $parti[1][0] && in_array( strtoupper( $parti[1] ), array( 'PRIMARY', 'KEY', 'UNIQUE', 'INDEX', 'CONSTRAINT', 'FULLTEXT', 'SPATIAL', 'CHECK', 'FOREIGN' ), true ) ) {
+			return '';
+		}
+
+		$colonna = self::nome( $parti[1] );
+
+		// Come per MySQL, due nomi che differiscono solo per le maiuscole sono la stessa colonna.
+		if ( isset( $visti[ strtolower( $colonna ) ] ) ) {
+			return 'doppia';
+		}
+
+		$visti[ strtolower( $colonna ) ] = true;
+		$colonne[]                       = $colonna;
+
+		return count( $colonne ) <= self::COLONNE_MASSIME ? '' : 'troppe';
+	}
+
+	/**
+	 * L'elenco esplicito delle colonne di un inserimento, letto una colonna alla volta.
+	 *
+	 * La lettura si ferma alla prima colonna oltre il massimo, senza costruire il resto dell'elenco.
+	 *
+	 * @param string $elenco Testo fra le parentesi.
+	 * @return string[]|null Le colonne, o null se l'elenco ha nomi vuoti, ripetuti o troppi.
+	 */
+	private static function colonne_inserimento( string $elenco ): ?array {
+		$colonne = array();
+		$visti   = array();
+		$inizio  = 0;
+		$lungo   = strlen( $elenco );
+
+		while ( $inizio <= $lungo ) {
+			if ( count( $colonne ) >= self::COLONNE_MASSIME ) {
+				return null;
 			}
 
-			if ( '`' !== $parti[1][0] && in_array( strtoupper( $parti[1] ), array( 'PRIMARY', 'KEY', 'UNIQUE', 'INDEX', 'CONSTRAINT', 'FULLTEXT', 'SPATIAL', 'CHECK', 'FOREIGN' ), true ) ) {
-				continue;
+			$virgola = strpos( $elenco, ',', $inizio );
+			$fine    = false === $virgola ? $lungo : $virgola;
+			$colonna = self::nome( substr( $elenco, $inizio, $fine - $inizio ) );
+
+			if ( '' === $colonna || isset( $visti[ strtolower( $colonna ) ] ) ) {
+				return null;
 			}
 
-			$colonne[] = self::nome( $parti[1] );
+			$visti[ strtolower( $colonna ) ] = true;
+			$colonne[]                       = $colonna;
+			$inizio                          = $fine + 1;
 		}
 
 		return $colonne;

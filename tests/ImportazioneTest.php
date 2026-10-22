@@ -305,6 +305,71 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertSame( array( 'Impronta', 'Natura', 'Note' ), $rapporto['campi']['assenti']['wp_albopretorio_allegati'] );
 		$this->assertCount( 1, $rapporto['atti'] );
 		$this->assertSame( array(), $rapporto['orfani'], 'Il file si trova anche senza le colonne nuove.' );
+		$this->assertSame( 'documento', $this->atto( $rapporto, '1' )['documenti'][0]['ruolo'], 'Senza la colonna, l\'unico file e\' il documento.' );
+		$this->assertSame( 'nota', $this->codici( $this->atto( $rapporto, '1' )['segnalazioni'] )['principale_unico'] ?? null );
+		$this->assertArrayNotHasKey( 'principale_assente', $this->codici( $this->atto( $rapporto, '1' )['segnalazioni'] ) );
+
+		// Senza la colonna e con due file, il principale lo sceglie chi importa.
+		$zip  = $this->zip_vecchio(
+			$this->sql_vecchio( $this->tabelle_vecchie( array( $this->atto_vecchio( array() ) ), array( $this->allegato_vecchio( array() ), $this->allegato_vecchio( array( 'IdAllegato' => 2 ) ) ) ), array(), 'wp_', $vecchio ),
+			array( 'documento.pdf' => 'contenuto' )
+		);
+		$atto = $this->atto( $this->rapporto_di( $zip ), '1' );
+
+		$this->assertSame( array( 'allegato', 'allegato' ), array_column( $atto['documenti'], 'ruolo' ) );
+		$this->assertSame( 'dubbio', $this->codici( $atto['segnalazioni'] )['principale_assente'] ?? null );
+		$this->assertStringContainsString( 'non distingue documento e allegati', $this->testo_di( $atto['segnalazioni'], 'principale_assente' ) );
+
+		// Con la colonna, un file solo segnato come allegato e' il documento; con due file segnati allegato si sceglie.
+		$zip      = $this->zip_vecchio(
+			$this->sql_vecchio(
+				$this->tabelle_vecchie(
+					array(
+						$this->atto_vecchio( array() ),
+						$this->atto_vecchio(
+							array(
+								'IdAtto' => 2,
+								'Numero' => 2,
+							)
+						),
+						$this->atto_vecchio(
+							array(
+								'IdAtto' => 3,
+								'Numero' => 3,
+							)
+						),
+					),
+					array(
+						$this->documento( 1, 1, 'solo.pdf', 'solo', 'A' ),
+						$this->documento( 2, 2, 'primo.pdf', 'primo', 'A' ),
+						$this->documento( 3, 2, 'secondo.pdf', 'secondo', 'A' ),
+						$this->documento( 4, 3, 'segnato.pdf', 'segnato', 'D' ),
+					)
+				)
+			),
+			array(
+				'solo.pdf'    => 'solo',
+				'primo.pdf'   => 'primo',
+				'secondo.pdf' => 'secondo',
+				'segnato.pdf' => 'segnato',
+			)
+		);
+		$rapporto = $this->rapporto_di( $zip );
+		$solo     = $this->atto( $rapporto, '1' );
+
+		$this->assertSame( array( 'documento' ), array_column( $solo['documenti'], 'ruolo' ), 'L\'unico file segnato allegato e\' il documento.' );
+		$this->assertSame( 'nota', $this->codici( $solo['segnalazioni'] )['principale_unico'] ?? null );
+		$this->assertStringContainsString( 'segna l\'unico file dell\'atto come allegato', $this->testo_di( $solo['segnalazioni'], 'principale_unico' ) );
+		$this->assertArrayNotHasKey( 'principale_assente', $this->codici( $solo['segnalazioni'] ) );
+
+		$due = $this->atto( $rapporto, '2' );
+		$this->assertSame( array( 'allegato', 'allegato' ), array_column( $due['documenti'], 'ruolo' ) );
+		$this->assertSame( 'dubbio', $this->codici( $due['segnalazioni'] )['principale_assente'] ?? null );
+		$this->assertArrayNotHasKey( 'principale_unico', $this->codici( $due['segnalazioni'] ) );
+
+		$segnato = $this->codici( $this->atto( $rapporto, '3' )['segnalazioni'] );
+		$this->assertArrayNotHasKey( 'principale_unico', $segnato, 'Un file solo gia\' segnato come documento non ha bisogno di nota.' );
+		$this->assertArrayNotHasKey( 'principale_assente', $segnato );
 	}
 
 	/**
@@ -348,6 +413,43 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		file_put_contents( $omonimi, str_replace( 'doc-b.pdf', 'doc-a.pdf', (string) file_get_contents( $omonimi ) ) );
 		$casi['archivio con due file omonimi'] = $omonimi;
 
+		// Stessa lunghezza, contenuto diverso: anche cosi' non si sa quale sia il file.
+		$simili = $this->temporaneo( '.zip' );
+		$zip    = new \ZipArchive();
+		$zip->open( $simili, \ZipArchive::CREATE );
+		$zip->addFromString( 'AlboPretorio.sql', $buono );
+		$zip->addFromString( 'doc-a.pdf', 'primo' );
+		$zip->addFromString( 'doc-b.pdf', 'prima' );
+		$zip->close();
+		file_put_contents( $simili, str_replace( 'doc-b.pdf', 'doc-a.pdf', (string) file_get_contents( $simili ) ) );
+		$casi['archivio con due file omonimi della stessa lunghezza'] = $simili;
+
+		// Stessa lunghezza e stesso controllo CRC32, contenuto diverso: il controllo dello zip non basta a dirli uguali.
+		$uno = (string) hex2bin( '7072696d6f2d4142' );
+		$due = (string) hex2bin( '7365636fd2be7c5d' );
+		$this->assertSame( crc32( $uno ), crc32( $due ), 'Precondizione: i due contenuti hanno lo stesso CRC32.' );
+		$this->assertNotSame( $uno, $due );
+
+		$collisione = $this->temporaneo( '.zip' );
+		$zip        = new \ZipArchive();
+		$zip->open( $collisione, \ZipArchive::CREATE );
+		$zip->addFromString( 'AlboPretorio.sql', $buono );
+		$zip->addFromString( 'doc-a.pdf', $uno );
+		$zip->addFromString( 'doc-b.pdf', $due );
+		$zip->close();
+		file_put_contents( $collisione, str_replace( 'doc-b.pdf', 'doc-a.pdf', (string) file_get_contents( $collisione ) ) );
+		$casi['archivio con due file omonimi con lo stesso CRC32'] = $collisione;
+
+		// Due file SQL con lo stesso nome e contenuto diverso.
+		$sql_omonimi = $this->temporaneo( '.zip' );
+		$zip         = new \ZipArchive();
+		$zip->open( $sql_omonimi, \ZipArchive::CREATE );
+		$zip->addFromString( 'AlboPretorio-a.sql', $buono );
+		$zip->addFromString( 'AlboPretorio-b.sql', $buono . ' ' );
+		$zip->close();
+		file_put_contents( $sql_omonimi, str_replace( 'AlboPretorio-b.sql', 'AlboPretorio-a.sql', (string) file_get_contents( $sql_omonimi ) ) );
+		$casi['archivio con due sql omonimi'] = $sql_omonimi;
+
 		$rotto = $this->temporaneo( '.zip' );
 		file_put_contents( $rotto, "PK\x03\x04" . str_repeat( 'x', 64 ) );
 		$casi['archivio rotto'] = $rotto;
@@ -378,6 +480,23 @@ class ImportazioneTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 'Il backup non si legge: nell\'archivio ci sono piu\' file SQL: non si sa quale sia il backup.', LettoreBackup::leggi( $doppio )->get_error_message() );
 		$this->assertSame( 'Il backup non si legge: nell\'archivio ci sono due file con lo stesso nome (doc-a.pdf).', LettoreBackup::leggi( $omonimi )->get_error_message() );
+		$this->assertSame( 'Il backup non si legge: nell\'archivio ci sono due file con lo stesso nome (doc-a.pdf).', LettoreBackup::leggi( $simili )->get_error_message() );
+		$this->assertSame( 'Il backup non si legge: nell\'archivio ci sono due file con lo stesso nome (doc-a.pdf).', LettoreBackup::leggi( $collisione )->get_error_message() );
+		$this->assertSame( 'Il backup non si legge: nell\'archivio ci sono due file con lo stesso nome (AlboPretorio-a.sql).', LettoreBackup::leggi( $sql_omonimi )->get_error_message() );
+
+		// Lo stesso file aggiunto due volte, come fa il plugin di provenienza quando due allegati lo citano: se ne tiene uno.
+		$gemelli = $this->temporaneo( '.zip' );
+		$zip     = new \ZipArchive();
+		$zip->open( $gemelli, \ZipArchive::CREATE );
+		$zip->addFromString( 'AlboPretorio.sql', $buono );
+		$zip->addFromString( 'doc-a.pdf', 'primo' );
+		$zip->addFromString( 'doc-b.pdf', 'primo' );
+		$zip->close();
+		file_put_contents( $gemelli, str_replace( 'doc-b.pdf', 'doc-a.pdf', (string) file_get_contents( $gemelli ) ) );
+		$letto = LettoreBackup::leggi( $gemelli );
+		$this->assertIsArray( $letto );
+		$this->assertSame( array( 'doc-a.pdf' ), array_keys( $letto['file'] ) );
+		$this->assertSame( hash( 'sha256', 'primo' ), $letto['file']['doc-a.pdf']['impronta'] );
 
 		// Troncato fuori dai testi: dentro l'ultimo aggiornamento del contatore, o dentro una creazione.
 		$contatore = $this->sql_vecchio(
@@ -441,7 +560,8 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		}
 
 		$testo = array( $creazione . $riga . ';' );
-		$dati  = 1 + 100 + 2 * LettoreBackup::VALORE_COSTO;
+		// La creazione conta il nome della tabella e le colonne; la riga i suoi due valori.
+		$dati = strlen( 'l_albopretorio_attiIdAttoOggetto' ) + 3 * LettoreBackup::VALORE_COSTO + 1 + 100 + 2 * LettoreBackup::VALORE_COSTO;
 
 		$this->assertIsArray( LettoreBackup::leggi_sql( $testo, array( 'dati' => $dati ) ) );
 		$this->assertStringContainsString( 'troppi', LettoreBackup::leggi_sql( $testo, array( 'dati' => $dati - 1 ) )->get_error_message() );
@@ -460,9 +580,97 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$letto = LettoreBackup::leggi_sql( array( $tante . implode( ',', $righe ) . ';' ), array( 'dati' => 100 * 3 * LettoreBackup::VALORE_COSTO ) );
 		$this->assertStringContainsString( 'troppi', $letto->get_error_message(), 'Molte impostazioni contano anche loro.' );
 
+		// Una creazione con piu' colonne di quante una tabella possa averne si ferma mentre si legge, anche per un'altra tabella.
+		$larghe = static function ( string $tabella, int $quante ): string {
+			return 'CREATE TABLE `' . $tabella . '` (' . implode( ',', array_map( fn( $n ) => '`c' . $n . '` int', range( 1, $quante ) ) ) . ');';
+		};
+
+		$this->assertIsArray( LettoreBackup::leggi_sql( array( $creazione . $larghe( 'altra', LettoreBackup::COLONNE_MASSIME ) ) ), 'Al massimo si legge.' );
+
+		foreach ( array( 'l_albopretorio_allegati', 'altra' ) as $tabella ) {
+			$letto = LettoreBackup::leggi_sql( array( $creazione . $larghe( $tabella, LettoreBackup::COLONNE_MASSIME + 1 ) ) );
+			$this->assertWPError( $letto, $tabella );
+			$this->assertStringContainsString( 'piu\' colonne', $letto->get_error_message(), $tabella );
+		}
+
+		// Anche le definizioni che non sono colonne hanno un limite.
+		$indici = 'CREATE TABLE `altra` (`a` int,' . implode( ',', array_fill( 0, 2 * LettoreBackup::COLONNE_MASSIME, 'KEY (`a`)' ) ) . ');';
+		$this->assertStringContainsString( 'piu\' colonne', LettoreBackup::leggi_sql( array( $creazione . $indici ) )->get_error_message() );
+
+		// Due colonne con lo stesso nome nella creazione: un valore coprirebbe l'altro, il backup non si legge.
+		foreach (
+			array(
+				'uguali'                => array( 'l_albopretorio_atti', '`Numero` int', '`Numero` int' ),
+				'con e senza accenti'   => array( 'l_albopretorio_atti', '`Numero` int', 'Numero int' ),
+				'con maiuscole diverse' => array( 'l_albopretorio_atti', '`Numero` int', '`numero` int' ),
+				'di un\'altra tabella'  => array( 'altra', '`a` int', '`a` int' ),
+			) as $caso => $definizioni
+		) {
+			$tabella = array_shift( $definizioni );
+			$letto   = LettoreBackup::leggi_sql( array( 'CREATE TABLE `' . $tabella . '` (`IdAtto` int, ' . implode( ', ', $definizioni ) . ');INSERT INTO `' . $tabella . '` VALUES (1,7,0);' ) );
+			$this->assertWPError( $letto, $caso );
+			$this->assertStringContainsString( 'stesso nome', $letto->get_error_message(), $caso );
+		}
+
+		$this->assertIsArray( LettoreBackup::leggi_sql( array( 'CREATE TABLE `l_albopretorio_atti` (`IdAtto` int, `Numero` int, KEY `Numero` (`Numero`));' ) ), 'Un indice con il nome di una colonna non e\' una colonna doppia.' );
+
+		// Le creazioni contano anche loro, senza nessun inserimento: quelle delle altre tabelle per il nome, quelle dell'albo per nome e colonne.
+		$estranee = '';
+
+		for ( $n = 0; $n < 200; $n++ ) {
+			$estranee .= 'CREATE TABLE `altra_' . $n . '` (`a' . $n . '` int, `b' . $n . '` text);';
+		}
+
+		$letto = LettoreBackup::leggi_sql( array( $creazione . $estranee ), array( 'dati' => 100 * LettoreBackup::VALORE_COSTO ) );
+		$this->assertStringContainsString( 'troppi', $letto->get_error_message(), 'Molte creazioni di altre tabelle contano.' );
+
+		$letto = LettoreBackup::leggi_sql( array( $creazione . $estranee ) );
+		$this->assertIsArray( $letto );
+		$this->assertCount( 200, $letto['ignorate'] );
+		$this->assertSame( array( 'albopretorio_atti' ), array_keys( $letto['colonne'] ), 'Delle altre tabelle non si tengono le colonne.' );
+
+		$riconosciute = '';
+
+		for ( $n = 0; $n < 200; $n++ ) {
+			$riconosciute .= $creazione;
+		}
+
+		$letto = LettoreBackup::leggi_sql( array( $riconosciute ), array( 'dati' => 100 * LettoreBackup::VALORE_COSTO ) );
+		$this->assertStringContainsString( 'troppi', $letto->get_error_message(), 'Anche le creazioni dell\'albo ripetute contano.' );
+
 		// Una riga con piu' valori di quante colonne possa avere una tabella non si legge.
 		$larga = $creazione . 'INSERT INTO `l_albopretorio_atti` VALUES (' . implode( ',', array_fill( 0, LettoreBackup::COLONNE_MASSIME + 1, '1' ) ) . ');';
 		$this->assertWPError( LettoreBackup::leggi_sql( array( $larga ) ) );
+
+		// L'elenco esplicito delle colonne di un inserimento ha gli stessi limiti, e nomi non vuoti e non ripetuti.
+		$elenco = static function ( array $nomi ): string {
+			return 'INSERT INTO `l_albopretorio_atti` (' . implode( ',', $nomi ) . ') VALUES (' . implode( ',', array_fill( 0, count( $nomi ), '1' ) ) . ');';
+		};
+		$nomi   = array_map( fn( $n ) => '`c' . $n . '`', range( 1, LettoreBackup::COLONNE_MASSIME ) );
+
+		$this->assertIsArray( LettoreBackup::leggi_sql( array( $creazione . $elenco( $nomi ) ) ), 'Al massimo si legge.' );
+
+		foreach (
+			array(
+				'oltre il massimo'               => array_merge( $nomi, array( '`altra`' ) ),
+				'ripetuto'                       => array( '`IdAtto`', '`Oggetto`', '`IdAtto`' ),
+				'ripetuto senza accenti'         => array( '`IdAtto`', 'IdAtto' ),
+				'ripetuto con maiuscole diverse' => array( '`IdAtto`', '`idatto`' ),
+				'vuoto'                          => array( '`IdAtto`', '', '`Oggetto`' ),
+				'vuoto in fondo'                 => array( '`IdAtto`', '' ),
+			) as $caso => $colonne
+		) {
+			$letto = LettoreBackup::leggi_sql( array( $creazione . $elenco( $colonne ) ) );
+			$this->assertWPError( $letto, $caso );
+			$this->assertStringContainsString( 'elenco di colonne non valido', $letto->get_error_message(), $caso );
+		}
+
+		// La lettura dell'elenco si ferma alla prima colonna di troppo: un elenco di milioni di nomi non si costruisce per intero.
+		$colonne_inserimento = new \ReflectionMethod( LettoreBackup::class, 'colonne_inserimento' );
+		$colonne_inserimento->setAccessible( true );
+		$this->assertNull( $colonne_inserimento->invoke( null, str_repeat( 'a,', 2000000 ) . 'a' ), 'Molti nomi uguali: ci si ferma al secondo.' );
+		$this->assertNull( $colonne_inserimento->invoke( null, implode( ',', array_map( fn( $n ) => 'c' . $n, range( 1, 300000 ) ) ) ) );
+		$this->assertSame( array( 'IdAtto', 'Oggetto' ), $colonne_inserimento->invoke( null, ' `IdAtto` , Oggetto ' ) );
 
 		// Il controllo scatta mentre la riga si legge, non dopo: al valore in piu' la lettura si ferma.
 		$tuple = new \ReflectionMethod( LettoreBackup::class, 'tuple' );
@@ -628,6 +836,15 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertSame( array(), $per_nome['scaduto']['segnalazioni'], 'Uno scaduto con il suo documento integro non chiede niente.' );
 		$this->assertSame( AnalisiImportazione::IMPORTABILE, $per_nome['scaduto']['esito'] );
 
+		// Lo stesso backup letto dal solo file SQL: i documenti non si possono controllare, e l'atto lo dice.
+		$solo_sql = $this->temporaneo( '.sql' );
+		file_put_contents( $solo_sql, $this->sql_vecchio( $this->tabelle_vecchie( $atti, $allegati ) ) );
+		$scaduto = wp_list_filter( $this->rapporto_di( $solo_sql )['atti'], array( 'oggetto' => 'scaduto' ) );
+		$scaduto = reset( $scaduto );
+
+		$this->assertSame( array( 'documenti_non_verificabili' ), array_keys( $this->codici( $scaduto['segnalazioni'] ) ) );
+		$this->assertSame( AnalisiImportazione::DA_DECIDERE, $scaduto['esito'], 'Senza archivio lo scaduto non e\' portabile cosi\' com\'e\'.' );
+
 		$this->assertSame( AnalisiImportazione::ESCLUSO, $per_nome['bozza']['esito'] );
 		$this->assertSame( 'bozza', $per_nome['bozza']['stato'] );
 
@@ -709,6 +926,17 @@ class ImportazioneTest extends \WP_UnitTestCase {
 				'DataFine'    => '2041-10-01',
 				'IdCategoria' => 2,
 			),
+			// Un'altra categoria che diventa lo stesso tipo, e una da creare con spazi ai lati del nome.
+			'avviso_bis'    => array(
+				'DataInizio'  => '2041-10-01',
+				'DataFine'    => '2041-10-31',
+				'IdCategoria' => 5,
+			),
+			'concorso'      => array(
+				'DataInizio'  => '2041-10-01',
+				'DataFine'    => '2041-10-31',
+				'IdCategoria' => 6,
+			),
 		);
 
 		$this->assertTrue( Festivi::salva( Festivi::ACCESO, '14/10/2041|Festa locale di prova', $this->amministratore, Passaggi::ora() ) );
@@ -755,11 +983,31 @@ class ImportazioneTest extends \WP_UnitTestCase {
 			'Genitore'    => 0,
 			'Giorni'      => 0,
 		);
+		$tabelle['albopretorio_categorie'][] = array(
+			'IdCategoria' => 5,
+			'Nome'        => 'AVVISO',
+			'Descrizione' => '',
+			'Genitore'    => 0,
+			'Giorni'      => 30,
+		);
+		$tabelle['albopretorio_categorie'][] = array(
+			'IdCategoria' => 6,
+			'Nome'        => '  Concorsi ',
+			'Descrizione' => '',
+			'Genitore'    => 0,
+			'Giorni'      => 30,
+		);
 
-		$percorso = $this->temporaneo( '.sql' );
-		file_put_contents( $percorso, $this->sql_vecchio( $tabelle ) );
-
-		$rapporto = $this->rapporto_di( $percorso );
+		// Con l'archivio e i documenti integri, cosi' i due scaduti hanno solo il dubbio sul tipo.
+		$rapporto = $this->rapporto_di(
+			$this->zip_vecchio(
+				$this->sql_vecchio( $tabelle ),
+				array(
+					'bando-finito.pdf'  => 'bando',
+					'avviso-finito.pdf' => 'avviso',
+				)
+			)
+		);
 		$per_nome = array();
 
 		foreach ( $rapporto['atti'] as $atto ) {
@@ -803,6 +1051,9 @@ class ImportazioneTest extends \WP_UnitTestCase {
 
 		$this->assertStringContainsString( '15 giorni, origine norma Estremi di prova', $categorie['Deliberazione']['corrisponde'] );
 		$this->assertSame( 6, $categorie['Deliberazione']['atti'] );
+		$this->assertSame( 2, $categorie['avviso']['atti'], 'Si conta per categoria, non per tipo: due categorie dello stesso tipo restano distinte.' );
+		$this->assertSame( 1, $categorie['AVVISO']['atti'] );
+		$this->assertSame( 1, $categorie['Concorsi']['atti'], 'Gli spazi ai lati del nome non fanno perdere il conto.' );
 		$this->assertArrayHasKey( 'durata_tipo_diversa', $this->codici( $categorie['avviso']['segnalazioni'] ) );
 		$this->assertArrayHasKey( 'tipo_da_creare', $this->codici( $categorie['Bandi']['segnalazioni'] ) );
 		$this->assertStringContainsString( 'origine della durata (norma o scelta dell\'amministrazione) la dichiara chi importa', $categorie['Bandi']['corrisponde'], 'Nessuna origine proposta.' );
@@ -941,7 +1192,8 @@ class ImportazioneTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 'conflitto', $this->codici( $this->atto( $rapporto, '1' )['segnalazioni'] )['numero_doppio'] ?? null );
 		$this->assertSame( 'conflitto', $this->codici( $this->atto( $rapporto, '2' )['segnalazioni'] )['numero_doppio'] ?? null );
-		$this->assertStringContainsString( 'numeri interni 1, 2', $this->testo_di( $this->atto( $rapporto, '1' )['segnalazioni'], 'numero_doppio' ) );
+		$this->assertStringContainsString( 'portato da 2 atti', $this->testo_di( $this->atto( $rapporto, '1' )['segnalazioni'], 'numero_doppio' ) );
+		$this->assertStringContainsString( 'numeri interni 1, 2.', $this->testo_di( $rapporto['segnalazioni'], 'numero_doppio' ), 'L\'elenco sta una volta sola, fra le generali.' );
 		$this->assertSame( 'dubbio', $this->codici( $this->atto( $rapporto, '3' )['segnalazioni'] )['anno_diverso'] ?? null );
 		$this->assertSame( array(), array_intersect( array( 'numero_doppio', 'numero_gia_usato', 'numero_oltre_partenza' ), array_keys( $this->codici( $this->atto( $rapporto, '4' )['segnalazioni'] ) ) ) );
 		$this->assertSame( 'conflitto', $this->codici( $this->atto( $rapporto, '5' )['segnalazioni'] )['numero_gia_usato'] ?? null );
@@ -1056,6 +1308,67 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertArrayHasKey( 'contatore_assente', $this->codici( $rapporto['segnalazioni'] ) );
 		$this->assertNull( $rapporto['numerazione']['proposta'] );
 		$this->assertSame( self::PARTENZA + 1, Repertorio::anno( 2041 )['ultimo'], 'La lettura non ha toccato la numerazione.' );
+
+		// L'anno senza riga in questo albo non e' una lettura mancata.
+		$this->assertArrayNotHasKey( 'numerazione_non_letta', $this->codici( $this->atto( $rapporto, '12' )['segnalazioni'] ), 'Il 2030 non ha riga: e\' un anno da numerare, non un guasto.' );
+		$this->assertArrayNotHasKey( 'numerazione_non_letta', $this->codici( $rapporto['segnalazioni'] ) );
+
+		// Si guasta la sola lettura della riga dell'anno; quella dei numeri usati risponde.
+		$tabella_anni = Repertorio::tabella_anni();
+		$guasta       = static function ( string $istruzione ) use ( $tabella_anni ): string {
+			return ( str_starts_with( $istruzione, 'SELECT * FROM' ) && str_contains( $istruzione, $tabella_anni ) ) ? 'SELECT * FROM tabella_che_non_esiste_mai' : $istruzione;
+		};
+		$percorso     = $scrivi( array() );
+
+		add_filter( 'query', $guasta );
+		$GLOBALS['wpdb']->suppress_errors( true );
+
+		try {
+			$rapporto = $this->rapporto_di( $percorso );
+		} finally {
+			remove_filter( 'query', $guasta );
+			$GLOBALS['wpdb']->suppress_errors( false );
+		}
+
+		$quarantacinque = $this->codici( $this->atto( $rapporto, '6' )['segnalazioni'] );
+
+		$this->assertSame( 'conflitto', $quarantacinque['numerazione_non_letta'] ?? null, 'Una lettura mancata non sembra un anno da numerare.' );
+		$this->assertSame( AnalisiImportazione::CONFLITTO, $this->atto( $rapporto, '6' )['esito'] );
+		$this->assertSame( 'conflitto', $this->codici( $rapporto['segnalazioni'] )['numerazione_non_letta'] ?? null );
+		$this->assertNull( array_column( $rapporto['numerazione']['anni'], null, 'anno' )[2041]['nuovo'] );
+
+		// Molti atti con lo stesso numero: il rapporto cresce con gli atti, non con il loro quadrato.
+		$lunghezza = function ( int $quanti ): int {
+			$molti = array();
+
+			for ( $n = 1; $n <= $quanti; $n++ ) {
+				$molti[] = $this->atto_vecchio(
+					array(
+						'IdAtto'     => 1000 + $n,
+						'Numero'     => 5,
+						'Anno'       => 2030,
+						'DataInizio' => '2030-03-01',
+						'DataFine'   => '2030-03-16',
+					)
+				);
+			}
+
+			$percorso = $this->temporaneo( '.sql' );
+			file_put_contents( $percorso, $this->sql_vecchio( $this->tabelle_vecchie( $molti ) ) );
+			$rapporto = $this->rapporto_di( $percorso );
+			$testi    = array_column( $rapporto['segnalazioni'], 'testo' );
+
+			foreach ( $rapporto['atti'] as $atto ) {
+				$testi = array_merge( $testi, array_column( $atto['segnalazioni'], 'testo' ) );
+			}
+
+			return strlen( implode( '', $testi ) );
+		};
+
+		$cento   = $lunghezza( 100 );
+		$quattro = $lunghezza( 400 );
+
+		$this->assertLessThan( 5 * $cento, $quattro, 'Quattro volte gli atti, poco piu\' di quattro volte il testo.' );
 	}
 
 	/**
@@ -1141,6 +1454,8 @@ class ImportazioneTest extends \WP_UnitTestCase {
 			$this->documento( 8, 7, '2041/10/mancante-visibile.pdf', 'x' ),
 			$this->documento( 9, 8, 'doppio.pdf', 'doppio' ),
 			$this->documento( 10, 99, 'di-nessuno.pdf', 'nessuno' ),
+			$this->documento( 11, 98, 'di-nessuno.pdf', 'nessuno' ),
+			$this->documento( 12, 98, 'di-nessuno.pdf', 'nessuno' ),
 		);
 
 		$file = array(
@@ -1184,6 +1499,9 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$generali = $this->codici( $rapporto['segnalazioni'] );
 		$this->assertArrayHasKey( 'file_orfani', $generali );
 		$this->assertArrayHasKey( 'allegati_senza_atto', $generali );
+		$senza_atto = array_values( wp_list_filter( $rapporto['segnalazioni'], array( 'codice' => 'allegati_senza_atto' ) ) );
+		$this->assertCount( 1, $senza_atto, 'Una nota sola anche per piu\' atti mancanti.' );
+		$this->assertStringContainsString( ': 3, di 2 atti (numeri interni 98, 99)', $senza_atto[0]['testo'] );
 
 		// La schermata mostra quali file restano fuori e quale file e' stato scelto per ciascun documento.
 		ob_start();
@@ -1195,6 +1513,160 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'File nell&#039;archivio: <code>vecchi/bando.pdf</code>', $pagina, 'Il file trovato altrove si vede per percorso.' );
 		$this->assertStringContainsString( 'File nell&#039;archivio: <code>2041/10/avviso.pdf</code>', $pagina );
 		$this->assertSame( 6, substr_count( $pagina, 'class="albo-pretorio-file"' ), 'Solo i documenti con un file trovato hanno il percorso: non il mancante, non il doppio.' );
+
+		// Atti con lo stesso numero interno: allegati ed etichette non si attribuiscono, e il rapporto non si moltiplica.
+		$lunghezza = function ( int $quanti ): array {
+			$atti     = array();
+			$allegati = array();
+
+			for ( $n = 1; $n <= $quanti; $n++ ) {
+				$atti[]     = $this->atto_vecchio(
+					array(
+						'IdAtto' => 7,
+						'Numero' => $n,
+					)
+				);
+				$allegati[] = $this->documento( $n, 7, 'stesso.pdf', 'stesso' );
+			}
+
+			$tabelle = $this->tabelle_vecchie( $atti, $allegati );
+
+			for ( $n = 1; $n <= $quanti; $n++ ) {
+				$tabelle['albopretorio_attimeta'][] = array(
+					'IdAttoMeta' => 1000 + $n,
+					'IdAtto'     => 7,
+					'Meta'       => 'gruppo',
+					'Value'      => 'etichetta-' . $n,
+				);
+			}
+
+			$percorso = $this->temporaneo( '.sql' );
+			file_put_contents( $percorso, $this->sql_vecchio( $tabelle ) );
+
+			return $this->rapporto_di( $percorso );
+		};
+
+		$rapporto = $lunghezza( 50 );
+
+		$this->assertSame( 'conflitto', $this->codici( $rapporto['segnalazioni'] )['id_atto_doppio'] ?? null );
+
+		foreach ( $rapporto['atti'] as $atto ) {
+			$this->assertSame( array(), $atto['documenti'] );
+			$this->assertArrayNotHasKey( 'etichette_senza_posto', $this->codici( $atto['segnalazioni'] ), 'Le etichette di un numero interno doppio non si attribuiscono.' );
+			$this->assertSame( 'conflitto', $this->codici( $atto['segnalazioni'] )['id_atto_doppio'] ?? null );
+		}
+
+		$this->assertLessThan( 5 * strlen( (string) wp_json_encode( $rapporto ) ), strlen( (string) wp_json_encode( $lunghezza( 200 ) ) ), 'Quattro volte gli atti, non sedici volte il rapporto.' );
+
+		// Una categoria con lo stesso identificativo su due righe: non si sceglie, si segnala.
+		$tabelle                             = $this->tabelle_vecchie( array( $this->atto_vecchio( array() ) ) );
+		$tabelle['albopretorio_categorie'][] = array(
+			'IdCategoria' => 1,
+			'Nome'        => 'Altra',
+			'Descrizione' => '',
+			'Genitore'    => 0,
+			'Giorni'      => 30,
+		);
+		$percorso                            = $this->temporaneo( '.sql' );
+		file_put_contents( $percorso, $this->sql_vecchio( $tabelle ) );
+		$rapporto = $this->rapporto_di( $percorso );
+
+		$this->assertSame( 'conflitto', $this->codici( $rapporto['segnalazioni'] )['id_doppio_tabella'] ?? null );
+		$this->assertStringContainsString( 'wp_albopretorio_categorie', $this->testo_di( $rapporto['segnalazioni'], 'id_doppio_tabella' ) );
+		$this->assertSame( 'conflitto', $this->codici( $this->atto( $rapporto, '1' )['segnalazioni'] )['categoria_assente'] ?? null, 'L\'atto non riceve una delle due a caso.' );
+
+		// Un nome di categoria lungo quanto nessun nome vero: la riga non si usa, e non si ricopia su ogni atto.
+		$molti = array();
+
+		for ( $n = 1; $n <= 20; $n++ ) {
+			$molti[] = $this->atto_vecchio(
+				array(
+					'IdAtto' => $n,
+					'Numero' => $n,
+				)
+			);
+		}
+
+		$tabelle                                      = $this->tabelle_vecchie( $molti );
+		$tabelle['albopretorio_categorie'][0]['Nome'] = str_repeat( 'n', AnalisiImportazione::NOME_MASSIMO + 1 );
+		$percorso                                     = $this->temporaneo( '.sql' );
+		file_put_contents( $percorso, $this->sql_vecchio( $tabelle ) );
+		$rapporto = $this->rapporto_di( $percorso );
+
+		$this->assertSame( 'conflitto', $this->codici( $rapporto['segnalazioni'] )['nome_troppo_lungo'] ?? null );
+		$this->assertSame( 'conflitto', $this->codici( $this->atto( $rapporto, '1' )['segnalazioni'] )['categoria_assente'] ?? null );
+		$lungo                                        = strlen( (string) wp_json_encode( $rapporto['atti'] ) );
+		$tabelle['albopretorio_categorie'][0]['Nome'] = 'n';
+		file_put_contents( $percorso, $this->sql_vecchio( $tabelle ) );
+		$this->assertLessThan( strlen( (string) wp_json_encode( $this->rapporto_di( $percorso )['atti'] ) ) + AnalisiImportazione::NOME_MASSIMO, $lungo, 'Il nome lungo non e\' ricopiato sugli atti.' );
+
+		// Al nome massimo la categoria si usa.
+		$tabelle['albopretorio_categorie'][0]['Nome'] = str_repeat( 'n', AnalisiImportazione::NOME_MASSIMO );
+		file_put_contents( $percorso, $this->sql_vecchio( $tabelle ) );
+		$this->assertArrayNotHasKey( 'nome_troppo_lungo', $this->codici( $this->rapporto_di( $percorso )['segnalazioni'] ) );
+
+		// Il rapporto si misura mentre si costruisce: oltre il massimo si ferma, e lo dice.
+		$letto    = LettoreBackup::leggi( $percorso );
+		$contesto = AnalisiImportazione::contesto( AnalisiImportazione::anni( $letto ), Passaggi::ora() );
+
+		$this->assertCount( 20, AnalisiImportazione::rapporto( $letto, $contesto )['atti'] );
+
+		$contesto['rapporto_massimo'] = 1;
+		$fermato                      = AnalisiImportazione::rapporto( $letto, $contesto );
+
+		$this->assertCount( 1, $fermato['atti'], 'Il primo atto supera gia\' il massimo: il secondo non si analizza.' );
+		$this->assertSame( 'conflitto', $this->codici( $fermato['segnalazioni'] )['rapporto_troppo_grande'] ?? null );
+		$this->assertStringContainsString( '1 su 20', $this->testo_di( $fermato['segnalazioni'], 'rapporto_troppo_grande' ) );
+
+		// Un rapporto fermato non fa passare per completi numerazione e file: si calcolano su tutto il backup.
+		$atti     = array();
+		$allegati = array();
+		$file     = array();
+
+		for ( $n = 1; $n <= 20; $n++ ) {
+			$atti[]                        = $this->atto_vecchio(
+				array(
+					'IdAtto' => $n,
+					'Numero' => $n,
+				)
+			);
+			$allegati[]                    = $this->documento( 100 + $n, $n, 'atto-' . $n . '.pdf', 'contenuto ' . $n );
+			$file[ 'atto-' . $n . '.pdf' ] = 'contenuto ' . $n;
+		}
+
+		$zip      = $this->zip_vecchio(
+			$this->sql_vecchio(
+				$this->tabelle_vecchie( $atti, $allegati ),
+				array(
+					'opt_AP_NumeroProgressivo' => '2',
+					'opt_AP_AnnoProgressivo'   => '2041',
+				)
+			),
+			$file
+		);
+		$letto    = LettoreBackup::leggi( $zip );
+		$contesto = AnalisiImportazione::contesto( AnalisiImportazione::anni( $letto ), Passaggi::ora() );
+		$intero   = AnalisiImportazione::rapporto( $letto, $contesto );
+
+		$contesto['rapporto_massimo'] = 1;
+		$parziale                     = AnalisiImportazione::rapporto( $letto, $contesto );
+
+		$this->assertCount( 1, $parziale['atti'] );
+		$this->assertSame( 20, $parziale['numerazione']['proposta']['ultimo'] ?? null, 'L\'ultimo numero usato guarda anche gli atti non analizzati.' );
+		$this->assertSame( $intero['numerazione'], $parziale['numerazione'] );
+		$this->assertSame( 20, $parziale['numerazione']['anni'][0]['massimo'] ?? null );
+		$this->assertSame( array(), $intero['orfani'] );
+		$this->assertSame( array(), $parziale['orfani'], 'I file degli atti non analizzati sono citati: non sono file che nessuno cita.' );
+		$this->assertArrayNotHasKey( 'file_orfani', $this->codici( $parziale['segnalazioni'] ) );
+		$this->assertSame(
+			array(
+				'atti'       => 1,
+				'nel_backup' => 20,
+			),
+			$parziale['riepilogo']['totale'],
+			'Il riepilogo dice di quanti atti parla.'
+		);
+		$this->assertStringContainsString( 'solo gli atti analizzati', $this->testo_di( $parziale['segnalazioni'], 'rapporto_troppo_grande' ) );
 	}
 
 	/**
@@ -1228,6 +1700,24 @@ class ImportazioneTest extends \WP_UnitTestCase {
 					'Oggetto'     => "Oggetto \xC0\xAF non leggibile",
 				)
 			),
+			// Caratteri di controllo ai margini: togliendoli il testo cambierebbe, quindi non si conserva alla lettera.
+			$this->atto_vecchio(
+				array(
+					'IdAtto'               => 3,
+					'Numero'               => 3,
+					'RespProc'             => 8,
+					'IdUnitaOrganizzativa' => 4,
+					'Richiedente'          => "\nComune vicino",
+				)
+			),
+			// Molte persone collegate: se ne nominano le prime e si contano le altre.
+			$this->atto_vecchio(
+				array(
+					'IdAtto'   => 4,
+					'Numero'   => 4,
+					'Soggetti' => 'a:25:{' . implode( '', array_map( fn( $n ) => 'i:' . $n . ';i:' . ( 1000 + $n ) . ';', range( 0, 24 ) ) ) . '}',
+				)
+			),
 		);
 
 		$tabelle                                    = $this->tabelle_vecchie( $atti );
@@ -1252,11 +1742,32 @@ class ImportazioneTest extends \WP_UnitTestCase {
 				'Note'           => '',
 				'Funzione'       => 'OP',
 			),
+			array(
+				'IdResponsabile' => 8,
+				'Cognome'        => "Verdi\r",
+				'Nome'           => 'Anna',
+				'Email'          => '',
+				'Telefono'       => '',
+				'Orario'         => '',
+				'Note'           => '',
+				'Funzione'       => 'RP',
+			),
 		);
 		$tabelle['albopretorio_unitaorganizzative'] = array(
 			array(
 				'IdUO'      => 2,
 				'Nome'      => 'Ufficio tecnico',
+				'Indirizzo' => '',
+				'Url'       => '',
+				'Email'     => '',
+				'Pec'       => '',
+				'Telefono'  => '',
+				'Fax'       => '',
+				'Note'      => '',
+			),
+			array(
+				'IdUO'      => 4,
+				'Nome'      => "\tUfficio legale",
 				'Indirizzo' => '',
 				'Url'       => '',
 				'Email'     => '',
@@ -1316,6 +1827,20 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'Amministrazione ospitata di prova', $this->testo_di( $this->atto( $rapporto, '2' )['segnalazioni'], 'altra_amministrazione' ) );
 		$this->assertSame( 'dubbio', $secondo['testo_non_leggibile'] ?? null );
 
+		$this->assertArrayNotHasKey( 'nome_non_conservabile', $codici, 'I nomi puliti si conservano.' );
+
+		$terzo = array_values( wp_list_filter( $this->atto( $rapporto, '3' )['segnalazioni'], array( 'codice' => 'nome_non_conservabile' ) ) );
+		$this->assertCount( 3, $terzo, 'Richiedente, responsabile e ufficio con un carattere di controllo ai margini.' );
+
+		foreach ( array( DatiProcedimento::RESPONSABILE, DatiProcedimento::UFFICIO, DatiProcedimento::RICHIEDENTE ) as $indice => $dato ) {
+			$this->assertStringStartsWith( DatiProcedimento::etichetta( $dato ), wp_list_pluck( $terzo, 'testo' )[ $indice ] ?? '' );
+		}
+
+		$quarto = $this->testo_di( $this->atto( $rapporto, '4' )['segnalazioni'], 'soggetti_senza_posto' );
+		$this->assertSame( 20, substr_count( $quarto, '?' ), 'Si nominano le prime venti persone, qui assenti dal backup.' );
+		$this->assertStringContainsString( 'e altre 5', $quarto );
+		$this->assertStringNotContainsString( 'non si legge per intero', $quarto );
+
 		// L'amministrazione sceglie: il responsabile si mostra ed e' in elenco, l'ufficio si conserva soltanto.
 		$this->assertTrue(
 			DatiProcedimento::salva(
@@ -1339,6 +1864,84 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->assertSame( 'Comune vicino (si mostra)', $primo['dati'][ DatiProcedimento::etichetta( DatiProcedimento::RICHIEDENTE ) ], 'Il richiedente si mostra quando l\'amministrazione sceglie di usarlo.' );
 		$this->assertStringContainsString( 'Ufficio tecnico', $this->testo_di( $primo['segnalazioni'], 'fuori_elenco' ) );
 		$this->assertStringNotContainsString( 'Rossi Maria', $this->testo_di( $primo['segnalazioni'], 'fuori_elenco' ) );
+
+		// Un elenco di persone enorme si legge una voce alla volta e si ferma: non si espande in memoria.
+		$soggetti = new \ReflectionMethod( AnalisiImportazione::class, 'soggetti' );
+		$soggetti->setAccessible( true );
+
+		$ripetute = $soggetti->invoke( null, 'a:1000000:{' . str_repeat( 'i:0;i:1;', 1000000 ) . '}' );
+		$this->assertSame( array( '1' ), $ripetute['ids'], 'Molte voci uguali danno una persona sola.' );
+		$this->assertTrue( $ripetute['troncato'] );
+
+		$distinte = static function ( int $quante ): string {
+			return 'a:' . $quante . ':{' . implode( '', array_map( fn( $n ) => 'i:' . $n . ';s:' . strlen( (string) ( 1000 + $n ) ) . ':"' . ( 1000 + $n ) . '";', range( 0, $quante - 1 ) ) ) . '}';
+		};
+
+		$molte = $soggetti->invoke( null, $distinte( 3 * AnalisiImportazione::SOGGETTI_LETTI ) );
+		$this->assertCount( AnalisiImportazione::SOGGETTI_LETTI, $molte['ids'], 'Le voci distinte tenute non superano il massimo.' );
+		$this->assertTrue( $molte['troncato'] );
+
+		$giuste = $soggetti->invoke( null, $distinte( AnalisiImportazione::SOGGETTI_LETTI ) );
+		$this->assertCount( AnalisiImportazione::SOGGETTI_LETTI, $giuste['ids'] );
+		$this->assertFalse( $giuste['troncato'], 'Al massimo l\'elenco si legge per intero.' );
+		$this->assertSame( '1000', $giuste['ids'][0] );
+
+		$enorme = $this->temporaneo( '.sql' );
+		file_put_contents(
+			$enorme,
+			$this->sql_vecchio(
+				$this->tabelle_vecchie(
+					array(
+						$this->atto_vecchio( array( 'Soggetti' => $distinte( AnalisiImportazione::SOGGETTI_LETTI + 1 ) ) ),
+					)
+				)
+			)
+		);
+		$testo = $this->testo_di( $this->atto( $this->rapporto_di( $enorme ), '1' )['segnalazioni'], 'soggetti_senza_posto' );
+		$this->assertStringContainsString( 'e altre ' . ( AnalisiImportazione::SOGGETTI_LETTI - AnalisiImportazione::SOGGETTI_NOMINATI ), $testo );
+		$this->assertStringContainsString( 'non si legge per intero', $testo );
+
+		// Un richiedente con milioni di a capo non si divide in righe: e' gia' un nome che non si conserva.
+		$gonfio = $this->temporaneo( '.sql' );
+		file_put_contents(
+			$gonfio,
+			$this->sql_vecchio(
+				$this->tabelle_vecchie(
+					array(
+						$this->atto_vecchio( array( 'Richiedente' => str_repeat( "a\n", 3000000 ) . 'b' ) ),
+					)
+				)
+			)
+		);
+		$letto    = LettoreBackup::leggi( $gonfio );
+		$contesto = AnalisiImportazione::contesto( AnalisiImportazione::anni( $letto ), Passaggi::ora() );
+
+		if ( function_exists( 'memory_reset_peak_usage' ) ) {
+			memory_reset_peak_usage();
+		}
+
+		$prima    = memory_get_usage();
+		$rapporto = AnalisiImportazione::rapporto( $letto, $contesto );
+
+		if ( function_exists( 'memory_reset_peak_usage' ) ) {
+			$this->assertLessThan( 64 * 1024 * 1024, memory_get_peak_usage() - $prima, 'Il testo non si espande in milioni di righe.' );
+		}
+
+		$gonfiato = $this->atto( $rapporto, '1' );
+		$this->assertSame( 'dubbio', $this->codici( $gonfiato['segnalazioni'] )['nome_non_conservabile'] ?? null );
+		$this->assertLessThan( AnalisiImportazione::NOME_MASSIMO + 100, strlen( $gonfiato['dati'][ DatiProcedimento::etichetta( DatiProcedimento::RICHIEDENTE ) ] ), 'Del testo lunghissimo si mostra solo l\'inizio.' );
+
+		// Lo stesso per un riferimento lunghissimo: si mostra l'inizio, e non si conserverebbe alla lettera.
+		file_put_contents( $gonfio, $this->sql_vecchio( $this->tabelle_vecchie( array( $this->atto_vecchio( array( 'Riferimento' => str_repeat( "a\n", 100000 ) . 'b' ) ) ) ) ) );
+		$lungo = $this->atto( $this->rapporto_di( $gonfio ), '1' );
+		$this->assertLessThan( AnalisiImportazione::NOME_MASSIMO + 100, strlen( $lungo['dati']['Numero proprio (proposto dal riferimento)'] ?? str_repeat( 'x', 2000 ) ) );
+		$this->assertSame( 'dubbio', $this->codici( $lungo['segnalazioni'] )['riferimento_non_conservabile'] ?? null );
+
+		// Un nome di una riga sola ma piu' lungo del massimo e' un dubbio anche lui, senza leggerlo come elenco.
+		file_put_contents( $gonfio, $this->sql_vecchio( $this->tabelle_vecchie( array( $this->atto_vecchio( array( 'Richiedente' => str_repeat( 'a', 4 * DatiProcedimento::LUNGHEZZA_MASSIMA + 1 ) ) ) ) ) ) );
+		$this->assertSame( 'dubbio', $this->codici( $this->atto( $this->rapporto_di( $gonfio ), '1' )['segnalazioni'] )['nome_non_conservabile'] ?? null );
+		file_put_contents( $gonfio, $this->sql_vecchio( $this->tabelle_vecchie( array( $this->atto_vecchio( array( 'Richiedente' => str_repeat( 'a', DatiProcedimento::LUNGHEZZA_MASSIMA ) ) ) ) ) ) );
+		$this->assertArrayNotHasKey( 'nome_non_conservabile', $this->codici( $this->atto( $this->rapporto_di( $gonfio ), '1' )['segnalazioni'] ), 'Al massimo il nome si conserva.' );
 	}
 
 	/**

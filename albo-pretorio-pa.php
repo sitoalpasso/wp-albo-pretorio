@@ -210,6 +210,8 @@ require_once __DIR__ . '/includes/class-schermata-scaduti.php';
 require_once __DIR__ . '/includes/class-lettore-backup.php';
 require_once __DIR__ . '/includes/class-analisi-importazione.php';
 require_once __DIR__ . '/includes/class-schermata-importazione.php';
+require_once __DIR__ . '/includes/class-pagina-pubblica.php';
+require_once __DIR__ . '/includes/class-vista-pubblica.php';
 require_once __DIR__ . '/includes/funzioni-api.php';
 
 /*
@@ -310,3 +312,10 @@ add_action( 'admin_notices', array( RiquadroPassaggi::class, 'mostra_esito' ) );
  * cui la pubblicazione e' concessa non deve esistere in nessuna condizione.
  */
 ChiusuraPubblicazione::aggancia();
+
+/*
+ * La pagina pubblica: il codice breve e le regole della pagina che lo contiene.
+ * Si aggancia sempre: con il componente inerte il codice breve non disegna
+ * niente e il tipo non esiste, quindi nessuna regola ha qualcosa da fare.
+ */
+PaginaPubblica::aggancia();
