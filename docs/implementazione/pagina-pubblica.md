@@ -331,9 +331,16 @@ apposta (immagine senza testo alternativo, campo senza etichetta, collegamento s
 indicatore del fuoco, collegamento con contorno e ombra trasparenti, ciclo del fuoco
 dall'ultimo comando al primo, scheda senza documenti, ricerca scritta male senza messaggio):
 se non vi trovano i guasti, la prova si ferma. Guasti introdotti nell'albo per vedere se la
-prova li vede, sei, tutti visti: indicatore del fuoco tolto dal foglio di stile, indicatore
+prova li vede, nove, tutti visti: indicatore del fuoco tolto dal foglio di stile, indicatore
 reso trasparente, etichetta tolta dal campo di testo, ordine di tabulazione cambiato sul
-pulsante "Cerca", documenti della scheda spariti, messaggio della ricerca scritta male tolto.
+pulsante "Cerca", documenti della scheda spariti, messaggio della ricerca scritta male tolto,
+spiegazione dell'errore tolta lasciando l'avviso, filtro dell'organo spento, collegamenti agli
+atti che non portano da nessuna parte.
+
+Oltre alle pagine aperte per indirizzo, la prova segue da tastiera i collegamenti che le
+uniscono: dall'elenco alla seconda pagina, alla scheda, e dalla scheda di nuovo all'elenco. I
+comandi della ricerca che ALBO-16 richiede sono un elenco fisso: un filtro spento o nascosto
+sparirebbe da un inventario ricavato dalla pagina, e la prova resterebbe verde.
 
 Il sito di prova è sempre nuovo: lo script crea una cartella e una banca dati sue, le toglie
 alla fine, e se quelle indicate esistono già si ferma prima di scrivere. Non può quindi

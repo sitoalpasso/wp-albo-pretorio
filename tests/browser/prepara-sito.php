@@ -303,19 +303,21 @@ $albo_pretorio_base = (string) get_permalink( $albo_pretorio_pagina );
 
 echo wp_json_encode( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON per lo script della prova, su riga di comando.
 	array(
-		'elenco'                  => $albo_pretorio_base,
-		'seconda pagina'          => add_query_arg( 'albo_pagina', 2, $albo_pretorio_base ),
-		'ricerca con un filtro'   => add_query_arg( 'albo_tipo', $albo_pretorio_scelto, $albo_pretorio_base ),
-		'ricerca senza risultati' => add_query_arg( 'albo_testo', 'nessunaparolacosi', $albo_pretorio_base ),
-		'ricerca scritta male'    => add_query_arg( 'albo_dal', '2041-02-31', $albo_pretorio_base ),
-		'scheda con allegati'     => add_query_arg( 'albo_atto', $albo_pretorio_scheda, $albo_pretorio_base ),
-		'tipo scelto'             => $albo_pretorio_scelto,
-		'oggetto della scheda'    => get_the_title( $albo_pretorio_scheda ),
+		'elenco'                            => $albo_pretorio_base,
+		'seconda pagina'                    => add_query_arg( 'albo_pagina', 2, $albo_pretorio_base ),
+		'ricerca con un filtro'             => add_query_arg( 'albo_tipo', $albo_pretorio_scelto, $albo_pretorio_base ),
+		'ricerca senza risultati'           => add_query_arg( 'albo_testo', 'nessunaparolacosi', $albo_pretorio_base ),
+		'ricerca scritta male'              => add_query_arg( 'albo_dal', '2041-02-31', $albo_pretorio_base ),
+		'scheda con allegati'               => add_query_arg( 'albo_atto', $albo_pretorio_scheda, $albo_pretorio_base ),
+		'tipo scelto'                       => $albo_pretorio_scelto,
+		'oggetto della scheda'              => get_the_title( $albo_pretorio_scheda ),
 		// Cio' che ogni pagina deve mostrare: la prova lo confronta prima di esaminarla.
-		'oggetti'                 => $albo_pretorio_oggetti,
-		'oggetti del tipo scelto' => $albo_pretorio_avvisi,
-		'documenti della scheda'  => array( 'Documento principale', 'Allegato 1', 'Allegato 2' ),
-		'atti per pagina'         => \AlboPretorioPa\VistaPubblica::PER_PAGINA,
+		'oggetti'                           => $albo_pretorio_oggetti,
+		'oggetti del tipo scelto'           => $albo_pretorio_avvisi,
+		'documenti della scheda'            => array( 'Documento principale', 'Allegato 1', 'Allegato 2' ),
+		'atti per pagina'                   => \AlboPretorioPa\VistaPubblica::PER_PAGINA,
+		// La spiegazione che la ricerca scritta male deve dare, per il campo sbagliato.
+		'errore della ricerca scritta male' => 'La data "pubblicati dal" non è valida',
 	)
 );
 echo "\n";

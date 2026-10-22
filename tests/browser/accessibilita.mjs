@@ -82,6 +82,26 @@ const GUASTA = `<!doctype html><html lang="it"><head><meta charset="utf-8"><titl
 const SENZA_DOCUMENTI = `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Scheda</title></head>
 <body><main><div class="albo-pretorio"><h1 id="albo-pretorio-titolo-atto">OGGETTO</h1><p class="albo-pretorio__conteggio">Nessun documento.</p>
 <p class="albo-pretorio__torna"><a class="albo-pretorio__collegamento" href="#">Torna</a></p></div></main></body></html>`;
+// L'avviso c'e', con il suo ruolo e legato al campo, ma senza la spiegazione.
+const ERRORE_VUOTO = `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Ricerca</title>
+<style>.albo-pretorio__avviso { padding: 8px; border: 2px solid #000; }</style></head>
+<body><main><div class="albo-pretorio"><p id="albo-pretorio-errore-ricerca" class="albo-pretorio__avviso" role="alert"></p>
+<form><label for="albo_dal">Dal</label><input type="date" id="albo_dal" name="albo_dal" aria-invalid="true" aria-describedby="albo-pretorio-errore-ricerca"></form></div></main></body></html>`;
+
+// Il modulo di ricerca con un filtro spento: i comandi richiesti devono esserci tutti, e funzionanti.
+const FILTRO_SPENTO = `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Ricerca</title></head>
+<body><main><div class="albo-pretorio"><form>
+<label for="albo_testo">Testo</label><input type="text" id="albo_testo" name="albo_testo">
+<label for="albo_tipo">Tipo</label><select id="albo_tipo" name="albo_tipo"><option value="">Tutti</option></select>
+<label for="albo_organo">Organo</label><select id="albo_organo" name="albo_organo" disabled><option value="">Tutti</option></select>
+<label for="albo_dal">Dal</label><input type="date" id="albo_dal" name="albo_dal">
+<label for="albo_al">Al</label><input type="date" id="albo_al" name="albo_al">
+<button type="submit">Cerca</button></form></div></main></body></html>`;
+
+// Collegamenti che hanno il fuoco ma non portano da nessuna parte.
+const COLLEGAMENTI_MORTI = `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Elenco</title></head>
+<body><main><div class="albo-pretorio"><nav><a class="albo-pretorio__collegamento" href="#">2</a></nav></div></main></body></html>`;
+
 const SENZA_ERRORE = `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Ricerca</title></head>
 <body><main><div class="albo-pretorio"><form><label for="albo_dal">Dal</label><input type="date" id="albo_dal" name="albo_dal"></form></div></main></body></html>`;
 
@@ -369,11 +389,12 @@ async function verifica_contenuto( pagina, nome, attese, memoria = {} ) {
 	if ( 'ricerca scritta male' === nome ) {
 		const errore = pagina.locator( '#albo-pretorio-errore-ricerca' );
 		const campo = pagina.locator( 'input[name="albo_dal"]' );
-		const visibile = ( await errore.count() ) === 1 && ( await errore.isVisible() ) && ( await errore.getAttribute( 'role' ) ) === 'alert';
+		const testo = ( await errore.count() ) === 1 ? ( await errore.innerText() ).trim() : '';
+		const visibile = ( await errore.count() ) === 1 && ( await errore.isVisible() ) && ( await errore.getAttribute( 'role' ) ) === 'alert' && testo.includes( attese[ 'errore della ricerca scritta male' ] ?? '\u0000' );
 		const legato = ( await campo.count() ) === 1 && ( await campo.getAttribute( 'aria-invalid' ) ) === 'true' && ( ( await campo.getAttribute( 'aria-describedby' ) ) ?? '' ).split( ' ' ).includes( 'albo-pretorio-errore-ricerca' );
 
 		if ( ! visibile || ! legato || oggetti.length !== 0 ) {
-			problemi.push( `la ricerca scritta male non mostra l'errore legato al campo (messaggio visibile: ${ visibile }, legato al campo: ${ legato }, atti: ${ oggetti.length })` );
+			problemi.push( `la ricerca scritta male non mostra l'errore legato al campo (messaggio visibile con la spiegazione attesa: ${ visibile }, testo "${ testo }", legato al campo: ${ legato }, atti: ${ oggetti.length })` );
 		}
 	}
 
@@ -400,6 +421,80 @@ async function verifica_contenuto( pagina, nome, attese, memoria = {} ) {
 	}
 
 	return problemi;
+}
+
+/**
+ * I comandi della ricerca che ALBO-16 richiede: ci sono tutti, si vedono, sono attivi.
+ *
+ * L'elenco e' fisso e non ricavato dalla pagina: un campo spento o nascosto
+ * sparirebbe dall'inventario del percorso, e la prova resterebbe verde.
+ */
+const COMANDI_RICHIESTI = [ 'albo_testo', 'albo_tipo', 'albo_organo', 'albo_dal', 'albo_al' ];
+
+async function verifica_comandi( pagina ) {
+	return pagina.evaluate( ( richiesti ) => {
+		const problemi = [];
+		const albo = document.querySelector( '.albo-pretorio' );
+		const pulsanti = [ ...( albo?.querySelectorAll( 'button' ) ?? [] ) ].filter( ( b ) => b.textContent.trim() === 'Cerca' );
+		const usabile = ( e ) => {
+			const s = getComputedStyle( e );
+			const r = e.getBoundingClientRect();
+
+			return ! e.disabled && ! e.closest( '[inert]' ) && s.visibility !== 'hidden' && s.display !== 'none' && r.width > 0 && r.height > 0;
+		};
+
+		for ( const id of richiesti ) {
+			const campo = albo?.querySelector( `#${ id }` );
+
+			if ( ! campo ) {
+				problemi.push( `il comando "${ id }" della ricerca manca` );
+			} else if ( ! usabile( campo ) ) {
+				problemi.push( `il comando "${ id }" della ricerca c'e' ma non si usa (spento o nascosto)` );
+			}
+		}
+
+		if ( pulsanti.length !== 1 || ! usabile( pulsanti[ 0 ] ) ) {
+			problemi.push( 'il pulsante "Cerca" manca o non si usa' );
+		}
+
+		return problemi;
+	}, COMANDI_RICHIESTI );
+}
+
+/**
+ * Tab fino al collegamento dell'albo con quel testo, poi Invio: dove si arriva?
+ *
+ * Restituisce il nuovo indirizzo, o nullo se il collegamento non si raggiunge o
+ * non porta a una pagina diversa.
+ */
+async function segui_da_tastiera( pagina, testo, massimo = 80 ) {
+	await pagina.evaluate( () => document.activeElement?.blur() );
+
+	for ( let i = 0; i < massimo; i++ ) {
+		await pagina.keyboard.press( 'Tab' );
+
+		const trovato = await pagina.evaluate( ( t ) => {
+			const a = document.activeElement;
+
+			return a?.tagName === 'A' && a.closest( '.albo-pretorio' ) !== null && a.textContent.trim() === t;
+		}, testo );
+
+		if ( trovato ) {
+			const prima = pagina.url();
+
+			await pagina.keyboard.press( 'Enter' );
+
+			try {
+				await pagina.waitForURL( ( u ) => u.toString() !== prima && ! u.toString().startsWith( prima + '#' ) && ! u.toString().endsWith( '#' ), { timeout: 5000, waitUntil: 'load' } );
+			} catch {
+				return null;
+			}
+
+			return pagina.url();
+		}
+	}
+
+	return null;
 }
 
 async function tab_fino_a( pagina, id, massimo = 80 ) {
@@ -464,11 +559,25 @@ try {
 			}
 		}
 
-		for ( const [ html, nome, attesa ] of [ [ SENZA_DOCUMENTI, 'scheda con allegati', 'la scheda senza documenti' ], [ SENZA_ERRORE, 'ricerca scritta male', 'la ricerca scritta male senza messaggio' ] ] ) {
+		for ( const [ html, nome, attesa ] of [ [ SENZA_DOCUMENTI, 'scheda con allegati', 'la scheda senza documenti' ], [ SENZA_ERRORE, 'ricerca scritta male', 'la ricerca scritta male senza messaggio' ], [ ERRORE_VUOTO, 'ricerca scritta male', 'l\'avviso d\'errore vuoto' ] ] ) {
 			await pagina.setContent( html.replace( 'OGGETTO', dati[ 'oggetto della scheda' ] ) );
 
 			if ( ( await verifica_contenuto( pagina, nome, dati ) ).length === 0 ) {
 				sbaglia( `controllo di realta': la verifica del contenuto non vede ${ attesa }` );
+			}
+		}
+
+		await pagina.setContent( FILTRO_SPENTO );
+
+		if ( ! ( await verifica_comandi( pagina ) ).some( ( p ) => p.includes( '"albo_organo"' ) ) ) {
+			sbaglia( 'controllo di realta\': la verifica dei comandi non vede il filtro dell\'organo spento' );
+		}
+
+		if ( conTastiera ) {
+			await pagina.setContent( COLLEGAMENTI_MORTI );
+
+			if ( null !== ( await segui_da_tastiera( pagina, '2' ) ) ) {
+				sbaglia( 'controllo di realta\': un collegamento che non porta da nessuna parte risulta seguito' );
 			}
 		}
 
@@ -501,6 +610,11 @@ try {
 
 			const problemi = await verifica_contenuto( pagina, nome, dati, memoria );
 
+			// Il modulo di ricerca sta in ogni pagina dell'elenco; la scheda non lo ha.
+			if ( 'scheda con allegati' !== nome ) {
+				problemi.push( ...( await verifica_comandi( pagina ) ) );
+			}
+
 			if ( problemi.length > 0 ) {
 				problemi.forEach( ( p ) => sbaglia( `${ etichetta }: ${ p }` ) );
 				continue;
@@ -522,8 +636,19 @@ try {
 			if ( conTastiera ) {
 				await pagina.goto( dati[ nome ], { waitUntil: 'load' } );
 
-				for ( const t of controlla_percorso( await percorso( pagina ), etichetta ) ) {
+				const giro = await percorso( pagina );
+
+				for ( const t of controlla_percorso( giro, etichetta ) ) {
 					sbaglia( `${ etichetta }, da tastiera: ${ t }` );
+				}
+
+				// Ogni comando richiesto e' fra quelli che il Tab ha toccato.
+				if ( 'scheda con allegati' !== nome ) {
+					for ( const id of COMANDI_RICHIESTI ) {
+						if ( ! giro.elementi.some( ( e ) => e.albo && e.nome === id ) ) {
+							sbaglia( `${ etichetta }, da tastiera: il comando "${ id }" non e' nel percorso` );
+						}
+					}
 				}
 			}
 
@@ -570,7 +695,34 @@ try {
 				}
 			}
 
-			console.log( `${ tema }, ${ schermo }: ricerca per testo e per tipo fatte da sola tastiera` );
+			/*
+			 * I collegamenti si seguono da tastiera e portano dove devono: dall'elenco
+			 * alla seconda pagina, dall'elenco alla scheda, dalla scheda all'elenco.
+			 * Le pagine aperte per indirizzo non lo dimostrano.
+			 */
+			for ( const [ partenza, testo, arrivo, parametro ] of [
+				[ 'elenco', '2', 'seconda pagina', 'albo_pagina' ],
+				// La scheda si apre dalla pagina dell'elenco che la mostra.
+				[ ( memoria.elenco ?? [] ).includes( dati[ 'oggetto della scheda' ] ) ? 'elenco' : 'seconda pagina', dati[ 'oggetto della scheda' ], 'scheda con allegati', 'albo_atto' ],
+				[ 'scheda con allegati', 'Torna all\'elenco degli atti', 'elenco', null ],
+			] ) {
+				await pagina.goto( dati[ partenza ], { waitUntil: 'load' } );
+
+				const indirizzo = await segui_da_tastiera( pagina, testo );
+				const attesi = new URL( dati[ arrivo ] ).searchParams;
+				const ottenuti = indirizzo ? new URL( indirizzo ).searchParams : null;
+
+				if ( ! ottenuti || ( parametro && ottenuti.get( parametro ) !== attesi.get( parametro ) ) || ( ! parametro && [ ...ottenuti.keys() ].some( ( k ) => k.startsWith( 'albo_' ) ) ) ) {
+					sbaglia( `${ tema }, ${ schermo }: da "${ partenza }" il collegamento "${ testo }" seguito con Invio porta a ${ indirizzo ?? 'nessuna pagina nuova' }, atteso "${ arrivo }"` );
+					continue;
+				}
+
+				for ( const p of await verifica_contenuto( pagina, arrivo, dati, memoria ) ) {
+					sbaglia( `${ tema }, ${ schermo }: arrivati a "${ arrivo }" da tastiera, ${ p }` );
+				}
+			}
+
+			console.log( `${ tema }, ${ schermo }: ricerca per testo e per tipo, seconda pagina, scheda e ritorno fatti da sola tastiera` );
 		}
 
 		await contesto.close();
