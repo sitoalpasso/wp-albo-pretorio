@@ -2397,7 +2397,9 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * A-228: dalla mezzanotte del giorno di fine l'annullato sparisce come ogni atto scaduto.
+	 * A-228: dalla mezzanotte del giorno dopo la data di fine l'annullato sparisce come ogni atto scaduto.
+	 *
+	 * Fine il 16 ottobre 2041: presente alle 23:59:59 del 16, assente alle 00:00:00 del 17.
 	 */
 	public function test_a228_annullato_sparisce_a_mezzanotte(): void {
 		$this->pagina_albo();

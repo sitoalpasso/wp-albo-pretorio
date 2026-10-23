@@ -892,6 +892,23 @@ class AnnullamentoTest extends \WP_UnitTestCase {
 			get_role( $ruolo )->remove_cap( $permesso );
 		}
 
+		/*
+		 * Il confine si prova sulla decisione stessa: chi aggiorna dalla
+		 * versione che ha portato il permesso non lo riceve di nuovo, chi
+		 * aggiorna da una precedente si'. La prova completa qui sotto lo
+		 * ripete con un aggiornamento vero da una versione successiva.
+		 */
+		foreach ( array(
+			''            => array(),
+			'0.5.0-alpha' => array(),
+			'0.5.9'       => array(),
+			'0.6.0-alpha' => array( Permessi::CHIAVE_DEFISSIONE ),
+			'0.6.0'       => array( Permessi::CHIAVE_DEFISSIONE ),
+			'0.6.1'       => array( Permessi::CHIAVE_DEFISSIONE ),
+		) as $da => $attese ) {
+			$this->assertSame( $attese, Installazione::chiavi_escluse( (string) $da ), 'Aggiornamento da ' . wp_json_encode( (string) $da ) . '.' );
+		}
+
 		$pubblicatore_senza = self::factory()->user->create( array( 'role' => 'albo_prova_pubblica' ) );
 		$atto               = $this->pubblicato_il();
 

@@ -79,7 +79,7 @@ l'atto resta pubblicato. Con il motivo l'atto è annullato, e il riquadro mostra
 momento numero, date, data e motivo dell'annullamento, in sola lettura. Una correzione resta
 un atto nuovo, con il suo numero e la sua durata.
 
-Il cittadino, fino alla mezzanotte del giorno di fine, vede in elenco la riga dell'atto con
+Il cittadino, fino alla fine del giorno di fine, cioè fino alla mezzanotte del giorno dopo, vede in elenco la riga dell'atto con
 la scritta "Annullato" accanto all'oggetto e, al posto del numero dei documenti, "nessuno:
 atto annullato". Nella scheda legge numero, oggetto, tipo, organo, numero e data dell'atto,
 periodo di pubblicazione, data e motivo dell'annullamento. I dati del procedimento
@@ -124,7 +124,7 @@ annulla; chi ha solo quello di pubblicare no.
 - **I documenti ancora consegnati**: dal punto pubblico del meccanismo comune, anche con
   l'atto seguito da lettere e con il tipo aperto da un altro componente.
 - **L'annullato che non sparisce alla scadenza**: l'elenco, la ricerca e la scheda che lo
-  mostrano dopo la mezzanotte del giorno di fine, perché il filtro del meccanismo comune
+  mostrano dalla mezzanotte del giorno dopo la data di fine, perché il filtro del meccanismo comune
   guarda solo gli stati pubblicati.
 - **L'annullato come dati del procedimento**: richiedente o responsabile ancora mostrati.
 - **Un pezzo del passaggio che fallisce e lascia gli altri scritti**: lo stato senza la
@@ -193,3 +193,7 @@ A-193, per un motivo dell'ambiente che su GitHub non si presenta). Rispetto al p
   responsabile se lo sarebbe ritrovato. Gli altri permessi restano assegnati a ogni
   aggiornamento come prima. A-227 chiede e mostra tutti e tre i dati del procedimento, e
   verifica che la scheda li mostri prima dell'annullamento e non dopo.
+- **Terzo giro di revisione.** La scelta dei permessi da non riassegnare sta in
+  `Installazione::chiavi_escluse()`, provata sul confine (chi aggiorna da 0.6.0-alpha non
+  riceve di nuovo il permesso, chi aggiorna da 0.5.x sì). A-228 dice per esteso quando
+  l'annullato sparisce: dalla mezzanotte del giorno dopo la data di fine.

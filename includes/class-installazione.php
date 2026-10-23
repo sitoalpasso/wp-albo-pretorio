@@ -44,6 +44,22 @@ final class Installazione {
 	}
 
 	/**
+	 * I permessi da non riassegnare, secondo la versione da cui si aggiorna.
+	 *
+	 * Il permesso di annullare arriva una volta sola: all'installazione, con
+	 * nessuna versione memorizzata, e a chi aggiorna da una versione che non lo
+	 * aveva. Da `Permessi::DEFISSIONE_DAL` in poi una revoca
+	 * dell'amministrazione resta, e chi pubblica senza quel permesso non lo
+	 * riceve di nuovo.
+	 *
+	 * @param string $installata Versione memorizzata, stringa vuota se non c'e'.
+	 * @return array<int, string>
+	 */
+	public static function chiavi_escluse( string $installata ): array {
+		return '' !== $installata && version_compare( $installata, Permessi::DEFISSIONE_DAL, '>=' ) ? array( Permessi::CHIAVE_DEFISSIONE ) : array();
+	}
+
+	/**
 	 * Esegue il lavoro di installazione se la versione memorizzata e' diversa.
 	 *
 	 * @return bool Vero se il lavoro e' stato eseguito, falso se non serviva o non e' stato possibile.
@@ -67,16 +83,7 @@ final class Installazione {
 			return false;
 		}
 
-		/*
-		 * Il permesso di annullare arriva una volta sola: all'installazione e
-		 * a chi aggiorna da una versione che non lo aveva. Dopo, una revoca
-		 * dell'amministrazione resta, e chi pubblica senza quel permesso non
-		 * lo riceve di nuovo.
-		 */
-		$installata = self::versione_installata();
-		$escluse    = '' !== $installata && version_compare( $installata, Permessi::DEFISSIONE_DAL, '>=' ) ? array( Permessi::CHIAVE_DEFISSIONE ) : array();
-
-		$esito = Permessi::applica( null, $escluse );
+		$esito = Permessi::applica( null, self::chiavi_escluse( self::versione_installata() ) );
 
 		if ( is_wp_error( $esito ) ) {
 			return false;
