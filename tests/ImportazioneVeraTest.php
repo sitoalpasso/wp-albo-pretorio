@@ -2834,9 +2834,10 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$atti = $this->importati();
 		$id   = $atti['13']['id'];
 
-		clean_post_cache( $id );
-		$this->assertSame( ChiusuraPubblicazione::ANNULLATO, $atti['13']['stato'] );
+		// Prima dalla memoria, senza pulirla: l'importazione non deve lasciarci lo stato pubblicato.
 		$this->assertSame( ChiusuraPubblicazione::ANNULLATO, get_post_status( $id ), 'Annullato anche per chi legge dalla memoria.' );
+		$this->assertSame( ChiusuraPubblicazione::ANNULLATO, $atti['13']['stato'], 'Annullato nella banca dati.' );
+		clean_post_cache( $id );
 		$this->assertSame(
 			array(
 				'anno'   => 2041,
@@ -3217,5 +3218,93 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$this->assertSame( 0, $tentativi['diretta'], $caso . ': la riscrittura diretta non tocca niente.' );
 		$this->assertSame( ChiusuraPubblicazione::ANNULLATO, get_post_status( $id ), $caso . ': l\'atto e\' annullato.' );
 		$this->assertSame( '2041-10-16', conformita_core_fine_pubblicazione( $id ), $caso . ': la fine e\' quella di Albo Pretorio On line.' );
+	}
+
+	/**
+	 * A-233. Una data dell'annullamento presente ma impossibile nel backup: l'atto non si porta, come un conflitto.
+	 */
+	public function test_a233_data_dell_annullamento_illeggibile(): void {
+		$atti = array_map(
+			static function ( array $atto ): array {
+				if ( 13 === (int) $atto['IdAtto'] ) {
+					$atto['DataAnnullamento'] = '2041-02-30';
+				}
+
+				return $atto;
+			},
+			$this->atti_di_prova()
+		);
+
+		$stato = $this->importa_tutto( $this->backup_nella_cartella( $atti ), array( SchermataImportazione::CAMPO_CONFERMA_VISIBILI => '1' ) );
+
+		$this->assertArrayNotHasKey( '13', $this->importati(), 'L\'atto con la data illeggibile non si porta, ne\' pubblicato ne\' annullato.' );
+		$this->assertSame( array( '19/2041' ), $this->non_portati( $stato )['annullamento_non_leggibile'] ?? null );
+		$this->assertSame( array(), Repertorio::atti_numerati( 2041, 19 ) );
+		$this->assertSame( ChiusuraPubblicazione::ANNULLATO, $this->importati()['4']['stato'], 'Controllo positivo: l\'altro annullato si porta.' );
+		$this->assertSame( 'publish', $this->importati()['2']['stato'], 'Controllo positivo: l\'atto in corso si porta, con il valore vuoto del vecchio albo.' );
+	}
+
+	/**
+	 * A-231. La data del vecchio albo vale solo per l'annullamento portato dall'importazione.
+	 *
+	 * Una voce di annullamento con una data nei dettagli, scritta da un altro
+	 * componente su un atto non importato, con un'origine diversa, o con una
+	 * data dopo la voce stessa, si legge con l'istante della voce.
+	 */
+	public function test_a231_data_del_vecchio_albo_solo_dall_importazione(): void {
+		$casi = array(
+			'senza voce di importazione'  => array( null, '2041-10-03', Passaggi::ORIGINE_ANNULLAMENTO_IMPORTATO, false ),
+			'importazione con altra data' => array( '2041-10-02', '2041-10-03', Passaggi::ORIGINE_ANNULLAMENTO_IMPORTATO, false ),
+			'origine diversa'             => array( '2041-10-03', '2041-10-03', 'altro componente', false ),
+			'data dopo la voce'           => array( '2041-10-06', '2041-10-06', Passaggi::ORIGINE_ANNULLAMENTO_IMPORTATO, false ),
+			'tutto coerente'              => array( '2041-10-03', '2041-10-03', Passaggi::ORIGINE_ANNULLAMENTO_IMPORTATO, true ),
+		);
+
+		foreach ( $casi as $caso => list( $importato, $il, $origine, $vale ) ) {
+			$this->fissa_orologi( '2041-10-01 09:30:00' );
+
+			$id = $this->atto_in_verifica( 'normativo' );
+
+			$this->assertIsArray( $this->pubblica_da_codice( $id, $this->pubblicatore ), $caso . ': precondizione, pubblicato.' );
+			$this->fissa_orologi( '2041-10-05 10:00:00' );
+
+			if ( null !== $importato ) {
+				$this->assertIsInt(
+					conformita_core_registra_voce(
+						array(
+							'sezione'   => SEZIONE,
+							'azione'    => Passaggi::AZIONE_IMPORTAZIONE,
+							'contenuto' => $id,
+							'dettagli'  => array( 'annullamento' => $importato ),
+						)
+					),
+					$caso . ': precondizione, la voce di importazione.'
+				);
+			}
+
+			$voce = conformita_core_registra_voce(
+				array(
+					'sezione'     => SEZIONE,
+					'azione'      => Passaggi::AZIONE_ANNULLAMENTO,
+					'contenuto'   => $id,
+					'motivazione' => 'Scritta da un altro componente.',
+					'dettagli'    => array(
+						'annullato_il' => $il,
+						'origine'      => $origine,
+					),
+				)
+			);
+
+			$this->assertIsInt( $voce, $caso . ': precondizione, la voce.' );
+
+			$letta = Passaggi::annullamento( $id );
+
+			$this->assertSame( $vale, $letta['giorno'], $caso );
+			$this->assertSame(
+				$vale ? $il . ' 00:00:00' : $this->voci_di( $id, array( 'azione' => Passaggi::AZIONE_ANNULLAMENTO ) )[0]['istante'],
+				$letta['istante']->setTimezone( $vale ? wp_timezone() : new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' ),
+				$caso . ': la data letta.'
+			);
+		}
 	}
 }

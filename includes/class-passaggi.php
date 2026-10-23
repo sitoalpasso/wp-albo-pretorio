@@ -1109,10 +1109,9 @@ final class Passaggi {
 			return null;
 		}
 
-		$il     = $voci[0]['dettagli']['annullato_il'] ?? null;
-		$giorno = is_string( $il ) ? \DateTimeImmutable::createFromFormat( '!Y-m-d', $il, wp_timezone() ) : false;
+		$giorno = self::giorno_importato( $atto_id, $voci[0] );
 
-		if ( false !== $giorno && $giorno->format( 'Y-m-d' ) === $il ) {
+		if ( null !== $giorno ) {
 			return array(
 				'motivo'  => (string) $voci[0]['motivazione'],
 				'istante' => $giorno,
@@ -1125,6 +1124,46 @@ final class Passaggi {
 			'istante' => $voci[0]['istante'],
 			'giorno'  => false,
 		);
+	}
+
+	/**
+	 * Il giorno dell'annullamento in Albo Pretorio On line, se la voce e' quella scritta dall'importazione.
+	 *
+	 * Il dettaglio vale solo se la voce ne dichiara l'origine, se l'atto ha la
+	 * sua voce di importazione con la stessa data dell'annullamento, e se il
+	 * giorno non viene dopo la voce: un'altra voce con una data nei dettagli
+	 * si legge con il suo istante.
+	 *
+	 * @param int                  $atto_id Atto.
+	 * @param array<string, mixed> $voce    Voce dell'annullamento.
+	 * @return \DateTimeImmutable|null
+	 */
+	private static function giorno_importato( int $atto_id, array $voce ): ?\DateTimeImmutable {
+		$il = $voce['dettagli']['annullato_il'] ?? null;
+
+		if ( ! is_string( $il ) || self::ORIGINE_ANNULLAMENTO_IMPORTATO !== ( $voce['dettagli']['origine'] ?? null ) ) {
+			return null;
+		}
+
+		$giorno = \DateTimeImmutable::createFromFormat( '!Y-m-d', $il, wp_timezone() );
+
+		if ( false === $giorno || $giorno->format( 'Y-m-d' ) !== $il || $giorno > $voce['istante'] ) {
+			return null;
+		}
+
+		$importazione = conformita_core_voci_registro(
+			array(
+				'sezione'   => SEZIONE,
+				'contenuto' => $atto_id,
+				'azione'    => self::AZIONE_IMPORTAZIONE,
+			)
+		);
+
+		if ( ! is_array( $importazione ) || 1 !== count( $importazione ) || $il !== ( $importazione[0]['dettagli']['annullamento'] ?? null ) ) {
+			return null;
+		}
+
+		return $giorno;
 	}
 
 	/**

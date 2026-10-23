@@ -114,4 +114,11 @@ nella schermata "Atti scaduti" e controllare data e motivo col vecchio albo.
 - Le prove dell'importazione vera che contavano gli atti portati sono cambiate di
   conseguenza: otto atti con le due conferme, due atti in vista invece di uno, e gli atti 4
   e 13 annullati invece che pubblicati.
+- Primo giro di revisione: una data dell'annullamento scritta ma impossibile nel backup
+  passava come "non annullato" e l'atto arrivava pubblicato con i documenti. Ora è un
+  conflitto e l'atto non si porta. La data dei dettagli vale solo se la voce viene davvero
+  dall'importazione (origine, voce di importazione con la stessa data, giorno non dopo la
+  voce). Un aggancio che conferma da sé la transazione a metà del passaggio resta fuori da
+  questa unità: è il limite dichiarato in testa a `class-passaggi.php`, comune a tutti i
+  passaggi.
 

@@ -818,6 +818,21 @@ final class AnalisiImportazione {
 			);
 		}
 
+		// Una data dell'annullamento scritta ma impossibile non vale come "non annullato": l'atto si porterebbe pubblicato.
+		$annullo_grezzo = trim( (string) ( $riga['DataAnnullamento'] ?? '' ) );
+
+		if ( null === $annullo && '' !== $annullo_grezzo && 0 !== strpos( $annullo_grezzo, '0000-00-00' ) ) {
+			$segnala[] = self::segnalazione(
+				'conflitto',
+				'annullamento_non_leggibile',
+				sprintf(
+					/* translators: %s: data dell'annullamento come scritta nel backup. */
+					__( 'La data dell\'annullamento scritta in Albo Pretorio On line (%s) non e\' una data valida: non si sa se e quando l\'atto e\' stato annullato. Si corregge in Albo Pretorio On line e si rilegge il backup.', 'albo-pretorio-pa' ),
+					(string) wp_check_invalid_utf8( $annullo_grezzo, true )
+				)
+			);
+		}
+
 		// Date, durata e visibilita'.
 		self::date( $atto, $riga, $indici, $contesto, $segnala, $annullo );
 

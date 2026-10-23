@@ -266,6 +266,7 @@ final class Importazione {
 			'documenti_non_verificabili'   => __( 'documenti non verificabili: serve l\'archivio zip del backup', 'albo-pretorio-pa' ),
 			'file_mancante'                => __( 'un file non c\'e\' nell\'archivio', 'albo-pretorio-pa' ),
 			'impronta_diversa'             => __( 'un file non e\' quello caricato in Albo Pretorio On line', 'albo-pretorio-pa' ),
+			'annullamento_non_leggibile'   => __( 'data dell\'annullamento non valida in Albo Pretorio On line', 'albo-pretorio-pa' ),
 			'per_estratto'                 => __( 'documento pubblicato per estratto', 'albo-pretorio-pa' ),
 			'fine_assente'                 => __( 'data di fine assente', 'albo-pretorio-pa' ),
 			'inizio_futuro'                => __( 'inizio della pubblicazione nel futuro', 'albo-pretorio-pa' ),
