@@ -67,7 +67,16 @@ final class Installazione {
 			return false;
 		}
 
-		$esito = Permessi::applica();
+		/*
+		 * Il permesso di annullare arriva una volta sola: all'installazione e
+		 * a chi aggiorna da una versione che non lo aveva. Dopo, una revoca
+		 * dell'amministrazione resta, e chi pubblica senza quel permesso non
+		 * lo riceve di nuovo.
+		 */
+		$installata = self::versione_installata();
+		$escluse    = '' !== $installata && version_compare( $installata, Permessi::DEFISSIONE_DAL, '>=' ) ? array( Permessi::CHIAVE_DEFISSIONE ) : array();
+
+		$esito = Permessi::applica( null, $escluse );
 
 		if ( is_wp_error( $esito ) ) {
 			return false;

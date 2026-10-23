@@ -92,6 +92,18 @@ final class Permessi {
 	const PERMESSO_DEFISSIONE = 'albo_pretorio_defissione_atto_albo';
 
 	/**
+	 * La versione del componente che ha portato il permesso di annullare.
+	 *
+	 * Il permesso si assegna all'installazione e all'aggiornamento da una
+	 * versione precedente, e non piu' dopo: e' quello che un ente puo' togliere
+	 * a chi pubblica per riservarlo a un responsabile, e un aggiornamento
+	 * successivo non deve ridarlo.
+	 *
+	 * @var string
+	 */
+	const DEFISSIONE_DAL = '0.6.0-alpha';
+
+	/**
 	 * Chi pubblica: tutto quello che fa chi redige, piu' l'esposizione, piu'
 	 * la lettura del registro, dove trova i motivi dei rimandi in bozza, piu'
 	 * l'annullamento.
@@ -185,10 +197,15 @@ final class Permessi {
 	 * possiede solo quello per redigere riceve l'insieme di chi redige. Cosi'
 	 * completare i permessi mancanti non promuove nessuno.
 	 *
+	 * Le chiavi escluse non si assegnano a nessun ruolo: servono ai permessi
+	 * che arrivano una volta sola, con la versione che li introduce, e che
+	 * l'amministrazione puo' poi togliere (`DEFISSIONE_DAL`).
+	 *
 	 * @param array<string, array<int, string>>|null $assegnazioni Ruoli e insiemi da assegnare, oppure quelli del componente.
+	 * @param array<int, string>                     $escluse      Chiavi da non assegnare in questo giro.
 	 * @return true|\WP_Error
 	 */
-	public static function applica( ?array $assegnazioni = null ) {
+	public static function applica( ?array $assegnazioni = null, array $escluse = array() ) {
 		$mappa = self::mappa();
 
 		if ( is_wp_error( $mappa ) ) {
@@ -215,6 +232,8 @@ final class Permessi {
 		$toccati  = array();
 
 		foreach ( $assegnazioni as $ruolo => $chiavi ) {
+			$chiavi = array_values( array_diff( $chiavi, $escluse ) );
+
 			if ( null === get_role( (string) $ruolo ) ) {
 				return self::non_scritti( (string) $ruolo, '' );
 			}
@@ -236,14 +255,16 @@ final class Permessi {
 			}
 
 			if ( $oggetto->has_cap( $mappa['publish_posts'] ) ) {
-				self::concedi( (string) $nome, self::CHIAVI_PUBBLICAZIONE, $mappa, $archivio );
-
-				$toccati[ (string) $nome ] = self::CHIAVI_PUBBLICAZIONE;
+				$chiavi = array_values( array_diff( self::CHIAVI_PUBBLICAZIONE, $escluse ) );
 			} elseif ( $oggetto->has_cap( $mappa['edit_posts'] ) ) {
-				self::concedi( (string) $nome, self::CHIAVI_REDAZIONE, $mappa, $archivio );
-
-				$toccati[ (string) $nome ] = self::CHIAVI_REDAZIONE;
+				$chiavi = array_values( array_diff( self::CHIAVI_REDAZIONE, $escluse ) );
+			} else {
+				continue;
 			}
+
+			self::concedi( (string) $nome, $chiavi, $mappa, $archivio );
+
+			$toccati[ (string) $nome ] = $chiavi;
 		}
 
 		/*

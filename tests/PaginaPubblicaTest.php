@@ -2278,26 +2278,45 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	public function test_a227_annullato_fino_alla_scadenza(): void {
 		$this->pagina_albo();
 
-		$scelte = array(
-			DatiProcedimento::RESPONSABILE => DatiProcedimento::NON_USA,
-			DatiProcedimento::UFFICIO      => DatiProcedimento::NON_USA,
-			DatiProcedimento::RICHIEDENTE  => DatiProcedimento::USA,
+		// Tutti e tre i dati del procedimento si chiedono e si mostrano: dopo l'annullamento nessuno deve uscire.
+		$scelte = array_fill_keys( DatiProcedimento::DATI, DatiProcedimento::USA );
+		$this->assertTrue( DatiProcedimento::salva( $scelte, 'Anna Bianchi', 'Ufficio tecnico', $this->pubblicatore, Passaggi::ora() ), 'Precondizione: i tre dati si mostrano.' );
+
+		$procedimento = array(
+			'meta_input' => array(
+				DatiProcedimento::meta( DatiProcedimento::RESPONSABILE ) => 'Anna Bianchi',
+				DatiProcedimento::meta( DatiProcedimento::UFFICIO )      => 'Ufficio tecnico',
+				DatiProcedimento::meta( DatiProcedimento::RICHIEDENTE )  => 'Mario Rossi',
+			),
 		);
-		$this->assertTrue( DatiProcedimento::salva( $scelte, '', '', $this->pubblicatore, Passaggi::ora() ), 'Precondizione: il richiedente si mostra.' );
 
 		$scaduto   = $this->pubblicato_il( '2041-09-01 09:30:00', 'Atto scaduto di riferimento' );
-		$atto      = $this->pubblicato_il( '2041-10-01 09:30:00', 'Graduatoria annullata di prova', 'normativo', array( 'Mario-Rossi-domanda.pdf' ), null, array( 'meta_input' => array( DatiProcedimento::meta( DatiProcedimento::RICHIEDENTE ) => 'Mario Rossi' ) ) );
+		$atto      = $this->pubblicato_il( '2041-10-01 09:30:00', 'Graduatoria annullata di prova', 'normativo', array( 'Mario-Rossi-domanda.pdf' ), null, $procedimento );
 		$controllo = $this->pubblicato_il( '2041-10-02 09:30:00', 'Atto di controllo' );
 		$documenti = array_merge( array( (int) DocumentiAtto::principale( $atto ) ), DocumentiAtto::ulteriori( $atto ) );
 		$numero    = Repertorio::di( $atto );
 
 		$this->assertIsArray( $numero );
 		$this->assertCount( 2, $documenti, 'Precondizione: un principale e un allegato.' );
-		$this->assertSame( array( 'Richiedente della pubblicazione' => 'Mario Rossi' ), DatiProcedimento::da_mostrare( $atto ), 'Precondizione: prima dell\'annullamento il richiedente si mostra.' );
+		$this->assertSame(
+			array(
+				'Responsabile del procedimento'   => 'Anna Bianchi',
+				'Ufficio'                         => 'Ufficio tecnico',
+				'Richiedente della pubblicazione' => 'Mario Rossi',
+			),
+			DatiProcedimento::da_mostrare( $atto ),
+			'Precondizione: prima dell\'annullamento i tre dati si mostrano.'
+		);
 
 		$this->fissa_orologi( '2041-10-05 09:00:00' );
 		wp_set_current_user( 0 );
 		$this->assertTrue( $this->consegnato( $this->consegna( $documenti[0] ) ), 'Precondizione: prima dell\'annullamento il documento si scarica.' );
+
+		$prima = (string) $this->pagina_disegnata( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $atto ) ) );
+
+		foreach ( array( 'Anna Bianchi', 'Responsabile del procedimento', 'Ufficio tecnico', '<dt>Ufficio</dt>', 'Mario Rossi', 'Richiedente' ) as $testo ) {
+			$this->assertStringContainsString( $testo, $prima, 'Precondizione: prima dell\'annullamento la scheda mostra ' . $testo . '.' );
+		}
 
 		$this->annullato_il( $atto, '2041-10-05 10:00:00', 'Graduatoria con un dato personale di troppo, si ripubblica oscurata.' );
 		$this->fissa_orologi( '2041-10-06 11:00:00' );
@@ -2340,8 +2359,9 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			$this->assertStringContainsString( '<dt>Data di adozione</dt><dd>10/09/2041</dd>', $scheda );
 			$this->assertStringContainsString( '<dt>Pubblicato dal</dt><dd>01/10/2041</dd></div><div class="albo-pretorio__dato"><dt>Fino al</dt><dd>16/10/2041</dd>', $scheda );
 			$this->assertStringContainsString( '<dt>Annullato il</dt><dd>05/10/2041</dd></div><div class="albo-pretorio__dato"><dt>Motivo dell&#039;annullamento</dt><dd>Graduatoria con un dato personale di troppo, si ripubblica oscurata.</dd>', $scheda );
-			$this->assertStringNotContainsString( 'Mario Rossi', $scheda, $chi . ': il richiedente non si mostra.' );
-			$this->assertStringNotContainsString( 'Richiedente', $scheda );
+			foreach ( array( 'Anna Bianchi', 'Responsabile del procedimento', 'Ufficio tecnico', '<dt>Ufficio</dt>', 'Mario Rossi', 'Richiedente' ) as $testo ) {
+				$this->assertStringNotContainsString( $testo, $scheda, $chi . ': i dati del procedimento non si mostrano (' . $testo . ').' );
+			}
 			$this->assertStringNotContainsString( 'Mario-Rossi', $scheda );
 			$this->assertStringNotContainsString( 'albo-pretorio__documenti', $scheda, $chi . ': nessun elenco dei documenti.' );
 			$this->assertStringNotContainsString( 'Documento principale', $scheda );

@@ -187,3 +187,9 @@ A-193, per un motivo dell'ambiente che su GitHub non si presenta). Rispetto al p
   senza, un altro componente poteva riscrivere la data di fine dopo il controllo e prima
   della conferma. La prova nuova di A-229 lo riproduceva prima della correzione. A-225 prova
   anche il gettone vero dello stesso atto ma scaduto, oltre a quello inventato.
+- **Secondo giro di revisione.** Il permesso di annullare si assegna una volta sola:
+  all'installazione e a chi aggiorna da una versione che non lo aveva. Prima ogni
+  aggiornamento lo ridava a chi pubblica, e un ente che lo avesse tolto per riservarlo a un
+  responsabile se lo sarebbe ritrovato. Gli altri permessi restano assegnati a ogni
+  aggiornamento come prima. A-227 chiede e mostra tutti e tre i dati del procedimento, e
+  verifica che la scheda li mostri prima dell'annullamento e non dopo.

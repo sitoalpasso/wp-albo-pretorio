@@ -881,6 +881,36 @@ class AnnullamentoTest extends \WP_UnitTestCase {
 		$this->assertFalse( get_role( 'albo_prova_redige' )->has_cap( $permesso ), 'Chi redige non lo riceve.' );
 		$this->assertFalse( user_can( $this->redattore, $permesso ), 'Nemmeno l\'utente che redige.' );
 
+		/*
+		 * Arrivato il permesso, l'ente lo toglie a chi non deve annullare, per
+		 * riservarlo a un responsabile. Un aggiornamento successivo non deve
+		 * ridarlo: la versione memorizzata e' gia' quella che lo ha portato, o
+		 * una dopo. Chi lo ha ancora lo conserva, e chi pubblica continua a
+		 * pubblicare.
+		 */
+		foreach ( array( RUOLO, 'albo_prova_pubblica' ) as $ruolo ) {
+			get_role( $ruolo )->remove_cap( $permesso );
+		}
+
+		$pubblicatore_senza = self::factory()->user->create( array( 'role' => 'albo_prova_pubblica' ) );
+		$atto               = $this->pubblicato_il();
+
+		foreach ( array( Permessi::DEFISSIONE_DAL, '0.6.1' ) as $memorizzata ) {
+			update_option( \AlboPretorioPa\OPZIONE_VERSIONE, $memorizzata );
+
+			if ( \AlboPretorioPa\VERSIONE !== $memorizzata ) {
+				$this->assertTrue( Installazione::aggiorna_se_serve(), $memorizzata . ': precondizione, l\'aggiornamento gira.' );
+			}
+
+			foreach ( array( RUOLO, 'albo_prova_pubblica' ) as $ruolo ) {
+				$this->assertFalse( get_role( $ruolo )->has_cap( $permesso ), $memorizzata . ', ' . $ruolo . ': la revoca dell\'ente resta.' );
+				$this->assertTrue( get_role( $ruolo )->has_cap( (string) $mappa['publish_posts'] ), $memorizzata . ', ' . $ruolo . ': continua a pubblicare.' );
+			}
+
+			$this->assertTrue( get_role( 'administrator' )->has_cap( $permesso ), $memorizzata . ': l\'amministratore lo conserva.' );
+			$this->assertSame( array( 'albo_annullamento_non_permesso' ), $this->codici( $this->annulla( $atto, $pubblicatore_senza ) ), $memorizzata . ': chi pubblica senza il permesso non annulla.' );
+		}
+
 		remove_role( 'albo_prova_pubblica' );
 		remove_role( 'albo_prova_redige' );
 	}
