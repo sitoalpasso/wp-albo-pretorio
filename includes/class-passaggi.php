@@ -83,6 +83,13 @@ final class Passaggi {
 	const AZIONE_IMPORTAZIONE = 'importazione';
 
 	/**
+	 * Azione della voce di registro dell'annullamento, con il suo motivo.
+	 *
+	 * @var string
+	 */
+	const AZIONE_ANNULLAMENTO = 'annullamento';
+
+	/**
 	 * Le chiavi che una richiesta di pubblicazione puo' portare.
 	 *
 	 * Le due date sono ammesse come chiavi solo per poter essere rifiutate o
@@ -193,6 +200,18 @@ final class Passaggi {
 	}
 
 	/**
+	 * Se il passaggio in corso su questo atto e' un annullamento.
+	 *
+	 * E' l'unico passaggio che parte da un atto pubblicato.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return bool
+	 */
+	public static function annullamento_in_corso( int $atto_id ): bool {
+		return isset( self::$in_corso[ $atto_id ] ) && self::AZIONE_ANNULLAMENTO === self::$in_corso[ $atto_id ]['tipo'];
+	}
+
+	/**
 	 * Gli atti con un passaggio in corso.
 	 *
 	 * @return array<int, int>
@@ -280,7 +299,7 @@ final class Passaggi {
 	 * @param int                   $atto_id Atto.
 	 * @param array<string, string> $campi   Campi della scrittura: lo stato, pubblicato o bozza, e per la pubblicazione le date.
 	 * @param string|null           $fine    Data di fine che la pubblicazione scrive.
-	 * @param string                $tipo    `pubblicazione`, `rimando` o `proroga`.
+	 * @param string                $tipo    `pubblicazione`, `rimando`, `proroga`, `importazione` o `annullamento`.
 	 */
 	private static function inizia( int $atto_id, array $campi, ?string $fine, string $tipo ): void {
 		self::$in_corso[ $atto_id ] = array(
@@ -823,6 +842,249 @@ final class Passaggi {
 		}
 
 		return self::dopo_la_chiusura( $atto_id, $esito );
+	}
+
+	/**
+	 * Annulla un atto pubblicato, con il suo motivo (ALBO-22).
+	 *
+	 * L'atto resta nel registro con il suo numero e le sue date, e da qui non
+	 * cambia piu': annullato e' terminale. Fino alla data di fine il pubblico
+	 * ne vede l'avviso, senza documenti; dopo, sparisce come ogni atto
+	 * scaduto. Si annulla anche un atto gia' scaduto: la scadenza e' una
+	 * proprieta' della data letta e non cambia il passaggio.
+	 *
+	 * @param int   $atto_id Atto.
+	 * @param mixed $motivo  Motivo dell'annullamento, testo non vuoto.
+	 * @return int|\WP_Error Numero della voce di registro con il motivo, oppure errore.
+	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
+	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento delle scritture non e' riuscito, o se un altro componente solleva un'eccezione dopo la conferma; con l'eccezione come causa.
+	 */
+	public static function annulla_atto( int $atto_id, $motivo ) {
+		if ( self::occupato() ) {
+			return self::errore_annidato();
+		}
+
+		self::svuota_memoria( $atto_id );
+
+		$atto = get_post( $atto_id );
+
+		if ( ! TipoAtto::tipo_nostro() || ! $atto instanceof \WP_Post || TIPO !== $atto->post_type ) {
+			return new \WP_Error(
+				'albo_non_un_atto',
+				__( 'Il contenuto indicato non e\' un atto dell\'albo.', 'albo-pretorio-pa' )
+			);
+		}
+
+		if ( ChiusuraPubblicazione::ANNULLATO === $atto->post_status ) {
+			return new \WP_Error(
+				'albo_atto_gia_annullato',
+				__( 'L\'atto e\' gia\' annullato: annullato e\' terminale, e il motivo resta quello registrato.', 'albo-pretorio-pa' )
+			);
+		}
+
+		if ( ChiusuraPubblicazione::PUBBLICATO !== $atto->post_status ) {
+			return new \WP_Error(
+				'albo_atto_non_pubblicato',
+				__( 'L\'atto non si annulla: si annulla soltanto un atto pubblicato. Una bozza si corregge, un atto in verifica si rimanda in bozza.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$numero = Repertorio::di( $atto_id );
+
+		if ( null === $numero ) {
+			return new \WP_Error(
+				'albo_atto_senza_numero',
+				__( 'L\'atto non si annulla: non risulta un numero di registro, quindi non e\' stato pubblicato dal passaggio dell\'albo, oppure la numerazione non risponde in questo momento.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$mappa = Permessi::mappa();
+
+		if ( is_wp_error( $mappa ) || ! isset( $mappa[ Permessi::CHIAVE_DEFISSIONE ] ) || ! current_user_can( $mappa[ Permessi::CHIAVE_DEFISSIONE ] ) ) {
+			return new \WP_Error(
+				'albo_annullamento_non_permesso',
+				__( 'L\'atto resta pubblicato: per annullarlo serve il permesso di annullare e defiggere gli atti, e non si possiede.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$motivo = is_string( $motivo ) ? trim( sanitize_textarea_field( $motivo ) ) : '';
+
+		if ( '' === $motivo ) {
+			return new \WP_Error(
+				'albo_motivo_mancante',
+				__( 'L\'atto resta pubblicato: per annullarlo serve il motivo, che finisce nel registro delle modifiche e che il pubblico legge accanto all\'atto fino alla sua data di fine.', 'albo-pretorio-pa' )
+			);
+		}
+
+		// L'atto come i controlli lo leggono: sotto il blocco della transazione dovra' essere ancora questo.
+		$partenza = self::fotografia( $atto_id );
+
+		if ( null === $partenza ) {
+			return self::errore_annullamento( self::errore_lettura() );
+		}
+
+		$tabelle = self::tabelle_senza_transazioni();
+
+		if ( array() !== $tabelle ) {
+			return self::errore_annullamento( self::errore_tabelle( $tabelle ) );
+		}
+
+		$prima = self::voci_automatiche( $atto_id, 'rimozione' );
+
+		if ( is_wp_error( $prima ) ) {
+			return self::errore_annullamento( $prima );
+		}
+
+		$fine  = conformita_core_fine_pubblicazione( $atto_id );
+		$campi = array( 'post_status' => ChiusuraPubblicazione::ANNULLATO );
+		$voce  = array(
+			'sezione'     => SEZIONE,
+			'azione'      => self::AZIONE_ANNULLAMENTO,
+			'contenuto'   => $atto_id,
+			'motivazione' => $motivo,
+			'dettagli'    => array(
+				'anno'   => (int) $numero['anno'],
+				'numero' => (int) $numero['numero'],
+				'fine'   => is_string( $fine ) ? $fine : null,
+			),
+			'chiave'      => SEZIONE . ':' . self::AZIONE_ANNULLAMENTO . ':' . $atto_id,
+		);
+
+		self::inizia( $atto_id, $campi, null, self::AZIONE_ANNULLAMENTO );
+
+		try {
+			$esito = self::annulla_dentro( $atto_id, $campi, $voce, $partenza, $prima );
+		} finally {
+			unset( self::$in_corso[ $atto_id ] );
+		}
+
+		return self::dopo_la_chiusura( $atto_id, is_wp_error( $esito ) ? self::errore_annullamento( $esito ) : $esito );
+	}
+
+	/**
+	 * La voce dell'annullamento di un atto: motivo e istante, o nulla se il registro non la da'.
+	 *
+	 * Il motivo che il pubblico legge viene dal registro e non da un dato
+	 * dell'atto: il registro e' solo in aggiunta, e una seconda copia
+	 * sull'atto sarebbe un dato in piu' da difendere.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return array{motivo: string, istante: \DateTimeImmutable}|null
+	 */
+	public static function annullamento( int $atto_id ): ?array {
+		$voci = conformita_core_voci_registro(
+			array(
+				'sezione'   => SEZIONE,
+				'contenuto' => $atto_id,
+				'azione'    => self::AZIONE_ANNULLAMENTO,
+			)
+		);
+
+		if ( ! is_array( $voci ) || 1 !== count( $voci ) || ! isset( $voci[0]['motivazione'], $voci[0]['istante'] ) || ! $voci[0]['istante'] instanceof \DateTimeImmutable ) {
+			return null;
+		}
+
+		return array(
+			'motivo'  => (string) $voci[0]['motivazione'],
+			'istante' => $voci[0]['istante'],
+		);
+	}
+
+	/**
+	 * Le scritture dell'annullamento, dentro la transazione.
+	 *
+	 * @param int                   $atto_id  Atto.
+	 * @param array<string, string> $campi    Stato.
+	 * @param array<string, mixed>  $voce     Voce del registro con il motivo.
+	 * @param array<string, mixed>  $partenza Fotografia di partenza.
+	 * @param int                   $prima    Voci della rimozione prima.
+	 * @return int|\WP_Error
+	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
+	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento delle scritture non e' riuscito, con l'eccezione come causa.
+	 */
+	private static function annulla_dentro( int $atto_id, array $campi, array $voce, array $partenza, int $prima ) {
+		$apertura = self::apri();
+
+		if ( is_wp_error( $apertura ) ) {
+			return $apertura;
+		}
+
+		try {
+			$esito = self::blocca( $atto_id, $partenza );
+
+			if ( ! is_wp_error( $esito ) ) {
+				$esito = self::scrivi_stato( $atto_id, $campi );
+			}
+
+			if ( ! is_wp_error( $esito ) ) {
+				$esito = self::controlla_voce_automatica( $atto_id, 'rimozione', $prima );
+			}
+
+			if ( ! is_wp_error( $esito ) ) {
+				$esito = self::scrivi_voce( $voce );
+			}
+
+			// Finite le scritture, prima del controllo e della conferma: niente piu' e' concesso.
+			self::revoca_concessioni();
+
+			if ( ! is_wp_error( $esito ) ) {
+				$controllo = self::controlla_invariato( $atto_id, $partenza, $campi, null );
+				$esito     = is_wp_error( $controllo ) ? $controllo : $esito;
+			}
+
+			if ( is_wp_error( $esito ) ) {
+				$annullato = self::annulla( $apertura, $atto_id );
+
+				return is_wp_error( $annullato ) ? $annullato : $esito;
+			}
+
+			$chiusura = self::chiudi( $apertura, $atto_id );
+
+			if ( is_wp_error( $chiusura ) ) {
+				return $chiusura;
+			}
+		} catch ( \Throwable $errore ) {
+			$annullato = self::annulla( $apertura, $atto_id );
+
+			if ( is_wp_error( $annullato ) ) {
+				throw new \RuntimeException( esc_html( $annullato->get_error_message() ), 0, $errore ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- gia' sfuggito.
+			}
+
+			throw $errore;
+		}
+
+		return (int) $esito;
+	}
+
+	/**
+	 * Il rifiuto di un annullamento non riuscito, con il motivo vero fra gli altri.
+	 *
+	 * Le difese comuni ai passaggi parlano di un atto in verifica, da cui
+	 * partono gli altri passaggi: qui il primo messaggio dice che l'atto e'
+	 * rimasto pubblicato, e il motivo vero resta leggibile con il suo codice.
+	 * L'annullamento delle scritture che non e' riuscito resta il primo: lo
+	 * stato dell'atto non e' garantito.
+	 *
+	 * @param \WP_Error $motivo Motivo.
+	 * @return \WP_Error
+	 */
+	private static function errore_annullamento( \WP_Error $motivo ): \WP_Error {
+		if ( 'albo_annullamento_non_riuscito' === $motivo->get_error_code() ) {
+			return $motivo;
+		}
+
+		$errore = new \WP_Error(
+			'albo_atto_non_annullato',
+			__( 'L\'atto resta pubblicato e com\'era: una delle scritture dell\'annullamento non e\' riuscita, e tutto e\' tornato come prima.', 'albo-pretorio-pa' )
+		);
+
+		foreach ( $motivo->get_error_codes() as $codice ) {
+			foreach ( $motivo->get_error_messages( $codice ) as $messaggio ) {
+				$errore->add( $codice, $messaggio );
+			}
+		}
+
+		return $errore;
 	}
 
 	/**

@@ -24,9 +24,10 @@ lì e resta una scelta separata.
 > riquadro **Documenti dell'atto**, e si cambiano solo in bozza. Esistono lo stato governato
 > fino a pubblicato, le date di inizio e di fine scritte dal sistema alla pubblicazione, il
 > numero di repertorio preso in quel momento, la conferma del controllo sui dati personali e
-> il motivo del rimando in bozza, questi ultimi due come voci del registro delle modifiche.
-> Non esistono ancora la durata propria, l'amministrazione ospitata, i motivi di annullamento
-> e di defissione anticipata e l'effetto della rimozione. La tabella descrive il perimetro
+> il motivo del rimando in bozza, questi ultimi due come voci del registro delle modifiche,
+> e l'annullamento con il suo motivo, anch'esso nel registro. Non esistono ancora la durata
+> propria, l'amministrazione ospitata, il motivo di defissione anticipata e l'effetto della
+> rimozione. La tabella descrive il perimetro
 > deciso, non la disponibilità.
 
 | Dato | Obbligatorio | Dove sta | Chi lo scrive |
@@ -52,7 +53,7 @@ lì e resta una scelta separata.
 | File da togliere della bozza importata | solo per le bozze dell'importazione che non si sono cancellate | metadato protetto `_albo_pretorio_importazione_file_da_togliere`: percorsi dei file dei documenti della bozza, uno per valore, scritti prima di cancellare i documenti | **solo il sistema**, alla cancellazione di una bozza importata (ALBO-35). Se un documento o un file non se ne va, la bozza resta e ricorda dove sono i file; il rilancio li toglie, solo dentro la cartella protetta, e poi cancella la bozza |
 | Documenti da togliere della bozza importata | solo per le bozze dell'importazione che non si sono cancellate | metadato protetto `_albo_pretorio_importazione_documenti_da_togliere`: identificativi dei documenti della bozza, uno per valore, scritti prima di cancellarli | **solo il sistema**, alla cancellazione di una bozza importata (ALBO-35). Ritrova un documento rimasto a metà della cancellazione, che ha perso la marca del meccanismo comune |
 | Importazione | solo per gli atti importati | voce del registro delle modifiche, azione `importazione`, scritta nella stessa transazione del passaggio a pubblicato: numero, anno, inizio, fine, origine, backup e sua impronta, durata in giorni con l'origine `date_scritte_in_albo_pretorio_on_line`, annullamento e motivo, dubbi portati, conferma sui dati personali, principale da scegliere, titoli, ruoli e impronte dei file | **solo il sistema**, all'importazione, a nome di chi importa |
-| Motivo di annullamento | quando ricorre | metadato più voce di registro | chi possiede `defissione atti`, che oggi fa parte dell'insieme di chi pubblica. Obbligatorio: senza, il passaggio è rifiutato |
+| Motivo di annullamento | quando ricorre | **solo** voce di registro, azione `annullamento`, scritta nella stessa transazione del passaggio ad annullato: motivo ripulito, chi e quando, e nei dettagli numero, anno e fine. Nessun metadato: la data e il motivo che la pagina pubblica, il riquadro e la consultazione riservata mostrano si rileggono da quella voce | chi possiede `defissione atti` (`albo_pretorio_defissione_atto_albo`), che oggi fa parte dell'insieme di chi pubblica. Obbligatorio: senza, il passaggio è rifiutato |
 | Motivo di defissione anticipata | quando ricorre | metadato più voce di registro | **non è testo libero**: è una causa scelta da un elenco chiuso, perché accorciare il termine di un atto regolare non è consentito (art. 124 del TUEL; l'art. 134 offre un argomento interpretativo e non disciplina gli effetti di un'interruzione). L'elenco è chiuso per scelta di prodotto, ampliabile per configurazione: le fonti dicono quali cause sono pacifiche, non che altre non possano esistere. Resta **in via provvisoria** su un solo fronte, cioè se la defissione anticipata vada riservata a un responsabile distinto, e la capability separata è ciò che permetterà di riservarla senza toccare il codice |
 | Effetto della rimozione sul periodo | quando ricorre, cioè solo dopo una defissione anticipata | voce di registro | chi possiede `defissione atti`. **Lo decide l'amministrazione, non il componente**: le fonti impongono che la diffusione vietata cessi e tacciono su che cosa ne sia dell'adempimento, quindi il componente non lo calcola e non lo presume. È una scelta fra due valori, **la pubblicazione vale per il periodo trascorso** oppure **la pubblicazione va rifatta**, senza valore preselezionato. **La rimozione non la aspetta**: si rende insieme alla defissione anticipata oppure dopo, una volta sola, e non si cambia. Finché manca, il referto dice che non è stata dichiarata (ALBO-07). Nessuno dei due valori tocca date, stato, numero di repertorio o visibilità, e "va rifatta" non crea da sé un atto nuovo: la nuova pubblicazione è un atto nuovo con il suo numero. Non si rende dove non c'è stata una rimozione anticipata: non dopo la scadenza naturale, non dopo una sola sostituzione per oscuramento, dove il conteggio non riparte per scelta di prodotto (ALBO-12). Si lega all'evento della defissione anticipata registrato e non allo stato del momento, quindi resta possibile dopo un annullamento; il compito pianificato non la tocca. Non chiede un perché: basta il valore |
 | Scelta sui giorni festivi ed elenco dei festivi | sì per pubblicare e prorogare | opzione del sito `albo_pretorio_festivi`, un solo valore con scelta (`acceso` o `spento`), elenco controllato, utente e istante del salvataggio; una forma diversa vale come scelta non fatta | chi pubblica, dalla schermata **Giorni festivi** (ALBO-32). Non è un dato dell'atto: vale al momento del calcolo della fine |
@@ -89,11 +90,18 @@ la rimozione comporti per l'adempimento, se valga il periodo trascorso o se la p
 vada rifatta, lo dichiara l'amministrazione, anche dopo, e il registro lo conserva: il
 componente non lo calcola (decisione del 2026-09-23).
 
-Tre sotto-decisioni restano aperte e sono marcate nella nota: se un atto annullato prima
-della scadenza resti visibile al pubblico; chi disponga la defissione anticipata, che qui
-è attribuita a chi pubblica in via provvisoria; e se il giorno civile basti come
-granularità del termine, o serva chiedere al meccanismo comune qualcosa di più fine. Una
-quarta, su quali cause legittimino la defissione anticipata, è chiusa il 2026-09-22
+**L'annullato è uno stato vero della banca dati**, `albo_annullato`, non pubblico: per
+questo la consegna dei documenti del meccanismo comune li rifiuta da sola, anche con il tipo
+aperto da un altro componente. La pagina pubblica dell'albo lo mostra comunque fino alla
+scadenza, con numero, oggetto, data e motivo dell'annullamento e senza documenti
+(sotto-decisione 1, chiusa il 2026-10-22 con "Solo l'avviso"); dalla mezzanotte del giorno
+dopo la fine sparisce come ogni altro atto. Lo stato è terminale e l'atto non si cancella.
+
+Due sotto-decisioni restano aperte e sono marcate nella nota: chi disponga la defissione
+anticipata, che qui è attribuita a chi pubblica in via provvisoria; e se il giorno civile
+basti come granularità del termine, o serva chiedere al meccanismo comune qualcosa di più
+fine. Altre due sono chiuse: che cosa il pubblico veda di un annullato, il 2026-10-22, e
+quali cause legittimino la defissione anticipata, il 2026-09-22
 sull'art. 124 del TUEL, con l'art. 134 come argomento interpretativo e non come disciplina
 degli effetti di un'interruzione: il termine di un atto regolare non si accorcia, e la
 restrizione ha la sua riga di collaudo.
@@ -173,8 +181,8 @@ l'avvenuta pubblicazione, non i permessi. **Il venir meno della consultabilità 
 della richiesta, mai dallo stato memorizzato, come è fissato più sopra. Le due frasi non si
 contraddicono perché parlano di due momenti diversi: un atto non ancora pubblicato non è mai
 arrivato al pubblico, un atto scaduto ne esce per effetto della data e non perché qualcuno
-abbia scritto "defisso". Che cosa il pubblico veda di un atto **annullato** prima della
-scadenza resta la sotto-decisione aperta, e non la decide questo paragrafo.
+abbia scritto "defisso". Un atto **annullato** prima della scadenza resta in vista fino
+alla sua scadenza come avviso, senza documenti, come detto più sopra.
 
 Questa è la mappa delle azioni:
 
@@ -182,7 +190,7 @@ Questa è la mappa delle azioni:
 |---|---|---|
 | Creare e modificare bozze | gestione atti | |
 | Pubblicare (con controllo dati personali), rimandare in bozza | pubblicazione atti | la conferma e il motivo del rimando restano registrati con nome e istante |
-| Defissione anticipata, annullamento, dichiarazione dell'effetto della rimozione sul periodo | defissione atti | motivo obbligatorio per i primi due; per la dichiarazione, uno dei due valori ammessi. **Oggi questa capability fa parte dell'insieme di chi pubblica**, ed è per questo che la tabella delle transizioni attribuisce i due passaggi a chi pubblica. Tenerla separata di nome è ciò che permetterà di riservare la defissione anticipata a un responsabile distinto, se la sotto-decisione aperta si chiuderà in quel senso, senza cambiare il codice |
+| Defissione anticipata, annullamento, dichiarazione dell'effetto della rimozione sul periodo | defissione atti | motivo obbligatorio per i primi due; per la dichiarazione, uno dei due valori ammessi. **Oggi questa capability fa parte dell'insieme di chi pubblica**, ed è per questo che la tabella delle transizioni attribuisce i due passaggi a chi pubblica. Tenerla separata di nome è ciò che permetterà di riservare la defissione anticipata a un responsabile distinto, se la sotto-decisione aperta si chiuderà in quel senso, senza cambiare il codice. **Si assegna una volta sola**, all'installazione e all'aggiornamento da una versione che non la aveva (0.6.0-alpha): tolta dall'ente a un ruolo, un aggiornamento successivo non la ridà |
 | Consultare gli atti defissi dall'amministrazione | archivio atti | **funzione successiva, oggi non costruita.** Non fa tornare a rispondere l'indirizzo pubblico dell'atto: quello resta irraggiungibile per chiunque, permessi compresi |
 | Consultare il registro delle operazioni | lettura registro (di core) | il meccanismo comune non la dà a nessuno; l'albo la aggiunge all'insieme di chi pubblica, all'installazione e a ogni aggiornamento |
 | Configurare tipi di atto e durate | amministrazione albo | |

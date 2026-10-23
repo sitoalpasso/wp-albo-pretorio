@@ -219,7 +219,7 @@ final class SchermataScaduti {
 
 		$argomenti = array(
 			'post_type'           => TIPO,
-			'post_status'         => 'publish',
+			'post_status'         => array( ChiusuraPubblicazione::PUBBLICATO, ChiusuraPubblicazione::ANNULLATO ),
 			'posts_per_page'      => self::PER_PAGINA,
 			'paged'               => max( 1, $ricerca['pagina'] ),
 			'ignore_sticky_posts' => true,
@@ -453,6 +453,15 @@ final class SchermataScaduti {
 			$dati[ $etichetta ] = $valore;
 		}
 
+		$annullato = ChiusuraPubblicazione::ANNULLATO === get_post_status( $atto );
+
+		if ( $annullato ) {
+			$voce = Passaggi::annullamento( $atto );
+
+			$dati[ __( 'Annullato il', 'albo-pretorio-pa' ) ]              = null === $voce ? __( 'non leggibile in questo momento', 'albo-pretorio-pa' ) : wp_date( 'd/m/Y', $voce['istante']->getTimestamp() );
+			$dati[ __( 'Motivo dell\'annullamento', 'albo-pretorio-pa' ) ] = null === $voce ? __( 'non leggibile in questo momento', 'albo-pretorio-pa' ) : $voce['motivo'];
+		}
+
 		foreach ( $dati as $etichetta => $valore ) {
 			printf( '<strong>%1$s</strong>: %2$s<br />', esc_html( (string) $etichetta ), esc_html( (string) $valore ) );
 		}
@@ -479,6 +488,21 @@ final class SchermataScaduti {
 		}
 
 		$documenti = array_merge( $documenti, DocumentiAtto::ulteriori( $atto ) );
+
+		/*
+		 * La consegna amministrativa apre i documenti di un atto non
+		 * pubblicato soltanto a chi gestisce gli atti: a chi ha il solo
+		 * permesso di consultare, quelli di un annullato non si aprono, e lo
+		 * si dice invece di mostrare un collegamento che rifiuterebbe.
+		 */
+		$mappa    = Permessi::mappa();
+		$apribili = ! $annullato || ( ! is_wp_error( $mappa ) && current_user_can( $mappa['edit_posts'] ) );
+
+		if ( array() !== $documenti && ! $apribili ) {
+			esc_html_e( 'Atto annullato: i suoi documenti si aprono a chi gestisce gli atti dell\'albo, non con il solo permesso di consultare gli scaduti.', 'albo-pretorio-pa' );
+			echo '</td></tr>';
+			return;
+		}
 
 		if ( array() === $documenti ) {
 			esc_html_e( 'Nessun documento.', 'albo-pretorio-pa' );

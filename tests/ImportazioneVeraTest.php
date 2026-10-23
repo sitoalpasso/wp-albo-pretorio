@@ -2649,4 +2649,43 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 			$this->cartelle[] = $nuova;
 		}
 	}
+
+	/**
+	 * A-230. Un atto importato e poi annullato resta importato: il rilancio non lo riporta.
+	 *
+	 * L'annullato non e' piu' pubblicato, ma l'importazione lo riconosce
+	 * ancora come suo: il rapporto lo conta fra gli importati e un rilancio,
+	 * anche con la seconda conferma, non trova niente da portare.
+	 */
+	public function test_a230_annullato_dopo_l_importazione(): void {
+		$percorso = $this->backup_nella_cartella();
+
+		$this->importa_tutto( $percorso, array( SchermataImportazione::CAMPO_CONFERMA_VISIBILI => '1' ) );
+
+		$atti = $this->importati();
+		$this->assertCount( 7, $atti, 'Precondizione: sette atti importati, compreso quello in pubblicazione.' );
+		$this->assertSame( 'publish', $atti['2']['stato'], 'Precondizione: l\'atto in pubblicazione e\' pubblicato.' );
+
+		$atto  = $atti['2']['id'];
+		$esito = $this->come(
+			$this->amministratore,
+			static function () use ( $atto ) {
+				return albo_pretorio_annulla( $atto, 'Atto adottato per errore materiale.' );
+			}
+		);
+		$this->assertIsInt( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : 'Precondizione: l\'annullamento.' );
+		$this->assertSame( 'albo_annullato', $this->importati()['2']['stato'], 'Precondizione: l\'atto e\' annullato.' );
+
+		$prima    = $this->fotografie();
+		$rapporto = $this->rapporto_di( $percorso );
+
+		$this->assertSame( 7, $rapporto['riepilogo']['esiti'][ AnalisiImportazione::IMPORTATO ], 'Il rapporto conta l\'annullato fra gli importati.' );
+		$this->assertSame( array(), Importazione::selezione( $rapporto, true )['atti'], 'Niente da portare, nemmeno con la seconda conferma.' );
+
+		$vuota = SchermataImportazione::importazione_da_invio( $this->invio_avvia( $percorso, array( SchermataImportazione::CAMPO_CONFERMA_VISIBILI => '1' ) ) );
+
+		$this->assertWPError( $vuota );
+		$this->assertSame( 'albo_importazione_vuota', $vuota->get_error_code() );
+		$this->assertSame( $prima, $this->fotografie(), 'Il rilancio non ha creato ne\' cambiato niente, l\'annullato compreso.' );
+	}
 }

@@ -48,6 +48,23 @@ if ( ! function_exists( 'albo_pretorio_rimanda_in_bozza' ) ) {
 	}
 }
 
+if ( ! function_exists( 'albo_pretorio_annulla' ) ) {
+	/**
+	 * Annulla un atto pubblicato, come l'utente corrente, con il motivo.
+	 *
+	 * L'atto resta nel registro con numero e date, e non cambia piu'. Fino
+	 * alla data di fine il pubblico ne vede l'avviso con il motivo, senza
+	 * documenti.
+	 *
+	 * @param int    $atto_id Atto.
+	 * @param string $motivo  Motivo, che finisce nel registro delle modifiche e nell'avviso al pubblico.
+	 * @return int|WP_Error Numero della voce di registro, oppure errore.
+	 */
+	function albo_pretorio_annulla( $atto_id, $motivo ) {
+		return \AlboPretorioPa\Passaggi::annulla_atto( (int) $atto_id, $motivo );
+	}
+}
+
 if ( ! function_exists( 'albo_pretorio_proroga' ) ) {
 	/**
 	 * Dispone la proroga per disservizio (ALBO-31), come l'utente corrente.

@@ -1,7 +1,8 @@
 <?php
 /**
  * La pagina pubblica dell'albo: righe A-195..A-209 (ALBO-06, ALBO-16, ALBO-28),
- * e il codice breve e gli indirizzi di "Albo Pretorio On line", A-220..A-223 (ALBO-35).
+ * il codice breve e gli indirizzi di "Albo Pretorio On line", A-220..A-223 (ALBO-35),
+ * e l'avviso dell'atto annullato, A-227 e A-228 (ALBO-22).
  *
  * Le prove fanno richieste vere alla pagina che contiene il codice breve, con
  * gli atti portati a pubblicato dal passaggio vero e l'orologio fissato. Il
@@ -21,8 +22,11 @@ declare( strict_types = 1 );
 
 namespace AlboPretorioPa\Tests;
 
+use AlboPretorioPa\ChiusuraPubblicazione;
+use AlboPretorioPa\DatiProcedimento;
 use AlboPretorioPa\DocumentiAtto;
 use AlboPretorioPa\PaginaPubblica;
+use AlboPretorioPa\Passaggi;
 use AlboPretorioPa\Repertorio;
 use AlboPretorioPa\VistaPubblica;
 
@@ -2245,6 +2249,210 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 
 		$this->assertNull( $this->rinvio( $indirizzo ), 'Dalla mezzanotte, nessun rinvio.' );
 		$this->assertSame( $mai, $this->risposta( $indirizzo ), 'Dalla mezzanotte, come un atto mai esistito.' );
+	}
+
+	/**
+	 * Annulla da codice come chi pubblica, all'istante indicato.
+	 *
+	 * @param int    $atto    Atto.
+	 * @param string $istante Data e ora nel fuso del sito.
+	 * @param string $motivo  Motivo.
+	 */
+	private function annullato_il( int $atto, string $istante, string $motivo ): void {
+		$this->fissa_orologi( $istante );
+
+		$esito = $this->come(
+			$this->pubblicatore,
+			static function () use ( $atto, $motivo ) {
+				return albo_pretorio_annulla( $atto, $motivo );
+			}
+		);
+
+		$this->assertIsInt( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+		$this->assertSame( ChiusuraPubblicazione::ANNULLATO, get_post_status( $atto ), 'Precondizione: l\'atto e\' annullato.' );
+	}
+
+	/**
+	 * A-227: fino alla scadenza l'annullato e' un avviso, con il motivo e senza documenti.
+	 */
+	public function test_a227_annullato_fino_alla_scadenza(): void {
+		$this->pagina_albo();
+
+		// Tutti e tre i dati del procedimento si chiedono e si mostrano: dopo l'annullamento nessuno deve uscire.
+		$scelte = array_fill_keys( DatiProcedimento::DATI, DatiProcedimento::USA );
+		$this->assertTrue( DatiProcedimento::salva( $scelte, 'Anna Bianchi', 'Ufficio tecnico', $this->pubblicatore, Passaggi::ora() ), 'Precondizione: i tre dati si mostrano.' );
+
+		$procedimento = array(
+			'meta_input' => array(
+				DatiProcedimento::meta( DatiProcedimento::RESPONSABILE ) => 'Anna Bianchi',
+				DatiProcedimento::meta( DatiProcedimento::UFFICIO )      => 'Ufficio tecnico',
+				DatiProcedimento::meta( DatiProcedimento::RICHIEDENTE )  => 'Mario Rossi',
+			),
+		);
+
+		$scaduto   = $this->pubblicato_il( '2041-09-01 09:30:00', 'Atto scaduto di riferimento' );
+		$atto      = $this->pubblicato_il( '2041-10-01 09:30:00', 'Graduatoria annullata di prova', 'normativo', array( 'Mario-Rossi-domanda.pdf' ), null, $procedimento );
+		$controllo = $this->pubblicato_il( '2041-10-02 09:30:00', 'Atto di controllo' );
+		$documenti = array_merge( array( (int) DocumentiAtto::principale( $atto ) ), DocumentiAtto::ulteriori( $atto ) );
+		$numero    = Repertorio::di( $atto );
+
+		$this->assertIsArray( $numero );
+		$this->assertCount( 2, $documenti, 'Precondizione: un principale e un allegato.' );
+		$this->assertSame(
+			array(
+				'Responsabile del procedimento'   => 'Anna Bianchi',
+				'Ufficio'                         => 'Ufficio tecnico',
+				'Richiedente della pubblicazione' => 'Mario Rossi',
+			),
+			DatiProcedimento::da_mostrare( $atto ),
+			'Precondizione: prima dell\'annullamento i tre dati si mostrano.'
+		);
+
+		$this->fissa_orologi( '2041-10-05 09:00:00' );
+		wp_set_current_user( 0 );
+		$this->assertTrue( $this->consegnato( $this->consegna( $documenti[0] ) ), 'Precondizione: prima dell\'annullamento il documento si scarica.' );
+
+		$prima = (string) $this->pagina_disegnata( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $atto ) ) );
+
+		foreach ( array( 'Anna Bianchi', 'Responsabile del procedimento', 'Ufficio tecnico', '<dt>Ufficio</dt>', 'Mario Rossi', 'Richiedente' ) as $testo ) {
+			$this->assertStringContainsString( $testo, $prima, 'Precondizione: prima dell\'annullamento la scheda mostra ' . $testo . '.' );
+		}
+
+		$this->annullato_il( $atto, '2041-10-05 10:00:00', 'Graduatoria con un dato personale di troppo, si ripubblica oscurata.' );
+		$this->fissa_orologi( '2041-10-06 11:00:00' );
+
+		foreach ( array(
+			'visitatore'     => 0,
+			'amministratore' => $this->amministratore,
+		) as $chi => $utente ) {
+			wp_set_current_user( $utente );
+
+			$rifiuto = $this->consegna( (int) DocumentiAtto::principale( $scaduto ) );
+			$this->assertFalse( $this->consegnato( $rifiuto ), $chi . ': precondizione, il documento dello scaduto non si scarica.' );
+
+			$html = (string) $this->pagina_disegnata( $this->indirizzo() );
+
+			$this->assertSame( array( $controllo, $atto ), $this->atti_elencati( $html ), $chi . ': l\'annullato e\' in elenco, lo scaduto no.' );
+
+			$riga = $this->celle( $html, $atto );
+
+			$this->assertSame( 'Graduatoria annullata di prova Annullato Giunta', $riga['Oggetto'], $chi . ': "Annullato" accanto all\'oggetto.' );
+			$this->assertSame( 'nessuno: atto annullato', $riga['Documenti'], $chi . ': nessun documento.' );
+			$this->assertSame( $numero['numero'] . '/2041', $riga['Numero'] );
+			$this->assertSame( '1 documento', $this->celle( $html, $controllo )['Documenti'], $chi . ': controllo positivo, l\'atto in corso ha il suo documento.' );
+			$this->assertStringNotContainsString( 'Annullato', $this->celle( $html, $controllo )['Oggetto'] );
+
+			foreach ( array(
+				'oggetto' => 'Graduatoria',
+				'numero'  => $numero['numero'] . '/2041',
+			) as $per => $testo ) {
+				$this->assertSame( array( $atto ), $this->atti_elencati( (string) $this->pagina_disegnata( $this->indirizzo( array( VistaPubblica::CAMPO_TESTO => $testo ) ) ) ), $chi . ': la ricerca per ' . $per . ' lo trova.' );
+			}
+
+			$scheda = (string) $this->pagina_disegnata( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $atto ) ) );
+
+			$this->assertNotContains( 404, $this->stati, $chi . ': la scheda dell\'annullato si apre.' );
+			$this->assertStringContainsString( '<h2 id="albo-pretorio-titolo-atto" class="albo-pretorio__titolo">Graduatoria annullata di prova</h2><p class="albo-pretorio__avviso"><strong>Atto annullato. I suoi documenti non si consultano piu&#039;.</strong></p>', $scheda, $chi );
+			$this->assertStringContainsString( '<dt>Numero di registro</dt><dd>' . $numero['numero'] . '/2041</dd>', $scheda );
+			$this->assertStringContainsString( '<dt>Tipo</dt><dd>Deliberazione</dd>', $scheda );
+			$this->assertStringContainsString( '<dt>Organo</dt><dd>Giunta</dd>', $scheda );
+			$this->assertStringContainsString( '<dt>Data di adozione</dt><dd>10/09/2041</dd>', $scheda );
+			$this->assertStringContainsString( '<dt>Pubblicato dal</dt><dd>01/10/2041</dd></div><div class="albo-pretorio__dato"><dt>Fino al</dt><dd>16/10/2041</dd>', $scheda );
+			$this->assertStringContainsString( '<dt>Annullato il</dt><dd>05/10/2041</dd></div><div class="albo-pretorio__dato"><dt>Motivo dell&#039;annullamento</dt><dd>Graduatoria con un dato personale di troppo, si ripubblica oscurata.</dd>', $scheda );
+			foreach ( array( 'Anna Bianchi', 'Responsabile del procedimento', 'Ufficio tecnico', '<dt>Ufficio</dt>', 'Mario Rossi', 'Richiedente' ) as $testo ) {
+				$this->assertStringNotContainsString( $testo, $scheda, $chi . ': i dati del procedimento non si mostrano (' . $testo . ').' );
+			}
+			$this->assertStringNotContainsString( 'Mario-Rossi', $scheda );
+			$this->assertStringNotContainsString( 'albo-pretorio__documenti', $scheda, $chi . ': nessun elenco dei documenti.' );
+			$this->assertStringNotContainsString( 'Documento principale', $scheda );
+
+			foreach ( $documenti as $documento ) {
+				$this->assertSame( $rifiuto, $this->consegna( $documento ), $chi . ': il documento ' . $documento . ' risponde come quello di uno scaduto.' );
+				$this->assertSame( $rifiuto, $this->consegna_storpiata( $documento ), $chi . ': anche con l\'atto seguito da lettere.' );
+			}
+
+			$this->assertTrue( $this->consegnato( $this->consegna( (int) DocumentiAtto::principale( $controllo ) ) ), $chi . ': controllo positivo, il documento in corso si scarica.' );
+		}
+
+		// Un altro componente apre il tipo, dopo l'albo: i documenti dell'annullato restano chiusi.
+		$apri = static function ( $consultabile, $tipo ) {
+			return $tipo instanceof \WP_Post_Type && TIPO === $tipo->name ? true : $consultabile;
+		};
+
+		add_filter( 'is_post_type_viewable', $apri, 20, 2 );
+		wp_set_current_user( 0 );
+
+		try {
+			$rifiuto = $this->consegna( (int) DocumentiAtto::principale( $scaduto ) );
+
+			foreach ( $documenti as $documento ) {
+				$this->assertSame( $rifiuto, $this->consegna( $documento ), 'Tipo aperto: il documento ' . $documento . ' non si scarica.' );
+				$this->assertSame( $rifiuto, $this->consegna_storpiata( $documento ), 'Tipo aperto, con le lettere.' );
+			}
+
+			$this->assertTrue( $this->consegnato( $this->consegna( (int) DocumentiAtto::principale( $controllo ) ) ), 'Tipo aperto: controllo positivo.' );
+		} finally {
+			remove_filter( 'is_post_type_viewable', $apri, 20 );
+		}
+	}
+
+	/**
+	 * A-228: dalla mezzanotte del giorno dopo la data di fine l'annullato sparisce come ogni atto scaduto.
+	 *
+	 * Fine il 16 ottobre 2041: presente alle 23:59:59 del 16, assente alle 00:00:00 del 17.
+	 */
+	public function test_a228_annullato_sparisce_a_mezzanotte(): void {
+		$this->pagina_albo();
+
+		$scaduto   = $this->pubblicato_il( '2041-09-01 09:30:00', 'Atto scaduto di riferimento' );
+		$atto      = $this->importato_il( '2041-10-01 09:30:00', 'Atto annullato di prova', '123' );
+		$controllo = $this->pubblicato_il( '2041-10-10 09:30:00', 'Atto di controllo' );
+		$documento = (int) DocumentiAtto::principale( $atto );
+		$di_rifer  = (int) DocumentiAtto::principale( $scaduto );
+
+		$this->annullato_il( $atto, '2041-10-05 10:00:00', 'Pubblicato per errore.' );
+
+		$scheda    = $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $atto ) );
+		$inventato = $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => 999999999 ) );
+		$ricerca   = $this->indirizzo( array( VistaPubblica::CAMPO_TESTO => 'annullato' ) );
+		$vecchio   = $this->indirizzo(
+			array(
+				'action' => 'visatto',
+				'id'     => '123',
+			)
+		);
+
+		foreach ( array(
+			'visitatore'     => 0,
+			'amministratore' => $this->amministratore,
+		) as $chi => $utente ) {
+			wp_set_current_user( $utente );
+
+			$this->fissa_orologi( self::ULTIMO_ISTANTE );
+			$this->assertSame( array( $controllo, $atto ), $this->atti_elencati( (string) $this->pagina_disegnata( $this->indirizzo() ) ), $chi . ', ultimo secondo: tutti e due in elenco.' );
+			$this->assertSame( array( $atto ), $this->atti_elencati( (string) $this->pagina_disegnata( $ricerca ) ), $chi . ', ultimo secondo: la ricerca lo trova.' );
+			$this->assertNotNull( $this->pagina_disegnata( $scheda ), $chi . ', ultimo secondo: la scheda si apre.' );
+			$this->assertSame( 302, $this->rinvio( $vecchio )['stato'] ?? null, $chi . ', ultimo secondo: il vecchio indirizzo porta alla scheda.' );
+
+			$rifiuto = $this->consegna( $di_rifer );
+			$this->assertFalse( $this->consegnato( $rifiuto ), $chi . ', ultimo secondo: precondizione, il documento dello scaduto non si scarica.' );
+			$this->assertSame( $rifiuto, $this->consegna( $documento ), $chi . ', ultimo secondo: il documento risponde, per intero, come quello di uno scaduto.' );
+
+			$this->fissa_orologi( self::PRIMO_ISTANTE_SCADUTO );
+			$mai = $this->risposta( $inventato );
+
+			$this->assertSame( array( $controllo ), $this->atti_elencati( (string) $this->pagina_disegnata( $this->indirizzo() ) ), $chi . ', mezzanotte: resta solo il controllo.' );
+			$this->assertSame( array(), $this->atti_elencati( (string) $this->pagina_disegnata( $ricerca ) ), $chi . ', mezzanotte: la ricerca non lo trova.' );
+			$this->assertSame( $mai, $this->risposta( $scheda ), $chi . ', mezzanotte: la scheda risponde come un atto mai esistito.' );
+			$this->assertNull( $this->rinvio( $vecchio ), $chi . ', mezzanotte: il vecchio indirizzo non rinvia.' );
+			$this->assertSame( $mai, $this->risposta( $vecchio ), $chi . ', mezzanotte: e risponde come un atto mai esistito.' );
+			$rifiuto = $this->consegna( $di_rifer );
+			$this->assertFalse( $this->consegnato( $rifiuto ), $chi . ', mezzanotte: precondizione, il documento dello scaduto non si scarica.' );
+			$this->assertSame( $rifiuto, $this->consegna( $documento ), $chi . ', mezzanotte: il documento risponde, per intero, come quello di uno scaduto.' );
+			$this->assertTrue( $this->consegnato( $this->consegna( (int) DocumentiAtto::principale( $controllo ) ) ), $chi . ', mezzanotte: il documento del controllo si scarica.' );
+		}
+
+		$this->assertSame( ChiusuraPubblicazione::ANNULLATO, get_post_status( $atto ), 'Lo stato resta annullato: a toglierlo e\' la data.' );
 	}
 
 	/**

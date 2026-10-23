@@ -5,7 +5,9 @@
  * Su un atto in verifica, e solo per chi puo' pubblicarlo, porta i due
  * passaggi che partono da li': la pubblicazione, con il controllo sui dati
  * personali da confermare (ALBO-11), e il rimando in bozza, con il motivo. Su
- * un atto pubblicato mostra numero, inizio e fine, in sola lettura.
+ * un atto pubblicato mostra numero, inizio e fine, in sola lettura, e a chi
+ * ha il permesso porta l'annullamento, con il motivo (ALBO-22). Su un atto
+ * annullato mostra in sola lettura anche data e motivo dell'annullamento.
  *
  * **I pulsanti stanno nel modulo della schermata**, perche' un riquadro non
  * puo' avere un modulo suo. L'invio si intercetta prima che WordPress lo tratti
@@ -25,7 +27,7 @@ namespace AlboPretorioPa;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Riquadro, invio ed esito dei due passaggi.
+ * Riquadro, invio ed esito dei passaggi.
  */
 final class RiquadroPassaggi {
 
@@ -70,6 +72,13 @@ final class RiquadroPassaggi {
 	 * @var string
 	 */
 	const CAMPO_MOTIVO = 'albo_pretorio_motivo_rimando';
+
+	/**
+	 * Nome del campo del motivo dell'annullamento.
+	 *
+	 * @var string
+	 */
+	const CAMPO_MOTIVO_ANNULLAMENTO = 'albo_pretorio_motivo_annullamento';
 
 	/**
 	 * Parametro dell'indirizzo di ritorno con l'esito riuscito.
@@ -118,7 +127,7 @@ final class RiquadroPassaggi {
 
 		$in_verifica = ChiusuraPubblicazione::IN_VERIFICA === $atto->post_status && current_user_can( 'publish_post', $atto->ID );
 
-		if ( ! $in_verifica && ChiusuraPubblicazione::PUBBLICATO !== $atto->post_status ) {
+		if ( ! $in_verifica && ! in_array( $atto->post_status, array( ChiusuraPubblicazione::PUBBLICATO, ChiusuraPubblicazione::ANNULLATO ), true ) ) {
 			return;
 		}
 
@@ -144,6 +153,13 @@ final class RiquadroPassaggi {
 
 		if ( ChiusuraPubblicazione::PUBBLICATO === $atto->post_status ) {
 			self::pubblicato( $atto );
+			self::annullamento( $atto );
+			return;
+		}
+
+		if ( ChiusuraPubblicazione::ANNULLATO === $atto->post_status ) {
+			self::pubblicato( $atto );
+			self::annullato( $atto );
 			return;
 		}
 
@@ -264,7 +280,66 @@ final class RiquadroPassaggi {
 
 		echo '</dl>';
 
-		printf( '<p class="description">%s</p>', esc_html__( 'Un atto pubblicato non si modifica: una correzione e\' un atto nuovo che rinvia a questo.', 'albo-pretorio-pa' ) );
+		if ( ChiusuraPubblicazione::PUBBLICATO === $atto->post_status ) {
+			printf( '<p class="description">%s</p>', esc_html__( 'Un atto pubblicato non si modifica: una correzione e\' un atto nuovo che rinvia a questo.', 'albo-pretorio-pa' ) );
+		}
+	}
+
+	/**
+	 * L'annullamento di un atto pubblicato, per chi ha il permesso.
+	 *
+	 * @param \WP_Post $atto Atto.
+	 */
+	private static function annullamento( \WP_Post $atto ): void {
+		$mappa = Permessi::mappa();
+
+		if ( is_wp_error( $mappa ) || ! isset( $mappa[ Permessi::CHIAVE_DEFISSIONE ] ) || ! current_user_can( $mappa[ Permessi::CHIAVE_DEFISSIONE ] ) ) {
+			return;
+		}
+
+		wp_nonce_field( self::azione( (int) $atto->ID ), self::CAMPO_GETTONE );
+
+		printf( '<fieldset class="albo-pretorio-passaggio"><legend><strong>%s</strong></legend>', esc_html__( 'Annulla l\'atto', 'albo-pretorio-pa' ) );
+
+		printf(
+			'<p><label for="%1$s">%2$s</label><br /><textarea id="%1$s" name="%1$s" rows="3" class="large-text" aria-describedby="%1$s-descrizione"></textarea></p>',
+			esc_attr( self::CAMPO_MOTIVO_ANNULLAMENTO ),
+			esc_html__( 'Motivo dell\'annullamento', 'albo-pretorio-pa' )
+		);
+
+		printf(
+			'<p class="description" id="%1$s-descrizione">%2$s</p>',
+			esc_attr( self::CAMPO_MOTIVO_ANNULLAMENTO ),
+			esc_html__( 'Obbligatorio. Il motivo finisce nel registro delle modifiche e, fino alla data di fine, nell\'avviso che il pubblico legge al posto dell\'atto. I documenti non si scaricano piu\'. L\'annullamento non si ritira: una correzione e\' un atto nuovo.', 'albo-pretorio-pa' )
+		);
+
+		printf(
+			'<p><button type="submit" class="button" name="%1$s" value="annulla">%2$s</button></p></fieldset>',
+			esc_attr( self::CAMPO_PASSAGGIO ),
+			esc_html__( 'Annulla l\'atto', 'albo-pretorio-pa' )
+		);
+	}
+
+	/**
+	 * Data e motivo dell'annullamento, in sola lettura.
+	 *
+	 * @param \WP_Post $atto Atto.
+	 */
+	private static function annullato( \WP_Post $atto ): void {
+		$voce = Passaggi::annullamento( (int) $atto->ID );
+
+		printf( '<p><strong>%s</strong></p>', esc_html__( 'Atto annullato', 'albo-pretorio-pa' ) );
+
+		if ( null === $voce ) {
+			printf( '<p>%s</p>', esc_html__( 'Il registro delle modifiche non risponde: data e motivo dell\'annullamento non si leggono in questo momento.', 'albo-pretorio-pa' ) );
+		} else {
+			echo '<dl class="albo-pretorio-dati">';
+			printf( '<dt>%1$s</dt><dd>%2$s</dd>', esc_html__( 'Data dell\'annullamento', 'albo-pretorio-pa' ), esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $voce['istante']->getTimestamp() ) ) );
+			printf( '<dt>%1$s</dt><dd>%2$s</dd>', esc_html__( 'Motivo', 'albo-pretorio-pa' ), nl2br( esc_html( $voce['motivo'] ) ) );
+			echo '</dl>';
+		}
+
+		printf( '<p class="description">%s</p>', esc_html__( 'Un atto annullato non si modifica e non cambia piu\' stato. Fino alla data di fine il pubblico ne vede l\'avviso, senza documenti.', 'albo-pretorio-pa' ) );
 	}
 
 	/**
@@ -324,6 +399,11 @@ final class RiquadroPassaggi {
 			$motivo = isset( $_POST[ self::CAMPO_MOTIVO ] ) ? wp_unslash( $_POST[ self::CAMPO_MOTIVO ] ) : '';
 			$esito  = Passaggi::rimanda_in_bozza( $atto_id, $motivo );
 			$fatto  = 'rimandato';
+		} elseif ( 'annulla' === $passaggio ) {
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- lo ripulisce Passaggi, con la regola dei testi su piu' righe.
+			$motivo = isset( $_POST[ self::CAMPO_MOTIVO_ANNULLAMENTO ] ) ? wp_unslash( $_POST[ self::CAMPO_MOTIVO_ANNULLAMENTO ] ) : '';
+			$esito  = Passaggi::annulla_atto( $atto_id, $motivo );
+			$fatto  = 'annullato';
 		} else {
 			$esito = new \WP_Error( 'albo_passaggio_sconosciuto', __( 'L\'atto e\' rimasto com\'era: il passaggio chiesto non esiste.', 'albo-pretorio-pa' ) );
 			$fatto = '';
@@ -401,6 +481,7 @@ final class RiquadroPassaggi {
 		$messaggi = array(
 			'pubblicato' => __( 'Atto pubblicato: numero, inizio e fine sono nel riquadro Pubblicazione.', 'albo-pretorio-pa' ),
 			'rimandato'  => __( 'Atto rimandato in bozza: il motivo e\' nel registro delle modifiche.', 'albo-pretorio-pa' ),
+			'annullato'  => __( 'Atto annullato: il motivo e\' nel registro delle modifiche e, fino alla data di fine, nell\'avviso al pubblico.', 'albo-pretorio-pa' ),
 		);
 
 		if ( ! isset( $messaggi[ $esito ] ) ) {
