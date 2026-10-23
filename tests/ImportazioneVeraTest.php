@@ -2976,6 +2976,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		global $wpdb;
 
 		$percorso = $this->backup_nella_cartella();
+		$prima    = $this->documenti_sul_disco();
 		$registro = $wpdb->prefix . 'conformita_core_registro';
 		$guasti   = array(
 			'scrittura dello stato annullato' => array( 'albo_stato_non_scritto', array( 'UPDATE `' . $wpdb->posts . '`', "'" . ChiusuraPubblicazione::ANNULLATO . "'" ) ),
@@ -3010,6 +3011,8 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 			$this->assertSame( array(), Repertorio::atti_numerati( 2041, 13 ), $caso . ': il numero 13/2041 e\' libero.' );
 			$this->assertSame( array(), Repertorio::atti_numerati( 2041, 19 ), $caso . ': il numero 19/2041 e\' libero.' );
 			$this->assertSame( $this->importati_per_inventario(), $this->inventario(), $caso . ': nessuna bozza rimasta.' );
+			$this->assertSame( $this->file_attesi( $prima ), $this->documenti_sul_disco(), $caso . ': nessun file senza documento.' );
+			$this->assertSame( array(), $this->documenti_senza_atto(), $caso . ': nessun documento senza atto.' );
 		}
 
 		// Senza guasti il rilancio li porta annullati.

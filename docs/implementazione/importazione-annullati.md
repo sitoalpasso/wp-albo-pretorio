@@ -125,3 +125,9 @@ nella schermata "Atti scaduti" e controllare data e motivo col vecchio albo.
   dell'annullamento risulta "non leggibile in questo momento", invece di cadere sull'istante
   della voce, che per un atto importato è il giorno dell'importazione.
 
+- Quarto giro: la prova del "tutto o niente" controllava atti e bozze ma non i file. Ora, per
+  ciascuno dei tre guasti, confronta i file sul disco con quelli di prima più quelli degli
+  atti importati e verifica che non resti nessun documento senza atto; una pulizia che
+  lasci i file dei due annullati la fa fallire. La riga A-210 ora dice che fra gli atti
+  pubblicati il visitatore trova solo quello in corso, mentre l'avviso dell'annullato lo
+  verifica A-231.
