@@ -60,7 +60,7 @@ dubbi di questo elenco, che l'importazione porta con sé e scrive nella voce di 
 | anno del numero diverso dall'anno di inizio (`anno_diverso`) | il numero si conserva com'è (già deciso a secco) |
 | responsabile o ufficio citati e assenti dal backup | non c'è niente da portare: il dato manca già in Albo Pretorio On line |
 | tipo da decidere (`tipo_da_decidere`) | solo se il tipo di atto con quel nome esiste in questo albo: l'ente l'ha deciso creandolo. Le differenze di giorni fra categoria e tipo non toccano gli importati, che conservano le loro date |
-| annullato (`annullato`) | solo se la pubblicazione è finita: l'annullamento con data e motivo va nella voce di registro. Un annullato ancora in pubblicazione non si porta, perché cosa ne veda il pubblico è una decisione ancora aperta |
+| annullato (`annullato`) | sempre, e arriva annullato: data e motivo vanno nella voce di registro e nella voce dell'annullamento. All'inizio un annullato ancora in pubblicazione non si portava, perché cosa ne veda il pubblico era una decisione aperta; chiusa il 2026-10-22, vedi [`importazione-annullati.md`](importazione-annullati.md) |
 | in pubblicazione, manca la conferma sui dati personali (`conferma_dati_personali`) | solo se chi importa spunta la casella apposita, separata dalla conferma dell'importazione; la voce di registro la riporta |
 
 Non si porta, e il rapporto finale lo dice con il motivo: ogni conflitto; la bozza; un atto

@@ -350,7 +350,11 @@ origine nelle date scritte in Albo Pretorio On line. La numerazione dell'anno no
 importato non supera la partenza dichiarata, e la partenza non scende sotto un numero
 importato (ALBO-08). Rilanciare non crea doppioni. Quale documento sia il principale, quando
 Albo Pretorio On line non lo dice, resta una scelta dell'amministrazione (decisione del 20 ottobre
-2026). La scheda è `implementazione/importazione-vera.md`.
+2026). La scheda è `implementazione/importazione-vera.md`. **Un atto annullato in Albo
+Pretorio On line arriva annullato**, con la data e il motivo scritti là, nella stessa
+transazione che lo porta: fino alla scadenza il pubblico ne vede l'avviso, senza documenti,
+come per un atto annullato in questo albo (sotto-decisione 1 di ALBO-22). La scheda è
+`implementazione/importazione-annullati.md`.
 
 Il passaggio non costringe a riscrivere il sito. Spento il plugin precedente, **il suo codice
 breve `[Albo]`, con qualunque attributo, mostra la pagina pubblica di questo albo**, e le
@@ -566,7 +570,8 @@ cosa la rimozione comporti per l'adempimento, quando c'è.
    alla sua scadenza, con numero, oggetto, data e motivo dell'annullamento; i suoi documenti
    non si scaricano più, con lo stesso rifiuto dei documenti di un atto scaduto; dalla
    scadenza sparisce come ogni altro atto. Righe A-224..A-230 di `collaudo.md`, scheda
-   `implementazione/annullamento.md`.
+   `implementazione/annullamento.md`. Lo stesso vale per gli atti annullati in Albo Pretorio
+   On line e importati: righe A-231..A-234, scheda `implementazione/importazione-annullati.md`.
 2. **Chi dispone la defissione anticipata.** Qui è attribuita a chi pubblica, **in via
    provvisoria**. Alcuni enti la riservano a un responsabile nominato, che sarebbe una terza
    figura. La riga di collaudo prova la forma provvisoria e la marca come tale.

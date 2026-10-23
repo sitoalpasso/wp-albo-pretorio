@@ -76,7 +76,7 @@ sono scritte; la data zero vale come assente.
 | fine assente | invisibile: per la scadenza un atto senza fine non si vede. Dubbio |
 | inizio futuro | dubbio: questo albo non programma le pubblicazioni |
 | fine prima dell'inizio, inizio assente | conflitto |
-| data di annullamento | annullato con motivo; cosa veda il pubblico nel periodo di pubblicazione è una sotto-decisione ancora aperta. Dubbio |
+| data di annullamento | annullato con motivo; cosa veda il pubblico nel periodo di pubblicazione era una sotto-decisione aperta, chiusa il 2026-10-22: arriva annullato, vedi [`importazione-annullati.md`](importazione-annullati.md). Dubbio |
 
 "Oggi" è il giorno nel fuso del sito (`wp_timezone()`), lo stesso della scadenza.
 
