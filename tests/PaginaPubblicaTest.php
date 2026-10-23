@@ -2404,9 +2404,11 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	public function test_a228_annullato_sparisce_a_mezzanotte(): void {
 		$this->pagina_albo();
 
+		$scaduto   = $this->pubblicato_il( '2041-09-01 09:30:00', 'Atto scaduto di riferimento' );
 		$atto      = $this->importato_il( '2041-10-01 09:30:00', 'Atto annullato di prova', '123' );
 		$controllo = $this->pubblicato_il( '2041-10-10 09:30:00', 'Atto di controllo' );
 		$documento = (int) DocumentiAtto::principale( $atto );
+		$di_rifer  = (int) DocumentiAtto::principale( $scaduto );
 
 		$this->annullato_il( $atto, '2041-10-05 10:00:00', 'Pubblicato per errore.' );
 
@@ -2432,6 +2434,10 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			$this->assertNotNull( $this->pagina_disegnata( $scheda ), $chi . ', ultimo secondo: la scheda si apre.' );
 			$this->assertSame( 302, $this->rinvio( $vecchio )['stato'] ?? null, $chi . ', ultimo secondo: il vecchio indirizzo porta alla scheda.' );
 
+			$rifiuto = $this->consegna( $di_rifer );
+			$this->assertFalse( $this->consegnato( $rifiuto ), $chi . ', ultimo secondo: precondizione, il documento dello scaduto non si scarica.' );
+			$this->assertSame( $rifiuto, $this->consegna( $documento ), $chi . ', ultimo secondo: il documento risponde, per intero, come quello di uno scaduto.' );
+
 			$this->fissa_orologi( self::PRIMO_ISTANTE_SCADUTO );
 			$mai = $this->risposta( $inventato );
 
@@ -2440,7 +2446,9 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			$this->assertSame( $mai, $this->risposta( $scheda ), $chi . ', mezzanotte: la scheda risponde come un atto mai esistito.' );
 			$this->assertNull( $this->rinvio( $vecchio ), $chi . ', mezzanotte: il vecchio indirizzo non rinvia.' );
 			$this->assertSame( $mai, $this->risposta( $vecchio ), $chi . ', mezzanotte: e risponde come un atto mai esistito.' );
-			$this->assertFalse( $this->consegnato( $this->consegna( $documento ) ), $chi . ', mezzanotte: il documento non si scarica.' );
+			$rifiuto = $this->consegna( $di_rifer );
+			$this->assertFalse( $this->consegnato( $rifiuto ), $chi . ', mezzanotte: precondizione, il documento dello scaduto non si scarica.' );
+			$this->assertSame( $rifiuto, $this->consegna( $documento ), $chi . ', mezzanotte: il documento risponde, per intero, come quello di uno scaduto.' );
 			$this->assertTrue( $this->consegnato( $this->consegna( (int) DocumentiAtto::principale( $controllo ) ) ), $chi . ', mezzanotte: il documento del controllo si scarica.' );
 		}
 

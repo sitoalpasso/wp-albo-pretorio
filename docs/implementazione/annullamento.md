@@ -197,3 +197,6 @@ A-193, per un motivo dell'ambiente che su GitHub non si presenta). Rispetto al p
   `Installazione::chiavi_escluse()`, provata sul confine (chi aggiorna da 0.6.0-alpha non
   riceve di nuovo il permesso, chi aggiorna da 0.5.x sì). A-228 dice per esteso quando
   l'annullato sparisce: dalla mezzanotte del giorno dopo la data di fine.
+- **Quarto giro di revisione.** A-228 confronta per intero la risposta al documento
+  dell'annullato con quella al documento di un atto scaduto, all'ultimo secondo e dalla
+  mezzanotte, invece di guardare solo che il file non esca.
