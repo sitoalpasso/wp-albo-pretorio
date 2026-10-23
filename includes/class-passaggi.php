@@ -1024,6 +1024,9 @@ final class Passaggi {
 				$esito = self::scrivi_voce( $voce );
 			}
 
+			// Finite le scritture, prima del controllo e della conferma: niente piu' e' concesso.
+			self::revoca_concessioni();
+
 			if ( ! is_wp_error( $esito ) ) {
 				$controllo = self::controlla_invariato( $atto_id, $partenza, $campi, null );
 				$esito     = is_wp_error( $controllo ) ? $controllo : $esito;

@@ -182,3 +182,8 @@ A-193, per un motivo dell'ambiente che su GitHub non si presenta). Rispetto al p
 - **L'importazione** riconosce come già suo un atto importato e poi annullato: senza
   questo, togliendo il riconoscimento, la prova del rilancio fallisce (contati sei importati
   invece di sette), ed è stato verificato introducendo il guasto apposta.
+- **Primo giro di revisione.** Finite le scritture, prima del controllo finale e della
+  conferma, l'annullamento ora toglie le concessioni sull'atto, come già faceva la proroga:
+  senza, un altro componente poteva riscrivere la data di fine dopo il controllo e prima
+  della conferma. La prova nuova di A-229 lo riproduceva prima della correzione. A-225 prova
+  anche il gettone vero dello stesso atto ma scaduto, oltre a quello inventato.

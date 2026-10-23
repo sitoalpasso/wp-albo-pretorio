@@ -404,10 +404,36 @@ class AnnullamentoTest extends \WP_UnitTestCase {
 			$this->assertSame( $prima, $this->fotografia( $id ), $chi . ': l\'atto resta identico, registro compreso.' );
 		}
 
-		// Il gettone di un altro atto, e un gettone inventato.
+		/*
+		 * Il gettone vero dello stesso utente e dello stesso atto, calcolato
+		 * per un'ora di WordPress gia' passata: con lo scarto di due periodi
+		 * e' fuori da entrambi quelli che WordPress accetta. Il calcolo e'
+		 * quello di wp_create_nonce(), e lo si verifica sul periodo corrente.
+		 */
+		$gettone_del_periodo = static function ( int $atto_id, int $indietro ): string {
+			$periodo = (int) wp_nonce_tick( RiquadroPassaggi::azione( $atto_id ) ) - $indietro;
+
+			return substr( wp_hash( $periodo . '|' . RiquadroPassaggi::azione( $atto_id ) . '|' . get_current_user_id() . '|' . wp_get_session_token(), 'nonce' ), -12, 10 );
+		};
+
+		$this->come(
+			$this->pubblicatore,
+			function () use ( $id, $gettone_del_periodo ) {
+				$azione = RiquadroPassaggi::azione( $id );
+
+				$this->assertSame( wp_create_nonce( $azione ), $gettone_del_periodo( $id, 0 ), 'Precondizione: il calcolo e\' quello di WordPress.' );
+				$this->assertSame( 2, wp_verify_nonce( $gettone_del_periodo( $id, 1 ), $azione ), 'Precondizione: il periodo prima e\' ancora accettato.' );
+				$this->assertFalse( wp_verify_nonce( $gettone_del_periodo( $id, 2 ), $azione ), 'Precondizione: due periodi prima e\' scaduto.' );
+			}
+		);
+
+		// Il gettone di un altro atto, uno scaduto dello stesso atto, e uno inventato.
 		foreach ( array(
 			'gettone di un altro atto' => function () use ( $altro ) {
 				return wp_create_nonce( RiquadroPassaggi::azione( $altro ) );
+			},
+			'gettone scaduto'          => static function () use ( $id, $gettone_del_periodo ) {
+				return $gettone_del_periodo( $id, 2 );
 			},
 			'gettone inventato'        => static function () {
 				return 'abcdef1234';
@@ -701,6 +727,82 @@ class AnnullamentoTest extends \WP_UnitTestCase {
 		}
 
 		$this->assertIsInt( $this->annulla( $id, $this->pubblicatore ), 'Controllo positivo: con le tabelle che annullano, lo stesso atto si annulla.' );
+	}
+
+	/**
+	 * A-229: finite le scritture, durante il controllo finale e la conferma, nessuna concessione resta sull'atto.
+	 *
+	 * Un altro componente che, in quei due momenti, cancella o riscrive la data
+	 * di fine dell'atto non deve riuscirci: la scrittura arriverebbe dopo il
+	 * controllo che l'atto e' invariato, e la conferma la renderebbe definitiva
+	 * mentre il registro conserva la fine di prima.
+	 */
+	public function test_a229_nessuna_concessione_durante_i_controlli(): void {
+		global $wpdb;
+
+		$chiave  = conformita_core_chiave_fine_pubblicazione();
+		$tabella = $wpdb->prefix . 'conformita_core_registro';
+
+		foreach ( array( 'controlli', 'conferma' ) as $caso ) {
+			$id = $this->pubblicato_il();
+
+			$e_il_momento = 'controlli' === $caso
+				? static function ( string $istruzione ) use ( $wpdb, $id ): bool {
+					return 1 === preg_match( '/^\s*SELECT \* FROM `?' . preg_quote( $wpdb->posts, '/' ) . '`? WHERE ID = ' . $id . '\s*$/', $istruzione );
+				}
+				: static function ( string $istruzione ): bool {
+					return 1 === preg_match( '/^\s*(COMMIT|RELEASE SAVEPOINT)/i', $istruzione );
+				};
+
+			$scritte    = false;
+			$tentativi  = array();
+			$intromette = static function ( $istruzione ) use ( $wpdb, $tabella, $id, $chiave, $e_il_momento, &$scritte, &$tentativi ) {
+				if ( ! is_string( $istruzione ) || array() !== $tentativi ) {
+					return $istruzione;
+				}
+
+				// L'ultima scrittura dell'annullamento e' la sua voce nel registro.
+				if ( 0 === strpos( $istruzione, 'INSERT INTO `' . $tabella . '`' ) && false !== strpos( $istruzione, "'" . Passaggi::AZIONE_ANNULLAMENTO . "'" ) ) {
+					$scritte = true;
+
+					return $istruzione;
+				}
+
+				if ( $scritte && $e_il_momento( $istruzione ) ) {
+					$tentativi = array( 'in corso' );
+					$tentativi = array(
+						'riscrive' => update_post_meta( $id, $chiave, '2041-12-31' ),
+						'diretta'  => $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: la scrittura dell'aggancio.
+							$wpdb->postmeta,
+							array( 'meta_value' => '2041-12-31' ), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- la scrittura dell'aggancio.
+							array(
+								'post_id'  => $id,
+								'meta_key' => $chiave, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- la scrittura dell'aggancio.
+							)
+						),
+					);
+				}
+
+				return $istruzione;
+			};
+
+			add_filter( 'query', $intromette );
+
+			try {
+				$esito = $this->annulla( $id, $this->pubblicatore );
+			} finally {
+				remove_filter( 'query', $intromette );
+			}
+
+			clean_post_cache( $id );
+
+			$this->assertArrayHasKey( 'riscrive', $tentativi, $caso . ': precondizione, l\'aggancio ha provato.' );
+			$this->assertFalse( $tentativi['riscrive'], $caso . ': la riscrittura con le funzioni di WordPress e\' rifiutata.' );
+			$this->assertSame( 0, $tentativi['diretta'], $caso . ': la riscrittura diretta non tocca niente.' );
+			$this->assertIsInt( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+			$this->assertSame( ChiusuraPubblicazione::ANNULLATO, get_post_status( $id ), $caso . ': l\'atto e\' annullato.' );
+			$this->assertSame( '2041-10-16', conformita_core_fine_pubblicazione( $id ), $caso . ': la fine e\' quella di prima.' );
+		}
 	}
 
 	/**
