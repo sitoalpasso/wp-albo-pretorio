@@ -240,8 +240,8 @@ final class Importazione {
 				// Il tipo e' deciso quando esiste: l'ente lo ha creato.
 				return is_int( $atto['tipo_id'] );
 			case 'annullato':
-				// Cosa veda il pubblico di un annullato in pubblicazione e' una decisione ancora aperta.
-				return true !== $atto['in_vista'];
+				// Arriva annullato: fino alla fine il pubblico ne vede l'avviso, senza documenti (ALBO-22).
+				return true;
 			case 'conferma_dati_personali':
 				return $conferma_visibili;
 		}
@@ -263,7 +263,6 @@ final class Importazione {
 			'senza_documenti'              => __( 'nessun documento: il documento principale e\' obbligatorio', 'albo-pretorio-pa' ),
 			'tipo_da_creare'               => __( 'il tipo di atto con il nome della categoria non c\'e\' in questo albo: si crea, con la sua durata, e si rilancia', 'albo-pretorio-pa' ),
 			'conferma_dati_personali'      => __( 'in pubblicazione: manca la conferma sui dati personali degli atti visibili', 'albo-pretorio-pa' ),
-			'annullato'                    => __( 'annullato e ancora in pubblicazione: cosa ne veda il pubblico e\' una decisione ancora aperta', 'albo-pretorio-pa' ),
 			'documenti_non_verificabili'   => __( 'documenti non verificabili: serve l\'archivio zip del backup', 'albo-pretorio-pa' ),
 			'file_mancante'                => __( 'un file non c\'e\' nell\'archivio', 'albo-pretorio-pa' ),
 			'impronta_diversa'             => __( 'un file non e\' quello caricato in Albo Pretorio On line', 'albo-pretorio-pa' ),
@@ -867,11 +866,15 @@ final class Importazione {
 				$esito = Passaggi::importa(
 					$atto_id,
 					array(
-						'anno'     => (int) $atto['anno'],
-						'numero'   => (int) $atto['numero'],
-						'inizio'   => (string) $atto['inizio'],
-						'fine'     => (string) $atto['fine'],
-						'dettagli' => array(
+						'anno'         => (int) $atto['anno'],
+						'numero'       => (int) $atto['numero'],
+						'inizio'       => (string) $atto['inizio'],
+						'fine'         => (string) $atto['fine'],
+						'annullamento' => null === $atto['scrittura']['annullamento'] ? null : array(
+							'il'     => (string) $atto['scrittura']['annullamento'],
+							'motivo' => (string) $atto['scrittura']['motivo'],
+						),
+						'dettagli'     => array(
 							'origine'                 => $id,
 							'backup'                  => (string) $stato['backup'],
 							'impronta_backup'         => (string) $stato['impronta'],
@@ -962,7 +965,9 @@ final class Importazione {
 			 * passaggio vuol dire scritture annullate, e se l'atto sembra
 			 * pubblicato lo stato non e' garantito.
 			 */
-			if ( 'publish' === get_post_status( $atto_id ) && array(
+			$stato = null === $atto['scrittura']['annullamento'] ? ChiusuraPubblicazione::PUBBLICATO : ChiusuraPubblicazione::ANNULLATO;
+
+			if ( in_array( get_post_status( $atto_id ), array( $stato ), true ) && array(
 				'anno'   => (int) $atto['anno'],
 				'numero' => (int) $atto['numero'],
 			) === $numero ) {

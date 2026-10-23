@@ -924,7 +924,7 @@ final class AnalisiImportazione {
 				'annullato',
 				sprintf(
 					/* translators: 1: data di annullamento, 2: motivo. */
-					__( 'Atto annullato il %1$s (motivo: %2$s). Si porterebbe annullato, con numero e motivo; cosa ne veda il pubblico nel periodo di pubblicazione e\' una scelta ancora aperta di questo albo.', 'albo-pretorio-pa' ),
+					__( 'Atto annullato il %1$s (motivo: %2$s). Si porta annullato, con numero, data e motivo: fino alla fine della pubblicazione il pubblico ne vede l\'avviso, senza documenti.', 'albo-pretorio-pa' ),
 					self::leggibile( $annullo ),
 					'' === $motivo ? __( 'non indicato', 'albo-pretorio-pa' ) : $motivo
 				)

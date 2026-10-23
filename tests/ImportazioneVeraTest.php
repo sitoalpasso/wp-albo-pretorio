@@ -12,7 +12,7 @@
  * - 1: 10/2041, scaduto, un documento: si porta;
  * - 2: 11/2041, in pubblicazione: si porta solo con la conferma separata;
  * - 3: 12/2041, scaduto, due allegati e nessun documento: si porta, principale da scegliere;
- * - 4: 13/2041, annullato e scaduto: si porta, con l'annullamento nel registro;
+ * - 4: 13/2041, annullato e scaduto: si porta annullato, con l'annullamento nel registro;
  * - 5: 14/2041, durata piu' corta della categoria: si porta, con il dubbio;
  * - 6: 50/2041, oltre la partenza dichiarata: conflitto, non si porta;
  * - 7: bozza: non si porta;
@@ -21,7 +21,7 @@
  * - 10: nessun allegato: non si porta;
  * - 11: inizio futuro: non si porta;
  * - 12: 300/2040, scaduto, di un anno che questo albo non ha mai numerato: si porta;
- * - 13: 19/2041, annullato e ancora in pubblicazione: non si porta, neanche con la seconda conferma;
+ * - 13: 19/2041, annullato e ancora in pubblicazione: si porta annullato, solo con la conferma separata;
  * - 14: 301/2040, scaduto, un file solo segnato come allegato: si porta, con quel file come principale.
  *
  * L'atto 1 ha il richiedente, che arriva fra i dati del procedimento.
@@ -36,13 +36,17 @@ declare( strict_types = 1 );
 namespace AlboPretorioPa\Tests;
 
 use AlboPretorioPa\AnalisiImportazione;
+use AlboPretorioPa\ChiusuraPubblicazione;
 use AlboPretorioPa\DatiAtto;
 use AlboPretorioPa\DatiProcedimento;
 use AlboPretorioPa\DocumentiAtto;
 use AlboPretorioPa\Importazione;
 use AlboPretorioPa\LettoreBackup;
+use AlboPretorioPa\PaginaPubblica;
 use AlboPretorioPa\Passaggi;
 use AlboPretorioPa\Repertorio;
+use AlboPretorioPa\RiquadroPassaggi;
+use AlboPretorioPa\SchermataScaduti;
 use AlboPretorioPa\SchermataImportazione;
 
 use const AlboPretorioPa\META_ALLEGATI_ULTERIORI;
@@ -58,6 +62,13 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 
 	use FlussoDiProva;
 	use BackupDiProva;
+
+	/**
+	 * Gli atti annullati in Albo Pretorio On line, per numero interno: arrivano annullati.
+	 *
+	 * @var array<int, string>
+	 */
+	const ANNULLATI = array( '4', '13' );
 
 	/**
 	 * L'istante dell'importazione: le 00:30 del 16 ottobre, ora del sito.
@@ -608,10 +619,10 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$stato    = $this->importa_tutto( $percorso, array( SchermataImportazione::CAMPO_CONFERMA_VISIBILI => '1' ) );
 		$atti     = $this->importati();
 
-		$this->assertSame( array( '1', '2', '3', '4', '5', '12', '14' ), array_map( 'strval', array_keys( $atti ) ), 'Si portano esattamente gli atti portabili.' );
+		$this->assertSame( array( '1', '2', '3', '4', '5', '12', '13', '14' ), array_map( 'strval', array_keys( $atti ) ), 'Si portano esattamente gli atti portabili.' );
 
 		foreach ( $atti as $origine => $atto ) {
-			$this->assertSame( 'publish', $atto['stato'], 'Pubblicato: ' . $origine );
+			$this->assertSame( in_array( (string) $origine, self::ANNULLATI, true ) ? 'albo_annullato' : 'publish', $atto['stato'], 'Pubblicato, o annullato se lo era in Albo Pretorio On line: ' . $origine );
 		}
 
 		$attesi = array(
@@ -681,6 +692,17 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 				'2040-09-18',
 				'',
 			),
+			'13' => array(
+				'Annullato in pubblicazione',
+				'2041-10-01 00:00:00',
+				'2041-09-30 22:00:00',
+				array(
+					'anno'   => 2041,
+					'numero' => 19,
+				),
+				'2041-10-16',
+				'',
+			),
 			'14' => array(
 				'Atto con un solo allegato',
 				'2040-09-03 00:00:00',
@@ -715,6 +737,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		}
 
 		$this->assertFalse( conformita_core_scaduto( $atti['2']['id'] ), 'In pubblicazione fino a tutto il 16.' );
+		$this->assertFalse( conformita_core_scaduto( $atti['13']['id'] ), 'Annullato, ma in pubblicazione fino a tutto il 16.' );
 
 		// Una lettura del sito pubblico, da visitatore.
 		$GLOBALS['current_screen'] = null;
@@ -730,7 +753,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		);
 		wp_set_current_user( $this->amministratore );
 
-		$this->assertSame( array( $atti['2']['id'] ), array_map( 'intval', $visibili ), 'Il pubblico vede solo l\'atto in corso.' );
+		$this->assertSame( array( $atti['2']['id'] ), array_map( 'intval', $visibili ), 'Fra i pubblicati il pubblico vede solo l\'atto in corso: l\'annullato non e\' pubblicato.' );
 
 		// La voce di registro: numero, date, durata con la sua origine, origine dell'atto, dubbi portati.
 		$voce = $this->voce_importazione( $atti['5']['id'] );
@@ -781,7 +804,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		// Il rapporto finale.
 		$this->assertSame( 14, $stato['nel_backup'] );
 		$this->assertSame( 14, $stato['analizzati'] );
-		$this->assertCount( 7, $stato['importati'] );
+		$this->assertCount( 8, $stato['importati'] );
 		$this->assertSame( array(), $stato['non_riusciti'] );
 		$this->assertSame( array( '12/2041' ), $stato['da_scegliere'] );
 	}
@@ -794,18 +817,17 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$rapporto = $this->rapporto_di( $percorso );
 
 		$this->assertSame( array( '1', '3', '4', '5', '12', '14' ), Importazione::selezione( $rapporto, false )['atti'], 'Senza la seconda conferma, l\'atto in corso resta fuori.' );
-		$this->assertSame( array( '1', '2', '3', '4', '5', '12', '14' ), Importazione::selezione( $rapporto, true )['atti'], 'L\'annullato in pubblicazione resta fuori anche con la seconda conferma.' );
+		$this->assertSame( array( '1', '2', '3', '4', '5', '12', '13', '14' ), Importazione::selezione( $rapporto, true )['atti'], 'Con la seconda conferma entrano l\'atto in corso e l\'annullato in pubblicazione.' );
 		$this->assertSame( 0, Importazione::selezione( $rapporto, false )['in_vista'] );
-		$this->assertSame( 1, Importazione::selezione( $rapporto, true )['in_vista'] );
+		$this->assertSame( 2, Importazione::selezione( $rapporto, true )['in_vista'] );
 
 		$stato = $this->importa_tutto( $percorso );
 
 		$this->assertSame( array( '1', '3', '4', '5', '12', '14' ), array_map( 'strval', array_keys( $this->importati() ) ) );
 		$this->assertSame(
 			array(
-				'annullato'               => array( '19/2041' ),
 				'bozza'                   => array( 'bozza (numero interno 7)' ),
-				'conferma_dati_personali' => array( '11/2041' ),
+				'conferma_dati_personali' => array( '11/2041', '19/2041' ),
 				'file_mancante'           => array( '16/2041' ),
 				'inizio_futuro'           => array( '18/2041' ),
 				'numero_oltre_partenza'   => array( '50/2041' ),
@@ -827,16 +849,16 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 
 		$this->assertStringContainsString( 'name="' . SchermataImportazione::CAMPO_CONFERMA . '"', $pagina );
 		$this->assertStringContainsString( 'name="' . SchermataImportazione::CAMPO_CONFERMA_VISIBILI . '"', $pagina );
-		$this->assertStringContainsString( 'data-atti="0" data-in-vista="1"', $pagina, 'Dopo l\'importazione resta da portare solo l\'atto in corso.' );
+		$this->assertStringContainsString( 'data-atti="0" data-in-vista="2"', $pagina, 'Dopo l\'importazione restano da portare solo i due atti in pubblicazione.' );
 		$this->assertStringContainsString( 'Importati 6 atti su 14 del backup.', $pagina );
 
-		// L'atto in corso arriva con la seconda conferma, al rilancio.
+		// L'atto in corso e l'annullato in pubblicazione arrivano con la seconda conferma, al rilancio.
 		$secondo = $this->importa_tutto( $percorso, array( SchermataImportazione::CAMPO_CONFERMA_VISIBILI => '1' ) );
 
-		$this->assertSame( array( '1', '2', '3', '4', '5', '12', '14' ), array_map( 'strval', array_keys( $this->importati() ) ) );
-		$this->assertCount( 1, $secondo['importati'] );
+		$this->assertSame( array( '1', '2', '3', '4', '5', '12', '13', '14' ), array_map( 'strval', array_keys( $this->importati() ) ) );
+		$this->assertCount( 2, $secondo['importati'] );
 		$this->assertSame( 6, $secondo['gia_importati'] );
-		$this->assertSame( array( 'annullato' => array( '19/2041' ) ), array_intersect_key( $this->non_portati( $secondo ), array( 'annullato' => true ) ), 'Con la seconda conferma l\'annullato in pubblicazione resta fuori, per il suo motivo.' );
+		$this->assertArrayNotHasKey( 'annullato', $this->non_portati( $secondo ), 'Annullato non e\' piu\' un motivo per restare fuori.' );
 		$this->assertArrayNotHasKey( 'conferma_dati_personali', $this->non_portati( $secondo ) );
 	}
 
@@ -900,7 +922,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$this->assertNull( get_post( $documento ), 'Il suo documento e\' stato cancellato.' );
 		$this->assertFileDoesNotExist( $sul_disco, 'Il suo file non c\'e\' piu\'.' );
 		$this->assertSame( 'publish', $dopo['2']['stato'] );
-		$this->assertCount( 7, $dopo );
+		$this->assertCount( 8, $dopo );
 
 		foreach ( $prima as $origine => $atto ) {
 			$this->assertSame( $atto, $foto[ $origine ], 'Un atto gia\' importato non si tocca, in niente: ' . $origine );
@@ -1055,7 +1077,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 				array(
 					'impronta' => hash_file( 'sha256', $percorso ),
 					'atti'     => 6,
-					'in_vista' => 1,
+					'in_vista' => 2,
 				),
 				true,
 				false
@@ -1128,7 +1150,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 				array(
 					'impronta' => hash_file( 'sha256', $percorso ),
 					'atti'     => 6,
-					'in_vista' => 1,
+					'in_vista' => 2,
 				),
 				true,
 				false
@@ -1325,7 +1347,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 				array(
 					'impronta' => hash_file( 'sha256', $percorso ),
 					'atti'     => 6,
-					'in_vista' => 1,
+					'in_vista' => 2,
 				),
 				true,
 				false
@@ -2186,7 +2208,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 			array(
 				'impronta' => hash_file( 'sha256', $percorso ),
 				'atti'     => 6,
-				'in_vista' => 1,
+				'in_vista' => 2,
 			),
 			true,
 			false
@@ -2263,7 +2285,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 				array(
 					'impronta' => hash_file( 'sha256', $percorso ),
 					'atti'     => 6,
-					'in_vista' => 1,
+					'in_vista' => 2,
 				),
 				true,
 				false
@@ -2311,7 +2333,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 			array(
 				'impronta' => hash_file( 'sha256', $percorso ),
 				'atti'     => 6,
-				'in_vista' => 1,
+				'in_vista' => 2,
 			),
 			true,
 			false
@@ -2353,7 +2375,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 			array(
 				'impronta' => hash_file( 'sha256', $percorso ),
 				'atti'     => $atti,
-				'in_vista' => 1,
+				'in_vista' => 2,
 			),
 			true,
 			false
@@ -2399,7 +2421,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		foreach ( $this->importati() as $origine => $atto ) {
 			$attesi[] = array(
 				'id'    => $atto['id'],
-				'stato' => 'publish',
+				'stato' => in_array( (string) $origine, self::ANNULLATI, true ) ? 'albo_annullato' : 'publish',
 				'nome'  => (string) get_post_field( 'post_name', $atto['id'], 'raw' ),
 			);
 		}
@@ -2619,7 +2641,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$pagina = (string) ob_get_clean();
 
 		$this->assertStringContainsString( 'data-stato="finita"', $pagina );
-		$this->assertStringContainsString( 'Importati 6 atti su 14 del backup.', $pagina );
+		$this->assertStringContainsString( 'Importati 7 atti su 14 del backup.', $pagina );
 		$this->assertStringContainsString( '13/2041', $pagina );
 		$this->assertStringContainsString( '&lt;script&gt;alert(&quot;ostile&quot;)&lt;/script&gt;&lt;b&gt;grassetto&lt;/b&gt;', $pagina, 'Il messaggio arriva come testo.' );
 		$this->assertStringNotContainsString( '<script>alert', $pagina );
@@ -2663,7 +2685,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$this->importa_tutto( $percorso, array( SchermataImportazione::CAMPO_CONFERMA_VISIBILI => '1' ) );
 
 		$atti = $this->importati();
-		$this->assertCount( 7, $atti, 'Precondizione: sette atti importati, compreso quello in pubblicazione.' );
+		$this->assertCount( 8, $atti, 'Precondizione: otto atti importati, compresi i due in pubblicazione.' );
 		$this->assertSame( 'publish', $atti['2']['stato'], 'Precondizione: l\'atto in pubblicazione e\' pubblicato.' );
 
 		$atto  = $atti['2']['id'];
@@ -2679,7 +2701,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$prima    = $this->fotografie();
 		$rapporto = $this->rapporto_di( $percorso );
 
-		$this->assertSame( 7, $rapporto['riepilogo']['esiti'][ AnalisiImportazione::IMPORTATO ], 'Il rapporto conta l\'annullato fra gli importati.' );
+		$this->assertSame( 8, $rapporto['riepilogo']['esiti'][ AnalisiImportazione::IMPORTATO ], 'Il rapporto conta gli annullati fra gli importati.' );
 		$this->assertSame( array(), Importazione::selezione( $rapporto, true )['atti'], 'Niente da portare, nemmeno con la seconda conferma.' );
 
 		$vuota = SchermataImportazione::importazione_da_invio( $this->invio_avvia( $percorso, array( SchermataImportazione::CAMPO_CONFERMA_VISIBILI => '1' ) ) );
@@ -2687,5 +2709,513 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$this->assertWPError( $vuota );
 		$this->assertSame( 'albo_importazione_vuota', $vuota->get_error_code() );
 		$this->assertSame( $prima, $this->fotografie(), 'Il rilancio non ha creato ne\' cambiato niente, l\'annullato compreso.' );
+	}
+
+	/**
+	 * La voce dell'annullamento di un atto, letta dal registro.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return array<string, mixed>
+	 */
+	private function voce_annullamento( int $atto_id ): array {
+		$voci = $this->voci_di(
+			$atto_id,
+			array(
+				'sezione' => SEZIONE,
+				'azione'  => Passaggi::AZIONE_ANNULLAMENTO,
+			)
+		);
+
+		$this->assertCount( 1, $voci, 'Una voce di annullamento.' );
+
+		return $voci[0];
+	}
+
+	/**
+	 * Quello che la pagina pubblica disegna per un indirizzo, da visitatore; nullo se "non trovata".
+	 *
+	 * @param string $indirizzo Indirizzo.
+	 * @return string|null
+	 */
+	private function pubblico( string $indirizzo ): ?string {
+		$GLOBALS['current_screen'] = null;
+		wp_set_current_user( 0 );
+
+		/*
+		 * La costante per le memorie di pagina, una volta definita, resta per
+		 * tutta la suite: la sua prova (A-202) vuole trovarla non definita.
+		 * Qui si guarda cosa la pagina disegna, non le sue intestazioni.
+		 */
+		remove_action( 'wp', array( PaginaPubblica::class, 'da_wp' ) );
+
+		try {
+			$this->go_to( $indirizzo );
+
+			if ( is_404() ) {
+				return null;
+			}
+
+			$pagina          = get_queried_object();
+			$GLOBALS['post'] = $pagina;
+			setup_postdata( $pagina );
+
+			return (string) apply_filters( 'the_content', $pagina->post_content );
+		} finally {
+			add_action( 'wp', array( PaginaPubblica::class, 'da_wp' ) );
+			wp_set_current_user( $this->amministratore );
+			unset( $GLOBALS['post'] );
+		}
+	}
+
+	/**
+	 * Tutto cio' che il punto pubblico di consegna emette per un documento, da visitatore.
+	 *
+	 * @param int $documento Documento.
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function consegna_pubblica( int $documento ): array {
+		$consegne = array();
+
+		\Conformita_Core_Consegna::fissa_emettitore(
+			static function ( array $risposta ) use ( &$consegne ) {
+				$consegne[] = $risposta;
+			}
+		);
+		$GLOBALS['current_screen'] = null;
+		wp_set_current_user( 0 );
+
+		try {
+			$this->go_to( (string) conformita_core_indirizzo_consegna( $documento ) );
+		} finally {
+			\Conformita_Core_Consegna::azzera_emettitore();
+			wp_set_current_user( $this->amministratore );
+		}
+
+		return $consegne;
+	}
+
+	/**
+	 * Gli atti nell'elenco pubblico disegnato.
+	 *
+	 * @param string $html Codice disegnato.
+	 * @return array<int, int>
+	 */
+	private function elencati( string $html ): array {
+		preg_match_all( '/<tr class="albo-pretorio__atto" role="row" data-atto="([0-9]+)"/', $html, $trovati );
+
+		return array_map( 'intval', $trovati[1] );
+	}
+
+	/**
+	 * A-231. L'annullato in pubblicazione arriva annullato, solo con la seconda conferma, e il pubblico ne vede l'avviso.
+	 */
+	public function test_a231_annullato_in_pubblicazione(): void {
+		$this->set_permalink_structure( '' );
+
+		$percorso = $this->backup_nella_cartella();
+		$pagina   = self::factory()->post->create(
+			array(
+				'post_type'    => 'page',
+				'post_status'  => 'publish',
+				'post_title'   => 'Albo pretorio',
+				'post_content' => '[albo_pretorio]',
+			)
+		);
+
+		// Senza la seconda conferma resta fuori, come l'atto in corso.
+		$primo = $this->importa_tutto( $percorso );
+
+		$this->assertArrayNotHasKey( '13', $this->importati() );
+		$this->assertSame( array( '11/2041', '19/2041' ), $this->non_portati( $primo )['conferma_dati_personali'] );
+
+		// Con la conferma arriva annullato.
+		$this->importa_tutto( $percorso, array( SchermataImportazione::CAMPO_CONFERMA_VISIBILI => '1' ) );
+
+		$atti = $this->importati();
+		$id   = $atti['13']['id'];
+
+		clean_post_cache( $id );
+		$this->assertSame( ChiusuraPubblicazione::ANNULLATO, $atti['13']['stato'] );
+		$this->assertSame( ChiusuraPubblicazione::ANNULLATO, get_post_status( $id ), 'Annullato anche per chi legge dalla memoria.' );
+		$this->assertSame(
+			array(
+				'anno'   => 2041,
+				'numero' => 19,
+			),
+			Repertorio::di( $id )
+		);
+		$this->assertSame( '2041-10-01 00:00:00', get_post( $id )->post_date );
+		$this->assertSame( '2041-10-16', conformita_core_fine_pubblicazione( $id ) );
+		$this->assertNotNull( DocumentiAtto::principale( $id ), 'Il documento c\'e\', intatto.' );
+		$this->assertSame( '2041-10-05', $this->voce_importazione( $id )['dettagli']['annullamento'] );
+		$this->assertTrue( $this->voce_importazione( $id )['dettagli']['conferma_dati_personali'] );
+
+		$voce = $this->voce_annullamento( $id );
+
+		$this->assertSame( 'Revoca', $voce['motivazione'] );
+		$this->assertSame(
+			array(
+				'anno'         => 2041,
+				'numero'       => 19,
+				'fine'         => '2041-10-16',
+				'annullato_il' => '2041-10-05',
+				'origine'      => 'Albo Pretorio On line',
+			),
+			$voce['dettagli']
+		);
+		$this->assertCount(
+			1,
+			$this->voci_di(
+				$id,
+				array(
+					'azione'  => 'rimozione',
+					'origine' => 'automatica',
+				)
+			),
+			'La voce automatica del cambio di stato.'
+		);
+
+		$annullamento = Passaggi::annullamento( $id );
+
+		$this->assertSame( 'Revoca', $annullamento['motivo'] );
+		$this->assertTrue( $annullamento['giorno'] );
+		$this->assertSame( '2041-10-05 00:00:00', $annullamento['istante']->setTimezone( wp_timezone() )->format( 'Y-m-d H:i:s' ), 'La data del vecchio albo, non quella dell\'importazione.' );
+
+		// Il riquadro dice la data senza ora.
+		ob_start();
+		RiquadroPassaggi::mostra( get_post( $id ) );
+		$riquadro = (string) ob_get_clean();
+
+		$this->assertStringContainsString( '<dd>' . esc_html( wp_date( get_option( 'date_format' ), $annullamento['istante']->getTimestamp() ) ) . '</dd>', $riquadro );
+		$this->assertStringContainsString( 'Revoca', $riquadro );
+
+		// Il pubblico, alle 00:30 del 16: in elenco con l'avviso, senza documenti.
+		$elenco = (string) $this->pubblico( (string) get_permalink( $pagina ) );
+
+		$this->assertEqualsCanonicalizing( array( $atti['2']['id'], $id ), $this->elencati( $elenco ), 'In elenco l\'atto in corso e l\'annullato in pubblicazione.' );
+		$this->assertSame( 1, preg_match( '/data-atto="' . $id . '"(.*?)<\/tr>/s', $elenco, $riga ) );
+		$this->assertStringContainsString( 'Annullato', $riga[1] );
+		$this->assertStringContainsString( 'nessuno: atto annullato', $riga[1] );
+
+		$scheda = $this->pubblico( add_query_arg( PaginaPubblica::PARAMETRO_ATTO, $id, (string) get_permalink( $pagina ) ) );
+
+		$this->assertNotNull( $scheda, 'La scheda dell\'annullato si apre.' );
+		$this->assertStringContainsString( '<dt>Annullato il</dt><dd>05/10/2041</dd>', $scheda );
+		$this->assertStringContainsString( '<dt>Motivo dell&#039;annullamento</dt><dd>Revoca</dd>', $scheda );
+
+		// I documenti: lo stesso rifiuto, per intero, del documento di uno scaduto; controllo positivo sull'atto in corso.
+		$rifiuto = $this->consegna_pubblica( (int) DocumentiAtto::principale( $atti['1']['id'] ) );
+
+		$this->assertNotSame( 200, $rifiuto[0]['stato'] ?? null, 'Precondizione: il documento dello scaduto non si scarica.' );
+		$this->assertSame( $rifiuto, $this->consegna_pubblica( (int) DocumentiAtto::principale( $id ) ) );
+		$this->assertSame( 200, $this->consegna_pubblica( (int) DocumentiAtto::principale( $atti['2']['id'] ) )[0]['stato'] ?? null, 'Il documento dell\'atto in corso si scarica.' );
+
+		// Dalla mezzanotte del 17 sparisce.
+		$this->fissa_orologi( '2041-10-17 00:00:00' );
+
+		$this->assertSame( array(), $this->elencati( (string) $this->pubblico( (string) get_permalink( $pagina ) ) ) );
+		$this->assertNull( $this->pubblico( add_query_arg( PaginaPubblica::PARAMETRO_ATTO, $id, (string) get_permalink( $pagina ) ) ), 'La scheda risponde "non trovata".' );
+		$this->assertSame( ChiusuraPubblicazione::ANNULLATO, get_post_status( $id ), 'Lo stato resta annullato: a toglierlo e\' la data.' );
+	}
+
+	/**
+	 * A-232. L'annullato scaduto arriva annullato e si trova nella consultazione riservata; il motivo vuoto si dice.
+	 */
+	public function test_a232_annullato_scaduto(): void {
+		$percorso = $this->backup_nella_cartella();
+
+		$this->importa_tutto( $percorso );
+
+		$id = $this->importati()['4']['id'];
+
+		$this->assertSame( ChiusuraPubblicazione::ANNULLATO, $this->importati()['4']['stato'] );
+		$this->assertTrue( conformita_core_scaduto( $id ) );
+		$this->assertSame( 'Errore materiale', $this->voce_annullamento( $id )['motivazione'] );
+		$this->assertSame( '2041-09-10', $this->voce_annullamento( $id )['dettagli']['annullato_il'] );
+
+		$_GET     = array();
+		$_REQUEST = array();
+
+		ob_start();
+		SchermataScaduti::mostra();
+		$schermata = (string) ob_get_clean();
+
+		$this->assertSame( 1, preg_match( '/<tr data-atto="' . $id . '">(.*?)<\/tr>/s', $schermata, $riga ), 'L\'annullato scaduto e\' elencato.' );
+		$this->assertStringContainsString( '<strong>Annullato il</strong>: 10/09/2041', $riga[1] );
+		$this->assertStringContainsString( '<strong>Motivo dell&#039;annullamento</strong>: Errore materiale', $riga[1] );
+	}
+
+	/**
+	 * A-232. Il motivo vuoto in Albo Pretorio On line si scrive come "non indicato".
+	 */
+	public function test_a232_motivo_vuoto(): void {
+		$atti = array_map(
+			static function ( array $atto ): array {
+				if ( 4 === (int) $atto['IdAtto'] ) {
+					$atto['MotivoAnnullamento'] = '  ';
+				}
+
+				return $atto;
+			},
+			$this->atti_di_prova()
+		);
+
+		$this->importa_tutto( $this->backup_nella_cartella( $atti ) );
+
+		$id = $this->importati()['4']['id'];
+
+		$this->assertSame( ChiusuraPubblicazione::ANNULLATO, get_post_status( $id ) );
+		$this->assertSame( 'non indicato in Albo Pretorio On line', $this->voce_annullamento( $id )['motivazione'] );
+	}
+
+	/**
+	 * A-233. Tutto o niente: un pezzo dell'annullamento che fallisce lascia l'atto non importato, con il numero libero.
+	 */
+	public function test_a233_tutto_o_niente(): void {
+		global $wpdb;
+
+		$percorso = $this->backup_nella_cartella();
+		$registro = $wpdb->prefix . 'conformita_core_registro';
+		$guasti   = array(
+			'scrittura dello stato annullato' => array( 'albo_stato_non_scritto', array( 'UPDATE `' . $wpdb->posts . '`', "'" . ChiusuraPubblicazione::ANNULLATO . "'" ) ),
+			'voce automatica della rimozione' => array( 'albo_voce_automatica_mancante', array( 'INSERT INTO `' . $registro . '`', "'rimozione'" ) ),
+			'voce dell\'annullamento'         => array( 'albo_voce_non_scritta', array( 'INSERT INTO `' . $registro . '`', "'" . Passaggi::AZIONE_ANNULLAMENTO . "'" ) ),
+		);
+
+		foreach ( $guasti as $caso => list( $codice, $pezzi ) ) {
+			$guasto = static function ( $istruzione ) use ( $pezzi ) {
+				foreach ( $pezzi as $pezzo ) {
+					if ( false === strpos( (string) $istruzione, $pezzo ) ) {
+						return $istruzione;
+					}
+				}
+
+				return 'SELECT guasto_forzato FROM tabella_che_non_esiste';
+			};
+
+			$wpdb->suppress_errors( true );
+			add_filter( 'query', $guasto );
+
+			try {
+				$stato = $this->importa_tutto( $percorso, array( SchermataImportazione::CAMPO_CONFERMA_VISIBILI => '1' ) );
+			} finally {
+				remove_filter( 'query', $guasto );
+				$wpdb->suppress_errors( false );
+			}
+
+			$this->assertSame( array( '1', '2', '3', '5', '12', '14' ), array_map( 'strval', array_keys( $this->importati() ) ), $caso . ': gli annullati non esistono, gli altri si\'.' );
+			$this->assertSame( array( '13/2041', '19/2041' ), array_column( $stato['non_riusciti'], 'numero' ), $caso );
+			$this->assertSame( array( $codice, $codice ), array_column( $stato['non_riusciti'], 'codice' ), $caso . ': con il codice del pezzo fallito.' );
+			$this->assertSame( array(), Repertorio::atti_numerati( 2041, 13 ), $caso . ': il numero 13/2041 e\' libero.' );
+			$this->assertSame( array(), Repertorio::atti_numerati( 2041, 19 ), $caso . ': il numero 19/2041 e\' libero.' );
+			$this->assertSame( $this->importati_per_inventario(), $this->inventario(), $caso . ': nessuna bozza rimasta.' );
+		}
+
+		// Senza guasti il rilancio li porta annullati.
+		$this->importa_tutto( $percorso, array( SchermataImportazione::CAMPO_CONFERMA_VISIBILI => '1' ) );
+
+		$atti = $this->importati();
+
+		$this->assertSame( ChiusuraPubblicazione::ANNULLATO, $atti['4']['stato'] );
+		$this->assertSame( ChiusuraPubblicazione::ANNULLATO, $atti['13']['stato'] );
+		$this->assertSame( $this->importati_per_inventario(), $this->inventario() );
+	}
+
+	/**
+	 * A-233. Data o motivo dell'annullamento non validi: il passaggio rifiuta prima di scrivere.
+	 */
+	public function test_a233_annullamento_non_valido(): void {
+		$bozza = $this->atto_completo();
+
+		add_post_meta( $bozza, META_ORIGINE_IMPORTAZIONE, '4', true );
+
+		$lavorazione = new \ReflectionProperty( Importazione::class, 'in_lavorazione' );
+		$lavorazione->setAccessible( true );
+		$lavorazione->setValue( null, $bozza );
+
+		$prima = $this->fotografia( $bozza );
+
+		try {
+			foreach ( array(
+				'data impossibile'   => array(
+					'il'     => '2041-02-30',
+					'motivo' => 'Revoca',
+				),
+				'data futura'        => array(
+					'il'     => '2041-10-17',
+					'motivo' => 'Revoca',
+				),
+				'data con l\'ora'    => array(
+					'il'     => '2041-10-05 10:00:00',
+					'motivo' => 'Revoca',
+				),
+				'data non testo'     => array(
+					'il'     => 20411005,
+					'motivo' => 'Revoca',
+				),
+				'motivo non testo'   => array(
+					'il'     => '2041-10-05',
+					'motivo' => array( 'Revoca' ),
+				),
+				'motivo assente'     => array( 'il' => '2041-10-05' ),
+				'annullamento testo' => 'si',
+			) as $caso => $annullamento ) {
+				$rifiuto = Passaggi::importa(
+					$bozza,
+					array(
+						'anno'         => 2041,
+						'numero'       => 30,
+						'inizio'       => '2041-09-01',
+						'fine'         => '2041-09-16',
+						'annullamento' => $annullamento,
+						'dettagli'     => array( 'conferma_dati_personali' => true ),
+					)
+				);
+
+				$this->assertWPError( $rifiuto, $caso );
+				$this->assertSame( 'albo_importazione_annullamento_non_valido', $rifiuto->get_error_code(), $caso );
+				$this->assertSame( $prima, $this->fotografia( $bozza ), $caso . ': niente cambia.' );
+			}
+		} finally {
+			$lavorazione->setValue( null, 0 );
+		}
+	}
+
+	/**
+	 * A-234. Il rilancio riconosce gli annullati importati e non tocca niente.
+	 */
+	public function test_a234_rilancio(): void {
+		$percorso = $this->backup_nella_cartella();
+
+		$this->importa_tutto( $percorso, array( SchermataImportazione::CAMPO_CONFERMA_VISIBILI => '1' ) );
+
+		$prima    = $this->fotografie();
+		$rapporto = $this->rapporto_di( $percorso );
+
+		$this->assertSame( 8, $rapporto['riepilogo']['esiti'][ AnalisiImportazione::IMPORTATO ] );
+		$this->assertSame( array(), Importazione::selezione( $rapporto, true )['atti'], 'Niente da portare.' );
+
+		$vuota = SchermataImportazione::importazione_da_invio( $this->invio_avvia( $percorso, array( SchermataImportazione::CAMPO_CONFERMA_VISIBILI => '1' ) ) );
+
+		$this->assertSame( 'albo_importazione_vuota', $vuota->get_error_code() );
+		$this->assertSame( $prima, $this->fotografie(), 'Il rilancio non ha creato ne\' cambiato niente.' );
+	}
+
+	/**
+	 * A-234. Un'eccezione di un altro componente dopo la conferma dell'annullato: l'atto e' fra gli importati.
+	 */
+	public function test_a234_eccezione_dopo_la_conferma(): void {
+		global $wpdb;
+
+		$percorso = $this->backup_nella_cartella();
+		$lanciata = false;
+		$lancia   = static function ( $post_id ) use ( &$lanciata, $wpdb ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: lo stato vero, non quello in memoria.
+			$riga = $wpdb->get_row( $wpdb->prepare( 'SELECT post_status, post_title FROM %i WHERE ID = %d', $wpdb->posts, $post_id ), ARRAY_A );
+
+			if ( ! $lanciata && is_array( $riga ) && ChiusuraPubblicazione::ANNULLATO === $riga['post_status'] && 'Annullato in pubblicazione' === $riga['post_title'] && ! Passaggi::in_corso( (int) $post_id ) ) {
+				$lanciata = true;
+
+				throw new \RuntimeException( 'guasto dopo la conferma' );
+			}
+		};
+
+		add_action( 'clean_post_cache', $lancia );
+
+		try {
+			$finale = $this->importa_tutto( $percorso, array( SchermataImportazione::CAMPO_CONFERMA_VISIBILI => '1' ) );
+		} finally {
+			remove_action( 'clean_post_cache', $lancia );
+		}
+
+		$this->assertTrue( $lanciata, 'Precondizione: l\'eccezione dopo la conferma e\' partita.' );
+		$this->assertArrayHasKey( '13', $finale['importati'], 'L\'annullato confermato prima dell\'eccezione e\' fra gli importati.' );
+		$this->assertSame( array(), $finale['non_riusciti'] );
+		$this->assertSame( ChiusuraPubblicazione::ANNULLATO, $this->importati()['13']['stato'] );
+		$this->assertSame( $this->importati_per_inventario(), $this->inventario() );
+	}
+
+	/**
+	 * A-233. Finite le scritture dell'annullamento, durante il controllo finale, la fine non si riscrive.
+	 */
+	public function test_a233_nessuna_concessione_durante_i_controlli(): void {
+		$this->riscrive_la_fine_durante( 'controlli' );
+	}
+
+	/**
+	 * A-233. Finite le scritture dell'annullamento, alla conferma, la fine non si riscrive.
+	 */
+	public function test_a233_nessuna_concessione_alla_conferma(): void {
+		$this->riscrive_la_fine_durante( 'conferma' );
+	}
+
+	/**
+	 * Importa con un componente che, finita la voce dell'annullamento dell'atto 19/2041, prova a riscriverne la fine.
+	 *
+	 * @param string $caso `controlli`: alla lettura dell'atto del controllo finale; `conferma`: alla conferma della transazione.
+	 */
+	private function riscrive_la_fine_durante( string $caso ): void {
+		global $wpdb;
+
+		$percorso    = $this->backup_nella_cartella();
+		$chiave      = conformita_core_chiave_fine_pubblicazione();
+		$tabella     = $wpdb->prefix . 'conformita_core_registro';
+		$lavorazione = new \ReflectionProperty( Importazione::class, 'in_lavorazione' );
+		$lavorazione->setAccessible( true );
+
+		$scritte    = 0;
+		$tentativi  = array();
+		$intromette = static function ( $istruzione ) use ( $wpdb, $tabella, $chiave, $caso, $lavorazione, &$scritte, &$tentativi ) {
+			if ( ! is_string( $istruzione ) || array() !== $tentativi ) {
+				return $istruzione;
+			}
+
+			// L'ultima scrittura dell'annullamento e' la sua voce nel registro; quella dell'atto 19/2041 nei dettagli ha il numero 19.
+			if ( 0 === strpos( $istruzione, 'INSERT INTO `' . $tabella . '`' ) && false !== strpos( $istruzione, "'" . Passaggi::AZIONE_ANNULLAMENTO . "'" ) && 1 === preg_match( '/numero\\\\?":19,/', $istruzione ) ) {
+				$scritte = (int) $lavorazione->getValue();
+
+				return $istruzione;
+			}
+
+			$e_il_momento = 'controlli' === $caso
+				? 1 === preg_match( '/^\s*SELECT \* FROM `?' . preg_quote( $wpdb->posts, '/' ) . '`? WHERE ID = ' . $scritte . '\s*$/', $istruzione )
+				: 1 === preg_match( '/^\s*(COMMIT|RELEASE SAVEPOINT)/i', $istruzione );
+
+			if ( $scritte > 0 && $e_il_momento ) {
+				$tentativi = array( 'in corso' );
+				$tentativi = array(
+					'riscrive' => update_post_meta( $scritte, $chiave, '2041-12-31' ),
+					'diretta'  => $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: la scrittura dell'aggancio.
+						$wpdb->postmeta,
+						array( 'meta_value' => '2041-12-31' ), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- la scrittura dell'aggancio.
+						array(
+							'post_id'  => $scritte,
+							'meta_key' => $chiave, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- la scrittura dell'aggancio.
+						)
+					),
+				);
+			}
+
+			return $istruzione;
+		};
+
+		add_filter( 'query', $intromette );
+
+		try {
+			$this->importa_tutto( $percorso, array( SchermataImportazione::CAMPO_CONFERMA_VISIBILI => '1' ) );
+		} finally {
+			remove_filter( 'query', $intromette );
+		}
+
+		$id = $this->importati()['13']['id'];
+
+		clean_post_cache( $id );
+
+		$this->assertSame( $id, $scritte, $caso . ': precondizione, la voce dell\'annullamento e\' di questo atto.' );
+		$this->assertArrayHasKey( 'riscrive', $tentativi, $caso . ': precondizione, l\'aggancio ha provato.' );
+		$this->assertFalse( $tentativi['riscrive'], $caso . ': la riscrittura con le funzioni di WordPress e\' rifiutata.' );
+		$this->assertSame( 0, $tentativi['diretta'], $caso . ': la riscrittura diretta non tocca niente.' );
+		$this->assertSame( ChiusuraPubblicazione::ANNULLATO, get_post_status( $id ), $caso . ': l\'atto e\' annullato.' );
+		$this->assertSame( '2041-10-16', conformita_core_fine_pubblicazione( $id ), $caso . ': la fine e\' quella di Albo Pretorio On line.' );
 	}
 }
