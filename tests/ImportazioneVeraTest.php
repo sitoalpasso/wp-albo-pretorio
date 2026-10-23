@@ -3307,4 +3307,44 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 			);
 		}
 	}
+
+	/**
+	 * A-231. Se la voce di importazione non si legge, la data dell'annullamento importato non si legge: non si sostituisce con l'istante della voce.
+	 */
+	public function test_a231_data_con_il_registro_che_non_risponde(): void {
+		global $wpdb;
+
+		$this->importa_tutto( $this->backup_nella_cartella(), array( SchermataImportazione::CAMPO_CONFERMA_VISIBILI => '1' ) );
+
+		$id       = $this->importati()['13']['id'];
+		$registro = $wpdb->prefix . 'conformita_core_registro';
+		$guasti   = 0;
+		$guasto   = static function ( $istruzione ) use ( $registro, &$guasti ) {
+			if ( is_string( $istruzione ) && 1 === preg_match( '/^\s*SELECT/i', $istruzione ) && false !== strpos( $istruzione, $registro ) && false !== strpos( $istruzione, "'" . Passaggi::AZIONE_IMPORTAZIONE . "'" ) ) {
+				++$guasti;
+
+				return 'SELECT guasto_forzato FROM tabella_che_non_esiste';
+			}
+
+			return $istruzione;
+		};
+
+		$wpdb->suppress_errors( true );
+		add_filter( 'query', $guasto );
+
+		try {
+			$letta = Passaggi::annullamento( $id );
+		} finally {
+			remove_filter( 'query', $guasto );
+			$wpdb->suppress_errors( false );
+		}
+
+		$this->assertGreaterThan( 0, $guasti, 'Precondizione: la lettura della voce di importazione e\' fallita.' );
+		$this->assertNull( $letta, 'Data non leggibile in questo momento, non l\'istante della voce.' );
+
+		$letta = Passaggi::annullamento( $id );
+
+		$this->assertTrue( $letta['giorno'], 'Tolto il guasto, la data del vecchio albo.' );
+		$this->assertSame( '2041-10-05', $letta['istante']->setTimezone( wp_timezone() )->format( 'Y-m-d' ) );
+	}
 }

@@ -121,4 +121,7 @@ nella schermata "Atti scaduti" e controllare data e motivo col vecchio albo.
   voce). Un aggancio che conferma da sé la transazione a metà del passaggio resta fuori da
   questa unità: è il limite dichiarato in testa a `class-passaggi.php`, comune a tutti i
   passaggi.
+- Secondo giro: se la voce di importazione non si legge, la provenienza non si sa e la data
+  dell'annullamento risulta "non leggibile in questo momento", invece di cadere sull'istante
+  della voce, che per un atto importato è il giorno dell'importazione.
 

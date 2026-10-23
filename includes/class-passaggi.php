@@ -1111,6 +1111,11 @@ final class Passaggi {
 
 		$giorno = self::giorno_importato( $atto_id, $voci[0] );
 
+		// La provenienza non si verifica: la data non si legge, e non si sostituisce con l'istante della voce.
+		if ( false === $giorno ) {
+			return null;
+		}
+
 		if ( null !== $giorno ) {
 			return array(
 				'motivo'  => (string) $voci[0]['motivazione'],
@@ -1132,13 +1137,14 @@ final class Passaggi {
 	 * Il dettaglio vale solo se la voce ne dichiara l'origine, se l'atto ha la
 	 * sua voce di importazione con la stessa data dell'annullamento, e se il
 	 * giorno non viene dopo la voce: un'altra voce con una data nei dettagli
-	 * si legge con il suo istante.
+	 * si legge con il suo istante. Se la voce di importazione non si legge,
+	 * la provenienza non si sa: falso, e la data non si legge.
 	 *
 	 * @param int                  $atto_id Atto.
 	 * @param array<string, mixed> $voce    Voce dell'annullamento.
-	 * @return \DateTimeImmutable|null
+	 * @return \DateTimeImmutable|false|null
 	 */
-	private static function giorno_importato( int $atto_id, array $voce ): ?\DateTimeImmutable {
+	private static function giorno_importato( int $atto_id, array $voce ) {
 		$il = $voce['dettagli']['annullato_il'] ?? null;
 
 		if ( ! is_string( $il ) || self::ORIGINE_ANNULLAMENTO_IMPORTATO !== ( $voce['dettagli']['origine'] ?? null ) ) {
@@ -1151,6 +1157,8 @@ final class Passaggi {
 			return null;
 		}
 
+		global $wpdb;
+
 		$importazione = conformita_core_voci_registro(
 			array(
 				'sezione'   => SEZIONE,
@@ -1159,7 +1167,12 @@ final class Passaggi {
 			)
 		);
 
-		if ( ! is_array( $importazione ) || 1 !== count( $importazione ) || ( $importazione[0]['dettagli']['annullamento'] ?? null ) !== $il ) {
+		// Il meccanismo comune risponde con un elenco vuoto anche a una lettura fallita: l'errore si legge dalla connessione.
+		if ( ! is_array( $importazione ) || '' !== (string) $wpdb->last_error ) {
+			return false;
+		}
+
+		if ( 1 !== count( $importazione ) || ( $importazione[0]['dettagli']['annullamento'] ?? null ) !== $il ) {
 			return null;
 		}
 
