@@ -3053,6 +3053,10 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 					'il'     => '2041-10-05 10:00:00',
 					'motivo' => 'Revoca',
 				),
+				'carattere nullo'    => array(
+					'il'     => "2041-10-05\0",
+					'motivo' => 'Revoca',
+				),
 				'data non testo'     => array(
 					'il'     => 20411005,
 					'motivo' => 'Revoca',
@@ -3080,6 +3084,22 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 				$this->assertSame( 'albo_importazione_annullamento_non_valido', $rifiuto->get_error_code(), $caso );
 				$this->assertSame( $prima, $this->fotografia( $bozza ), $caso . ': niente cambia.' );
 			}
+
+			// Anche l'inizio con un carattere nullo si rifiuta senza eccezioni e senza scrivere.
+			$rifiuto = Passaggi::importa(
+				$bozza,
+				array(
+					'anno'     => 2041,
+					'numero'   => 30,
+					'inizio'   => "2041-09-01\0",
+					'fine'     => '2041-09-16',
+					'dettagli' => array( 'conferma_dati_personali' => true ),
+				)
+			);
+
+			$this->assertWPError( $rifiuto );
+			$this->assertSame( 'albo_importazione_date_non_valide', $rifiuto->get_error_code() );
+			$this->assertSame( $prima, $this->fotografia( $bozza ), 'Inizio con un carattere nullo: niente cambia.' );
 		} finally {
 			$lavorazione->setValue( null, 0 );
 		}
@@ -3260,6 +3280,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 			'importazione con altra data' => array( '2041-10-02', '2041-10-03', Passaggi::ORIGINE_ANNULLAMENTO_IMPORTATO, false ),
 			'origine diversa'             => array( '2041-10-03', '2041-10-03', 'altro componente', false ),
 			'data dopo la voce'           => array( '2041-10-06', '2041-10-06', Passaggi::ORIGINE_ANNULLAMENTO_IMPORTATO, false ),
+			'data con un carattere nullo' => array( "2041-10-03\0", "2041-10-03\0", Passaggi::ORIGINE_ANNULLAMENTO_IMPORTATO, false ),
 			'tutto coerente'              => array( '2041-10-03', '2041-10-03', Passaggi::ORIGINE_ANNULLAMENTO_IMPORTATO, true ),
 		);
 

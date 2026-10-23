@@ -608,12 +608,12 @@ final class Passaggi {
 			);
 		}
 
-		$inizio = is_string( $dati['inizio'] ?? null ) ? \DateTimeImmutable::createFromFormat( '!Y-m-d', $dati['inizio'], wp_timezone() ) : false;
+		$inizio = self::giorno_dal_testo( $dati['inizio'] ?? null );
 		$fine   = is_string( $dati['fine'] ?? null ) ? (string) $dati['fine'] : '';
 		$anno   = is_int( $dati['anno'] ?? null ) ? $dati['anno'] : 0;
 		$numero = is_int( $dati['numero'] ?? null ) ? $dati['numero'] : 0;
 		$adesso = self::ora();
-		$valida = false !== $inizio && $inizio->format( 'Y-m-d' ) === $dati['inizio'] && true === conformita_core_valida_fine_pubblicazione( $fine );
+		$valida = null !== $inizio && true === conformita_core_valida_fine_pubblicazione( $fine );
 		$oggi   = $adesso->setTimezone( wp_timezone() )->format( 'Y-m-d' );
 
 		if ( ! $valida || $fine < $dati['inizio'] ) {
@@ -827,10 +827,10 @@ final class Passaggi {
 		}
 
 		$il     = is_array( $annullamento ) && is_string( $annullamento['il'] ?? null ) ? $annullamento['il'] : '';
-		$giorno = \DateTimeImmutable::createFromFormat( '!Y-m-d', $il, wp_timezone() );
+		$giorno = self::giorno_dal_testo( $il );
 		$motivo = is_array( $annullamento ) && is_string( $annullamento['motivo'] ?? null ) ? trim( sanitize_textarea_field( $annullamento['motivo'] ) ) : null;
 
-		if ( false === $giorno || $giorno->format( 'Y-m-d' ) !== $il || $il > $oggi || null === $motivo ) {
+		if ( null === $giorno || $il > $oggi || null === $motivo ) {
 			return new \WP_Error(
 				'albo_importazione_annullamento_non_valido',
 				__( 'L\'atto non si importa: la data o il motivo dell\'annullamento in Albo Pretorio On line non sono validi.', 'albo-pretorio-pa' )
@@ -1132,6 +1132,25 @@ final class Passaggi {
 	}
 
 	/**
+	 * Un giorno scritto come AAAA-MM-GG, nell'ora del sito, oppure nulla.
+	 *
+	 * La forma si controlla prima di leggere la data: un testo con caratteri
+	 * nulli farebbe sollevare un'eccezione alla lettura invece di non valere.
+	 *
+	 * @param mixed $testo Valore fornito.
+	 * @return \DateTimeImmutable|null
+	 */
+	private static function giorno_dal_testo( $testo ): ?\DateTimeImmutable {
+		if ( ! is_string( $testo ) || 1 !== preg_match( '/\A[0-9]{4}-[0-9]{2}-[0-9]{2}\z/', $testo ) ) {
+			return null;
+		}
+
+		$giorno = \DateTimeImmutable::createFromFormat( '!Y-m-d', $testo, wp_timezone() );
+
+		return false !== $giorno && $giorno->format( 'Y-m-d' ) === $testo ? $giorno : null;
+	}
+
+	/**
 	 * Il giorno dell'annullamento in Albo Pretorio On line, se la voce e' quella scritta dall'importazione.
 	 *
 	 * Il dettaglio vale solo se la voce ne dichiara l'origine, se l'atto ha la
@@ -1151,9 +1170,9 @@ final class Passaggi {
 			return null;
 		}
 
-		$giorno = \DateTimeImmutable::createFromFormat( '!Y-m-d', $il, wp_timezone() );
+		$giorno = self::giorno_dal_testo( $il );
 
-		if ( false === $giorno || $giorno->format( 'Y-m-d' ) !== $il || $giorno > $voce['istante'] ) {
+		if ( null === $giorno || $giorno > $voce['istante'] ) {
 			return null;
 		}
 

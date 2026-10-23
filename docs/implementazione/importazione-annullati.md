@@ -131,3 +131,9 @@ nella schermata "Atti scaduti" e controllare data e motivo col vecchio albo.
   lasci i file dei due annullati la fa fallire. La riga A-210 ora dice che fra gli atti
   pubblicati il visitatore trova solo quello in corso, mentre l'avviso dell'annullato lo
   verifica A-231.
+- Quinto giro: una data con un carattere nullo faceva sollevare un'eccezione alla lettura,
+  invece di non valere, e poteva fermare la pagina pubblica, il riquadro e la consultazione
+  riservata. Ora la forma AAAA-MM-GG si controlla prima di leggere la data, in un solo
+  punto usato dalla data dell'annullamento, dalla sua lettura dal registro e dall'inizio
+  dell'atto importato. La data di inizio fornita alla pubblicazione normale passa da
+  un'altra funzione, fuori da questa unità, ed è da controllare a parte.
