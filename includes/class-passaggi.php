@@ -1159,7 +1159,7 @@ final class Passaggi {
 			)
 		);
 
-		if ( ! is_array( $importazione ) || 1 !== count( $importazione ) || $il !== ( $importazione[0]['dettagli']['annullamento'] ?? null ) ) {
+		if ( ! is_array( $importazione ) || 1 !== count( $importazione ) || ( $importazione[0]['dettagli']['annullamento'] ?? null ) !== $il ) {
 			return null;
 		}
 
