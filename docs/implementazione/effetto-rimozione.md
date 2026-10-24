@@ -149,10 +149,20 @@ Dalla prima revisione indipendente:
   defissione", e la dichiarazione già resa spariva dalle viste. Ora le viste distinguono la
   lettura fallita e lo dicono.
 
+Dalla seconda revisione:
+
+- **Anche la dichiarazione resa dopo** ha la sua transazione e conta le voci dopo la
+  scrittura: una voce scritta da altri nello stesso momento la fa annullare. Se la scrittura
+  stessa è rifiutata non c'è niente di proprio da annullare.
+- **Il testo vuoto non è nessuna scelta**: insieme alla defissione si rifiuta come ogni altro
+  valore fuori dai due. Nessuna scelta è solo il campo che manca.
+
 Guasti introdotti nel codice per vedere quale prova li vede, tutti tolti:
 
 - senza il controllo della defissione registrata e dello stato: fallisce A-245;
 - un valore già scelto nel riquadro: falliscono A-244 e A-246;
 - il valore del riquadro ripulito: fallisce A-245;
 - senza il conteggio dopo la scrittura: fallisce A-247;
-- sull'annullato la lettura fallita della defissione presa per "nessuna": fallisce A-248.
+- sull'annullato la lettura fallita della defissione presa per "nessuna": fallisce A-248;
+- il testo vuoto preso per nessuna scelta: fallisce A-245;
+- la dichiarazione resa dopo senza il conteggio: fallisce A-247.
