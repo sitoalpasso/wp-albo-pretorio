@@ -244,6 +244,17 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Quanti atti ci sono, in ogni stato.
+	 *
+	 * @return int
+	 */
+	private function conta_atti(): int {
+		global $wpdb;
+
+		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = %s", TIPO ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: tutti gli atti, in ogni stato.
+	}
+
+	/**
 	 * La dichiarazione ha aggiunto una sola voce, e nient'altro dell'atto e' cambiato.
 	 *
 	 * @param array<string, mixed> $prima   Fotografia prima.
@@ -528,6 +539,7 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 		) as $campo => $estranei ) {
 			$altro = $this->defisso( 'Atto con ' . $campo );
 			$prima = $this->fotografia( $altro );
+			$atti  = $this->conta_atti();
 
 			$this->invia_riquadro(
 				$altro,
@@ -543,6 +555,7 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 
 			$this->assertCount( 1, $this->effetti( $altro ), $campo . ': dichiarato.' );
 			$this->solo_una_voce( $prima, $altro, 'Con ' . $campo );
+			$this->assertSame( $atti, $this->conta_atti(), 'Con ' . $campo . ': "va rifatta" dal riquadro non crea nessun atto.' );
 		}
 	}
 
@@ -616,9 +629,11 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 
 		// Controllo positivo: chi ha il permesso di defiggere e non quello di pubblicare.
 		$prima = $this->fotografia( $id );
+		$atti  = $this->conta_atti();
 		$this->assertFalse( user_can( $solo_defiggere, (string) Permessi::mappa()['publish_posts'] ), 'Precondizione: non pubblica.' );
 		$this->assertIsInt( $this->dichiara( $id, $solo_defiggere, 'va_rifatta' ), 'Chi ha il permesso di defiggere dichiara.' );
 		$this->solo_una_voce( $prima, $id, 'Controllo positivo' );
+		$this->assertSame( $atti, $this->conta_atti(), '"Va rifatta" dichiarata dopo non crea nessun atto.' );
 	}
 
 	/**

@@ -192,4 +192,5 @@ Guasti introdotti nel codice per vedere quale prova li vede, tutti tolti:
 - la dichiarazione resa dopo senza il conteggio: fallisce A-247;
 - la dichiarazione resa dopo senza il controllo del registro: fallisce A-248;
 - la data di inizio riscritta quando l'effetto si dichiara insieme: fallisce A-243;
-- le viste del defisso guidate dallo stato: falliscono A-245 e A-248.
+- le viste del defisso guidate dallo stato: falliscono A-245 e A-248;
+- un atto in bozza creato dalla dichiarazione "va rifatta" resa dopo: falliscono A-244 e A-245.
