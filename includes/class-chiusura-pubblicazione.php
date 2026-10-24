@@ -142,11 +142,22 @@ final class ChiusuraPubblicazione {
 	const ANNULLATO = 'albo_annullato';
 
 	/**
+	 * Lo stato dell'atto tolto dall'albo prima della scadenza: non pubblico per WordPress.
+	 *
+	 * E' una registrazione di quello che e' accaduto, non la causa
+	 * dell'invisibilita': l'atto sparisce perche' la defissione riporta
+	 * indietro la data di fine.
+	 *
+	 * @var string
+	 */
+	const DEFISSO = 'albo_defisso';
+
+	/**
 	 * Gli stati in cui ogni scrittura si ferma prima di cominciare.
 	 *
 	 * @var array<int, string>
 	 */
-	const STATI_FERMI = array( 'pending', 'publish', 'albo_annullato' );
+	const STATI_FERMI = array( 'pending', 'publish', 'albo_annullato', 'albo_defisso' );
 
 	/**
 	 * I campi che WordPress riscrive da se' a ogni scrittura, lasciati com'e' li propone.
@@ -335,7 +346,7 @@ final class ChiusuraPubblicazione {
 	}
 
 	/**
-	 * Il motivo del fermo di ogni scrittura su un atto in verifica, pubblicato o annullato.
+	 * Il motivo del fermo di ogni scrittura su un atto in verifica, pubblicato, annullato o tolto dall'albo.
 	 *
 	 * Una richiesta di pubblicazione con una data di inizio nel futuro ha il
 	 * suo motivo, che nomina la data: e' una richiesta di programmazione, e va
@@ -361,6 +372,12 @@ final class ChiusuraPubblicazione {
 		if ( self::ANNULLATO === $stato ) {
 			return array(
 				'albo_atto_annullato' => __( 'L\'atto e\' annullato: non si modifica, non cambia stato e non si cancella, da nessuno. Resta nel registro con il suo numero e il motivo dell\'annullamento.', 'albo-pretorio-pa' ),
+			);
+		}
+
+		if ( self::DEFISSO === $stato ) {
+			return array(
+				'albo_atto_defisso' => __( 'L\'atto e\' stato tolto dall\'albo prima della scadenza: non si modifica, non torna pubblicato e non si cancella, da nessuno. Resta nel registro con il suo numero, la causa e il motivo; si puo\' soltanto annullare.', 'albo-pretorio-pa' ),
 			);
 		}
 
@@ -456,10 +473,12 @@ final class ChiusuraPubblicazione {
 		 * la scrittura del rimando e' gia' in bozza, ma gli agganci che
 		 * WordPress chiama subito dopo non devono poterlo cambiare. La
 		 * concessione si da' a un atto in verifica, alla bozza che
-		 * l'importazione da Albo Pretorio On line porta a pubblicato, e
-		 * all'atto pubblicato che l'annullamento porta ad annullato.
+		 * l'importazione da Albo Pretorio On line porta a pubblicato,
+		 * all'atto pubblicato che l'annullamento porta ad annullato o la
+		 * defissione anticipata a defisso, e all'atto defisso che
+		 * l'annullamento porta ad annullato.
 		 */
-		if ( ( self::IN_VERIFICA === $stato || ( 'draft' === $stato && Passaggi::importazione_in_corso( $atto_id ) ) || ( self::PUBBLICATO === $stato && Passaggi::annullamento_in_corso( $atto_id ) ) )
+		if ( ( self::IN_VERIFICA === $stato || ( 'draft' === $stato && Passaggi::importazione_in_corso( $atto_id ) ) || ( self::PUBBLICATO === $stato && ( Passaggi::annullamento_in_corso( $atto_id ) || Passaggi::defissione_in_corso( $atto_id ) ) ) || ( self::DEFISSO === $stato && Passaggi::annullamento_in_corso( $atto_id ) ) )
 			&& Passaggi::in_corso( $atto_id ) && null !== self::consuma_concessione( $atto_id, $postarr ) ) {
 			return $vuoto;
 		}
@@ -948,7 +967,7 @@ final class ChiusuraPubblicazione {
 		} elseif ( null !== $tipo || null !== self::valore_scritto( $insieme, 'post_status' ) ) {
 			$condizione = $wpdb->prepare( '%i.`post_type` <> %s', $wpdb->posts, TIPO );
 		} else {
-			$condizione = $wpdb->prepare( 'NOT ( %i.`post_type` = %s AND %i.`post_status` IN ( %s, %s, %s ) )', $wpdb->posts, TIPO, $wpdb->posts, self::IN_VERIFICA, self::PUBBLICATO, self::ANNULLATO );
+			$condizione = $wpdb->prepare( 'NOT ( %i.`post_type` = %s AND %i.`post_status` IN ( %s, %s, %s, %s ) )', $wpdb->posts, TIPO, $wpdb->posts, self::IN_VERIFICA, self::PUBBLICATO, self::ANNULLATO, self::DEFISSO );
 		}
 
 		if ( null === $dove ) {
@@ -1328,7 +1347,7 @@ final class ChiusuraPubblicazione {
 			esc_html(
 				sprintf(
 					/* translators: %d: identificativo dell'atto. */
-					__( 'Scrittura rifiutata: l\'atto %d dell\'albo e\' in verifica, pubblicato, annullato o in mezzo a un passaggio, oppure la scrittura lo porterebbe fuori dalla bozza senza i passaggi dell\'albo. Nessuna modifica e\' stata fatta.', 'albo-pretorio-pa' ),
+					__( 'Scrittura rifiutata: l\'atto %d dell\'albo e\' in verifica, pubblicato, annullato, tolto dall\'albo o in mezzo a un passaggio, oppure la scrittura lo porterebbe fuori dalla bozza senza i passaggi dell\'albo. Nessuna modifica e\' stata fatta.', 'albo-pretorio-pa' ),
 					$atto_id
 				)
 			),
@@ -1353,7 +1372,7 @@ final class ChiusuraPubblicazione {
 		wp_die(
 			esc_html(
 				0 === $atto_id
-					? __( 'Scrittura rifiutata: la banca dati non ha risposto alla lettura che decide se la scrittura riguarda un atto dell\'albo in verifica, pubblicato o annullato.', 'albo-pretorio-pa' )
+					? __( 'Scrittura rifiutata: la banca dati non ha risposto alla lettura che decide se la scrittura riguarda un atto dell\'albo in verifica, pubblicato, annullato o tolto dall\'albo.', 'albo-pretorio-pa' )
 					: sprintf(
 						/* translators: %d: identificativo del contenuto. */
 						__( 'Scrittura rifiutata: la banca dati non ha risposto alla lettura che decide se la scrittura del contenuto %d e\' ammessa.', 'albo-pretorio-pa' ),
@@ -1533,14 +1552,15 @@ final class ChiusuraPubblicazione {
 
 		$atti = Lettura::righe(
 			$wpdb->prepare(
-				'SELECT m.post_id FROM %i m JOIN %i p ON p.ID = m.post_id WHERE m.meta_key = %s AND p.post_type = %s AND p.post_status IN ( %s, %s, %s )',
+				'SELECT m.post_id FROM %i m JOIN %i p ON p.ID = m.post_id WHERE m.meta_key = %s AND p.post_type = %s AND p.post_status IN ( %s, %s, %s, %s )',
 				$wpdb->postmeta,
 				$wpdb->posts,
 				$chiave,
 				TIPO,
 				self::IN_VERIFICA,
 				self::PUBBLICATO,
-				self::ANNULLATO
+				self::ANNULLATO,
+				self::DEFISSO
 			),
 			array( 'post_id' )
 		);

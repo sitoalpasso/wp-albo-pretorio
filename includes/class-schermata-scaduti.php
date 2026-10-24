@@ -219,7 +219,7 @@ final class SchermataScaduti {
 
 		$argomenti = array(
 			'post_type'           => TIPO,
-			'post_status'         => array( ChiusuraPubblicazione::PUBBLICATO, ChiusuraPubblicazione::ANNULLATO ),
+			'post_status'         => array( ChiusuraPubblicazione::PUBBLICATO, ChiusuraPubblicazione::ANNULLATO, ChiusuraPubblicazione::DEFISSO ),
 			'posts_per_page'      => self::PER_PAGINA,
 			'paged'               => max( 1, $ricerca['pagina'] ),
 			'ignore_sticky_posts' => true,
@@ -455,6 +455,17 @@ final class SchermataScaduti {
 
 		$annullato = ChiusuraPubblicazione::ANNULLATO === get_post_status( $atto );
 
+		// Anche un atto tolto dall'albo e poi annullato porta la sua defissione.
+		if ( ChiusuraPubblicazione::DEFISSO === get_post_status( $atto ) || ( $annullato && null !== Passaggi::defissione( $atto ) ) ) {
+			$voce  = Passaggi::defissione( $atto );
+			$cause = Passaggi::cause_defissione();
+
+			$dati[ __( 'Tolto dall\'albo il', 'albo-pretorio-pa' ) ]     = null === $voce ? __( 'non leggibile in questo momento', 'albo-pretorio-pa' ) : wp_date( 'd/m/Y', $voce['istante']->getTimestamp() );
+			$dati[ __( 'Fine pianificata', 'albo-pretorio-pa' ) ]        = null === $voce ? __( 'non leggibile in questo momento', 'albo-pretorio-pa' ) : self::data( $voce['fine_pianificata'] );
+			$dati[ __( 'Causa della defissione', 'albo-pretorio-pa' ) ]  = null === $voce ? __( 'non leggibile in questo momento', 'albo-pretorio-pa' ) : ( $cause[ $voce['causa'] ] ?? $voce['causa'] );
+			$dati[ __( 'Motivo della defissione', 'albo-pretorio-pa' ) ] = null === $voce ? __( 'non leggibile in questo momento', 'albo-pretorio-pa' ) : $voce['motivo'];
+		}
+
 		if ( $annullato ) {
 			$voce = Passaggi::annullamento( $atto );
 
@@ -496,10 +507,14 @@ final class SchermataScaduti {
 		 * si dice invece di mostrare un collegamento che rifiuterebbe.
 		 */
 		$mappa    = Permessi::mappa();
-		$apribili = ! $annullato || ( ! is_wp_error( $mappa ) && current_user_can( $mappa['edit_posts'] ) );
+		$apribili = ChiusuraPubblicazione::PUBBLICATO === get_post_status( $atto ) || ( ! is_wp_error( $mappa ) && current_user_can( $mappa['edit_posts'] ) );
 
 		if ( array() !== $documenti && ! $apribili ) {
-			esc_html_e( 'Atto annullato: i suoi documenti si aprono a chi gestisce gli atti dell\'albo, non con il solo permesso di consultare gli scaduti.', 'albo-pretorio-pa' );
+			if ( $annullato ) {
+				esc_html_e( 'Atto annullato: i suoi documenti si aprono a chi gestisce gli atti dell\'albo, non con il solo permesso di consultare gli scaduti.', 'albo-pretorio-pa' );
+			} else {
+				esc_html_e( 'Atto tolto dall\'albo: i suoi documenti si aprono a chi gestisce gli atti dell\'albo, non con il solo permesso di consultare gli scaduti.', 'albo-pretorio-pa' );
+			}
 			echo '</td></tr>';
 			return;
 		}

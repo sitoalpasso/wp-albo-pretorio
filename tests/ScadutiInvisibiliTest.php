@@ -1,6 +1,7 @@
 <?php
 /**
- * Gli atti scaduti sono invisibili al pubblico: righe A-175..A-179 (ALBO-05, ALBO-18).
+ * Gli atti scaduti sono invisibili al pubblico: righe A-175..A-179 (ALBO-05, ALBO-18),
+ * e l'atto tolto dall'albo prima della scadenza, A-236 (ALBO-22).
  *
  * **Perche' il tipo si apre nella prova.** Oggi il tipo atto non e' consultabile
  * dal pubblico (A-25), quindi un atto scaduto e' invisibile anche perche' lo e'
@@ -707,6 +708,77 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-236: un atto tolto dall'albo resta irraggiungibile anche se lo stato torna pubblicato.
+	 *
+	 * La defissione del 5 ottobre 2041 alle 10:00 porta la fine al 4. Poi lo
+	 * stato si riscrive a pubblicato direttamente nella banca dati, come farebbe
+	 * un altro programma: a togliere l'atto dalla vista e' la data letta, non lo
+	 * stato, e alle 10:00:01 nessuna strada lo mostra e nessuna ne lascia uscire
+	 * traccia. Il secondo atto, in corso, si vede su ogni strada nello stesso
+	 * istante.
+	 *
+	 * Con lo stato "tolto dall'albo" la prova guarda solo cio' che si consegna,
+	 * e solo a chi non gestisce gli atti. Il meccanismo comune toglie di mezzo
+	 * lo scaduto soltanto se lo stato e' pubblicato: per uno stato non pubblico,
+	 * sul tipo aperto da altri, WordPress risponde al visitatore "non hai il
+	 * permesso" e non "non trovato" su alcune strade dell'interfaccia per
+	 * programmi, e all'amministratore consegna documenti e commenti dell'atto.
+	 * Vale gia' per l'annullato scaduto. E' un limite dichiarato nella scheda
+	 * della defissione, da chiudere nel meccanismo comune.
+	 */
+	public function test_a236_defisso_irraggiungibile_anche_riscritto(): void {
+		$primo   = $this->pubblicato_il( '2041-10-01 09:30:00', 'Graduatoria di prova' );
+		$secondo = $this->pubblicato_il( '2041-10-02 09:30:00', 'Avviso di prova' );
+
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+
+		$voce = $this->come(
+			$this->pubblicatore,
+			static function () use ( $primo ) {
+				return albo_pretorio_defiggi( $primo, 'senza_norma', 'Pubblicato senza una norma che lo preveda.' );
+			}
+		);
+
+		$this->assertIsInt( $voce, is_wp_error( $voce ) ? $voce->get_error_message() : '' );
+		$this->assertSame( \AlboPretorioPa\ChiusuraPubblicazione::DEFISSO, get_post_status( $primo ), 'Precondizione: l\'atto e\' tolto dall\'albo.' );
+		$this->assertSame( '2041-10-04', conformita_core_fine_pubblicazione( $primo ), 'Precondizione: la fine e\' il giorno prima.' );
+
+		$this->fissa_orologi( '2041-10-05 10:00:01' );
+
+		foreach ( array( 'tolto dall\'albo', 'riscritto pubblicato' ) as $caso ) {
+			if ( 'riscritto pubblicato' === $caso ) {
+				// Un altro programma scrive la banca dati: la barriera dell'albo non lo vede.
+				$this->scavalca_barriera(
+					static function () use ( $primo ) {
+						global $wpdb;
+
+						$wpdb->update( $wpdb->posts, array( 'post_status' => 'publish' ), array( 'ID' => $primo ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: la banca dati scritta come la lascerebbe un altro programma.
+					}
+				);
+				clean_post_cache( $primo );
+				$this->assertSame( 'publish', get_post_status( $primo ), 'Precondizione: lo stato e\' di nuovo pubblicato.' );
+			}
+
+			foreach ( array(
+				'visitatore'     => 0,
+				'amministratore' => $this->amministratore,
+				'consultatore'   => $this->consultatore,
+			) as $chi => $utente ) {
+				if ( 'riscritto pubblicato' !== $caso && 'amministratore' === $chi ) {
+					continue;
+				}
+
+				$strade = $this->strade( $utente, array( $primo, $secondo ) );
+				$this->assertSame( $this->ovunque( array( $secondo ) ), $strade['visti'], $caso . ', ' . $chi . ': il secondo atto si vede su ogni strada, il primo su nessuna.' );
+
+				if ( 'riscritto pubblicato' === $caso ) {
+					$this->assertSame( $this->ovunque( array( $secondo ) ), $strade['tracce'], $caso . ', ' . $chi . ': del primo atto non esce niente da nessuna strada.' );
+				}
+			}
+		}
+	}
+
+	/**
 	 * A-175, prova dell'osservatore: un rifiuto che porta dati dell'atto si vede.
 	 *
 	 * Le osservazioni negative di A-175 non devono dipendere dallo stato della
@@ -1014,6 +1086,8 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 				// Il nome di una colonna del backup di Albo Pretorio On line (ALBO-35): l'importazione a secco la riconosce e la scarta.
 				'includes/class-analisi-importazione.php: DataOblio',
 				'includes/class-avvio.php: scadenza',
+				// Il codice del rifiuto della defissione anticipata di un atto gia' scaduto (ALBO-22): un errore, non una scelta.
+				'includes/class-passaggi.php: albo_atto_gia_scaduto',
 				// Il permesso della consultazione riservata (ALBO-34): una schermata dell'amministrazione, non una scelta sul sito pubblico.
 				'includes/class-permessi.php: consultare_scaduti',
 				'includes/class-permessi.php: conformita_core_capacita_consultazione_scaduti',

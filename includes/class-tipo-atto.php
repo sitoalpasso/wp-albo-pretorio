@@ -177,6 +177,7 @@ final class TipoAtto {
 		}
 
 		self::registra_stato_annullato();
+		self::registra_stato_defisso();
 
 		self::$completa = true;
 
@@ -352,6 +353,37 @@ final class TipoAtto {
 				'label'                     => _x( 'Annullato', 'stato dell\'atto', 'albo-pretorio-pa' ),
 				/* translators: %s: numero degli atti annullati. */
 				'label_count'               => _n_noop( 'Annullato <span class="count">(%s)</span>', 'Annullati <span class="count">(%s)</span>', 'albo-pretorio-pa' ),
+				'public'                    => false,
+				'protected'                 => true,
+				'private'                   => false,
+				'internal'                  => false,
+				'exclude_from_search'       => true,
+				'show_in_admin_all_list'    => true,
+				'show_in_admin_status_list' => true,
+			)
+		);
+	}
+
+	/**
+	 * Lo stato dell'atto tolto dall'albo prima della scadenza.
+	 *
+	 * **Non pubblico**, come l'annullato, ma non e' lo stato a togliere
+	 * l'atto dalla vista: la defissione anticipata riporta indietro la data
+	 * di fine, e l'atto e' scaduto per la data letta. Protetto, cosi' che la
+	 * schermata dell'atto si apra a chi lo gestisce, e contato fra gli stati
+	 * dell'elenco degli atti.
+	 */
+	private static function registra_stato_defisso(): void {
+		if ( null !== get_post_status_object( ChiusuraPubblicazione::DEFISSO ) ) {
+			return;
+		}
+
+		register_post_status(
+			ChiusuraPubblicazione::DEFISSO,
+			array(
+				'label'                     => _x( 'Tolto dall\'albo', 'stato dell\'atto', 'albo-pretorio-pa' ),
+				/* translators: %s: numero degli atti tolti dall'albo prima della scadenza. */
+				'label_count'               => _n_noop( 'Tolto dall\'albo <span class="count">(%s)</span>', 'Tolti dall\'albo <span class="count">(%s)</span>', 'albo-pretorio-pa' ),
 				'public'                    => false,
 				'protected'                 => true,
 				'private'                   => false,

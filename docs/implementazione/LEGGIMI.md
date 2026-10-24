@@ -71,3 +71,7 @@ Schede presenti:
 - [`importazione-annullati.md`](importazione-annullati.md): gli atti annullati in Albo
   Pretorio On line arrivano annullati, con data e motivo di là, anche quelli ancora in
   pubblicazione. Righe di collaudo A-231..A-234.
+- [`defissione-anticipata.md`](defissione-anticipata.md): la defissione anticipata di un atto
+  pubblicato per una delle quattro cause dell'elenco, con la data di fine riportata al giorno
+  prima, lo stato defisso e l'annullamento che parte anche da defisso. Righe di collaudo
+  A-235..A-242.

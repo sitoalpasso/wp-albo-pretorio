@@ -605,14 +605,15 @@ final class AnalisiImportazione {
 	/**
 	 * Lo stato di un atto che l'importazione ha portato fino in fondo.
 	 *
-	 * Pubblicato, oppure annullato dopo: l'annullamento parte solo da un atto
-	 * pubblicato, e un rilancio dell'importazione non deve riportarlo.
+	 * Pubblicato, oppure annullato o tolto dall'albo dopo: annullamento e
+	 * defissione partono da un atto pubblicato, e un rilancio
+	 * dell'importazione non deve riportarlo.
 	 *
 	 * @param string $stato Stato.
 	 * @return bool
 	 */
 	private static function portato( string $stato ): bool {
-		return in_array( $stato, array( ChiusuraPubblicazione::PUBBLICATO, ChiusuraPubblicazione::ANNULLATO ), true );
+		return in_array( $stato, array( ChiusuraPubblicazione::PUBBLICATO, ChiusuraPubblicazione::ANNULLATO, ChiusuraPubblicazione::DEFISSO ), true );
 	}
 
 	/**

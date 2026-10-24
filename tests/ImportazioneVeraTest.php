@@ -1,6 +1,7 @@
 <?php
 /**
- * L'importazione vera dal backup di Albo Pretorio On line: righe A-210..A-217 (ALBO-35).
+ * L'importazione vera dal backup di Albo Pretorio On line: righe A-210..A-217 (ALBO-35),
+ * con gli atti importati annullati (A-230..A-234) e tolti dall'albo (A-242).
  *
  * Il backup di prova sta nella cartella di Albo Pretorio On line, come sul sito vero.
  * L'orologio e' fissato a mezzanotte e mezza del 16 ottobre 2041 nel fuso del
@@ -2709,6 +2710,44 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$this->assertWPError( $vuota );
 		$this->assertSame( 'albo_importazione_vuota', $vuota->get_error_code() );
 		$this->assertSame( $prima, $this->fotografie(), 'Il rilancio non ha creato ne\' cambiato niente, l\'annullato compreso.' );
+	}
+
+	/**
+	 * A-242. Un atto importato e poi tolto dall'albo resta importato: il rilancio non lo riporta.
+	 *
+	 * Come l'annullato di A-230: lo stato "tolto dall'albo" non fa dimenticare
+	 * all'importazione che l'atto e' suo.
+	 */
+	public function test_a242_defisso_dopo_l_importazione(): void {
+		$percorso = $this->backup_nella_cartella();
+
+		$this->importa_tutto( $percorso, array( SchermataImportazione::CAMPO_CONFERMA_VISIBILI => '1' ) );
+
+		$atti = $this->importati();
+		$this->assertCount( 8, $atti, 'Precondizione: otto atti importati, compresi i due in pubblicazione.' );
+		$this->assertSame( 'publish', $atti['2']['stato'], 'Precondizione: l\'atto in pubblicazione e\' pubblicato.' );
+
+		$atto  = $atti['2']['id'];
+		$esito = $this->come(
+			$this->amministratore,
+			static function () use ( $atto ) {
+				return albo_pretorio_defiggi( $atto, 'dati_inesatti', 'Il destinatario e\' sbagliato.' );
+			}
+		);
+		$this->assertIsInt( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : 'Precondizione: la defissione.' );
+		$this->assertSame( 'albo_defisso', $this->importati()['2']['stato'], 'Precondizione: l\'atto e\' tolto dall\'albo.' );
+
+		$prima    = $this->fotografie();
+		$rapporto = $this->rapporto_di( $percorso );
+
+		$this->assertSame( 8, $rapporto['riepilogo']['esiti'][ AnalisiImportazione::IMPORTATO ], 'Il rapporto conta l\'atto tolto fra gli importati.' );
+		$this->assertSame( array(), Importazione::selezione( $rapporto, true )['atti'], 'Niente da portare, nemmeno con la seconda conferma.' );
+
+		$vuota = SchermataImportazione::importazione_da_invio( $this->invio_avvia( $percorso, array( SchermataImportazione::CAMPO_CONFERMA_VISIBILI => '1' ) ) );
+
+		$this->assertWPError( $vuota );
+		$this->assertSame( 'albo_importazione_vuota', $vuota->get_error_code() );
+		$this->assertSame( $prima, $this->fotografie(), 'Il rilancio non ha creato ne\' cambiato niente, l\'atto tolto compreso.' );
 	}
 
 	/**

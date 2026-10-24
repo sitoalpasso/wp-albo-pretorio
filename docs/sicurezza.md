@@ -103,6 +103,13 @@ produrre un rifiuto rumoroso, mai un permesso silenzioso.
   meccanismo comune e l'albo li nega a sua volta, con lo stesso rifiuto di un atto
   scaduto. Nell'amministrazione si aprono a chi gestisce gli atti, non a chi ha il
   solo permesso di consultare gli scaduti.
+- Un atto tolto dall'albo prima della scadenza è irraggiungibile dall'istante dopo, per la
+  data di fine riportata al giorno prima e non per lo stato: riscritto lo stato a pubblicato
+  nella banca dati, resta irraggiungibile (A-236). Limite noto, comune all'annullato
+  scaduto: se un altro componente apre il tipo atto, per uno stato non pubblico WordPress
+  risponde "non hai il permesso" invece di "non trovato" su alcune strade dell'interfaccia
+  per programmi, e all'amministratore ne consegna documenti e commenti. Va chiuso nel
+  meccanismo comune (scheda `implementazione/defissione-anticipata.md`).
 - I metadati non pensati per il pubblico non sono esposti dalla REST.
 
 ## Domande di controllo
