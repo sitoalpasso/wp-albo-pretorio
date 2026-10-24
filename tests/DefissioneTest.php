@@ -691,6 +691,25 @@ class DefissioneTest extends \WP_UnitTestCase {
 		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s", $id, conformita_core_chiave_fine_pubblicazione() ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: la banca dati scritta come la lascerebbe un altro programma.
 		$this->assertSame( $prima, $this->fotografia( $id ), 'Cancellazione dritta della data di fine: niente cambia.' );
 
+		// I documenti collegati all'atto. Il documento come contenuto a se', nella libreria dei media, e' di ALBO-09 e ALBO-12.
+		$documento = (int) \AlboPretorioPa\DocumentiAtto::principale( $id );
+
+		$this->assertGreaterThan( 0, $documento, 'Precondizione: l\'atto ha il documento principale.' );
+		$this->come(
+			$this->amministratore,
+			function () use ( $id, $documento ) {
+				$this->assertFalse( update_post_meta( $id, \AlboPretorioPa\META_DOCUMENTO_PRINCIPALE, $documento + 1000 ), 'Il documento principale non si sostituisce.' );
+				$this->assertFalse( delete_post_meta( $id, \AlboPretorioPa\META_DOCUMENTO_PRINCIPALE ), 'Il documento principale non si stacca.' );
+
+				// Dall'interfaccia di programmazione: il tipo non ci e' (A-25), e la rotta non esiste.
+				$richiesta = new \WP_REST_Request( 'POST', '/wp/v2/' . TIPO . '/' . $id );
+				$richiesta->set_param( 'title', 'Oggetto dall\'interfaccia' );
+				$this->assertSame( 404, rest_do_request( $richiesta )->get_status(), 'Nessuna rotta di scrittura.' );
+			}
+		);
+		$this->assertSame( $prima, $this->fotografia( $id ), 'Documenti e interfaccia di programmazione: niente cambia.' );
+		$this->assertSame( $documento, \AlboPretorioPa\DocumentiAtto::principale( $id ), 'Il documento resta quello.' );
+
 		// La proroga per disservizio sul giorno della defissione allunga il controllo e non il defisso.
 		$this->fissa_orologi( '2041-10-06 10:00:00' );
 
@@ -699,8 +718,8 @@ class DefissioneTest extends \WP_UnitTestCase {
 			static function () {
 				return albo_pretorio_proroga(
 					array(
-						'giorni'       => array( '2041-10-03' ),
-						'attestazione' => 'Attestazione prot. 12 del 4 ottobre',
+						'giorni'       => array( '2041-10-05' ),
+						'attestazione' => 'Attestazione prot. 12 del 6 ottobre',
 					)
 				);
 			}
@@ -709,12 +728,10 @@ class DefissioneTest extends \WP_UnitTestCase {
 		$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
 		$this->assertSame( '2041-10-17', conformita_core_fine_pubblicazione( $controllo ), 'Il controllo e\' prorogato.' );
 		$this->assertSame( '2041-10-04', conformita_core_fine_pubblicazione( $id ), 'Il defisso no.' );
-		$this->assertNotContains( $id, array_map( 'intval', array_column( (array) ( $esito['atti'] ?? array() ), 'id' ) ), 'E la proroga non lo elenca.' );
-
-		$dopo = $this->fotografia( $id );
-
-		$this->assertSame( $prima['riga'], $dopo['riga'], 'Proroga: la riga del defisso non cambia.' );
-		$this->assertSame( $prima['dati'], $dopo['dati'], 'Proroga: i dati del defisso non cambiano.' );
+		$prorogati = array_map( 'intval', array_keys( (array) ( $esito['atti'] ?? array() ) ) );
+		$this->assertContains( $controllo, $prorogati, 'Controllo positivo: la proroga elenca l\'atto prorogato.' );
+		$this->assertNotContains( $id, $prorogati, 'E non elenca il defisso.' );
+		$this->assertSame( $prima, $this->fotografia( $id ), 'Proroga: il defisso non cambia, voci comprese.' );
 	}
 
 	/**
@@ -876,6 +893,61 @@ class DefissioneTest extends \WP_UnitTestCase {
 			$this->assertSame( ChiusuraPubblicazione::DEFISSO, get_post_status( $id ), $caso . ': l\'atto e\' defisso.' );
 			$this->assertSame( '2041-10-04', conformita_core_fine_pubblicazione( $id ), $caso . ': con la fine del 4 ottobre.' );
 		}
+	}
+
+	/**
+	 * A-240: la data di fine cambia fra la lettura dei controlli e la fotografia di partenza.
+	 *
+	 * Come una proroga confermata da un'altra richiesta in quell'istante. La
+	 * voce non deve registrare come fine pianificata una data che non e' piu'
+	 * quella dell'atto: la defissione e' rifiutata e niente e' scritto.
+	 */
+	public function test_a240_fine_cambiata_prima_della_fotografia(): void {
+		global $wpdb;
+
+		$id     = $this->pubblicato_il();
+		$chiave = conformita_core_chiave_fine_pubblicazione();
+
+		$this->assertSame( '2041-10-16', conformita_core_fine_pubblicazione( $id ), 'Precondizione: la fine letta dai controlli.' );
+
+		$fatto      = false;
+		$intromette = function ( $istruzione ) use ( $wpdb, $id, $chiave, &$fatto ) {
+			if ( $fatto || ! is_string( $istruzione ) || 1 !== preg_match( '/^\s*SELECT meta_id, meta_key, meta_value FROM `?' . preg_quote( $wpdb->postmeta, '/' ) . '`? WHERE post_id = ' . $id . ' /', $istruzione ) ) {
+				return $istruzione;
+			}
+
+			$fatto = true;
+			$this->scavalca_barriera(
+				static function () use ( $wpdb, $id, $chiave ) {
+					$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: la proroga di un'altra richiesta.
+						$wpdb->postmeta,
+						array( 'meta_value' => '2041-10-17' ), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- la proroga di un'altra richiesta.
+						array(
+							'post_id'  => $id,
+							'meta_key' => $chiave, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- la proroga di un'altra richiesta.
+						)
+					);
+				}
+			);
+
+			return $istruzione;
+		};
+
+		add_filter( 'query', $intromette );
+
+		try {
+			$esito = $this->defiggi( $id, $this->pubblicatore );
+		} finally {
+			remove_filter( 'query', $intromette );
+		}
+
+		clean_post_cache( $id );
+
+		$this->assertTrue( $fatto, 'Precondizione: la data e\' cambiata prima della fotografia.' );
+		$this->assertSame( array( 'albo_atto_non_defisso', 'albo_atto_cambiato_prima_del_passaggio' ), $this->codici( $esito ), 'Rifiutata: l\'atto non e\' piu\' quello controllato.' );
+		$this->assertSame( 'publish', get_post_status( $id ), 'L\'atto resta pubblicato.' );
+		$this->assertSame( '2041-10-17', conformita_core_fine_pubblicazione( $id ), 'Con la fine della proroga.' );
+		$this->assertSame( array(), $this->voci_di( $id, array( 'azione' => Passaggi::AZIONE_DEFISSIONE ) ), 'Nessuna voce di defissione.' );
 	}
 
 	/**
