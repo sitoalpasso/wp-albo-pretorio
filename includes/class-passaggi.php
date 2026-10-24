@@ -1297,6 +1297,16 @@ final class Passaggi {
 			return self::errore_defissione( self::errore_lettura() );
 		}
 
+		/*
+		 * La fine pianificata che finisce nella voce e' quella letta dai
+		 * controlli: deve essere anche quella della fotografia, che il blocco
+		 * confronta. Una proroga confermata in mezzo farebbe registrare un
+		 * termine che non e' piu' quello interrotto.
+		 */
+		if ( array( (string) $fine ) !== self::righe_fine( $partenza ) ) {
+			return self::errore_defissione( self::errore_cambiato() );
+		}
+
 		$tabelle = self::tabelle_senza_transazioni();
 
 		if ( array() !== $tabelle ) {
@@ -2782,10 +2792,7 @@ final class Passaggi {
 		}
 
 		if ( null === $riga || $adesso !== $partenza ) {
-			return new \WP_Error(
-				'albo_atto_cambiato_prima_del_passaggio',
-				__( 'L\'atto non e\' piu\' quello controllato: un\'altra operazione lo ha cambiato mentre il passaggio cominciava. Niente e\' stato scritto; si riapra l\'atto e si ripeta, se serve.', 'albo-pretorio-pa' )
-			);
+			return self::errore_cambiato();
 		}
 
 		wp_cache_delete( $atto_id, 'posts' );
@@ -3159,6 +3166,18 @@ final class Passaggi {
 			'dati'  => $dati,
 			'voci'  => array_column( $voci, 'term_taxonomy_id' ),
 			'figli' => $figli,
+		);
+	}
+
+	/**
+	 * Il rifiuto di un atto cambiato da un'altra operazione fra i controlli e il blocco.
+	 *
+	 * @return \WP_Error
+	 */
+	private static function errore_cambiato(): \WP_Error {
+		return new \WP_Error(
+			'albo_atto_cambiato_prima_del_passaggio',
+			__( 'L\'atto non e\' piu\' quello controllato: un\'altra operazione lo ha cambiato mentre il passaggio cominciava. Niente e\' stato scritto; si riapra l\'atto e si ripeta, se serve.', 'albo-pretorio-pa' )
 		);
 	}
 
