@@ -1011,6 +1011,30 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 		// Controllo positivo: riparato, la dichiarazione riesce.
 		$this->assertIsInt( $this->dichiara( $id, $this->pubblicatore, 'va_rifatta' ) );
 
+		// Una seconda voce scritta da altri con un'altra chiave: la lettura non sceglie, le viste lo dicono.
+		$numero = Repertorio::di( $id );
+		$this->assertIsInt(
+			conformita_core_registra_voce(
+				array(
+					'sezione'   => SEZIONE,
+					'azione'    => Passaggi::AZIONE_EFFETTO,
+					'contenuto' => $id,
+					'dettagli'  => array(
+						'effetto' => 'vale_periodo_trascorso',
+						'anno'    => (int) $numero['anno'],
+						'numero'  => (int) $numero['numero'],
+					),
+					'chiave'    => 'altro:effetto:' . $id,
+				)
+			),
+			'Precondizione: la voce dell\'altro.'
+		);
+		$this->assertFalse( Passaggi::effetto( $id ), 'Due voci: la lettura non ne sceglie una.' );
+
+		$html = $this->riquadro( $id, $this->pubblicatore );
+		$this->assertStringContainsString( 'l&#039;effetto dichiarato non si legge in questo momento', $html, 'Il riquadro lo dice.' );
+		$this->assertSame( array(), $this->scelte( $html ), 'E non offre la domanda.' );
+
 		// L'annullato dopo la defissione, con e senza effetto dichiarato, guastando una lettura per volta.
 		$dichiarato = $this->defisso( 'Annullato con effetto' );
 		$this->assertIsInt( $this->dichiara( $dichiarato, $this->pubblicatore, 'va_rifatta' ) );
