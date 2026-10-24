@@ -1086,6 +1086,8 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 				// Il nome di una colonna del backup di Albo Pretorio On line (ALBO-35): l'importazione a secco la riconosce e la scarta.
 				'includes/class-analisi-importazione.php: DataOblio',
 				'includes/class-avvio.php: scadenza',
+				// Il codice del rifiuto della defissione anticipata di un atto gia' scaduto (ALBO-22): un errore, non una scelta.
+				'includes/class-passaggi.php: albo_atto_gia_scaduto',
 				// Il permesso della consultazione riservata (ALBO-34): una schermata dell'amministrazione, non una scelta sul sito pubblico.
 				'includes/class-permessi.php: consultare_scaduti',
 				'includes/class-permessi.php: conformita_core_capacita_consultazione_scaduti',
