@@ -391,7 +391,33 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 	 * A-244: dopo la defissione, dal riquadro senza scelta, poi una volta sola, poi con campi estranei.
 	 */
 	public function test_a244_dopo_la_defissione(): void {
-		$id = $this->defisso();
+		$id = $this->pubblicato_il();
+
+		// La defissione dal riquadro: osservato prima di inviare, inviato senza scegliere.
+		$html = $this->riquadro( $id, $this->pubblicatore );
+		$this->assertStringContainsString( 'value="defiggi"', $html, 'Precondizione: il modulo della defissione.' );
+		$this->assertSame(
+			array(
+				'vale_periodo_trascorso' => false,
+				'va_rifatta'             => false,
+			),
+			$this->scelte( $html ),
+			'Il modulo della defissione offre i due valori, nessuno scelto.'
+		);
+
+		$this->invia_riquadro(
+			$id,
+			$this->pubblicatore,
+			array(
+				RiquadroPassaggi::CAMPO_PASSAGGIO         => 'defiggi',
+				RiquadroPassaggi::CAMPO_CAUSA             => self::CAUSA,
+				RiquadroPassaggi::CAMPO_MOTIVO_DEFISSIONE => self::MOTIVO,
+			)
+		);
+
+		$this->assertSame( ChiusuraPubblicazione::DEFISSO, get_post_status( $id ), 'Senza scelta la defissione riesce.' );
+		$this->assertTrue( conformita_core_scaduto( $id ), 'E l\'atto e\' subito fuori dalla vista.' );
+		$this->assertSame( array(), $this->effetti( $id ), 'Nessun effetto nel registro, nemmeno predefinito.' );
 
 		$html = $this->riquadro( $id, $this->pubblicatore );
 		$this->assertSame(
@@ -400,7 +426,7 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 				'va_rifatta'             => false,
 			),
 			$this->scelte( $html ),
-			'Il riquadro offre i due valori, nessuno scelto.'
+			'Il riquadro dell\'atto tolto offre i due valori, nessuno scelto.'
 		);
 		$this->assertStringContainsString( 'value="dichiara"', $html, 'Con il pulsante.' );
 
@@ -413,11 +439,20 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 		$this->assertSame( $prima, $this->fotografia( $id ), 'Niente cambia.' );
 		$this->assertTrue( conformita_core_scaduto( $id ), 'Fra la defissione e la dichiarazione l\'atto e\' fuori dalla vista.' );
 
-		// Giorni dopo.
+		// Giorni dopo, dal riquadro.
 		$this->fissa_orologi( '2041-10-09 11:00:00' );
-		$voce = $this->dichiara( $id, $this->pubblicatore, 'vale_periodo_trascorso' );
+		$this->invia_riquadro(
+			$id,
+			$this->pubblicatore,
+			array(
+				RiquadroPassaggi::CAMPO_PASSAGGIO => 'dichiara',
+				RiquadroPassaggi::CAMPO_EFFETTO   => 'vale_periodo_trascorso',
+			)
+		);
 
-		$this->assertIsInt( $voce, is_wp_error( $voce ) ? $voce->get_error_message() : '' );
+		$this->assertSame( array(), $this->rifiuti_del_riquadro( $id, $this->pubblicatore ), 'Nessun rifiuto.' );
+		$this->assertSame( 'vale_periodo_trascorso', $this->effetti( $id )[0]['dettagli']['effetto'] ?? null, 'Dichiarato dal riquadro.' );
+		$this->assertSame( '2041-10-09 09:00:00', $this->effetti( $id )[0]['istante'], 'Giorni dopo, nell\'ora universale.' );
 		$this->solo_una_voce( $prima, $id, 'Dichiarazione' );
 		$this->assertSame( '2041-10-01 09:30:00', get_post( $id )->post_date, 'L\'inizio resta.' );
 		$this->assertSame( '2041-10-04', conformita_core_fine_pubblicazione( $id ), 'La fine resta.' );
@@ -535,6 +570,83 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-245, dal riquadro: valori manipolati, rifiutati senza scritture con tutti e due i pulsanti.
+	 *
+	 * Un valore che una ripulitura renderebbe valido, o renderebbe nessuna
+	 * scelta, non e' una scelta di chi dichiara: e' rifiutato, e la
+	 * defissione con il campo assente riesce.
+	 */
+	public function test_a245_valori_manipolati_dal_riquadro(): void {
+		$manipolati = array(
+			'maiuscole'            => 'VA_RIFATTA',
+			'spazio in mezzo'      => 'va_ri fatta',
+			'carattere estraneo'   => 'va_rifatta!',
+			'solo segni'           => '!!!',
+			'un elenco'            => array( 'va_rifatta' ),
+			'un elenco con chiave' => array( 'effetto' => 'vale_periodo_trascorso' ),
+		);
+
+		$tolto      = $this->defisso();
+		$pubblicato = $this->pubblicato_il( '2041-10-02 09:30:00', 'Atto da togliere' );
+
+		foreach ( $manipolati as $caso => $valore ) {
+			foreach ( array(
+				'dichiara' => array( $tolto, array() ),
+				'defiggi'  => array(
+					$pubblicato,
+					array(
+						RiquadroPassaggi::CAMPO_CAUSA => self::CAUSA,
+						RiquadroPassaggi::CAMPO_MOTIVO_DEFISSIONE => self::MOTIVO,
+					),
+				),
+			) as $pulsante => list( $atto, $altri ) ) {
+				$prima = $this->fotografia( $atto );
+
+				$this->invia_riquadro(
+					$atto,
+					$this->pubblicatore,
+					array_merge(
+						$altri,
+						array(
+							RiquadroPassaggi::CAMPO_PASSAGGIO => $pulsante,
+							RiquadroPassaggi::CAMPO_EFFETTO   => $valore,
+						)
+					)
+				);
+
+				$this->assertArrayHasKey( 'albo_effetto_non_ammesso', $this->rifiuti_del_riquadro( $atto, $this->pubblicatore ), $pulsante . ', ' . $caso . ': rifiutato.' );
+				$this->assertSame( $prima, $this->fotografia( $atto ), $pulsante . ', ' . $caso . ': niente scritto.' );
+			}
+		}
+
+		$this->assertSame( 'publish', get_post_status( $pubblicato ), 'Il secondo atto resta pubblicato.' );
+		$this->assertSame( array(), $this->effetti( $tolto ), 'Nessuna dichiarazione sul primo.' );
+
+		// Controllo positivo: con il campo assente la defissione riesce, con un valore ammesso la dichiarazione.
+		$this->invia_riquadro(
+			$pubblicato,
+			$this->pubblicatore,
+			array(
+				RiquadroPassaggi::CAMPO_PASSAGGIO         => 'defiggi',
+				RiquadroPassaggi::CAMPO_CAUSA             => self::CAUSA,
+				RiquadroPassaggi::CAMPO_MOTIVO_DEFISSIONE => self::MOTIVO,
+			)
+		);
+		$this->assertSame( ChiusuraPubblicazione::DEFISSO, get_post_status( $pubblicato ), 'Campo assente: la defissione riesce.' );
+		$this->assertSame( array(), $this->effetti( $pubblicato ), 'Campo assente: nessuna dichiarazione.' );
+
+		$this->invia_riquadro(
+			$tolto,
+			$this->pubblicatore,
+			array(
+				RiquadroPassaggi::CAMPO_PASSAGGIO => 'dichiara',
+				RiquadroPassaggi::CAMPO_EFFETTO   => 'va_rifatta',
+			)
+		);
+		$this->assertSame( 'va_rifatta', $this->effetti( $tolto )[0]['dettagli']['effetto'] ?? null, 'Valore ammesso: dichiarato.' );
+	}
+
+	/**
 	 * A-246: la dichiarazione resta dopo l'annullamento, e si rende anche sull'annullato dopo la defissione.
 	 */
 	public function test_a246_dichiarazione_e_annullamento(): void {
@@ -626,6 +738,95 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-247, voce scritta da altri con un'altra chiave: la dichiarazione insieme alla defissione e' rifiutata per intero.
+	 *
+	 * Il vincolo sulla chiave non la vede. Due casi: la voce c'e' gia' prima
+	 * della defissione, oppure la scrive un aggancio mentre la defissione
+	 * scrive la sua. La defissione con la dichiarazione e' annullata per
+	 * intero; senza dichiarazione riesce.
+	 */
+	public function test_a247_voce_scritta_da_altri(): void {
+		global $wpdb;
+
+		$tabella = $wpdb->prefix . 'conformita_core_registro';
+		$scrivi  = static function ( int $id, $chiave ) {
+			$numero = Repertorio::di( $id );
+			$voce   = array(
+				'sezione'   => SEZIONE,
+				'azione'    => Passaggi::AZIONE_EFFETTO,
+				'contenuto' => $id,
+				'dettagli'  => array(
+					'effetto' => 'vale_periodo_trascorso',
+					'anno'    => (int) $numero['anno'],
+					'numero'  => (int) $numero['numero'],
+				),
+			);
+
+			if ( null !== $chiave ) {
+				$voce['chiave'] = $chiave . ':' . $id;
+			}
+
+			return conformita_core_registra_voce( $voce );
+		};
+
+		foreach ( array(
+			'gia\' presente, senza chiave'         => array( 'prima', null ),
+			'gia\' presente, con un\'altra chiave' => array( 'prima', 'altro:effetto' ),
+			'scritta durante la defissione'        => array( 'durante', 'altro:effetto' ),
+		) as $caso => list( $quando, $chiave ) ) {
+			$id = $this->pubblicato_il( '2041-10-01 09:30:00', 'Atto ' . $caso );
+
+			if ( 'prima' === $quando ) {
+				$this->assertIsInt( $scrivi( $id, $chiave ), $caso . ': precondizione, la voce dell\'altro.' );
+			}
+
+			$prima   = $this->fotografia( $id );
+			$entrata = null;
+
+			$intromette = static function ( $istruzione ) use ( $tabella, $id, $chiave, $quando, $scrivi, &$entrata ) {
+				if ( 'durante' !== $quando || null !== $entrata || ! is_string( $istruzione ) || 0 !== strpos( $istruzione, 'INSERT INTO `' . $tabella . '`' ) || false === strpos( $istruzione, "'" . Passaggi::AZIONE_EFFETTO . "'" ) ) {
+					return $istruzione;
+				}
+
+				$entrata = false;
+				$entrata = $scrivi( $id, $chiave );
+
+				return $istruzione;
+			};
+
+			add_filter( 'query', $intromette );
+
+			try {
+				$esito = $this->defiggi( $id, $this->pubblicatore, 'va_rifatta' );
+			} finally {
+				remove_filter( 'query', $intromette );
+			}
+
+			if ( 'durante' === $quando ) {
+				$this->assertIsInt( $entrata, $caso . ': precondizione, l\'aggancio ha scritto.' );
+			}
+
+			$codici = $this->codici( $esito );
+			$this->assertContains( 'albo_atto_non_defisso', $codici, $caso . ': defissione rifiutata.' );
+			$this->assertContains( 'albo_effetto_gia_dichiarato', $codici, $caso . ': perche\' l\'effetto c\'e\' gia\'.' );
+			clean_post_cache( $id );
+			$this->assertSame( 'publish', get_post_status( $id ), $caso . ': l\'atto resta pubblicato.' );
+			$this->assertSame( array(), $this->voci_di( $id, array( 'azione' => Passaggi::AZIONE_DEFISSIONE ) ), $caso . ': nessuna defissione.' );
+
+			if ( 'prima' === $quando ) {
+				$this->assertSame( $prima, $this->fotografia( $id ), $caso . ': l\'atto e il registro sono quelli di prima.' );
+			}
+
+			$effetti = $this->effetti( $id );
+			$this->assertCount( 'durante' === $quando ? 0 : 1, $effetti, $caso . ': la nostra voce non e\' entrata.' );
+
+			// Controllo positivo: senza dichiarazione la rimozione riesce lo stesso.
+			$this->assertIsInt( $this->defiggi( $id, $this->pubblicatore ), $caso . ': senza dichiarazione l\'atto si toglie.' );
+			$this->assertSame( ChiusuraPubblicazione::DEFISSO, get_post_status( $id ), $caso . ': tolto.' );
+		}
+	}
+
+	/**
 	 * A-248, parte del registro che non risponde: la dichiarazione e' rifiutata, le viste lo dicono.
 	 */
 	public function test_a248_registro_che_non_risponde(): void {
@@ -656,5 +857,32 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 
 		// Controllo positivo: riparato, la dichiarazione riesce.
 		$this->assertIsInt( $this->dichiara( $id, $this->pubblicatore, 'va_rifatta' ) );
+
+		// L'annullato dopo la defissione, con e senza effetto dichiarato, guastando una lettura per volta.
+		$dichiarato = $this->defisso( 'Annullato con effetto' );
+		$this->assertIsInt( $this->dichiara( $dichiarato, $this->pubblicatore, 'va_rifatta' ) );
+		$this->annulla( $dichiarato );
+
+		$senza = $this->defisso( 'Annullato senza effetto' );
+		$this->annulla( $senza );
+
+		foreach ( array(
+			'con effetto'   => $dichiarato,
+			'senza effetto' => $senza,
+		) as $caso => $atto ) {
+			foreach ( array( Passaggi::AZIONE_DEFISSIONE, Passaggi::AZIONE_EFFETTO ) as $azione ) {
+				$this->guasta_istruzioni( array( 'SELECT', $tabella, "'" . $azione . "'" ) );
+				$html = $this->riquadro( $atto, $this->pubblicatore );
+				$this->ripara();
+
+				$this->assertStringContainsString( 'Il registro delle modifiche non risponde', $html, $caso . ', ' . $azione . ': il riquadro lo dice.' );
+				$this->assertSame( array(), $this->scelte( $html ), $caso . ', ' . $azione . ': e non offre la domanda.' );
+				$this->assertStringNotContainsString( 'Non ancora dichiarato', $html, $caso . ', ' . $azione . ': e non dice che manca.' );
+			}
+		}
+
+		// Controllo positivo: riparato, il riquadro mostra il valore e la domanda.
+		$this->assertStringContainsString( '<dt>Effetto dichiarato</dt><dd>La pubblicazione va rifatta, con un atto nuovo</dd>', $this->riquadro( $dichiarato, $this->pubblicatore ) );
+		$this->assertCount( 2, $this->scelte( $this->riquadro( $senza, $this->pubblicatore ) ) );
 	}
 }

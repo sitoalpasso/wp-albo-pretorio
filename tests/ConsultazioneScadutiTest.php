@@ -22,6 +22,7 @@ namespace AlboPretorioPa\Tests;
 
 use AlboPretorioPa\DocumentiAtto;
 use AlboPretorioPa\Installazione;
+use AlboPretorioPa\Passaggi;
 use AlboPretorioPa\Permessi;
 use AlboPretorioPa\Repertorio;
 use AlboPretorioPa\SchermataScaduti;
@@ -816,5 +817,38 @@ class ConsultazioneScadutiTest extends \WP_UnitTestCase {
 		$this->assertIsInt( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : 'Precondizione: la dichiarazione.' );
 
 		$this->assertStringContainsString( '<strong>Effetto sul periodo</strong>: La pubblicazione va rifatta, con un atto nuovo', $riga(), 'Dopo la dichiarazione.' );
+
+		// Annullato dopo la defissione: una lettura del registro per volta non risponde.
+		$esito = $this->come(
+			$this->amministratore,
+			static function () use ( $atto ) {
+				return albo_pretorio_annulla( $atto, 'Atto annullato in autotutela.' );
+			}
+		);
+		$this->assertIsInt( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : 'Precondizione: l\'annullamento.' );
+		$this->assertStringContainsString( '<strong>Effetto sul periodo</strong>: La pubblicazione va rifatta, con un atto nuovo', $riga(), 'Annullato: il valore resta.' );
+
+		global $wpdb;
+
+		$tabella = $wpdb->prefix . 'conformita_core_registro';
+
+		foreach ( array( Passaggi::AZIONE_DEFISSIONE, Passaggi::AZIONE_EFFETTO ) as $azione ) {
+			$guasta = static function ( $istruzione ) use ( $tabella, $azione ) {
+				return is_string( $istruzione ) && false !== strpos( $istruzione, 'SELECT' ) && false !== strpos( $istruzione, $tabella ) && false !== strpos( $istruzione, "'" . $azione . "'" ) ? 'SELECT guasto_forzato FROM tabella_che_non_esiste' : $istruzione;
+			};
+
+			$wpdb->suppress_errors( true );
+			add_filter( 'query', $guasta );
+
+			try {
+				$letta = $riga();
+			} finally {
+				remove_filter( 'query', $guasta );
+				$wpdb->suppress_errors( false );
+			}
+
+			$this->assertStringContainsString( '<strong>Effetto sul periodo</strong>: non leggibile in questo momento', $letta, $azione . ': la consultazione lo dice.' );
+			$this->assertStringNotContainsString( 'non dichiarato', $letta, $azione . ': e non dice che manca.' );
+		}
 	}
 }
