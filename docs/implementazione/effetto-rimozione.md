@@ -3,7 +3,7 @@
 Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro finito con
 com'è andata davvero.
 
-**Stato: in lavorazione.** Requisiti ALBO-10 (la terza voce del registro, dopo la defissione
+**Stato: costruita, in attesa di revisione.** Requisiti ALBO-10 (la terza voce del registro, dopo la defissione
 e l'annullamento) e ALBO-22 (la dichiarazione che segue una defissione anticipata). Righe
 di collaudo A-243..A-248, che provano le righe di ALBO-22 sulla dichiarazione per la parte
 che non dipende da funzioni ancora da costruire. Nessuna versione nuova del meccanismo
@@ -52,7 +52,7 @@ fallire una guardia sul permesso sbagliato o sullo stato invece che sull'evento.
 | `includes/funzioni-api.php` | `albo_pretorio_dichiara_effetto( $atto_id, $effetto )`, e il quarto argomento facoltativo di `albo_pretorio_defiggi()` |
 | `includes/class-riquadro-passaggi.php` | i due valori, senza scelta fatta, nel modulo della defissione e, finché manca, sull'atto defisso o annullato dopo una defissione; il valore dichiarato in sola lettura |
 | `includes/class-schermata-scaduti.php` | il valore dichiarato, o la sua mancanza, accanto alla defissione |
-| `tests/EffettoRimozioneTest.php` | le righe A-243..A-248 |
+| `tests/EffettoRimozioneTest.php`, `tests/ConsultazioneScadutiTest.php` | le righe A-243..A-248 |
 | `docs/collaudo.md`, `docs/dati.md`, `docs/requisiti.md`, l'indice | le righe nuove e lo stato |
 
 ### 2. Perché
@@ -124,4 +124,19 @@ domanda sparisce, le date restano. Annullare un secondo atto tolto, poi risponde
 
 ## Com'è andata davvero
 
-Da scrivere a lavoro finito.
+Il piano ha retto. Le cose imparate:
+
+- **Due dichiarazioni nello stesso istante.** Il controllo "non c'è ancora" e la scrittura
+  non sono atomici; a fermare la seconda è il vincolo sulla chiave del registro, e il suo
+  rifiuto si traduce nello stesso "già dichiarato" del caso normale (A-247).
+- **Una lettura del registro che non risponde** non deve sembrare "non dichiarato": il
+  meccanismo comune risponde con un elenco vuoto anche a una lettura fallita, quindi
+  l'errore si legge dalla connessione, come per la data dell'annullato importato. Il
+  riquadro in quel caso non offre la domanda, che forse ha già una risposta.
+- **Il gettone del riquadro** si stampa una volta sola per atto: sull'atto tolto i moduli
+  della dichiarazione e dell'annullamento sono nella stessa schermata.
+
+Guasti introdotti nel codice per vedere quale prova li vede, tutti tolti:
+
+- senza il controllo della defissione registrata e dello stato: fallisce A-245;
+- un valore già scelto nel riquadro: falliscono A-244 e A-246.

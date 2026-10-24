@@ -407,7 +407,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-07 | da fare | Referto di pubblicazione congelato | **da confermare**: la prassi non è una fonte. Contenuto e obbligatorietà vanno verificati contro il regolamento, e l'unità è bloccata da quella conferma |
 | ALBO-08 | in corso | Repertorio progressivo annuale, assegnato dal sistema. Unico, progressivo, assegnato una sola volta, mai riutilizzato. Nel primo anno d'uso il numero di partenza lo dichiara l'amministrazione, senza valore predefinito | **prodotto** scelta decisa il 2026-09-23: la prassi della pubblicità legale usa il repertorio, le fonti non lo impongono. Decisi lo stesso giorno la partenza dichiarata e il divieto di correggerla dopo il primo numero. L'assenza assoluta di buchi non è promessa |
 | ALBO-09 | in corso | Integrità del documento pubblicato | **norma** il risultato (linee guida AgID doc. informatici). **Prodotto** immodificabilità e rettifica come atto nuovo, con **un'unica eccezione dichiarata**, la sostituzione per oscuramento di ALBO-12 |
-| ALBO-10 | in corso | Tracciabilità delle operazioni sugli atti | **norma** responsabilizzazione e tracciabilità (GDPR art. 5). **Prodotto** il registro solo in aggiunta del meccanismo comune è la soluzione scelta, non l'unica |
+| ALBO-10 | fatto | Tracciabilità delle operazioni sugli atti | **norma** responsabilizzazione e tracciabilità (GDPR art. 5). **Prodotto** il registro solo in aggiunta del meccanismo comune è la soluzione scelta, non l'unica |
 | ALBO-11 | fatto | Liceità del trattamento dei dati particolari | **norma** il risultato (d.lgs. 196/2003 artt. 2-ter, 2-septies). **Prodotto** il passaggio obbligato con conferma esplicita |
 | ALBO-12 | da fare | I dati eccedenti non finiscono nella versione pubblica, e se ci sono finiti si sostituisce l'allegato con la versione oscurata senza far ripartire il termine | **norma** minimizzazione, l'originale non va esposto (GDPR art. 5.1.c); divieto assoluto di diffondere dati genetici, biometrici e sulla salute (d.lgs. 196/2003 art. 2-septies c. 8). **Prodotto** la coppia originale riservato più versione oscurata, la sostituzione come unica eccezione a ALBO-09, e la scelta che il termine non riparta: i testi impongono che la diffusione vietata cessi e tacciono sull'effetto dell'oscuramento sul periodo |
 | ALBO-13 | da fare | I documenti pubblicati sono accessibili | **norma** il risultato (l. 69/2009 art. 32 che rinvia a l. 4/2004 art. 11). **Prodotto** l'avviso euristico al caricamento, che segnala un indizio e non blocca |
@@ -723,11 +723,11 @@ precisarne il titolare.
 Tre valori: **da fare** (il requisito esiste come impegno, il codice no), **in corso** (il
 codice e i test esistono ma non risultano verdi nella verifica continua), **fatto** (verde
 nella verifica continua). Un requisito passa a "fatto" solo quando tutte le sue righe di
-`collaudo.md` sono "fatto". Oggi sono a **"fatto" ALBO-01, ALBO-02, ALBO-11, ALBO-23, ALBO-24, ALBO-25 e ALBO-26**: i
-primi tre chiusi dalla pubblicazione, gli altri dall'unità che ha costruito il tipo atto, i
-permessi e il ruolo proprio. Sono **"in corso"** ALBO-08, ALBO-09, ALBO-10, ALBO-22 e
+`collaudo.md` sono "fatto". Oggi sono a **"fatto" ALBO-01, ALBO-02, ALBO-10, ALBO-11, ALBO-23, ALBO-24, ALBO-25 e ALBO-26**: i
+primi due e ALBO-11 chiusi dalla pubblicazione, ALBO-10 dalle voci della defissione, dell'annullamento e della dichiarazione, gli altri dall'unità che ha costruito il tipo atto, i
+permessi e il ruolo proprio. Sono **"in corso"** ALBO-08, ALBO-09, ALBO-22 e
 ALBO-27: il codice c'è per una parte, e ciascuno ha righe che aspettano funzioni non ancora
 costruite, cioè la durata propria (ALBO-04), la sostituzione per oscuramento (ALBO-08,
-ALBO-09, ALBO-12), la dichiarazione dell'effetto della rimozione sul periodo (ALBO-10, ALBO-22) e il compito pianificato che registra le scadenze (ALBO-22); l'annullamento è costruito, righe A-224..A-230, e la defissione anticipata pure, righe A-235..A-242. **Tutti gli altri sono a "da fare"**. Il componente
+ALBO-09, ALBO-12), il compito pianificato che registra le scadenze (ALBO-22), il referto (ALBO-07) e la sostituzione per oscuramento (ALBO-12); l'annullamento è costruito, righe A-224..A-230, la defissione anticipata pure, righe A-235..A-242, e la dichiarazione dell'effetto della rimozione sul periodo, righe A-243..A-248. **Tutti gli altri sono a "da fare"**. Il componente
 pubblica gli atti ma **non li mostra ancora al pubblico**: la pagina pubblica non è
 costruita.
