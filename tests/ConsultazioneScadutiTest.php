@@ -1,6 +1,7 @@
 <?php
 /**
- * La consultazione riservata degli atti scaduti: righe A-180..A-185 (ALBO-34).
+ * La consultazione riservata degli atti scaduti: righe A-180..A-185 (ALBO-34),
+ * con l'annullato scaduto (A-230) e l'atto tolto dall'albo (A-242).
  *
  * La schermata vive nell'amministrazione, dove il filtro di scadenza del
  * meccanismo comune non si applica: le prove la aprono con lo schermo
@@ -708,5 +709,74 @@ class ConsultazioneScadutiTest extends \WP_UnitTestCase {
 		$consegnate = $this->consegna_come( $this->consultatore, $documento );
 		$this->assertCount( 1, $consegnate );
 		$this->assertSame( 404, $consegnate[0]['stato'], 'Chi consulta non apre il documento dell\'annullato nemmeno con un collegamento suo.' );
+	}
+
+	/**
+	 * A-242: un atto tolto dall'albo e' fra gli scaduti dal secondo dopo, con causa e motivo.
+	 *
+	 * Tolto il 5 ottobre 2041 alle 10:00, con la fine pianificata il 16: alle
+	 * 10:00:01 e' elencato con la data, la fine pianificata, la causa e il
+	 * motivo. I documenti si aprono a chi gestisce gli atti dell'albo; a chi ha
+	 * il solo permesso di consultare la schermata lo dice. Annullato poi, mostra
+	 * l'una e l'altra cosa.
+	 */
+	public function test_a242_defisso_in_consultazione(): void {
+		$atto      = $this->pubblicato_il( '2041-10-01 09:30:00', 'Graduatoria tolta di prova' );
+		$documento = (int) DocumentiAtto::principale( $atto );
+
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+		$esito = $this->come(
+			$this->amministratore,
+			static function () use ( $atto ) {
+				return albo_pretorio_defiggi( $atto, 'dati_salute', 'Contiene una diagnosi.' );
+			}
+		);
+		$this->assertIsInt( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : 'Precondizione: la defissione.' );
+
+		$this->fissa_orologi( '2041-10-05 10:00:01' );
+		$causa = \AlboPretorioPa\Passaggi::cause_defissione()['dati_salute'];
+
+		foreach ( array(
+			'chi consulta'   => $this->consultatore,
+			'amministratore' => $this->amministratore,
+		) as $chi => $utente ) {
+			$contenuto = (string) $this->schermata( $utente );
+			$this->assertContains( $atto, $this->elencati( $contenuto ), $chi . ': l\'atto tolto e\' elencato subito.' );
+			$this->assertSame( 1, preg_match( '/<tr data-atto="' . $atto . '">(.*?)<\/tr>/s', $contenuto, $riga ), $chi . ': la riga dell\'atto.' );
+			$this->assertStringContainsString( '<strong>Tolto dall&#039;albo il</strong>: 05/10/2041', $riga[1], $chi . ': la data della defissione.' );
+			$this->assertStringContainsString( '<strong>Fine pianificata</strong>: 16/10/2041', $riga[1], $chi . ': la fine pianificata.' );
+			$this->assertStringContainsString( '<strong>Causa della defissione</strong>: ' . esc_html( $causa ), $riga[1], $chi . ': la causa, spiegata.' );
+			$this->assertStringContainsString( '<strong>Motivo della defissione</strong>: Contiene una diagnosi.', $riga[1], $chi . ': il motivo.' );
+
+			if ( $this->consultatore === $utente ) {
+				$this->assertStringNotContainsString( '<a href', $riga[1], 'Chi consulta: nessun collegamento ai documenti.' );
+				$this->assertStringContainsString( 'Atto tolto dall&#039;albo: i suoi documenti si aprono a chi gestisce gli atti dell&#039;albo', $riga[1], 'Chi consulta: la spiegazione al posto del collegamento.' );
+			} else {
+				$this->assertSame( 1, preg_match( '/<a href="([^"]+)"/', $riga[1], $collegamento ), 'Amministratore: il collegamento al documento.' );
+				$consegnate = $this->consegna_come( $utente, $documento, html_entity_decode( $collegamento[1] ) );
+				$this->assertCount( 1, $consegnate );
+				$this->assertSame( 200, $consegnate[0]['stato'], 'Amministratore: il documento dell\'atto tolto si apre.' );
+			}
+		}
+
+		$consegnate = $this->consegna_come( $this->consultatore, $documento );
+		$this->assertCount( 1, $consegnate );
+		$this->assertSame( 404, $consegnate[0]['stato'], 'Chi consulta non apre il documento dell\'atto tolto nemmeno con un collegamento suo.' );
+
+		// Annullato dopo la defissione: la riga dice l'una e l'altra cosa.
+		$this->fissa_orologi( '2041-10-06 10:00:00' );
+		$esito = $this->come(
+			$this->amministratore,
+			static function () use ( $atto ) {
+				return albo_pretorio_annulla( $atto, 'Atto adottato per errore materiale.' );
+			}
+		);
+		$this->assertIsInt( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : 'Precondizione: l\'annullamento.' );
+
+		$contenuto = (string) $this->schermata( $this->consultatore );
+		$this->assertSame( 1, preg_match( '/<tr data-atto="' . $atto . '">(.*?)<\/tr>/s', $contenuto, $riga ), 'Annullato dopo: la riga dell\'atto.' );
+		$this->assertStringContainsString( '<strong>Annullato il</strong>: 06/10/2041', $riga[1], 'Annullato dopo: la data dell\'annullamento.' );
+		$this->assertStringContainsString( '<strong>Tolto dall&#039;albo il</strong>: 05/10/2041', $riga[1], 'Annullato dopo: la defissione resta.' );
+		$this->assertStringContainsString( '<strong>Motivo della defissione</strong>: Contiene una diagnosi.', $riga[1], 'Annullato dopo: il motivo della defissione resta.' );
 	}
 }

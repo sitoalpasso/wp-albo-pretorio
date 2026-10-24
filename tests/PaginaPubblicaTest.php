@@ -2,7 +2,8 @@
 /**
  * La pagina pubblica dell'albo: righe A-195..A-209 (ALBO-06, ALBO-16, ALBO-28),
  * il codice breve e gli indirizzi di "Albo Pretorio On line", A-220..A-223 (ALBO-35),
- * e l'avviso dell'atto annullato, A-227 e A-228 (ALBO-22).
+ * l'avviso dell'atto annullato, A-227 e A-228, e l'atto tolto dall'albo prima
+ * della scadenza, A-235 e A-241 (ALBO-22).
  *
  * Le prove fanno richieste vere alla pagina che contiene il codice breve, con
  * gli atti portati a pubblicato dal passaggio vero e l'orologio fissato. Il
@@ -2453,6 +2454,100 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 		}
 
 		$this->assertSame( ChiusuraPubblicazione::ANNULLATO, get_post_status( $atto ), 'Lo stato resta annullato: a toglierlo e\' la data.' );
+	}
+
+	/**
+	 * A-235: dal secondo dopo la defissione l'atto sparisce come uno scaduto, su ogni strada della pagina.
+	 *
+	 * Atto del 1 ottobre 2041 con fine il 16, tolto il 5 alle 10:00: la data di
+	 * fine diventa il 4, quindi alle 10:00:01 e' gia' scaduto.
+	 */
+	public function test_a235_defisso_sparisce_subito(): void {
+		$this->pagina_albo();
+
+		$scaduto   = $this->pubblicato_il( '2041-09-01 09:30:00', 'Atto scaduto di riferimento' );
+		$atto      = $this->importato_il( '2041-10-01 09:30:00', 'Atto tolto di prova', '123' );
+		$controllo = $this->pubblicato_il( '2041-10-02 09:30:00', 'Atto di controllo' );
+		$documento = (int) DocumentiAtto::principale( $atto );
+		$di_rifer  = (int) DocumentiAtto::principale( $scaduto );
+
+		$scheda    = $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $atto ) );
+		$inventato = $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => 999999999 ) );
+		$ricerca   = $this->indirizzo( array( VistaPubblica::CAMPO_TESTO => 'tolto' ) );
+		$vecchio   = $this->indirizzo(
+			array(
+				'action' => 'visatto',
+				'id'     => '123',
+			)
+		);
+
+		$this->fissa_orologi( '2041-10-05 09:59:59' );
+		wp_set_current_user( 0 );
+		$this->assertSame( array( $controllo, $atto ), $this->atti_elencati( (string) $this->pagina_disegnata( $this->indirizzo() ) ), 'Precondizione: prima della defissione e\' in elenco.' );
+		$this->assertTrue( $this->consegnato( $this->consegna( $documento ) ), 'Precondizione: prima della defissione il documento si scarica.' );
+
+		$this->defisso_il( $atto, '2041-10-05 10:00:00' );
+		$this->assertSame( '2041-10-04', conformita_core_fine_pubblicazione( $atto ), 'La fine e\' il giorno prima.' );
+
+		$this->fissa_orologi( '2041-10-05 10:00:01' );
+
+		foreach ( array(
+			'visitatore'     => 0,
+			'amministratore' => $this->amministratore,
+		) as $chi => $utente ) {
+			wp_set_current_user( $utente );
+
+			$mai = $this->risposta( $inventato );
+
+			$this->assertSame( array( $controllo ), $this->atti_elencati( (string) $this->pagina_disegnata( $this->indirizzo() ) ), $chi . ': resta solo il controllo.' );
+			$this->assertSame( array(), $this->atti_elencati( (string) $this->pagina_disegnata( $ricerca ) ), $chi . ': la ricerca non lo trova.' );
+			$this->assertSame( $mai, $this->risposta( $scheda ), $chi . ': la scheda risponde come un atto mai esistito.' );
+			$this->assertNull( $this->rinvio( $vecchio ), $chi . ': il vecchio indirizzo non rinvia.' );
+			$this->assertSame( $mai, $this->risposta( $vecchio ), $chi . ': e risponde come un atto mai esistito.' );
+
+			$rifiuto = $this->consegna( $di_rifer );
+			$this->assertFalse( $this->consegnato( $rifiuto ), $chi . ': precondizione, il documento dello scaduto non si scarica.' );
+			$this->assertSame( $rifiuto, $this->consegna( $documento ), $chi . ': il documento risponde, per intero, come quello di uno scaduto.' );
+			$this->assertSame( $rifiuto, $this->consegna_storpiata( $documento ), $chi . ': anche con l\'atto seguito da lettere.' );
+			$this->assertTrue( $this->consegnato( $this->consegna( (int) DocumentiAtto::principale( $controllo ) ) ), $chi . ': il documento del controllo si scarica.' );
+		}
+
+		// A-241: annullato dopo la defissione, resta fuori dalla vista anche prima della fine pianificata.
+		$this->annullato_il( $atto, '2041-10-06 10:00:00', 'Atto annullato in autotutela.' );
+		$this->fissa_orologi( '2041-10-06 10:00:01' );
+
+		foreach ( array(
+			'visitatore'     => 0,
+			'amministratore' => $this->amministratore,
+		) as $chi => $utente ) {
+			wp_set_current_user( $utente );
+
+			$mai = $this->risposta( $inventato );
+
+			$this->assertSame( array( $controllo ), $this->atti_elencati( (string) $this->pagina_disegnata( $this->indirizzo() ) ), $chi . ', annullato dopo la defissione: non torna in elenco come avviso.' );
+			$this->assertSame( $mai, $this->risposta( $scheda ), $chi . ', annullato dopo la defissione: la scheda resta "non trovata".' );
+			$this->assertSame( $this->consegna( $di_rifer ), $this->consegna( $documento ), $chi . ', annullato dopo la defissione: il documento resta chiuso.' );
+		}
+	}
+
+	/**
+	 * Toglie dall'albo da codice come chi pubblica, all'istante indicato.
+	 *
+	 * @param int    $atto    Atto.
+	 * @param string $istante Data e ora nel fuso del sito.
+	 */
+	private function defisso_il( int $atto, string $istante ): void {
+		$this->fissa_orologi( $istante );
+
+		$esito = $this->come(
+			$this->pubblicatore,
+			static function () use ( $atto ) {
+				return albo_pretorio_defiggi( $atto, 'senza_norma', 'Pubblicato senza una norma che lo preveda.' );
+			}
+		);
+
+		$this->assertIsInt( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+		$this->assertSame( ChiusuraPubblicazione::DEFISSO, get_post_status( $atto ), 'Precondizione: l\'atto e\' tolto dall\'albo.' );
 	}
 
 	/**
