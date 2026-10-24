@@ -435,6 +435,11 @@ final class RiquadroPassaggi {
 	 * @param \WP_Post $atto Atto.
 	 */
 	private static function defisso( \WP_Post $atto ): void {
+		// Lo stato non basta: un atto defisso alla scadenza naturale non ha una defissione anticipata.
+		if ( false === Passaggi::defissione_registrata( (int) $atto->ID ) ) {
+			return;
+		}
+
 		$voce = Passaggi::defissione( (int) $atto->ID );
 
 		printf( '<p><strong>%s</strong></p>', esc_html__( 'Atto tolto dall\'albo prima della scadenza', 'albo-pretorio-pa' ) );
@@ -458,25 +463,24 @@ final class RiquadroPassaggi {
 	/**
 	 * L'effetto della rimozione sul periodo: il valore dichiarato, oppure la domanda finche' manca.
 	 *
-	 * Solo dove c'e' stata una defissione anticipata: sull'atto tolto
-	 * dall'albo e sull'annullato dopo una defissione.
+	 * Solo dove il registro ha una defissione anticipata: sull'atto tolto
+	 * dall'albo e sull'annullato dopo una defissione, mai per il solo stato.
 	 *
 	 * @param \WP_Post $atto Atto.
 	 */
 	private static function effetto( \WP_Post $atto ): void {
 		$atto_id = (int) $atto->ID;
 
-		if ( ChiusuraPubblicazione::ANNULLATO === $atto->post_status ) {
-			$defisso_prima = Passaggi::defissione_registrata( $atto_id );
+		// Si lega all'evento registrato, non allo stato: ne' il defisso ne' l'annullato dicono se c'e' stata una defissione anticipata.
+		$defisso_prima = Passaggi::defissione_registrata( $atto_id );
 
-			if ( false === $defisso_prima ) {
-				return;
-			}
+		if ( false === $defisso_prima ) {
+			return;
+		}
 
-			if ( null === $defisso_prima ) {
-				printf( '<fieldset class="albo-pretorio-passaggio"><legend><strong>%1$s</strong></legend><p>%2$s</p></fieldset>', esc_html__( 'Effetto della rimozione sul periodo', 'albo-pretorio-pa' ), esc_html__( 'Il registro delle modifiche non risponde: non si legge se l\'atto e\' stato tolto dall\'albo prima della scadenza, ne\' l\'effetto dichiarato.', 'albo-pretorio-pa' ) );
-				return;
-			}
+		if ( null === $defisso_prima ) {
+			printf( '<fieldset class="albo-pretorio-passaggio"><legend><strong>%1$s</strong></legend><p>%2$s</p></fieldset>', esc_html__( 'Effetto della rimozione sul periodo', 'albo-pretorio-pa' ), esc_html__( 'Il registro delle modifiche non risponde: non si legge se l\'atto e\' stato tolto dall\'albo prima della scadenza, ne\' l\'effetto dichiarato.', 'albo-pretorio-pa' ) );
+			return;
 		}
 
 		$effetto = Passaggi::effetto( $atto_id );
