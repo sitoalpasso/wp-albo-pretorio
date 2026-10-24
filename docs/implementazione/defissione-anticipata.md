@@ -207,6 +207,22 @@ Il piano ha retto. Le differenze e le cose imparate:
   prova per intero il caso dello stato riscritto a pubblicato, e per lo stato defisso solo
   che niente si consegna al visitatore e a chi consulta gli scaduti.
 
+Primo giro di revisione indipendente, due rilievi accolti:
+
+- **La fine pianificata letta prima della fotografia.** Una proroga confermata fra la
+  lettura dei controlli e la fotografia di partenza passava il confronto del blocco, e la
+  voce registrava la fine vecchia. Ora la fine letta deve essere quella della fotografia,
+  altrimenti il passaggio è rifiutato senza scritture; la prova A-240 lo riproduce e
+  falliva prima della correzione.
+- **A-239 osservava male la proroga.** Il risultato della proroga ha gli atti per
+  identificativo nelle chiavi, e la prova li cercava in una colonna: era vera anche con il
+  defisso prorogato. Ora guarda le chiavi, con il controllo positivo dell'atto prorogato,
+  usa il giorno della defissione e confronta la fotografia intera. Aggiunti i tentativi sul
+  collegamento ai documenti e dall'interfaccia di programmazione. **Trovato e non chiuso
+  qui**: il documento come contenuto a sé, dalla libreria dei media, si cancella anche
+  quando l'atto è fermo, pubblicato compreso. È di ALBO-09 e ALBO-12, che riguardano
+  proprio i documenti di un atto pubblicato, e va chiuso in quell'unità.
+
 Guasti introdotti nel codice per vedere quale prova li vede, tutti tolti:
 
 - la data di fine scritta a oggi invece che a ieri: falliscono A-235 (da codice e sulla
