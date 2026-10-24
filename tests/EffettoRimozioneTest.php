@@ -262,6 +262,49 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * La defissione ha cambiato solo cio' che le e' proprio: stato, fine e voci nuove in coda.
+	 *
+	 * Le date di inizio, gli altri dati, le voci di prima e tutto il resto
+	 * della fotografia sono identici.
+	 *
+	 * @param array<string, mixed> $prima   Fotografia prima.
+	 * @param int                  $atto_id Atto.
+	 * @param string               $caso    Caso, per i messaggi.
+	 */
+	private function solo_la_defissione( array $prima, int $atto_id, string $caso ): void {
+		$dopo   = $this->fotografia( $atto_id );
+		$chiave = conformita_core_chiave_fine_pubblicazione();
+
+		$this->assertSame( $prima['riga']['post_date'], $dopo['riga']['post_date'], $caso . ': la data di inizio resta.' );
+		$this->assertSame( $prima['riga']['post_date_gmt'], $dopo['riga']['post_date_gmt'], $caso . ': anche nell\'ora universale.' );
+		$this->assertSame( ChiusuraPubblicazione::DEFISSO, $dopo['riga']['post_status'], $caso . ': defisso.' );
+		$this->assertSame( $prima['registro'], array_slice( $dopo['registro'], 0, count( $prima['registro'] ) ), $caso . ': le voci di prima sono identiche per intero.' );
+
+		foreach ( array( 'post_status', 'post_modified', 'post_modified_gmt' ) as $campo ) {
+			unset( $prima['riga'][ $campo ], $dopo['riga'][ $campo ] );
+		}
+
+		$fine = static function ( array $dati ) use ( $chiave ): array {
+			return array_values(
+				array_filter(
+					$dati,
+					static function ( array $dato ) use ( $chiave ): bool {
+						return $chiave !== $dato['meta_key'];
+					}
+				)
+			);
+		};
+
+		$this->assertSame( '2041-10-04', conformita_core_fine_pubblicazione( $atto_id ), $caso . ': la fine e\' il giorno prima.' );
+		$prima['dati'] = $fine( $prima['dati'] );
+		$dopo['dati']  = $fine( $dopo['dati'] );
+
+		unset( $prima['registro'], $dopo['registro'] );
+
+		$this->assertSame( $prima, $dopo, $caso . ': il resto dell\'atto e\' identico.' );
+	}
+
+	/**
 	 * I motivi del rifiuto lasciati dal riquadro all'utente.
 	 *
 	 * @param int $atto_id Atto.
@@ -348,6 +391,7 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 		// Da codice.
 		$voce = $this->defiggi( $da_codice, $this->pubblicatore, 'va_rifatta' );
 		$this->assertIsInt( $voce, is_wp_error( $voce ) ? $voce->get_error_message() : '' );
+		$this->solo_la_defissione( $prima, $da_codice, 'Da codice' );
 
 		$numero  = Repertorio::di( $da_codice );
 		$effetti = $this->effetti( $da_codice );
@@ -371,6 +415,7 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 		$this->assertLessThan( $effetti[0]['id'], $defissione[0]['id'], 'La dichiarazione segue la voce della defissione.' );
 
 		// Dal riquadro.
+		$prima = $this->fotografia( $da_riquadro );
 		$this->invia_riquadro(
 			$da_riquadro,
 			$this->pubblicatore,
@@ -383,6 +428,7 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 		);
 
 		$this->assertSame( ChiusuraPubblicazione::DEFISSO, get_post_status( $da_riquadro ), 'Dal riquadro: tolto.' );
+		$this->solo_la_defissione( $prima, $da_riquadro, 'Dal riquadro' );
 		$this->assertSame( 'vale_periodo_trascorso', $this->effetti( $da_riquadro )[0]['dettagli']['effetto'] ?? null, 'Dal riquadro: dichiarato.' );
 		$this->assertSame( $atti, $conta(), '"Va rifatta" non crea nessun atto.' );
 	}
@@ -925,6 +971,42 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 		$this->assertFalse( $letto, 'La lettura dice che non risponde, non che manca.' );
 		$this->assertStringContainsString( 'l&#039;effetto dichiarato non si legge in questo momento', $html, 'Il riquadro lo dice.' );
 		$this->assertSame( array(), $this->scelte( $html ), 'E non offre la domanda, che forse ha gia\' una risposta.' );
+
+		// Il registro che non annulla, o la verifica che non risponde: la dichiarazione non comincia.
+		foreach ( array(
+			'registro non transazionale' => static function ( $istruzione ) use ( $tabella ) {
+				return str_replace( 't.TABLE_NAME IN (', "t.TABLE_NAME <> '{$tabella}' AND t.TABLE_NAME IN (", (string) $istruzione );
+			},
+			'verifica che non risponde'  => static function ( $istruzione ) {
+				return false !== strpos( (string) $istruzione, 'information_schema.TABLES' ) ? 'SELECT guasto_forzato FROM tabella_che_non_esiste' : $istruzione;
+			},
+		) as $caso => $rispondi ) {
+			$prima    = $this->fotografia( $id );
+			$inserite = 0;
+			$conta    = static function ( $istruzione ) use ( $tabella, &$inserite ) {
+				if ( is_string( $istruzione ) && 0 === strpos( $istruzione, 'INSERT INTO `' . $tabella . '`' ) ) {
+					++$inserite;
+				}
+
+				return $istruzione;
+			};
+
+			$wpdb->suppress_errors( true );
+			add_filter( 'query', $rispondi );
+			add_filter( 'query', $conta );
+
+			try {
+				$esito = $this->dichiara( $id, $this->pubblicatore, 'va_rifatta' );
+			} finally {
+				remove_filter( 'query', $conta );
+				remove_filter( 'query', $rispondi );
+				$wpdb->suppress_errors( false );
+			}
+
+			$this->assertSame( array( 'albo_tabelle_non_transazionali' ), $this->codici( $esito ), $caso . ': rifiutata.' );
+			$this->assertSame( 0, $inserite, $caso . ': prima di scrivere.' );
+			$this->assertSame( $prima, $this->fotografia( $id ), $caso . ': niente scritto.' );
+		}
 
 		// Controllo positivo: riparato, la dichiarazione riesce.
 		$this->assertIsInt( $this->dichiara( $id, $this->pubblicatore, 'va_rifatta' ) );
