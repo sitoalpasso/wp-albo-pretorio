@@ -466,8 +466,17 @@ final class RiquadroPassaggi {
 	private static function effetto( \WP_Post $atto ): void {
 		$atto_id = (int) $atto->ID;
 
-		if ( ChiusuraPubblicazione::ANNULLATO === $atto->post_status && null === Passaggi::defissione( $atto_id ) ) {
-			return;
+		if ( ChiusuraPubblicazione::ANNULLATO === $atto->post_status ) {
+			$defisso_prima = Passaggi::defissione_registrata( $atto_id );
+
+			if ( false === $defisso_prima ) {
+				return;
+			}
+
+			if ( null === $defisso_prima ) {
+				printf( '<fieldset class="albo-pretorio-passaggio"><legend><strong>%1$s</strong></legend><p>%2$s</p></fieldset>', esc_html__( 'Effetto della rimozione sul periodo', 'albo-pretorio-pa' ), esc_html__( 'Il registro delle modifiche non risponde: non si legge se l\'atto e\' stato tolto dall\'albo prima della scadenza, ne\' l\'effetto dichiarato.', 'albo-pretorio-pa' ) );
+				return;
+			}
 		}
 
 		$effetto = Passaggi::effetto( $atto_id );
@@ -658,16 +667,18 @@ final class RiquadroPassaggi {
 	}
 
 	/**
-	 * L'effetto scelto nel modulo, oppure nullo se nessuno e' scelto.
+	 * L'effetto inviato dal modulo cosi' com'e', oppure nullo se il campo manca.
 	 *
-	 * @return string|null
+	 * Non si ripulisce: una ripulitura trasformerebbe "VA_RIFATTA" in un
+	 * valore valido e un valore illeggibile in nessuna scelta. Passaggi lo
+	 * confronta con l'elenco chiuso dei due valori e rifiuta tutto il resto.
+	 *
+	 * @return mixed
 	 */
-	private static function effetto_dalla_schermata(): ?string {
-		// phpcs:disable WordPress.Security.NonceVerification.Missing -- il gettone e' gia' stato verificato da chi chiama.
-		$effetto = isset( $_POST[ self::CAMPO_EFFETTO ] ) && is_string( $_POST[ self::CAMPO_EFFETTO ] ) ? sanitize_key( wp_unslash( $_POST[ self::CAMPO_EFFETTO ] ) ) : '';
+	private static function effetto_dalla_schermata() {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- il gettone e' gia' stato verificato da chi chiama; il valore lo valida Passaggi contro l'elenco chiuso.
+		return isset( $_POST[ self::CAMPO_EFFETTO ] ) ? wp_unslash( $_POST[ self::CAMPO_EFFETTO ] ) : null;
 		// phpcs:enable
-
-		return '' === $effetto ? null : $effetto;
 	}
 
 	/**

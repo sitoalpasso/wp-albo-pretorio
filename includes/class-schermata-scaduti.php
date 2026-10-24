@@ -453,10 +453,16 @@ final class SchermataScaduti {
 			$dati[ $etichetta ] = $valore;
 		}
 
-		$annullato = ChiusuraPubblicazione::ANNULLATO === get_post_status( $atto );
+		$annullato     = ChiusuraPubblicazione::ANNULLATO === get_post_status( $atto );
+		$defisso_prima = $annullato ? Passaggi::defissione_registrata( $atto ) : false;
+
+		if ( null === $defisso_prima ) {
+			$dati[ __( 'Tolto dall\'albo prima della scadenza', 'albo-pretorio-pa' ) ] = __( 'non leggibile in questo momento', 'albo-pretorio-pa' );
+			$dati[ __( 'Effetto sul periodo', 'albo-pretorio-pa' ) ]                   = __( 'non leggibile in questo momento', 'albo-pretorio-pa' );
+		}
 
 		// Anche un atto tolto dall'albo e poi annullato porta la sua defissione.
-		if ( ChiusuraPubblicazione::DEFISSO === get_post_status( $atto ) || ( $annullato && null !== Passaggi::defissione( $atto ) ) ) {
+		if ( ChiusuraPubblicazione::DEFISSO === get_post_status( $atto ) || true === $defisso_prima ) {
 			$voce  = Passaggi::defissione( $atto );
 			$cause = Passaggi::cause_defissione();
 

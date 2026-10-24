@@ -1407,6 +1407,22 @@ final class Passaggi {
 	}
 
 	/**
+	 * Se il registro ha la defissione anticipata dell'atto: vero, falso, o nullo se non risponde.
+	 *
+	 * Le viste ne hanno bisogno sull'annullato, dove lo stato non dice se
+	 * prima c'e' stata una defissione: una lettura fallita non deve sembrare
+	 * "nessuna defissione" e nascondere un effetto gia' dichiarato.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return bool|null
+	 */
+	public static function defissione_registrata( int $atto_id ): ?bool {
+		$voci = self::voci_dell_atto( $atto_id, self::AZIONE_DEFISSIONE );
+
+		return is_wp_error( $voci ) ? null : 0 < $voci;
+	}
+
+	/**
 	 * I due effetti della rimozione anticipata sul periodo, con la loro spiegazione.
 	 *
 	 * Le fonti impongono che la diffusione vietata cessi e tacciono su che
@@ -1687,6 +1703,17 @@ final class Passaggi {
 			if ( ! is_wp_error( $esito ) && null !== $effetto ) {
 				$dichiarata = self::scrivi_voce( $effetto );
 				$esito      = is_wp_error( $dichiarata ) ? $dichiarata : $esito;
+			}
+
+			// Il vincolo sulla chiave non vede una voce scritta da altri con un'altra chiave: dopo la scrittura la voce e' una sola.
+			if ( ! is_wp_error( $esito ) && null !== $effetto ) {
+				$dichiarate = self::voci_dell_atto( $atto_id, self::AZIONE_EFFETTO );
+
+				if ( is_wp_error( $dichiarate ) ) {
+					$esito = $dichiarate;
+				} elseif ( 1 !== $dichiarate ) {
+					$esito = self::errore_gia_dichiarato();
+				}
 			}
 
 			// Finite le scritture, prima del controllo e della conferma: niente piu' e' concesso.
