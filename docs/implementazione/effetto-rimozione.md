@@ -157,6 +157,13 @@ Dalla seconda revisione:
 - **Il testo vuoto non è nessuna scelta**: insieme alla defissione si rifiuta come ogni altro
   valore fuori dai due. Nessuna scelta è solo il campo che manca.
 
+Dalla terza revisione:
+
+- **La dichiarazione resa dopo controlla che il registro sappia annullare**, come gli altri
+  passaggi: con la tabella che non annulla, o con la verifica che non risponde, non comincia.
+- **A-243 confronta la fotografia anche dopo la defissione riuscita**: cambiano solo stato,
+  fine e voci nuove in coda, e le date di inizio restano.
+
 Guasti introdotti nel codice per vedere quale prova li vede, tutti tolti:
 
 - senza il controllo della defissione registrata e dello stato: fallisce A-245;
@@ -165,4 +172,6 @@ Guasti introdotti nel codice per vedere quale prova li vede, tutti tolti:
 - senza il conteggio dopo la scrittura: fallisce A-247;
 - sull'annullato la lettura fallita della defissione presa per "nessuna": fallisce A-248;
 - il testo vuoto preso per nessuna scelta: fallisce A-245;
-- la dichiarazione resa dopo senza il conteggio: fallisce A-247.
+- la dichiarazione resa dopo senza il conteggio: fallisce A-247;
+- la dichiarazione resa dopo senza il controllo del registro: fallisce A-248;
+- la data di inizio riscritta quando l'effetto si dichiara insieme: fallisce A-243.
