@@ -174,6 +174,13 @@ Dalla quarta revisione, un limite dichiarato e non costruito:
   garantito: non scrive mai una seconda dichiarazione, e se ne trova due la lettura non ne
   sceglie una, e le viste dicono che il dato non si legge.
 
+Dalla quinta revisione:
+
+- **Anche le viste si legano all'evento, non allo stato**, sul defisso come sull'annullato:
+  un atto defisso senza defissione anticipata registrata (come lo lascerà il compito
+  pianificato alla scadenza naturale) non offre la domanda e non mostra una defissione; una
+  lettura che non risponde lo dice.
+
 Guasti introdotti nel codice per vedere quale prova li vede, tutti tolti:
 
 - senza il controllo della defissione registrata e dello stato: fallisce A-245;
@@ -184,4 +191,5 @@ Guasti introdotti nel codice per vedere quale prova li vede, tutti tolti:
 - il testo vuoto preso per nessuna scelta: fallisce A-245;
 - la dichiarazione resa dopo senza il conteggio: fallisce A-247;
 - la dichiarazione resa dopo senza il controllo del registro: fallisce A-248;
-- la data di inizio riscritta quando l'effetto si dichiara insieme: fallisce A-243.
+- la data di inizio riscritta quando l'effetto si dichiara insieme: fallisce A-243;
+- le viste del defisso guidate dallo stato: falliscono A-245 e A-248.
