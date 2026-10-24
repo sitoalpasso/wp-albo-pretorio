@@ -75,3 +75,6 @@ Schede presenti:
   pubblicato per una delle quattro cause dell'elenco, con la data di fine riportata al giorno
   prima, lo stato defisso e l'annullamento che parte anche da defisso. Righe di collaudo
   A-235..A-242.
+- [`effetto-rimozione.md`](effetto-rimozione.md): dopo una defissione anticipata,
+  l'amministrazione dichiara una volta sola se la pubblicazione vale per il periodo
+  trascorso o va rifatta, senza valore preselezionato. Righe di collaudo A-243..A-248.
