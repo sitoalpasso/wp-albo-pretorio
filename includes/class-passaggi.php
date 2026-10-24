@@ -97,6 +97,20 @@ final class Passaggi {
 	const ORIGINE_ANNULLAMENTO_IMPORTATO = 'Albo Pretorio On line';
 
 	/**
+	 * Azione della voce di registro della defissione anticipata, con causa e motivo.
+	 *
+	 * @var string
+	 */
+	const AZIONE_DEFISSIONE = 'defissione_anticipata';
+
+	/**
+	 * La causa che non e' una rimozione: i dati eccedenti si oscurano sostituendo il file (ALBO-12).
+	 *
+	 * @var string
+	 */
+	const CAUSA_DATI_ECCEDENTI = 'dati_eccedenti';
+
+	/**
 	 * Le chiavi che una richiesta di pubblicazione puo' portare.
 	 *
 	 * Le due date sono ammesse come chiavi solo per poter essere rifiutate o
@@ -209,13 +223,23 @@ final class Passaggi {
 	/**
 	 * Se il passaggio in corso su questo atto e' un annullamento.
 	 *
-	 * E' l'unico passaggio che parte da un atto pubblicato.
+	 * Parte da un atto pubblicato o da un atto defisso.
 	 *
 	 * @param int $atto_id Atto.
 	 * @return bool
 	 */
 	public static function annullamento_in_corso( int $atto_id ): bool {
 		return isset( self::$in_corso[ $atto_id ] ) && self::AZIONE_ANNULLAMENTO === self::$in_corso[ $atto_id ]['tipo'];
+	}
+
+	/**
+	 * Se il passaggio in corso su questo atto e' una defissione anticipata.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return bool
+	 */
+	public static function defissione_in_corso( int $atto_id ): bool {
+		return isset( self::$in_corso[ $atto_id ] ) && self::AZIONE_DEFISSIONE === self::$in_corso[ $atto_id ]['tipo'];
 	}
 
 	/**
@@ -306,7 +330,7 @@ final class Passaggi {
 	 * @param int                   $atto_id Atto.
 	 * @param array<string, string> $campi   Campi della scrittura: lo stato, pubblicato o bozza, e per la pubblicazione le date.
 	 * @param string|null           $fine    Data di fine che la pubblicazione scrive.
-	 * @param string                $tipo    `pubblicazione`, `rimando`, `proroga`, `importazione` o `annullamento`.
+	 * @param string                $tipo    `pubblicazione`, `rimando`, `proroga`, `importazione`, `annullamento` o `defissione_anticipata`.
 	 */
 	private static function inizia( int $atto_id, array $campi, ?string $fine, string $tipo ): void {
 		self::$in_corso[ $atto_id ] = array(
@@ -966,13 +990,14 @@ final class Passaggi {
 	}
 
 	/**
-	 * Annulla un atto pubblicato, con il suo motivo (ALBO-22).
+	 * Annulla un atto pubblicato o defisso, con il suo motivo (ALBO-22).
 	 *
 	 * L'atto resta nel registro con il suo numero e le sue date, e da qui non
 	 * cambia piu': annullato e' terminale. Fino alla data di fine il pubblico
 	 * ne vede l'avviso, senza documenti; dopo, sparisce come ogni atto
 	 * scaduto. Si annulla anche un atto gia' scaduto: la scadenza e' una
-	 * proprieta' della data letta e non cambia il passaggio.
+	 * proprieta' della data letta e non cambia il passaggio. Un atto defisso
+	 * ha la data di fine gia' passata, quindi annullato resta invisibile.
 	 *
 	 * @param int   $atto_id Atto.
 	 * @param mixed $motivo  Motivo dell'annullamento, testo non vuoto.
@@ -1003,12 +1028,14 @@ final class Passaggi {
 			);
 		}
 
-		if ( ChiusuraPubblicazione::PUBBLICATO !== $atto->post_status ) {
+		if ( ! in_array( $atto->post_status, array( ChiusuraPubblicazione::PUBBLICATO, ChiusuraPubblicazione::DEFISSO ), true ) ) {
 			return new \WP_Error(
 				'albo_atto_non_pubblicato',
-				__( 'L\'atto non si annulla: si annulla soltanto un atto pubblicato. Una bozza si corregge, un atto in verifica si rimanda in bozza.', 'albo-pretorio-pa' )
+				__( 'L\'atto non si annulla: si annulla soltanto un atto pubblicato o tolto dall\'albo. Una bozza si corregge, un atto in verifica si rimanda in bozza.', 'albo-pretorio-pa' )
 			);
 		}
+
+		$stato = (string) $atto->post_status;
 
 		$numero = Repertorio::di( $atto_id );
 
@@ -1024,7 +1051,7 @@ final class Passaggi {
 		if ( is_wp_error( $mappa ) || ! isset( $mappa[ Permessi::CHIAVE_DEFISSIONE ] ) || ! current_user_can( $mappa[ Permessi::CHIAVE_DEFISSIONE ] ) ) {
 			return new \WP_Error(
 				'albo_annullamento_non_permesso',
-				__( 'L\'atto resta pubblicato: per annullarlo serve il permesso di annullare e defiggere gli atti, e non si possiede.', 'albo-pretorio-pa' )
+				ChiusuraPubblicazione::DEFISSO === $atto->post_status ? __( 'L\'atto resta com\'era: per annullarlo serve il permesso di annullare e defiggere gli atti, e non si possiede.', 'albo-pretorio-pa' ) : __( 'L\'atto resta pubblicato: per annullarlo serve il permesso di annullare e defiggere gli atti, e non si possiede.', 'albo-pretorio-pa' )
 			);
 		}
 
@@ -1033,7 +1060,7 @@ final class Passaggi {
 		if ( '' === $motivo ) {
 			return new \WP_Error(
 				'albo_motivo_mancante',
-				__( 'L\'atto resta pubblicato: per annullarlo serve il motivo, che finisce nel registro delle modifiche e che il pubblico legge accanto all\'atto fino alla sua data di fine.', 'albo-pretorio-pa' )
+				ChiusuraPubblicazione::DEFISSO === $stato ? __( 'L\'atto resta com\'era: per annullarlo serve il motivo, che finisce nel registro delle modifiche.', 'albo-pretorio-pa' ) : __( 'L\'atto resta pubblicato: per annullarlo serve il motivo, che finisce nel registro delle modifiche e che il pubblico legge accanto all\'atto fino alla sua data di fine.', 'albo-pretorio-pa' )
 			);
 		}
 
@@ -1041,19 +1068,21 @@ final class Passaggi {
 		$partenza = self::fotografia( $atto_id );
 
 		if ( null === $partenza ) {
-			return self::errore_annullamento( self::errore_lettura() );
+			return self::errore_annullamento( $stato, self::errore_lettura() );
 		}
 
 		$tabelle = self::tabelle_senza_transazioni();
 
 		if ( array() !== $tabelle ) {
-			return self::errore_annullamento( self::errore_tabelle( $tabelle ) );
+			return self::errore_annullamento( $stato, self::errore_tabelle( $tabelle ) );
 		}
 
-		$prima = self::voci_automatiche( $atto_id, 'rimozione' );
+		// Il meccanismo comune registra l'uscita da pubblicato come rimozione, ogni altro cambio come cambio di stato.
+		$automatica = ChiusuraPubblicazione::PUBBLICATO === $stato ? 'rimozione' : 'cambio_stato';
+		$prima      = self::voci_automatiche( $atto_id, $automatica );
 
 		if ( is_wp_error( $prima ) ) {
-			return self::errore_annullamento( $prima );
+			return self::errore_annullamento( $stato, $prima );
 		}
 
 		$fine  = conformita_core_fine_pubblicazione( $atto_id );
@@ -1074,12 +1103,12 @@ final class Passaggi {
 		self::inizia( $atto_id, $campi, null, self::AZIONE_ANNULLAMENTO );
 
 		try {
-			$esito = self::annulla_dentro( $atto_id, $campi, $voce, $partenza, $prima );
+			$esito = self::annulla_dentro( $atto_id, $campi, $voce, $partenza, $automatica, $prima );
 		} finally {
 			unset( self::$in_corso[ $atto_id ] );
 		}
 
-		return self::dopo_la_chiusura( $atto_id, is_wp_error( $esito ) ? self::errore_annullamento( $esito ) : $esito );
+		return self::dopo_la_chiusura( $atto_id, is_wp_error( $esito ) ? self::errore_annullamento( $stato, $esito ) : $esito );
 	}
 
 	/**
@@ -1129,6 +1158,321 @@ final class Passaggi {
 			'istante' => $voci[0]['istante'],
 			'giorno'  => false,
 		);
+	}
+
+	/**
+	 * Le cause per cui un atto si toglie dall'albo prima della scadenza, con la loro spiegazione.
+	 *
+	 * Sono le rimozioni pacifiche della lettura delle fonti del 2026-09-22:
+	 * in nessuna la rimozione e' una scelta di durata, perche' la
+	 * pubblicazione in quella forma non doveva esserci. Accorciare il
+	 * termine di un atto regolare non e' fra queste (art. 124 del TUEL). Non
+	 * dipendono dall'amministrazione, quindi non sono configurazione.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function cause_defissione(): array {
+		return array(
+			'dati_salute'     => __( 'Dati genetici, biometrici o relativi alla salute in un documento che non si puo\' oscurare: non si diffondono mai (art. 2-septies, comma 8, del d.lgs. 196/2003).', 'albo-pretorio-pa' ),
+			'senza_norma'     => __( 'Nessuna norma prescrive l\'affissione di questo atto: la pubblicazione non doveva cominciare.', 'albo-pretorio-pa' ),
+			'dati_inesatti'   => __( 'Dati personali inesatti o non aggiornati: si mettono a disposizione soltanto dati esatti e aggiornati.', 'albo-pretorio-pa' ),
+			'ordine_autorita' => __( 'Ordine di un\'autorita\' (Garante per la protezione dei dati personali, autorita\' giudiziaria): gli estremi vanno nel motivo.', 'albo-pretorio-pa' ),
+		);
+	}
+
+	/**
+	 * Toglie dall'albo un atto pubblicato e non ancora scaduto, per una causa dell'elenco (ALBO-22).
+	 *
+	 * La data di fine torna al giorno civile prima di oggi, nell'ora del sito:
+	 * il meccanismo comune considera scaduto un atto dalla mezzanotte del
+	 * giorno dopo la sua fine, quindi l'atto sparisce adesso, per la data
+	 * letta e non per lo stato. Lo stato defisso registra quello che e'
+	 * accaduto. La fine pianificata non si perde: va nel registro con la
+	 * causa, il motivo, chi e quando.
+	 *
+	 * @param int   $atto_id Atto.
+	 * @param mixed $causa   Una delle chiavi di `cause_defissione()`.
+	 * @param mixed $motivo  Motivo, testo non vuoto.
+	 * @return int|\WP_Error Numero della voce di registro con causa e motivo, oppure errore.
+	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
+	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento delle scritture non e' riuscito, o se un altro componente solleva un'eccezione dopo la conferma; con l'eccezione come causa.
+	 */
+	public static function defiggi_atto( int $atto_id, $causa, $motivo ) {
+		if ( self::occupato() ) {
+			return self::errore_annidato();
+		}
+
+		self::svuota_memoria( $atto_id );
+
+		$atto = get_post( $atto_id );
+
+		if ( ! TipoAtto::tipo_nostro() || ! $atto instanceof \WP_Post || TIPO !== $atto->post_type ) {
+			return new \WP_Error(
+				'albo_non_un_atto',
+				__( 'Il contenuto indicato non e\' un atto dell\'albo.', 'albo-pretorio-pa' )
+			);
+		}
+
+		if ( ChiusuraPubblicazione::DEFISSO === $atto->post_status ) {
+			return new \WP_Error(
+				'albo_atto_gia_defisso',
+				__( 'L\'atto e\' gia\' stato tolto dall\'albo: causa e motivo restano quelli registrati.', 'albo-pretorio-pa' )
+			);
+		}
+
+		if ( ChiusuraPubblicazione::PUBBLICATO !== $atto->post_status ) {
+			return new \WP_Error(
+				'albo_atto_non_pubblicato',
+				__( 'L\'atto non si toglie dall\'albo: si toglie soltanto un atto pubblicato. Una bozza si corregge, un atto in verifica si rimanda in bozza, un atto annullato resta com\'e\'.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$numero = Repertorio::di( $atto_id );
+
+		if ( null === $numero ) {
+			return new \WP_Error(
+				'albo_atto_senza_numero',
+				__( 'L\'atto non si toglie dall\'albo: non risulta un numero di registro, quindi non e\' stato pubblicato dal passaggio dell\'albo, oppure la numerazione non risponde in questo momento.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$mappa = Permessi::mappa();
+
+		if ( is_wp_error( $mappa ) || ! isset( $mappa[ Permessi::CHIAVE_DEFISSIONE ] ) || ! current_user_can( $mappa[ Permessi::CHIAVE_DEFISSIONE ] ) ) {
+			return new \WP_Error(
+				'albo_defissione_non_permessa',
+				__( 'L\'atto resta pubblicato: per toglierlo dall\'albo serve il permesso di annullare e defiggere gli atti, e non si possiede.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$fine     = conformita_core_fine_pubblicazione( $atto_id );
+		$giorno   = self::giorno_dal_testo( is_string( $fine ) ? $fine : null );
+		$adesso   = self::ora()->setTimezone( wp_timezone() );
+		$oggi     = $adesso->format( 'Y-m-d' );
+		$ieri     = $adesso->modify( '-1 day' )->format( 'Y-m-d' );
+		$cause    = self::cause_defissione();
+		$scadenza = null === $giorno ? null : $giorno->format( 'Y-m-d' );
+
+		if ( null === $scadenza ) {
+			return new \WP_Error(
+				'albo_fine_non_leggibile',
+				__( 'L\'atto resta com\'era: la sua data di fine non si legge, e senza quella non si sa se e\' ancora in pubblicazione. Un atto con la data di fine non leggibile e\' gia\' fuori dalla vista pubblica.', 'albo-pretorio-pa' )
+			);
+		}
+
+		if ( $scadenza < $oggi ) {
+			return new \WP_Error(
+				'albo_atto_gia_scaduto',
+				__( 'L\'atto resta com\'era: la sua pubblicazione e\' gia\' finita, quindi non c\'e\' niente da anticipare. E\' gia\' fuori dalla vista pubblica.', 'albo-pretorio-pa' )
+			);
+		}
+
+		if ( self::CAUSA_DATI_ECCEDENTI === $causa ) {
+			return new \WP_Error(
+				'albo_causa_oscuramento',
+				__( 'L\'atto resta pubblicato: i dati eccedenti, non pertinenti o non necessari non si tolgono con l\'atto, si oscurano sostituendo il documento con la versione oscurata, e la pubblicazione continua.', 'albo-pretorio-pa' )
+			);
+		}
+
+		if ( ! is_string( $causa ) || ! isset( $cause[ $causa ] ) ) {
+			return new \WP_Error(
+				'albo_causa_non_ammessa',
+				__( 'L\'atto resta pubblicato: si toglie dall\'albo prima della scadenza solo per una delle cause dell\'elenco, in cui la pubblicazione non doveva esserci in quella forma. Il termine di pubblicazione di un atto regolare non si accorcia.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$motivo = is_string( $motivo ) ? trim( sanitize_textarea_field( $motivo ) ) : '';
+
+		if ( '' === $motivo ) {
+			return new \WP_Error(
+				'albo_motivo_mancante',
+				__( 'L\'atto resta pubblicato: per toglierlo dall\'albo serve il motivo, che finisce nel registro delle modifiche insieme alla causa.', 'albo-pretorio-pa' )
+			);
+		}
+
+		// L'atto come i controlli lo leggono: sotto il blocco della transazione dovra' essere ancora questo.
+		$partenza = self::fotografia( $atto_id );
+
+		if ( null === $partenza ) {
+			return self::errore_defissione( self::errore_lettura() );
+		}
+
+		$tabelle = self::tabelle_senza_transazioni();
+
+		if ( array() !== $tabelle ) {
+			return self::errore_defissione( self::errore_tabelle( $tabelle ) );
+		}
+
+		$prima      = self::voci_automatiche( $atto_id, 'rimozione' );
+		$prima_fine = self::voci_automatiche( $atto_id, 'modifica_fine_pubblicazione' );
+
+		if ( is_wp_error( $prima ) || is_wp_error( $prima_fine ) ) {
+			return self::errore_defissione( is_wp_error( $prima ) ? $prima : $prima_fine );
+		}
+
+		$campi = array( 'post_status' => ChiusuraPubblicazione::DEFISSO );
+		$voce  = array(
+			'sezione'     => SEZIONE,
+			'azione'      => self::AZIONE_DEFISSIONE,
+			'contenuto'   => $atto_id,
+			'motivazione' => $motivo,
+			'dettagli'    => array(
+				'causa'            => $causa,
+				'anno'             => (int) $numero['anno'],
+				'numero'           => (int) $numero['numero'],
+				'fine_pianificata' => $scadenza,
+				'fine'             => $ieri,
+			),
+			'chiave'      => SEZIONE . ':' . self::AZIONE_DEFISSIONE . ':' . $atto_id,
+		);
+
+		self::inizia( $atto_id, $campi, $ieri, self::AZIONE_DEFISSIONE );
+
+		try {
+			$esito = self::defiggi_dentro( $atto_id, $campi, $ieri, $voce, $partenza, $prima, $prima_fine );
+		} finally {
+			unset( self::$in_corso[ $atto_id ] );
+		}
+
+		return self::dopo_la_chiusura( $atto_id, is_wp_error( $esito ) ? self::errore_defissione( $esito ) : $esito );
+	}
+
+	/**
+	 * La voce della defissione anticipata di un atto, o nulla se il registro non la da'.
+	 *
+	 * Causa, motivo, fine pianificata e istante vengono dal registro, come per
+	 * l'annullamento: nessun dato dell'atto li ripete.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return array{causa: string, motivo: string, istante: \DateTimeImmutable, fine_pianificata: string}|null
+	 */
+	public static function defissione( int $atto_id ): ?array {
+		$voci = conformita_core_voci_registro(
+			array(
+				'sezione'   => SEZIONE,
+				'contenuto' => $atto_id,
+				'azione'    => self::AZIONE_DEFISSIONE,
+			)
+		);
+
+		if ( ! is_array( $voci ) || 1 !== count( $voci ) || ! isset( $voci[0]['motivazione'], $voci[0]['istante'] ) || ! $voci[0]['istante'] instanceof \DateTimeImmutable ) {
+			return null;
+		}
+
+		$causa = $voci[0]['dettagli']['causa'] ?? null;
+		$fine  = self::giorno_dal_testo( $voci[0]['dettagli']['fine_pianificata'] ?? null );
+
+		if ( ! is_string( $causa ) || null === $fine ) {
+			return null;
+		}
+
+		return array(
+			'causa'            => $causa,
+			'motivo'           => (string) $voci[0]['motivazione'],
+			'istante'          => $voci[0]['istante'],
+			'fine_pianificata' => $fine->format( 'Y-m-d' ),
+		);
+	}
+
+	/**
+	 * Le scritture della defissione anticipata, dentro la transazione.
+	 *
+	 * @param int                   $atto_id    Atto.
+	 * @param array<string, string> $campi      Stato.
+	 * @param string                $fine       Data di fine che si scrive: il giorno prima di oggi.
+	 * @param array<string, mixed>  $voce       Voce del registro con causa e motivo.
+	 * @param array<string, mixed>  $partenza   Fotografia di partenza.
+	 * @param int                   $prima      Voci della rimozione prima.
+	 * @param int                   $prima_fine Voci della data di fine prima.
+	 * @return int|\WP_Error
+	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
+	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento delle scritture non e' riuscito, con l'eccezione come causa.
+	 */
+	private static function defiggi_dentro( int $atto_id, array $campi, string $fine, array $voce, array $partenza, int $prima, int $prima_fine ) {
+		$apertura = self::apri();
+
+		if ( is_wp_error( $apertura ) ) {
+			return $apertura;
+		}
+
+		try {
+			$esito = self::blocca( $atto_id, $partenza );
+
+			if ( ! is_wp_error( $esito ) ) {
+				$esito = self::scrivi_stato( $atto_id, $campi );
+			}
+
+			if ( ! is_wp_error( $esito ) ) {
+				$esito = self::scrivi_fine( $atto_id, $fine );
+			}
+
+			if ( ! is_wp_error( $esito ) ) {
+				$esito = self::controlla_voce_automatica( $atto_id, 'rimozione', $prima );
+			}
+
+			if ( ! is_wp_error( $esito ) ) {
+				$esito = self::controlla_voce_della_fine( $atto_id, $prima_fine, true );
+			}
+
+			if ( ! is_wp_error( $esito ) ) {
+				$esito = self::scrivi_voce( $voce );
+			}
+
+			// Finite le scritture, prima del controllo e della conferma: niente piu' e' concesso.
+			self::revoca_concessioni();
+
+			if ( ! is_wp_error( $esito ) ) {
+				$controllo = self::controlla_invariato( $atto_id, $partenza, $campi, $fine );
+				$esito     = is_wp_error( $controllo ) ? $controllo : $esito;
+			}
+
+			if ( is_wp_error( $esito ) ) {
+				$annullato = self::annulla( $apertura, $atto_id );
+
+				return is_wp_error( $annullato ) ? $annullato : $esito;
+			}
+
+			$chiusura = self::chiudi( $apertura, $atto_id );
+
+			if ( is_wp_error( $chiusura ) ) {
+				return $chiusura;
+			}
+		} catch ( \Throwable $errore ) {
+			$annullato = self::annulla( $apertura, $atto_id );
+
+			if ( is_wp_error( $annullato ) ) {
+				throw new \RuntimeException( esc_html( $annullato->get_error_message() ), 0, $errore ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- gia' sfuggito.
+			}
+
+			throw $errore;
+		}
+
+		return (int) $esito;
+	}
+
+	/**
+	 * Il rifiuto di una defissione non riuscita, con il motivo vero fra gli altri.
+	 *
+	 * @param \WP_Error $motivo Motivo.
+	 * @return \WP_Error
+	 */
+	private static function errore_defissione( \WP_Error $motivo ): \WP_Error {
+		if ( 'albo_annullamento_non_riuscito' === $motivo->get_error_code() ) {
+			return $motivo;
+		}
+
+		$errore = new \WP_Error(
+			'albo_atto_non_defisso',
+			__( 'L\'atto resta pubblicato e com\'era: una delle scritture della defissione non e\' riuscita, e tutto e\' tornato come prima.', 'albo-pretorio-pa' )
+		);
+
+		foreach ( $motivo->get_error_codes() as $codice ) {
+			foreach ( $motivo->get_error_messages( $codice ) as $messaggio ) {
+				$errore->add( $codice, $messaggio );
+			}
+		}
+
+		return $errore;
 	}
 
 	/**
@@ -1205,12 +1549,13 @@ final class Passaggi {
 	 * @param array<string, string> $campi    Stato.
 	 * @param array<string, mixed>  $voce     Voce del registro con il motivo.
 	 * @param array<string, mixed>  $partenza Fotografia di partenza.
-	 * @param int                   $prima    Voci della rimozione prima.
+	 * @param string                $automatica Azione della voce automatica del cambio di stato.
+	 * @param int                   $prima    Voci di quell'azione prima.
 	 * @return int|\WP_Error
 	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
 	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento delle scritture non e' riuscito, con l'eccezione come causa.
 	 */
-	private static function annulla_dentro( int $atto_id, array $campi, array $voce, array $partenza, int $prima ) {
+	private static function annulla_dentro( int $atto_id, array $campi, array $voce, array $partenza, string $automatica, int $prima ) {
 		$apertura = self::apri();
 
 		if ( is_wp_error( $apertura ) ) {
@@ -1225,7 +1570,7 @@ final class Passaggi {
 			}
 
 			if ( ! is_wp_error( $esito ) ) {
-				$esito = self::controlla_voce_automatica( $atto_id, 'rimozione', $prima );
+				$esito = self::controlla_voce_automatica( $atto_id, $automatica, $prima );
 			}
 
 			if ( ! is_wp_error( $esito ) ) {
@@ -1273,17 +1618,20 @@ final class Passaggi {
 	 * L'annullamento delle scritture che non e' riuscito resta il primo: lo
 	 * stato dell'atto non e' garantito.
 	 *
+	 * @param string    $stato  Stato da cui l'annullamento partiva.
 	 * @param \WP_Error $motivo Motivo.
 	 * @return \WP_Error
 	 */
-	private static function errore_annullamento( \WP_Error $motivo ): \WP_Error {
+	private static function errore_annullamento( string $stato, \WP_Error $motivo ): \WP_Error {
 		if ( 'albo_annullamento_non_riuscito' === $motivo->get_error_code() ) {
 			return $motivo;
 		}
 
 		$errore = new \WP_Error(
 			'albo_atto_non_annullato',
-			__( 'L\'atto resta pubblicato e com\'era: una delle scritture dell\'annullamento non e\' riuscita, e tutto e\' tornato come prima.', 'albo-pretorio-pa' )
+			ChiusuraPubblicazione::DEFISSO === $stato
+				? __( 'L\'atto resta tolto dall\'albo e com\'era: una delle scritture dell\'annullamento non e\' riuscita, e tutto e\' tornato come prima.', 'albo-pretorio-pa' )
+				: __( 'L\'atto resta pubblicato e com\'era: una delle scritture dell\'annullamento non e\' riuscita, e tutto e\' tornato come prima.', 'albo-pretorio-pa' )
 		);
 
 		foreach ( $motivo->get_error_codes() as $codice ) {

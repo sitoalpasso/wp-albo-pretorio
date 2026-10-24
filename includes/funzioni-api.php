@@ -50,11 +50,11 @@ if ( ! function_exists( 'albo_pretorio_rimanda_in_bozza' ) ) {
 
 if ( ! function_exists( 'albo_pretorio_annulla' ) ) {
 	/**
-	 * Annulla un atto pubblicato, come l'utente corrente, con il motivo.
+	 * Annulla un atto pubblicato o tolto dall'albo, come l'utente corrente, con il motivo.
 	 *
 	 * L'atto resta nel registro con numero e date, e non cambia piu'. Fino
 	 * alla data di fine il pubblico ne vede l'avviso con il motivo, senza
-	 * documenti.
+	 * documenti; un atto tolto dall'albo ha la data di fine gia' passata.
 	 *
 	 * @param int    $atto_id Atto.
 	 * @param string $motivo  Motivo, che finisce nel registro delle modifiche e nell'avviso al pubblico.
@@ -62,6 +62,24 @@ if ( ! function_exists( 'albo_pretorio_annulla' ) ) {
 	 */
 	function albo_pretorio_annulla( $atto_id, $motivo ) {
 		return \AlboPretorioPa\Passaggi::annulla_atto( (int) $atto_id, $motivo );
+	}
+}
+
+if ( ! function_exists( 'albo_pretorio_defiggi' ) ) {
+	/**
+	 * Toglie dall'albo un atto pubblicato e non ancora scaduto, come l'utente corrente.
+	 *
+	 * La causa e' una delle chiavi di `\AlboPretorioPa\Passaggi::cause_defissione()`:
+	 * il termine di un atto regolare non si accorcia. L'atto sparisce subito
+	 * dalla vista pubblica, perche' la data di fine torna al giorno prima.
+	 *
+	 * @param int    $atto_id Atto.
+	 * @param string $causa   Causa dell'elenco.
+	 * @param string $motivo  Motivo, che finisce nel registro delle modifiche con la causa.
+	 * @return int|WP_Error Numero della voce di registro, oppure errore.
+	 */
+	function albo_pretorio_defiggi( $atto_id, $causa, $motivo ) {
+		return \AlboPretorioPa\Passaggi::defiggi_atto( (int) $atto_id, $causa, $motivo );
 	}
 }
 
