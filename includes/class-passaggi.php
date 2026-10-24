@@ -1453,6 +1453,8 @@ final class Passaggi {
 	 * @return int|\WP_Error Numero della voce di registro, oppure errore.
 	 */
 	public static function dichiara_effetto( int $atto_id, $effetto ) {
+		global $wpdb;
+
 		if ( self::occupato() ) {
 			return self::errore_annidato();
 		}
@@ -1519,6 +1521,24 @@ final class Passaggi {
 
 		if ( null === $numero ) {
 			return self::errore_senza_defissione();
+		}
+
+		/*
+		 * La dichiarazione si annulla se dopo la scrittura le voci non sono una
+		 * sola: il registro deve poterla annullare. Una verifica che non
+		 * risponde vale come tabella che non annulla.
+		 */
+		$registro = $wpdb->prefix . 'conformita_core_registro';
+
+		if ( in_array( $registro, self::tabelle_senza_transazioni(), true ) ) {
+			return new \WP_Error(
+				'albo_tabelle_non_transazionali',
+				sprintf(
+					/* translators: %s: nome della tabella. */
+					__( 'Niente e\' stato dichiarato: la tabella del registro delle modifiche (%s) non permette di annullare una scrittura, e una dichiarazione doppia non deve restare. Chi gestisce il sito puo\' convertirla al tipo InnoDB.', 'albo-pretorio-pa' ),
+					$registro
+				)
+			);
 		}
 
 		// Nessun altro passaggio comincia mentre la transazione della dichiarazione e' aperta.
