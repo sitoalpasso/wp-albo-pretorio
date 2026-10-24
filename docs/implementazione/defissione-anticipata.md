@@ -3,7 +3,7 @@
 Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro finito con
 com'è andata davvero.
 
-**Stato: in lavorazione.** Requisito ALBO-22 (la transizione da pubblicato a defisso
+**Stato: costruita, in attesa di revisione.** Requisito ALBO-22 (la transizione da pubblicato a defisso
 disposta da chi pubblica, la sotto-decisione 4 sulle cause, chiusa il 2026-09-22, e la
 transizione da defisso ad annullato), con ALBO-10 per causa e motivo nel registro e ALBO-09
 per il defisso che non si tocca più. Righe di collaudo A-235..A-242. Nessuna versione nuova
@@ -61,7 +61,7 @@ davvero".
 | `includes/funzioni-api.php` | `albo_pretorio_defiggi( $atto_id, $causa, $motivo )` |
 | `includes/class-schermata-scaduti.php` | i defissi nella consultazione riservata, segnati come tali |
 | `includes/class-analisi-importazione.php` | un atto importato e poi defisso resta "già importato" |
-| `tests/DefissioneTest.php`, `tests/ConsultazioneScadutiTest.php`, `tests/ImportazioneVeraTest.php` | le righe A-235..A-242 |
+| `tests/DefissioneTest.php`, `tests/PaginaPubblicaTest.php`, `tests/ScadutiInvisibiliTest.php`, `tests/ConsultazioneScadutiTest.php`, `tests/ImportazioneVeraTest.php` | le righe A-235..A-242 |
 | `docs/requisiti.md`, `docs/collaudo.md`, `docs/dati.md`, `docs/architettura.md`, l'indice | le righe nuove, lo stato e la voce del registro |
 
 ### 2. Perché
@@ -148,7 +148,8 @@ il codice.
 ### 7. Prove che si aggiungeranno
 
 Righe A-235..A-242 in `collaudo.md`: passaggio, permesso, cause, guardiano e annullamento da
-defisso in `tests/DefissioneTest.php`, consultazione riservata in
+defisso in `tests/DefissioneTest.php`, la pagina pubblica in `tests/PaginaPubblicaTest.php`,
+la riga d'attacco su ogni strada in `tests/ScadutiInvisibiliTest.php`, consultazione riservata in
 `tests/ConsultazioneScadutiTest.php`, rilancio dell'importazione in
 `tests/ImportazioneVeraTest.php`. Le righe di ALBO-22 nella tabella "Requisito per
 requisito" sulla defissione anticipata, sulla riga d'attacco dello stato, sulla causa fuori
@@ -182,4 +183,32 @@ modifiche: causa, motivo, fine pianificata. Annullare poi lo stesso atto: resta 
 
 ## Com'è andata davvero
 
-Da scrivere a lavoro finito.
+Il piano ha retto. Le differenze e le cose imparate:
+
+- **Il meccanismo comune registra l'uscita da defisso come "cambio di stato".** La voce
+  automatica `rimozione` la scrive solo quando lo stato di partenza è pubblicato: annullando
+  un defisso scrive `cambio_stato`. L'annullamento controlla quindi la voce giusta per lo
+  stato da cui parte.
+- **Il rifiuto generico del guardiano non nominava il defisso.** Una scrittura fermata da
+  `wp_publish_post()` diceva "in verifica, pubblicato, annullato": ora dice anche "tolto
+  dall'albo". La prova A-239 lo pretende per ogni ingresso.
+- **La riga d'attacco ha bisogno di scavalcare la barriera.** Riscrivere lo stato dritto
+  nella banca dati, da dentro WordPress, è fermato dalla barriera dell'albo (ed è giusto:
+  A-239 lo prova). Per simulare un altro programma, A-236 stacca la barriera per quella sola
+  istruzione, come le altre prove d'attacco.
+- **Limite trovato e non chiuso qui.** Su un sito dove un altro componente apre il tipo
+  atto al pubblico, il meccanismo comune toglie di mezzo lo scaduto solo se lo stato è
+  pubblicato. Per un atto defisso, o annullato e scaduto, WordPress risponde al visitatore
+  "non hai il permesso" invece di "non trovato" su alcune strade dell'interfaccia per
+  programmi (dice che l'atto esiste, senza mostrarne niente), e all'amministratore consegna
+  da quell'interfaccia documenti e commenti dell'atto. Con il tipo chiuso, com'è
+  nell'albo, il caso non si presenta. Riguarda già l'annullato, quindi non nasce qui: va
+  chiuso nel meccanismo comune, facendo valere la data di fine per ogni stato del tipo. A-236
+  prova per intero il caso dello stato riscritto a pubblicato, e per lo stato defisso solo
+  che niente si consegna al visitatore e a chi consulta gli scaduti.
+
+Guasti introdotti nel codice per vedere quale prova li vede, tutti tolti:
+
+- la data di fine scritta a oggi invece che a ieri: falliscono A-235 (da codice e sulla
+  pagina pubblica), A-236, A-238, A-239, A-240 e A-241;
+- il defisso tolto dagli stati riconosciuti dall'importazione: fallisce A-242 sul rilancio.

@@ -728,6 +728,6 @@ primi tre chiusi dalla pubblicazione, gli altri dall'unità che ha costruito il 
 permessi e il ruolo proprio. Sono **"in corso"** ALBO-08, ALBO-09, ALBO-10, ALBO-22 e
 ALBO-27: il codice c'è per una parte, e ciascuno ha righe che aspettano funzioni non ancora
 costruite, cioè la durata propria (ALBO-04), la sostituzione per oscuramento (ALBO-08,
-ALBO-09, ALBO-12), la defissione anticipata (ALBO-10, ALBO-22); l'annullamento è costruito, righe A-224..A-230. **Tutti gli altri sono a "da fare"**. Il componente
+ALBO-09, ALBO-12), la dichiarazione dell'effetto della rimozione sul periodo (ALBO-10, ALBO-22) e il compito pianificato che registra le scadenze (ALBO-22); l'annullamento è costruito, righe A-224..A-230, e la defissione anticipata pure, righe A-235..A-242. **Tutti gli altri sono a "da fare"**. Il componente
 pubblica gli atti ma **non li mostra ancora al pubblico**: la pagina pubblica non è
 costruita.
