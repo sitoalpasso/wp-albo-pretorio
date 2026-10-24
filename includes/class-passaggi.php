@@ -1204,7 +1204,7 @@ final class Passaggi {
 	 * @param int   $atto_id Atto.
 	 * @param mixed $causa   Una delle chiavi di `cause_defissione()`.
 	 * @param mixed $motivo  Motivo, testo non vuoto.
-	 * @param mixed $effetto Una delle chiavi di `effetti_rimozione()`, oppure nullo o vuoto per non dichiararlo adesso.
+	 * @param mixed $effetto Una delle chiavi di `effetti_rimozione()`, oppure nullo per non dichiararlo adesso. Ogni altro valore, il testo vuoto compreso, e' rifiutato.
 	 * @return int|\WP_Error Numero della voce di registro con causa e motivo, oppure errore.
 	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
 	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento delle scritture non e' riuscito, o se un altro componente solleva un'eccezione dopo la conferma; con l'eccezione come causa.
@@ -1302,8 +1302,8 @@ final class Passaggi {
 			);
 		}
 
-		// L'effetto sul periodo e' facoltativo qui; se c'e', deve essere uno dei due.
-		if ( null !== $effetto && '' !== $effetto && ( ! is_string( $effetto ) || ! isset( self::effetti_rimozione()[ $effetto ] ) ) ) {
+		// L'effetto sul periodo e' facoltativo qui: solo il nullo vuol dire nessuna scelta, e ogni altro valore deve essere uno dei due.
+		if ( null !== $effetto && ( ! is_string( $effetto ) || ! isset( self::effetti_rimozione()[ $effetto ] ) ) ) {
 			return new \WP_Error(
 				'albo_effetto_non_ammesso',
 				__( 'L\'atto resta pubblicato: l\'effetto sul periodo, se si dichiara insieme alla defissione, e\' uno dei due dell\'elenco. Si puo\' anche lasciarlo e dichiararlo dopo.', 'albo-pretorio-pa' )
@@ -1356,7 +1356,7 @@ final class Passaggi {
 			'chiave'      => SEZIONE . ':' . self::AZIONE_DEFISSIONE . ':' . $atto_id,
 		);
 
-		$voce_effetto = null === $effetto || '' === $effetto ? null : self::voce_effetto( $atto_id, $numero, $effetto );
+		$voce_effetto = null === $effetto ? null : self::voce_effetto( $atto_id, $numero, $effetto );
 
 		self::inizia( $atto_id, $campi, $ieri, self::AZIONE_DEFISSIONE );
 
@@ -1521,22 +1521,91 @@ final class Passaggi {
 			return self::errore_senza_defissione();
 		}
 
-		$esito = conformita_core_registra_voce( self::voce_effetto( $atto_id, $numero, $effetto ) );
+		// Nessun altro passaggio comincia mentre la transazione della dichiarazione e' aperta.
+		self::$operazione = true;
 
-		if ( is_wp_error( $esito ) ) {
-			// Un'altra dichiarazione e' entrata nello stesso istante: la chiave e' gia' sua.
-			if ( 'conformita_core_registro_chiave_esistente' === $esito->get_error_code() ) {
-				return self::errore_gia_dichiarato();
-			}
+		try {
+			return self::dichiara_dentro( $atto_id, self::voce_effetto( $atto_id, $numero, $effetto ) );
+		} finally {
+			self::$operazione = false;
+		}
+	}
 
+	/**
+	 * La scrittura della dichiarazione, dentro una transazione, con la verifica che la voce sia una sola.
+	 *
+	 * Il vincolo sulla chiave ferma una seconda dichiarazione dell'albo, non
+	 * una voce della stessa azione scritta da altri senza chiave o con
+	 * un'altra: dopo la scrittura le voci dell'effetto si contano, e se non
+	 * sono una sola la propria si annulla. Se la scrittura stessa e' rifiutata
+	 * non c'e' niente di proprio da annullare.
+	 *
+	 * @param int                  $atto_id Atto.
+	 * @param array<string, mixed> $voce    Voce dell'effetto.
+	 * @return int|\WP_Error
+	 * @throws \Throwable L'eccezione sollevata durante la scrittura, dopo averla annullata.
+	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, con l'eccezione come causa.
+	 */
+	private static function dichiara_dentro( int $atto_id, array $voce ) {
+		$apertura = self::apri();
+
+		if ( is_wp_error( $apertura ) ) {
 			return new \WP_Error(
 				'albo_effetto_non_scritto',
-				sprintf(
-					/* translators: %s: motivo riportato dal meccanismo comune. */
-					__( 'Niente e\' stato dichiarato: la voce del registro delle modifiche non e\' stata scritta. %s', 'albo-pretorio-pa' ),
-					$esito->get_error_message()
-				)
+				__( 'Niente e\' stato dichiarato: la banca dati non ha aperto la transazione della dichiarazione. Riprovare piu\' tardi.', 'albo-pretorio-pa' )
 			);
+		}
+
+		try {
+			$esito = conformita_core_registra_voce( $voce );
+
+			if ( is_wp_error( $esito ) ) {
+				$chiusura = self::chiudi( $apertura, $atto_id );
+
+				if ( is_wp_error( $chiusura ) && 'albo_annullamento_non_riuscito' === $chiusura->get_error_code() ) {
+					return $chiusura;
+				}
+
+				// Un'altra dichiarazione e' entrata nello stesso istante: la chiave e' gia' sua.
+				if ( 'conformita_core_registro_chiave_esistente' === $esito->get_error_code() ) {
+					return self::errore_gia_dichiarato();
+				}
+
+				return new \WP_Error(
+					'albo_effetto_non_scritto',
+					sprintf(
+						/* translators: %s: motivo riportato dal meccanismo comune. */
+						__( 'Niente e\' stato dichiarato: la voce del registro delle modifiche non e\' stata scritta. %s', 'albo-pretorio-pa' ),
+						$esito->get_error_message()
+					)
+				);
+			}
+
+			$dichiarate = self::voci_dell_atto( $atto_id, self::AZIONE_EFFETTO );
+			$rifiuto    = is_wp_error( $dichiarate ) ? $dichiarate : ( 1 !== $dichiarate ? self::errore_gia_dichiarato() : null );
+
+			if ( null !== $rifiuto ) {
+				$annullato = self::annulla( $apertura, $atto_id );
+
+				return is_wp_error( $annullato ) ? $annullato : $rifiuto;
+			}
+
+			$chiusura = self::chiudi( $apertura, $atto_id );
+
+			if ( is_wp_error( $chiusura ) ) {
+				return 'albo_annullamento_non_riuscito' === $chiusura->get_error_code() ? $chiusura : new \WP_Error(
+					'albo_effetto_non_scritto',
+					__( 'Niente e\' stato dichiarato: la banca dati non ha confermato la voce, che e\' stata annullata.', 'albo-pretorio-pa' )
+				);
+			}
+		} catch ( \Throwable $errore ) {
+			$annullato = self::annulla( $apertura, $atto_id );
+
+			if ( is_wp_error( $annullato ) ) {
+				throw new \RuntimeException( esc_html( $annullato->get_error_message() ), 0, $errore ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- gia' sfuggito.
+			}
+
+			throw $errore;
 		}
 
 		return (int) $esito;

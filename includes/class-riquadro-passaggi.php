@@ -671,7 +671,8 @@ final class RiquadroPassaggi {
 	 *
 	 * Non si ripulisce: una ripulitura trasformerebbe "VA_RIFATTA" in un
 	 * valore valido e un valore illeggibile in nessuna scelta. Passaggi lo
-	 * confronta con l'elenco chiuso dei due valori e rifiuta tutto il resto.
+	 * confronta con l'elenco chiuso dei due valori e rifiuta tutto il resto,
+	 * il testo vuoto compreso: nessuna scelta e' solo il campo che manca.
 	 *
 	 * @return mixed
 	 */

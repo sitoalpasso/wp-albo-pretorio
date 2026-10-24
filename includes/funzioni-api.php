@@ -80,7 +80,7 @@ if ( ! function_exists( 'albo_pretorio_defiggi' ) ) {
 	 * @param int         $atto_id Atto.
 	 * @param string      $causa   Causa dell'elenco.
 	 * @param string      $motivo  Motivo, che finisce nel registro delle modifiche con la causa.
-	 * @param string|null $effetto Effetto sul periodo, oppure nullo per dichiararlo dopo.
+	 * @param string|null $effetto Effetto sul periodo, oppure nullo per dichiararlo dopo; il testo vuoto e' rifiutato.
 	 * @return int|WP_Error Numero della voce di registro, oppure errore.
 	 */
 	function albo_pretorio_defiggi( $atto_id, $causa, $motivo, $effetto = null ) {
