@@ -6,8 +6,11 @@
  * passaggi che partono da li': la pubblicazione, con il controllo sui dati
  * personali da confermare (ALBO-11), e il rimando in bozza, con il motivo. Su
  * un atto pubblicato mostra numero, inizio e fine, in sola lettura, e a chi
- * ha il permesso porta l'annullamento, con il motivo (ALBO-22). Su un atto
- * annullato mostra in sola lettura anche data e motivo dell'annullamento.
+ * ha il permesso porta l'annullamento, con il motivo, e finche' non e'
+ * scaduto la defissione anticipata, con la causa e il motivo (ALBO-22). Su
+ * un atto annullato mostra in sola lettura anche data e motivo
+ * dell'annullamento; su un atto defisso causa, motivo e data della
+ * defissione, e l'annullamento.
  *
  * **I pulsanti stanno nel modulo della schermata**, perche' un riquadro non
  * puo' avere un modulo suo. L'invio si intercetta prima che WordPress lo tratti
@@ -81,6 +84,20 @@ final class RiquadroPassaggi {
 	const CAMPO_MOTIVO_ANNULLAMENTO = 'albo_pretorio_motivo_annullamento';
 
 	/**
+	 * Nome del gruppo di scelte della causa della defissione anticipata.
+	 *
+	 * @var string
+	 */
+	const CAMPO_CAUSA = 'albo_pretorio_causa_defissione';
+
+	/**
+	 * Nome del campo del motivo della defissione anticipata.
+	 *
+	 * @var string
+	 */
+	const CAMPO_MOTIVO_DEFISSIONE = 'albo_pretorio_motivo_defissione';
+
+	/**
 	 * Parametro dell'indirizzo di ritorno con l'esito riuscito.
 	 *
 	 * @var string
@@ -127,7 +144,7 @@ final class RiquadroPassaggi {
 
 		$in_verifica = ChiusuraPubblicazione::IN_VERIFICA === $atto->post_status && current_user_can( 'publish_post', $atto->ID );
 
-		if ( ! $in_verifica && ! in_array( $atto->post_status, array( ChiusuraPubblicazione::PUBBLICATO, ChiusuraPubblicazione::ANNULLATO ), true ) ) {
+		if ( ! $in_verifica && ! in_array( $atto->post_status, array( ChiusuraPubblicazione::PUBBLICATO, ChiusuraPubblicazione::ANNULLATO, ChiusuraPubblicazione::DEFISSO ), true ) ) {
 			return;
 		}
 
@@ -153,6 +170,14 @@ final class RiquadroPassaggi {
 
 		if ( ChiusuraPubblicazione::PUBBLICATO === $atto->post_status ) {
 			self::pubblicato( $atto );
+			self::annullamento( $atto );
+			self::defissione( $atto );
+			return;
+		}
+
+		if ( ChiusuraPubblicazione::DEFISSO === $atto->post_status ) {
+			self::pubblicato( $atto );
+			self::defisso( $atto );
 			self::annullamento( $atto );
 			return;
 		}
@@ -310,7 +335,9 @@ final class RiquadroPassaggi {
 		printf(
 			'<p class="description" id="%1$s-descrizione">%2$s</p>',
 			esc_attr( self::CAMPO_MOTIVO_ANNULLAMENTO ),
-			esc_html__( 'Obbligatorio. Il motivo finisce nel registro delle modifiche e, fino alla data di fine, nell\'avviso che il pubblico legge al posto dell\'atto. I documenti non si scaricano piu\'. L\'annullamento non si ritira: una correzione e\' un atto nuovo.', 'albo-pretorio-pa' )
+			ChiusuraPubblicazione::DEFISSO === $atto->post_status
+				? esc_html__( 'Obbligatorio. Il motivo finisce nel registro delle modifiche. L\'atto e\' gia\' fuori dalla vista pubblica e ci resta. L\'annullamento non si ritira: una correzione e\' un atto nuovo.', 'albo-pretorio-pa' )
+				: esc_html__( 'Obbligatorio. Il motivo finisce nel registro delle modifiche e, fino alla data di fine, nell\'avviso che il pubblico legge al posto dell\'atto. I documenti non si scaricano piu\'. L\'annullamento non si ritira: una correzione e\' un atto nuovo.', 'albo-pretorio-pa' )
 		);
 
 		printf(
@@ -318,6 +345,94 @@ final class RiquadroPassaggi {
 			esc_attr( self::CAMPO_PASSAGGIO ),
 			esc_html__( 'Annulla l\'atto', 'albo-pretorio-pa' )
 		);
+	}
+
+	/**
+	 * La defissione anticipata di un atto pubblicato e non ancora scaduto, per chi ha il permesso.
+	 *
+	 * Le cause sono quelle dell'elenco, e nessuna e' gia' scelta: una scelta
+	 * fatta dal programma e inviata come se l'avesse fatta chi defigge
+	 * sarebbe una valutazione presa al suo posto.
+	 *
+	 * @param \WP_Post $atto Atto.
+	 */
+	private static function defissione( \WP_Post $atto ): void {
+		$mappa = Permessi::mappa();
+
+		if ( is_wp_error( $mappa ) || ! isset( $mappa[ Permessi::CHIAVE_DEFISSIONE ] ) || ! current_user_can( $mappa[ Permessi::CHIAVE_DEFISSIONE ] ) ) {
+			return;
+		}
+
+		$fine = conformita_core_fine_pubblicazione( (int) $atto->ID );
+
+		// Un atto gia' scaduto e' gia' fuori dalla vista: non c'e' niente da anticipare.
+		if ( ! is_string( $fine ) || null === DatiAtto::data_da_ingresso( $fine ) || $fine < Passaggi::ora()->setTimezone( wp_timezone() )->format( 'Y-m-d' ) ) {
+			return;
+		}
+
+		printf( '<fieldset class="albo-pretorio-passaggio"><legend><strong>%s</strong></legend>', esc_html__( 'Togli dall\'albo prima della scadenza', 'albo-pretorio-pa' ) );
+
+		printf(
+			'<p>%s</p>',
+			esc_html__( 'Si toglie un atto solo se la sua pubblicazione non doveva esserci in quella forma. Il termine di pubblicazione di un atto regolare non si accorcia (art. 124 del d.lgs. 267/2000). I dati eccedenti non si tolgono con l\'atto: si oscurano sostituendo il documento. L\'atto sparisce subito dalla vista pubblica e la fine pianificata resta nel registro.', 'albo-pretorio-pa' )
+		);
+
+		printf( '<fieldset><legend>%s</legend>', esc_html__( 'Causa', 'albo-pretorio-pa' ) );
+
+		foreach ( Passaggi::cause_defissione() as $chiave => $spiegazione ) {
+			printf(
+				'<p><input type="radio" id="%1$s-%2$s" name="%1$s" value="%2$s" /> <label for="%1$s-%2$s">%3$s</label></p>',
+				esc_attr( self::CAMPO_CAUSA ),
+				esc_attr( $chiave ),
+				esc_html( $spiegazione )
+			);
+		}
+
+		echo '</fieldset>';
+
+		printf(
+			'<p><label for="%1$s">%2$s</label><br /><textarea id="%1$s" name="%1$s" rows="3" class="large-text" aria-describedby="%1$s-descrizione"></textarea></p>',
+			esc_attr( self::CAMPO_MOTIVO_DEFISSIONE ),
+			esc_html__( 'Motivo della defissione', 'albo-pretorio-pa' )
+		);
+
+		printf(
+			'<p class="description" id="%1$s-descrizione">%2$s</p>',
+			esc_attr( self::CAMPO_MOTIVO_DEFISSIONE ),
+			esc_html__( 'Obbligatorio. Il motivo finisce nel registro delle modifiche con la causa, chi e quando. Per l\'ordine di un\'autorita\', gli estremi dell\'ordine. La defissione non si ritira; l\'atto si potra\' ancora annullare.', 'albo-pretorio-pa' )
+		);
+
+		printf(
+			'<p><button type="submit" class="button" name="%1$s" value="defiggi">%2$s</button></p></fieldset>',
+			esc_attr( self::CAMPO_PASSAGGIO ),
+			esc_html__( 'Togli dall\'albo', 'albo-pretorio-pa' )
+		);
+	}
+
+	/**
+	 * Causa, motivo, data e fine pianificata della defissione, in sola lettura.
+	 *
+	 * @param \WP_Post $atto Atto.
+	 */
+	private static function defisso( \WP_Post $atto ): void {
+		$voce = Passaggi::defissione( (int) $atto->ID );
+
+		printf( '<p><strong>%s</strong></p>', esc_html__( 'Atto tolto dall\'albo prima della scadenza', 'albo-pretorio-pa' ) );
+
+		if ( null === $voce ) {
+			printf( '<p>%s</p>', esc_html__( 'Il registro delle modifiche non risponde: causa, motivo e data della defissione non si leggono in questo momento.', 'albo-pretorio-pa' ) );
+		} else {
+			$cause = Passaggi::cause_defissione();
+
+			echo '<dl class="albo-pretorio-dati">';
+			printf( '<dt>%1$s</dt><dd>%2$s</dd>', esc_html__( 'Tolto dall\'albo il', 'albo-pretorio-pa' ), esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $voce['istante']->getTimestamp() ) ) );
+			printf( '<dt>%1$s</dt><dd>%2$s</dd>', esc_html__( 'Fine pianificata', 'albo-pretorio-pa' ), esc_html( wp_date( (string) get_option( 'date_format' ), ( new \DateTimeImmutable( $voce['fine_pianificata'] . ' 12:00:00', wp_timezone() ) )->getTimestamp() ) ) );
+			printf( '<dt>%1$s</dt><dd>%2$s</dd>', esc_html__( 'Causa', 'albo-pretorio-pa' ), esc_html( $cause[ $voce['causa'] ] ?? $voce['causa'] ) );
+			printf( '<dt>%1$s</dt><dd>%2$s</dd>', esc_html__( 'Motivo', 'albo-pretorio-pa' ), nl2br( esc_html( $voce['motivo'] ) ) );
+			echo '</dl>';
+		}
+
+		printf( '<p class="description">%s</p>', esc_html__( 'La fine della pubblicazione e\' il giorno prima della defissione, cosi\' che l\'atto sparisca subito dalla vista pubblica. Un atto tolto dall\'albo non si modifica e non torna pubblicato; si puo\' soltanto annullare.', 'albo-pretorio-pa' ) );
 	}
 
 	/**
@@ -399,6 +514,12 @@ final class RiquadroPassaggi {
 			$motivo = isset( $_POST[ self::CAMPO_MOTIVO ] ) ? wp_unslash( $_POST[ self::CAMPO_MOTIVO ] ) : '';
 			$esito  = Passaggi::rimanda_in_bozza( $atto_id, $motivo );
 			$fatto  = 'rimandato';
+		} elseif ( 'defiggi' === $passaggio ) {
+			$causa = isset( $_POST[ self::CAMPO_CAUSA ] ) && is_string( $_POST[ self::CAMPO_CAUSA ] ) ? sanitize_key( wp_unslash( $_POST[ self::CAMPO_CAUSA ] ) ) : null;
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- lo ripulisce Passaggi, con la regola dei testi su piu' righe.
+			$motivo = isset( $_POST[ self::CAMPO_MOTIVO_DEFISSIONE ] ) ? wp_unslash( $_POST[ self::CAMPO_MOTIVO_DEFISSIONE ] ) : '';
+			$esito  = Passaggi::defiggi_atto( $atto_id, $causa, $motivo );
+			$fatto  = 'defisso';
 		} elseif ( 'annulla' === $passaggio ) {
 			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- lo ripulisce Passaggi, con la regola dei testi su piu' righe.
 			$motivo = isset( $_POST[ self::CAMPO_MOTIVO_ANNULLAMENTO ] ) ? wp_unslash( $_POST[ self::CAMPO_MOTIVO_ANNULLAMENTO ] ) : '';
@@ -482,6 +603,7 @@ final class RiquadroPassaggi {
 			'pubblicato' => __( 'Atto pubblicato: numero, inizio e fine sono nel riquadro Pubblicazione.', 'albo-pretorio-pa' ),
 			'rimandato'  => __( 'Atto rimandato in bozza: il motivo e\' nel registro delle modifiche.', 'albo-pretorio-pa' ),
 			'annullato'  => __( 'Atto annullato: il motivo e\' nel registro delle modifiche e, fino alla data di fine, nell\'avviso al pubblico.', 'albo-pretorio-pa' ),
+			'defisso'    => __( 'Atto tolto dall\'albo: non e\' piu\' nella vista pubblica, e causa, motivo e fine pianificata sono nel registro delle modifiche.', 'albo-pretorio-pa' ),
 		);
 
 		if ( ! isset( $messaggi[ $esito ] ) ) {
