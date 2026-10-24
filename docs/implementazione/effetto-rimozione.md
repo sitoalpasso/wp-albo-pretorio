@@ -136,7 +136,23 @@ Il piano ha retto. Le cose imparate:
 - **Il gettone del riquadro** si stampa una volta sola per atto: sull'atto tolto i moduli
   della dichiarazione e dell'annullamento sono nella stessa schermata.
 
+Dalla prima revisione indipendente:
+
+- **Il valore del riquadro non si ripulisce.** Una ripulitura faceva di "VA_RIFATTA" un
+  valore valido, e di un valore illeggibile nessuna scelta, con la defissione riuscita senza
+  dichiarazione. Il valore arriva a `Passaggi` com'è, e tutto ciò che non è uno dei due è
+  rifiutato; solo il campo assente vale come nessuna scelta.
+- **Una voce scritta da altri con un'altra chiave** non la ferma il vincolo del registro.
+  Insieme alla defissione, dopo aver scritto la dichiarazione, si conta: la voce
+  `effetto_rimozione` dell'atto dev'essere una sola, altrimenti tutto torna come prima.
+- **Sull'annullato la lettura della defissione che non risponde** sembrava "nessuna
+  defissione", e la dichiarazione già resa spariva dalle viste. Ora le viste distinguono la
+  lettura fallita e lo dicono.
+
 Guasti introdotti nel codice per vedere quale prova li vede, tutti tolti:
 
 - senza il controllo della defissione registrata e dello stato: fallisce A-245;
-- un valore già scelto nel riquadro: falliscono A-244 e A-246.
+- un valore già scelto nel riquadro: falliscono A-244 e A-246;
+- il valore del riquadro ripulito: fallisce A-245;
+- senza il conteggio dopo la scrittura: fallisce A-247;
+- sull'annullato la lettura fallita della defissione presa per "nessuna": fallisce A-248.
