@@ -111,6 +111,13 @@ final class Passaggi {
 	const CAUSA_DATI_ECCEDENTI = 'dati_eccedenti';
 
 	/**
+	 * Azione della voce di registro con l'effetto della rimozione anticipata sul periodo.
+	 *
+	 * @var string
+	 */
+	const AZIONE_EFFETTO = 'effetto_rimozione';
+
+	/**
 	 * Le chiavi che una richiesta di pubblicazione puo' portare.
 	 *
 	 * Le due date sono ammesse come chiavi solo per poter essere rifiutate o
@@ -1190,14 +1197,19 @@ final class Passaggi {
 	 * accaduto. La fine pianificata non si perde: va nel registro con la
 	 * causa, il motivo, chi e quando.
 	 *
+	 * L'effetto sul periodo si puo' dichiarare insieme, nella stessa
+	 * transazione, oppure dopo con `dichiara_effetto()`: la rimozione non lo
+	 * aspetta.
+	 *
 	 * @param int   $atto_id Atto.
 	 * @param mixed $causa   Una delle chiavi di `cause_defissione()`.
 	 * @param mixed $motivo  Motivo, testo non vuoto.
+	 * @param mixed $effetto Una delle chiavi di `effetti_rimozione()`, oppure nullo per non dichiararlo adesso. Ogni altro valore, il testo vuoto compreso, e' rifiutato.
 	 * @return int|\WP_Error Numero della voce di registro con causa e motivo, oppure errore.
 	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
 	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento delle scritture non e' riuscito, o se un altro componente solleva un'eccezione dopo la conferma; con l'eccezione come causa.
 	 */
-	public static function defiggi_atto( int $atto_id, $causa, $motivo ) {
+	public static function defiggi_atto( int $atto_id, $causa, $motivo, $effetto = null ) {
 		if ( self::occupato() ) {
 			return self::errore_annidato();
 		}
@@ -1290,6 +1302,14 @@ final class Passaggi {
 			);
 		}
 
+		// L'effetto sul periodo e' facoltativo qui: solo il nullo vuol dire nessuna scelta, e ogni altro valore deve essere uno dei due.
+		if ( null !== $effetto && ( ! is_string( $effetto ) || ! isset( self::effetti_rimozione()[ $effetto ] ) ) ) {
+			return new \WP_Error(
+				'albo_effetto_non_ammesso',
+				__( 'L\'atto resta pubblicato: l\'effetto sul periodo, se si dichiara insieme alla defissione, e\' uno dei due dell\'elenco. Si puo\' anche lasciarlo e dichiararlo dopo.', 'albo-pretorio-pa' )
+			);
+		}
+
 		// L'atto come i controlli lo leggono: sotto il blocco della transazione dovra' essere ancora questo.
 		$partenza = self::fotografia( $atto_id );
 
@@ -1336,10 +1356,12 @@ final class Passaggi {
 			'chiave'      => SEZIONE . ':' . self::AZIONE_DEFISSIONE . ':' . $atto_id,
 		);
 
+		$voce_effetto = null === $effetto ? null : self::voce_effetto( $atto_id, $numero, $effetto );
+
 		self::inizia( $atto_id, $campi, $ieri, self::AZIONE_DEFISSIONE );
 
 		try {
-			$esito = self::defiggi_dentro( $atto_id, $campi, $ieri, $voce, $partenza, $prima, $prima_fine );
+			$esito = self::defiggi_dentro( $atto_id, $campi, $ieri, $voce, $partenza, $prima, $prima_fine, $voce_effetto );
 		} finally {
 			unset( self::$in_corso[ $atto_id ] );
 		}
@@ -1385,6 +1407,344 @@ final class Passaggi {
 	}
 
 	/**
+	 * Se il registro ha la defissione anticipata dell'atto: vero, falso, o nullo se non risponde.
+	 *
+	 * Le viste ne hanno bisogno sull'annullato, dove lo stato non dice se
+	 * prima c'e' stata una defissione: una lettura fallita non deve sembrare
+	 * "nessuna defissione" e nascondere un effetto gia' dichiarato.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return bool|null
+	 */
+	public static function defissione_registrata( int $atto_id ): ?bool {
+		$voci = self::voci_dell_atto( $atto_id, self::AZIONE_DEFISSIONE );
+
+		return is_wp_error( $voci ) ? null : 0 < $voci;
+	}
+
+	/**
+	 * I due effetti della rimozione anticipata sul periodo, con la loro spiegazione.
+	 *
+	 * Le fonti impongono che la diffusione vietata cessi e tacciono su che
+	 * cosa ne sia dell'adempimento: lo decide l'amministrazione, atto per
+	 * atto. Nessuno dei due e' quello predefinito, e nessuno tocca date,
+	 * stato, numero o visibilita'.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function effetti_rimozione(): array {
+		return array(
+			'vale_periodo_trascorso' => __( 'La pubblicazione vale per il periodo trascorso', 'albo-pretorio-pa' ),
+			'va_rifatta'             => __( 'La pubblicazione va rifatta, con un atto nuovo', 'albo-pretorio-pa' ),
+		);
+	}
+
+	/**
+	 * Dichiara l'effetto della rimozione anticipata sul periodo, una volta sola (ALBO-22, ALBO-10).
+	 *
+	 * Si lega alla defissione anticipata registrata, non allo stato del
+	 * momento: vale anche sull'atto annullato dopo la defissione, e non vale
+	 * dove una defissione anticipata non c'e' stata. Scrive soltanto la voce
+	 * del registro; l'atto non cambia. La chiave della voce e' una per atto,
+	 * e il registro non ne accetta due con la stessa chiave.
+	 *
+	 * @param int   $atto_id Atto.
+	 * @param mixed $effetto Una delle chiavi di `effetti_rimozione()`.
+	 * @return int|\WP_Error Numero della voce di registro, oppure errore.
+	 */
+	public static function dichiara_effetto( int $atto_id, $effetto ) {
+		global $wpdb;
+
+		if ( self::occupato() ) {
+			return self::errore_annidato();
+		}
+
+		self::svuota_memoria( $atto_id );
+
+		$atto = get_post( $atto_id );
+
+		if ( ! TipoAtto::tipo_nostro() || ! $atto instanceof \WP_Post || TIPO !== $atto->post_type ) {
+			return new \WP_Error(
+				'albo_non_un_atto',
+				__( 'Il contenuto indicato non e\' un atto dell\'albo.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$mappa = Permessi::mappa();
+
+		if ( is_wp_error( $mappa ) || ! isset( $mappa[ Permessi::CHIAVE_DEFISSIONE ] ) || ! current_user_can( $mappa[ Permessi::CHIAVE_DEFISSIONE ] ) ) {
+			return new \WP_Error(
+				'albo_effetto_non_permesso',
+				__( 'Niente e\' stato dichiarato: l\'effetto della rimozione lo dichiara chi ha il permesso di annullare e defiggere gli atti, e non si possiede.', 'albo-pretorio-pa' )
+			);
+		}
+
+		if ( null === $effetto || '' === $effetto ) {
+			return new \WP_Error(
+				'albo_effetto_mancante',
+				__( 'Niente e\' stato dichiarato: va scelto uno dei due effetti. Nessuno e\' scelto in partenza, perche\' la valutazione e\' dell\'amministrazione.', 'albo-pretorio-pa' )
+			);
+		}
+
+		if ( ! is_string( $effetto ) || ! isset( self::effetti_rimozione()[ $effetto ] ) ) {
+			return new \WP_Error(
+				'albo_effetto_non_ammesso',
+				__( 'Niente e\' stato dichiarato: l\'effetto e\' uno dei due dell\'elenco, la pubblicazione vale per il periodo trascorso oppure va rifatta.', 'albo-pretorio-pa' )
+			);
+		}
+
+		if ( ! in_array( $atto->post_status, array( ChiusuraPubblicazione::DEFISSO, ChiusuraPubblicazione::ANNULLATO ), true ) ) {
+			return self::errore_senza_defissione();
+		}
+
+		$defissioni = self::voci_dell_atto( $atto_id, self::AZIONE_DEFISSIONE );
+
+		if ( is_wp_error( $defissioni ) ) {
+			return $defissioni;
+		}
+
+		if ( 1 !== $defissioni ) {
+			return self::errore_senza_defissione();
+		}
+
+		$dichiarate = self::voci_dell_atto( $atto_id, self::AZIONE_EFFETTO );
+
+		if ( is_wp_error( $dichiarate ) ) {
+			return $dichiarate;
+		}
+
+		if ( 0 !== $dichiarate ) {
+			return self::errore_gia_dichiarato();
+		}
+
+		$numero = Repertorio::di( $atto_id );
+
+		if ( null === $numero ) {
+			return self::errore_senza_defissione();
+		}
+
+		/*
+		 * La dichiarazione si annulla se dopo la scrittura le voci non sono una
+		 * sola: il registro deve poterla annullare. Una verifica che non
+		 * risponde vale come tabella che non annulla.
+		 */
+		$registro = $wpdb->prefix . 'conformita_core_registro';
+
+		if ( in_array( $registro, self::tabelle_senza_transazioni(), true ) ) {
+			return new \WP_Error(
+				'albo_tabelle_non_transazionali',
+				sprintf(
+					/* translators: %s: nome della tabella. */
+					__( 'Niente e\' stato dichiarato: la tabella del registro delle modifiche (%s) non permette di annullare una scrittura, e una dichiarazione doppia non deve restare. Chi gestisce il sito puo\' convertirla al tipo InnoDB.', 'albo-pretorio-pa' ),
+					$registro
+				)
+			);
+		}
+
+		// Nessun altro passaggio comincia mentre la transazione della dichiarazione e' aperta.
+		self::$operazione = true;
+
+		try {
+			return self::dichiara_dentro( $atto_id, self::voce_effetto( $atto_id, $numero, $effetto ) );
+		} finally {
+			self::$operazione = false;
+		}
+	}
+
+	/**
+	 * La scrittura della dichiarazione, dentro una transazione, con la verifica che la voce sia una sola.
+	 *
+	 * Il vincolo sulla chiave ferma una seconda dichiarazione dell'albo, non
+	 * una voce della stessa azione scritta da altri senza chiave o con
+	 * un'altra: dopo la scrittura le voci dell'effetto si contano, e se non
+	 * sono una sola la propria si annulla. Se la scrittura stessa e' rifiutata
+	 * non c'e' niente di proprio da annullare.
+	 *
+	 * @param int                  $atto_id Atto.
+	 * @param array<string, mixed> $voce    Voce dell'effetto.
+	 * @return int|\WP_Error
+	 * @throws \Throwable L'eccezione sollevata durante la scrittura, dopo averla annullata.
+	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, con l'eccezione come causa.
+	 */
+	private static function dichiara_dentro( int $atto_id, array $voce ) {
+		$apertura = self::apri();
+
+		if ( is_wp_error( $apertura ) ) {
+			return new \WP_Error(
+				'albo_effetto_non_scritto',
+				__( 'Niente e\' stato dichiarato: la banca dati non ha aperto la transazione della dichiarazione. Riprovare piu\' tardi.', 'albo-pretorio-pa' )
+			);
+		}
+
+		try {
+			$esito = conformita_core_registra_voce( $voce );
+
+			if ( is_wp_error( $esito ) ) {
+				$chiusura = self::chiudi( $apertura, $atto_id );
+
+				if ( is_wp_error( $chiusura ) && 'albo_annullamento_non_riuscito' === $chiusura->get_error_code() ) {
+					return $chiusura;
+				}
+
+				// Un'altra dichiarazione e' entrata nello stesso istante: la chiave e' gia' sua.
+				if ( 'conformita_core_registro_chiave_esistente' === $esito->get_error_code() ) {
+					return self::errore_gia_dichiarato();
+				}
+
+				return new \WP_Error(
+					'albo_effetto_non_scritto',
+					sprintf(
+						/* translators: %s: motivo riportato dal meccanismo comune. */
+						__( 'Niente e\' stato dichiarato: la voce del registro delle modifiche non e\' stata scritta. %s', 'albo-pretorio-pa' ),
+						$esito->get_error_message()
+					)
+				);
+			}
+
+			$dichiarate = self::voci_dell_atto( $atto_id, self::AZIONE_EFFETTO );
+			$rifiuto    = is_wp_error( $dichiarate ) ? $dichiarate : ( 1 !== $dichiarate ? self::errore_gia_dichiarato() : null );
+
+			if ( null !== $rifiuto ) {
+				$annullato = self::annulla( $apertura, $atto_id );
+
+				return is_wp_error( $annullato ) ? $annullato : $rifiuto;
+			}
+
+			$chiusura = self::chiudi( $apertura, $atto_id );
+
+			if ( is_wp_error( $chiusura ) ) {
+				return 'albo_annullamento_non_riuscito' === $chiusura->get_error_code() ? $chiusura : new \WP_Error(
+					'albo_effetto_non_scritto',
+					__( 'Niente e\' stato dichiarato: la banca dati non ha confermato la voce, che e\' stata annullata.', 'albo-pretorio-pa' )
+				);
+			}
+		} catch ( \Throwable $errore ) {
+			$annullato = self::annulla( $apertura, $atto_id );
+
+			if ( is_wp_error( $annullato ) ) {
+				throw new \RuntimeException( esc_html( $annullato->get_error_message() ), 0, $errore ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- gia' sfuggito.
+			}
+
+			throw $errore;
+		}
+
+		return (int) $esito;
+	}
+
+	/**
+	 * L'effetto dichiarato per un atto: nullo se non c'e', falso se il registro non risponde.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return array{effetto: string, istante: \DateTimeImmutable, utente: int}|false|null
+	 */
+	public static function effetto( int $atto_id ) {
+		global $wpdb;
+
+		$voci = conformita_core_voci_registro(
+			array(
+				'sezione'   => SEZIONE,
+				'contenuto' => $atto_id,
+				'azione'    => self::AZIONE_EFFETTO,
+			)
+		);
+
+		// Il meccanismo comune risponde con un elenco vuoto anche a una lettura fallita: l'errore si legge dalla connessione.
+		if ( ! is_array( $voci ) || '' !== (string) $wpdb->last_error ) {
+			return false;
+		}
+
+		if ( array() === $voci ) {
+			return null;
+		}
+
+		$effetto = $voci[0]['dettagli']['effetto'] ?? null;
+
+		if ( 1 !== count( $voci ) || ! is_string( $effetto ) || ! isset( self::effetti_rimozione()[ $effetto ] ) || ! ( $voci[0]['istante'] ?? null ) instanceof \DateTimeImmutable ) {
+			return false;
+		}
+
+		return array(
+			'effetto' => $effetto,
+			'istante' => $voci[0]['istante'],
+			'utente'  => (int) ( $voci[0]['utente'] ?? 0 ),
+		);
+	}
+
+	/**
+	 * La voce del registro con l'effetto sul periodo.
+	 *
+	 * @param int                           $atto_id Atto.
+	 * @param array{anno: int, numero: int} $numero  Numero di registro.
+	 * @param string                        $effetto Effetto.
+	 * @return array<string, mixed>
+	 */
+	private static function voce_effetto( int $atto_id, array $numero, string $effetto ): array {
+		return array(
+			'sezione'   => SEZIONE,
+			'azione'    => self::AZIONE_EFFETTO,
+			'contenuto' => $atto_id,
+			'dettagli'  => array(
+				'effetto' => $effetto,
+				'anno'    => (int) $numero['anno'],
+				'numero'  => (int) $numero['numero'],
+			),
+			'chiave'    => SEZIONE . ':' . self::AZIONE_EFFETTO . ':' . $atto_id,
+		);
+	}
+
+	/**
+	 * Quante voci di un'azione ha l'atto nel registro, oppure l'errore se il registro non risponde.
+	 *
+	 * @param int    $atto_id Atto.
+	 * @param string $azione  Azione.
+	 * @return int|\WP_Error
+	 */
+	private static function voci_dell_atto( int $atto_id, string $azione ) {
+		global $wpdb;
+
+		$voci = conformita_core_voci_registro(
+			array(
+				'sezione'   => SEZIONE,
+				'contenuto' => $atto_id,
+				'azione'    => $azione,
+			)
+		);
+
+		if ( ! is_array( $voci ) || '' !== (string) $wpdb->last_error ) {
+			return new \WP_Error(
+				'albo_registro_non_risponde',
+				__( 'Niente e\' stato dichiarato: il registro delle modifiche non risponde, e senza leggerlo non si sa se la dichiarazione e\' ammessa. Riprovare piu\' tardi.', 'albo-pretorio-pa' )
+			);
+		}
+
+		return count( $voci );
+	}
+
+	/**
+	 * Il rifiuto della dichiarazione dove una defissione anticipata non c'e' stata.
+	 *
+	 * @return \WP_Error
+	 */
+	private static function errore_senza_defissione(): \WP_Error {
+		return new \WP_Error(
+			'albo_effetto_senza_defissione',
+			__( 'Niente e\' stato dichiarato: l\'effetto sul periodo si dichiara solo per un atto tolto dall\'albo prima della scadenza. Dove il termine si e\' compiuto, o non si e\' mai interrotto, non c\'e\' niente da valutare.', 'albo-pretorio-pa' )
+		);
+	}
+
+	/**
+	 * Il rifiuto di una seconda dichiarazione.
+	 *
+	 * @return \WP_Error
+	 */
+	private static function errore_gia_dichiarato(): \WP_Error {
+		return new \WP_Error(
+			'albo_effetto_gia_dichiarato',
+			__( 'Niente e\' stato dichiarato: l\'effetto sul periodo di questo atto e\' gia\' stato dichiarato, e non si cambia.', 'albo-pretorio-pa' )
+		);
+	}
+
+	/**
 	 * Le scritture della defissione anticipata, dentro la transazione.
 	 *
 	 * @param int                   $atto_id    Atto.
@@ -1394,11 +1754,12 @@ final class Passaggi {
 	 * @param array<string, mixed>  $partenza   Fotografia di partenza.
 	 * @param int                   $prima      Voci della rimozione prima.
 	 * @param int                   $prima_fine Voci della data di fine prima.
+	 * @param array|null            $effetto    Voce dell'effetto sul periodo dichiarato insieme, oppure nullo.
 	 * @return int|\WP_Error
 	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
 	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento delle scritture non e' riuscito, con l'eccezione come causa.
 	 */
-	private static function defiggi_dentro( int $atto_id, array $campi, string $fine, array $voce, array $partenza, int $prima, int $prima_fine ) {
+	private static function defiggi_dentro( int $atto_id, array $campi, string $fine, array $voce, array $partenza, int $prima, int $prima_fine, ?array $effetto ) {
 		$apertura = self::apri();
 
 		if ( is_wp_error( $apertura ) ) {
@@ -1426,6 +1787,22 @@ final class Passaggi {
 
 			if ( ! is_wp_error( $esito ) ) {
 				$esito = self::scrivi_voce( $voce );
+			}
+
+			if ( ! is_wp_error( $esito ) && null !== $effetto ) {
+				$dichiarata = self::scrivi_voce( $effetto );
+				$esito      = is_wp_error( $dichiarata ) ? $dichiarata : $esito;
+			}
+
+			// Il vincolo sulla chiave non vede una voce scritta da altri con un'altra chiave: dopo la scrittura la voce e' una sola.
+			if ( ! is_wp_error( $esito ) && null !== $effetto ) {
+				$dichiarate = self::voci_dell_atto( $atto_id, self::AZIONE_EFFETTO );
+
+				if ( is_wp_error( $dichiarate ) ) {
+					$esito = $dichiarate;
+				} elseif ( 1 !== $dichiarate ) {
+					$esito = self::errore_gia_dichiarato();
+				}
 			}
 
 			// Finite le scritture, prima del controllo e della conferma: niente piu' e' concesso.
