@@ -164,6 +164,16 @@ Dalla terza revisione:
 - **A-243 confronta la fotografia anche dopo la defissione riuscita**: cambiano solo stato,
   fine e voci nuove in coda, e le date di inizio restano.
 
+Dalla quarta revisione, un limite dichiarato e non costruito:
+
+- **Una voce della stessa azione scritta da un altro componente, da un'altra connessione e
+  con un'altra chiave**, nello stesso momento della dichiarazione, può restare accanto alla
+  nostra: il conteggio dentro la transazione non vede le scritture non ancora confermate di
+  altri. Un blocco sulla banca dati non chiuderebbe il caso, perché lo stesso componente
+  può aggiungere la sua voce un istante dopo la conferma. Quello che dipende dall'albo è
+  garantito: non scrive mai una seconda dichiarazione, e se ne trova due la lettura non ne
+  sceglie una, e le viste dicono che il dato non si legge.
+
 Guasti introdotti nel codice per vedere quale prova li vede, tutti tolti:
 
 - senza il controllo della defissione registrata e dello stato: fallisce A-245;

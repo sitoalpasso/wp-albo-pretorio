@@ -110,6 +110,13 @@ produrre un rifiuto rumoroso, mai un permesso silenzioso.
   risponde "non hai il permesso" invece di "non trovato" su alcune strade dell'interfaccia
   per programmi, e all'amministratore ne consegna documenti e commenti. Va chiuso nel
   meccanismo comune (scheda `implementazione/defissione-anticipata.md`).
+- L'effetto della rimozione sul periodo si dichiara una volta sola: l'albo non scrive mai
+  una seconda voce `effetto_rimozione` per lo stesso atto (vincolo sulla chiave, e conteggio
+  dopo la scrittura dentro la transazione). Limite noto: un altro componente che scrive nel
+  registro una voce della stessa azione con un'altra chiave, da un'altra connessione, può
+  aggiungerla in qualunque momento, anche dopo la conferma; nessun blocco dell'albo lo
+  impedisce. In quel caso la lettura non sceglie una delle due: le viste dicono che il dato
+  non si legge (scheda `implementazione/effetto-rimozione.md`).
 - I metadati non pensati per il pubblico non sono esposti dalla REST.
 
 ## Domande di controllo
