@@ -586,6 +586,12 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 		$this->assertSame( ChiusuraPubblicazione::DEFISSO, get_post_status( $riscritto ), 'Precondizione: defisso per scadenza naturale.' );
 		$this->assertSame( array(), $this->voci_di( $riscritto, array( 'azione' => Passaggi::AZIONE_DEFISSIONE ) ), 'Precondizione: nessuna defissione anticipata.' );
 
+		$html = $this->riquadro( $riscritto, $solo_defiggere );
+		$this->assertSame( array(), $this->scelte( $html ), 'Defisso per scadenza naturale: il riquadro non offre la domanda.' );
+		$this->assertStringNotContainsString( 'value="dichiara"', $html, 'Ne\' il pulsante.' );
+		$this->assertStringNotContainsString( 'Effetto della rimozione', $html, 'Ne\' l\'effetto.' );
+		$this->assertStringNotContainsString( 'prima della scadenza</strong>', $html, 'Ne\' una defissione anticipata.' );
+
 		$annullato = $this->pubblicato_il( '2041-10-02 09:30:00', 'Atto annullato senza defissione' );
 		$this->annulla( $annullato );
 
@@ -1043,9 +1049,12 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 		$senza = $this->defisso( 'Annullato senza effetto' );
 		$this->annulla( $senza );
 
+		$defisso = $this->defisso( 'Defisso senza effetto' );
+
 		foreach ( array(
-			'con effetto'   => $dichiarato,
-			'senza effetto' => $senza,
+			'annullato con effetto'   => $dichiarato,
+			'annullato senza effetto' => $senza,
+			'defisso senza effetto'   => $defisso,
 		) as $caso => $atto ) {
 			foreach ( array( Passaggi::AZIONE_DEFISSIONE, Passaggi::AZIONE_EFFETTO ) as $azione ) {
 				$this->guasta_istruzioni( array( 'SELECT', $tabella, "'" . $azione . "'" ) );

@@ -20,6 +20,7 @@ declare( strict_types = 1 );
 
 namespace AlboPretorioPa\Tests;
 
+use AlboPretorioPa\ChiusuraPubblicazione;
 use AlboPretorioPa\DocumentiAtto;
 use AlboPretorioPa\Installazione;
 use AlboPretorioPa\Passaggi;
@@ -818,7 +819,34 @@ class ConsultazioneScadutiTest extends \WP_UnitTestCase {
 
 		$this->assertStringContainsString( '<strong>Effetto sul periodo</strong>: La pubblicazione va rifatta, con un atto nuovo', $riga(), 'Dopo la dichiarazione.' );
 
-		// Annullato dopo la defissione: una lettura del registro per volta non risponde.
+		global $wpdb;
+
+		$tabella  = $wpdb->prefix . 'conformita_core_registro';
+		$guastate = function ( string $stato ) use ( $wpdb, $tabella, $riga ): void {
+			foreach ( array( Passaggi::AZIONE_DEFISSIONE, Passaggi::AZIONE_EFFETTO ) as $azione ) {
+				$guasta = static function ( $istruzione ) use ( $tabella, $azione ) {
+					return is_string( $istruzione ) && false !== strpos( $istruzione, 'SELECT' ) && false !== strpos( $istruzione, $tabella ) && false !== strpos( $istruzione, "'" . $azione . "'" ) ? 'SELECT guasto_forzato FROM tabella_che_non_esiste' : $istruzione;
+				};
+
+				$wpdb->suppress_errors( true );
+				add_filter( 'query', $guasta );
+
+				try {
+					$letta = $riga();
+				} finally {
+					remove_filter( 'query', $guasta );
+					$wpdb->suppress_errors( false );
+				}
+
+				$this->assertStringContainsString( '<strong>Effetto sul periodo</strong>: non leggibile in questo momento', $letta, $stato . ', ' . $azione . ': la consultazione lo dice.' );
+				$this->assertStringNotContainsString( 'non dichiarato', $letta, $stato . ', ' . $azione . ': e non dice che manca.' );
+			}
+		};
+
+		// Sul defisso, una lettura del registro per volta non risponde.
+		$guastate( 'defisso' );
+
+		// Annullato dopo la defissione: lo stesso.
 		$esito = $this->come(
 			$this->amministratore,
 			static function () use ( $atto ) {
@@ -827,28 +855,23 @@ class ConsultazioneScadutiTest extends \WP_UnitTestCase {
 		);
 		$this->assertIsInt( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : 'Precondizione: l\'annullamento.' );
 		$this->assertStringContainsString( '<strong>Effetto sul periodo</strong>: La pubblicazione va rifatta, con un atto nuovo', $riga(), 'Annullato: il valore resta.' );
+		$guastate( 'annullato' );
 
-		global $wpdb;
+		// Defisso per scadenza naturale, con lo stato scritto come lo lascera' il compito pianificato: niente defissione, niente effetto.
+		$naturale = $this->pubblicato_il( '2041-09-01 09:30:00', 'Atto scaduto per la sua data' );
+		$this->fissa_orologi( '2041-10-06 10:00:00' );
+		$this->scavalca_barriera(
+			static function () use ( $naturale ) {
+				global $wpdb;
 
-		$tabella = $wpdb->prefix . 'conformita_core_registro';
-
-		foreach ( array( Passaggi::AZIONE_DEFISSIONE, Passaggi::AZIONE_EFFETTO ) as $azione ) {
-			$guasta = static function ( $istruzione ) use ( $tabella, $azione ) {
-				return is_string( $istruzione ) && false !== strpos( $istruzione, 'SELECT' ) && false !== strpos( $istruzione, $tabella ) && false !== strpos( $istruzione, "'" . $azione . "'" ) ? 'SELECT guasto_forzato FROM tabella_che_non_esiste' : $istruzione;
-			};
-
-			$wpdb->suppress_errors( true );
-			add_filter( 'query', $guasta );
-
-			try {
-				$letta = $riga();
-			} finally {
-				remove_filter( 'query', $guasta );
-				$wpdb->suppress_errors( false );
+				$wpdb->update( $wpdb->posts, array( 'post_status' => ChiusuraPubblicazione::DEFISSO ), array( 'ID' => $naturale ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: lo stato come lo lascera' il compito pianificato.
 			}
+		);
+		clean_post_cache( $naturale );
 
-			$this->assertStringContainsString( '<strong>Effetto sul periodo</strong>: non leggibile in questo momento', $letta, $azione . ': la consultazione lo dice.' );
-			$this->assertStringNotContainsString( 'non dichiarato', $letta, $azione . ': e non dice che manca.' );
-		}
+		$contenuto = (string) $this->schermata( $this->consultatore );
+		$this->assertSame( 1, preg_match( '/<tr data-atto="' . $naturale . '">(.*?)<\/tr>/s', $contenuto, $trovata ), 'Precondizione: la riga del defisso per scadenza naturale.' );
+		$this->assertStringNotContainsString( 'Effetto sul periodo', $trovata[1], 'Senza defissione anticipata nessun effetto.' );
+		$this->assertStringNotContainsString( 'Tolto dall&#039;albo', $trovata[1], 'E nessuna defissione.' );
 	}
 }
