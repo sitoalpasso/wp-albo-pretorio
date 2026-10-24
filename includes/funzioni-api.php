@@ -73,13 +73,36 @@ if ( ! function_exists( 'albo_pretorio_defiggi' ) ) {
 	 * il termine di un atto regolare non si accorcia. L'atto sparisce subito
 	 * dalla vista pubblica, perche' la data di fine torna al giorno prima.
 	 *
-	 * @param int    $atto_id Atto.
-	 * @param string $causa   Causa dell'elenco.
-	 * @param string $motivo  Motivo, che finisce nel registro delle modifiche con la causa.
+	 * L'effetto sul periodo si puo' dichiarare qui, con una delle chiavi di
+	 * `\AlboPretorioPa\Passaggi::effetti_rimozione()`, oppure dopo con
+	 * `albo_pretorio_dichiara_effetto()`.
+	 *
+	 * @param int         $atto_id Atto.
+	 * @param string      $causa   Causa dell'elenco.
+	 * @param string      $motivo  Motivo, che finisce nel registro delle modifiche con la causa.
+	 * @param string|null $effetto Effetto sul periodo, oppure nullo per dichiararlo dopo.
 	 * @return int|WP_Error Numero della voce di registro, oppure errore.
 	 */
-	function albo_pretorio_defiggi( $atto_id, $causa, $motivo ) {
-		return \AlboPretorioPa\Passaggi::defiggi_atto( (int) $atto_id, $causa, $motivo );
+	function albo_pretorio_defiggi( $atto_id, $causa, $motivo, $effetto = null ) {
+		return \AlboPretorioPa\Passaggi::defiggi_atto( (int) $atto_id, $causa, $motivo, $effetto );
+	}
+}
+
+if ( ! function_exists( 'albo_pretorio_dichiara_effetto' ) ) {
+	/**
+	 * Dichiara l'effetto della rimozione anticipata sul periodo, come l'utente corrente.
+	 *
+	 * Una volta sola per atto, e solo per un atto tolto dall'albo prima della
+	 * scadenza, anche se poi annullato. Il valore e' una delle chiavi di
+	 * `\AlboPretorioPa\Passaggi::effetti_rimozione()`. Non cambia date, stato,
+	 * numero ne' visibilita', e "va rifatta" non crea nessun atto.
+	 *
+	 * @param int    $atto_id Atto.
+	 * @param string $effetto Effetto sul periodo.
+	 * @return int|WP_Error Numero della voce di registro, oppure errore.
+	 */
+	function albo_pretorio_dichiara_effetto( $atto_id, $effetto ) {
+		return \AlboPretorioPa\Passaggi::dichiara_effetto( (int) $atto_id, $effetto );
 	}
 }
 
