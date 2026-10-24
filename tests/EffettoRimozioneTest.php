@@ -582,6 +582,7 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 			'spazio in mezzo'      => 'va_ri fatta',
 			'carattere estraneo'   => 'va_rifatta!',
 			'solo segni'           => '!!!',
+			'testo vuoto'          => '',
 			'un elenco'            => array( 'va_rifatta' ),
 			'un elenco con chiave' => array( 'effetto' => 'vale_periodo_trascorso' ),
 		);
@@ -614,7 +615,8 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 					)
 				);
 
-				$this->assertArrayHasKey( 'albo_effetto_non_ammesso', $this->rifiuti_del_riquadro( $atto, $this->pubblicatore ), $pulsante . ', ' . $caso . ': rifiutato.' );
+				$atteso = '' === $valore && 'dichiara' === $pulsante ? 'albo_effetto_mancante' : 'albo_effetto_non_ammesso';
+				$this->assertArrayHasKey( $atteso, $this->rifiuti_del_riquadro( $atto, $this->pubblicatore ), $pulsante . ', ' . $caso . ': rifiutato.' );
 				$this->assertSame( $prima, $this->fotografia( $atto ), $pulsante . ', ' . $caso . ': niente scritto.' );
 			}
 		}
@@ -824,6 +826,75 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 			$this->assertIsInt( $this->defiggi( $id, $this->pubblicatore ), $caso . ': senza dichiarazione l\'atto si toglie.' );
 			$this->assertSame( ChiusuraPubblicazione::DEFISSO, get_post_status( $id ), $caso . ': tolto.' );
 		}
+	}
+
+	/**
+	 * A-247, voce scritta da altri mentre si dichiara dopo la defissione: la propria non entra.
+	 *
+	 * Un aggancio scrive, appena prima della dichiarazione, una voce della
+	 * stessa azione senza chiave o con un'altra chiave. La dichiarazione e'
+	 * rifiutata e la sua voce annullata.
+	 */
+	public function test_a247_voce_di_altri_alla_dichiarazione(): void {
+		global $wpdb;
+
+		$tabella = $wpdb->prefix . 'conformita_core_registro';
+
+		foreach ( array(
+			'senza chiave'         => null,
+			'con un\'altra chiave' => 'altro:effetto',
+		) as $caso => $chiave ) {
+			$id      = $this->defisso( 'Atto ' . $caso );
+			$numero  = Repertorio::di( $id );
+			$entrata = null;
+
+			$intromette = static function ( $istruzione ) use ( $tabella, $id, $numero, $chiave, &$entrata ) {
+				if ( null !== $entrata || ! is_string( $istruzione ) || 0 !== strpos( $istruzione, 'INSERT INTO `' . $tabella . '`' ) || false === strpos( $istruzione, "'" . Passaggi::AZIONE_EFFETTO . "'" ) ) {
+					return $istruzione;
+				}
+
+				$voce = array(
+					'sezione'   => SEZIONE,
+					'azione'    => Passaggi::AZIONE_EFFETTO,
+					'contenuto' => $id,
+					'dettagli'  => array(
+						'effetto' => 'vale_periodo_trascorso',
+						'anno'    => (int) $numero['anno'],
+						'numero'  => (int) $numero['numero'],
+					),
+				);
+
+				if ( null !== $chiave ) {
+					$voce['chiave'] = $chiave . ':' . $id;
+				}
+
+				$entrata = false;
+				$entrata = conformita_core_registra_voce( $voce );
+
+				return $istruzione;
+			};
+
+			add_filter( 'query', $intromette );
+
+			try {
+				$esito = $this->dichiara( $id, $this->pubblicatore, 'va_rifatta' );
+			} finally {
+				remove_filter( 'query', $intromette );
+			}
+
+			$this->assertIsInt( $entrata, $caso . ': precondizione, l\'aggancio ha scritto.' );
+			$this->assertSame( array( 'albo_effetto_gia_dichiarato' ), $this->codici( $esito ), $caso . ': rifiutata.' );
+
+			foreach ( $this->effetti( $id ) as $voce ) {
+				$this->assertNotSame( 'va_rifatta', $voce['dettagli']['effetto'] ?? null, $caso . ': la propria voce non e\' entrata.' );
+			}
+		}
+
+		// Controllo positivo: senza l'aggancio la dichiarazione riesce.
+		$altro = $this->defisso( 'Atto senza aggancio' );
+		$prima = $this->fotografia( $altro );
+		$this->assertIsInt( $this->dichiara( $altro, $this->pubblicatore, 'va_rifatta' ) );
+		$this->solo_una_voce( $prima, $altro, 'Controllo positivo' );
 	}
 
 	/**
