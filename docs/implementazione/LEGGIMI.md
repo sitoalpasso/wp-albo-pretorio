@@ -68,3 +68,6 @@ Schede presenti:
 - [`annullamento.md`](annullamento.md): l'annullamento di un atto pubblicato, con il motivo
   nel registro, il permesso apposito, l'avviso pubblico fino alla scadenza senza documenti e
   l'annullato nella consultazione riservata. Righe di collaudo A-224..A-230.
+- [`importazione-annullati.md`](importazione-annullati.md): gli atti annullati in Albo
+  Pretorio On line arrivano annullati, con data e motivo di là, anche quelli ancora in
+  pubblicazione. Righe di collaudo A-231..A-234.

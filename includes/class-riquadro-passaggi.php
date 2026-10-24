@@ -334,7 +334,7 @@ final class RiquadroPassaggi {
 			printf( '<p>%s</p>', esc_html__( 'Il registro delle modifiche non risponde: data e motivo dell\'annullamento non si leggono in questo momento.', 'albo-pretorio-pa' ) );
 		} else {
 			echo '<dl class="albo-pretorio-dati">';
-			printf( '<dt>%1$s</dt><dd>%2$s</dd>', esc_html__( 'Data dell\'annullamento', 'albo-pretorio-pa' ), esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $voce['istante']->getTimestamp() ) ) );
+			printf( '<dt>%1$s</dt><dd>%2$s</dd>', esc_html__( 'Data dell\'annullamento', 'albo-pretorio-pa' ), esc_html( wp_date( $voce['giorno'] ? get_option( 'date_format' ) : get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $voce['istante']->getTimestamp() ) ) );
 			printf( '<dt>%1$s</dt><dd>%2$s</dd>', esc_html__( 'Motivo', 'albo-pretorio-pa' ), nl2br( esc_html( $voce['motivo'] ) ) );
 			echo '</dl>';
 		}

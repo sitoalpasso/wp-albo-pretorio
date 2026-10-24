@@ -90,6 +90,13 @@ final class Passaggi {
 	const AZIONE_ANNULLAMENTO = 'annullamento';
 
 	/**
+	 * L'origine scritta nei dettagli dell'annullamento avvenuto in Albo Pretorio On line.
+	 *
+	 * @var string
+	 */
+	const ORIGINE_ANNULLAMENTO_IMPORTATO = 'Albo Pretorio On line';
+
+	/**
 	 * Le chiavi che una richiesta di pubblicazione puo' portare.
 	 *
 	 * Le due date sono ammesse come chiavi solo per poter essere rifiutate o
@@ -555,8 +562,13 @@ final class Passaggi {
 	 *
 	 * Un inizio nel futuro si rifiuta: questo albo non programma.
 	 *
+	 * L'atto annullato in Albo Pretorio On line arriva annullato, nella
+	 * stessa transazione (ALBO-22): dopo le scritture della pubblicazione
+	 * vengono quelle dell'annullamento, e il controllo finale pretende lo
+	 * stato annullato. Pubblicato con i documenti non lo vede mai nessuno.
+	 *
 	 * @param int                  $atto_id Bozza preparata dall'importazione.
-	 * @param array<string, mixed> $dati    `anno`, `numero`, `inizio` e `fine` (AAAA-MM-GG), `dettagli` per la voce di registro.
+	 * @param array<string, mixed> $dati    `anno`, `numero`, `inizio` e `fine` (AAAA-MM-GG), `dettagli` per la voce di registro, `annullamento` con `il` (AAAA-MM-GG) e `motivo` per l'atto annullato in Albo Pretorio On line.
 	 * @return array{anno: int, numero: int, inizio: string, fine: string, voce: int}|\WP_Error
 	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
 	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, o se un altro componente solleva un'eccezione dopo la conferma; con l'eccezione come causa.
@@ -596,12 +608,12 @@ final class Passaggi {
 			);
 		}
 
-		$inizio = is_string( $dati['inizio'] ?? null ) ? \DateTimeImmutable::createFromFormat( '!Y-m-d', $dati['inizio'], wp_timezone() ) : false;
+		$inizio = self::giorno_dal_testo( $dati['inizio'] ?? null );
 		$fine   = is_string( $dati['fine'] ?? null ) ? (string) $dati['fine'] : '';
 		$anno   = is_int( $dati['anno'] ?? null ) ? $dati['anno'] : 0;
 		$numero = is_int( $dati['numero'] ?? null ) ? $dati['numero'] : 0;
 		$adesso = self::ora();
-		$valida = false !== $inizio && $inizio->format( 'Y-m-d' ) === $dati['inizio'] && true === conformita_core_valida_fine_pubblicazione( $fine );
+		$valida = null !== $inizio && true === conformita_core_valida_fine_pubblicazione( $fine );
 		$oggi   = $adesso->setTimezone( wp_timezone() )->format( 'Y-m-d' );
 
 		if ( ! $valida || $fine < $dati['inizio'] ) {
@@ -615,7 +627,13 @@ final class Passaggi {
 			return self::errore_programmazione( $inizio->format( 'Y-m-d H:i:s' ) );
 		}
 
-		// Un atto che arriva visibile ha bisogno della conferma sui dati personali, come ogni pubblicazione (ALBO-11).
+		$annullamento = self::annullamento_importato( $dati['annullamento'] ?? null, $oggi );
+
+		if ( is_wp_error( $annullamento ) ) {
+			return $annullamento;
+		}
+
+		// Un atto che arriva visibile ha bisogno della conferma sui dati personali, come ogni pubblicazione (ALBO-11); anche annullato, perche' il suo oggetto si vede.
 		if ( $fine >= $oggi && true !== ( $dati['dettagli']['conferma_dati_personali'] ?? null ) ) {
 			return new \WP_Error(
 				'albo_importazione_conferma_mancante',
@@ -635,8 +653,9 @@ final class Passaggi {
 			return self::errore_lettura();
 		}
 
-		$prima      = self::voci_automatiche( $atto_id, 'pubblicazione' );
-		$prima_fine = self::voci_automatiche( $atto_id, 'modifica_fine_pubblicazione' );
+		$prima       = self::voci_automatiche( $atto_id, 'pubblicazione' );
+		$prima_fine  = self::voci_automatiche( $atto_id, 'modifica_fine_pubblicazione' );
+		$prima_rimoz = null === $annullamento ? 0 : self::voci_automatiche( $atto_id, 'rimozione' );
 
 		if ( is_wp_error( $prima ) ) {
 			return $prima;
@@ -646,15 +665,20 @@ final class Passaggi {
 			return $prima_fine;
 		}
 
+		if ( is_wp_error( $prima_rimoz ) ) {
+			return $prima_rimoz;
+		}
+
 		$campi   = array(
 			'post_status'   => 'publish',
 			'post_date'     => $inizio->format( 'Y-m-d H:i:s' ),
 			'post_date_gmt' => $inizio->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' ),
 		);
 		$partito = array(
-			'anno'     => $anno,
-			'numero'   => $numero,
-			'dettagli' => is_array( $dati['dettagli'] ?? null ) ? $dati['dettagli'] : array(),
+			'anno'         => $anno,
+			'numero'       => $numero,
+			'dettagli'     => is_array( $dati['dettagli'] ?? null ) ? $dati['dettagli'] : array(),
+			'annullamento' => null === $annullamento ? null : $annullamento + array( 'prima' => $prima_rimoz ),
 		);
 
 		// Il blocco dell'anno, tenuto fino a dopo la conferma: una dichiarazione della partenza non passa in mezzo.
@@ -741,8 +765,19 @@ final class Passaggi {
 				);
 			}
 
+			$attesi = $campi;
+
+			if ( ! is_wp_error( $esito ) && null !== $numero['annullamento'] ) {
+				$attesi = array( 'post_status' => ChiusuraPubblicazione::ANNULLATO ) + $campi;
+				$voce   = self::annulla_importato( $atto_id, $numero, $fine );
+				$esito  = is_wp_error( $voce ) ? $voce : $esito;
+			}
+
+			// Finite le scritture, prima del controllo e della conferma: niente piu' e' concesso.
+			self::revoca_concessioni();
+
 			if ( ! is_wp_error( $esito ) ) {
-				$controllo = self::controlla_invariato( $atto_id, $partenza, $campi, $fine );
+				$controllo = self::controlla_invariato( $atto_id, $partenza, $attesi, $fine );
 				$esito     = is_wp_error( $controllo ) ? $controllo : $esito;
 			}
 
@@ -773,6 +808,92 @@ final class Passaggi {
 			'inizio' => substr( $campi['post_date'], 0, 10 ),
 			'fine'   => $fine,
 			'voce'   => (int) $esito,
+		);
+	}
+
+	/**
+	 * L'annullamento avvenuto in Albo Pretorio On line, controllato: data e motivo, nulla se l'atto non era annullato.
+	 *
+	 * La data e' un giorno, non nel futuro. Il motivo vuoto si scrive come
+	 * "non indicato": la voce dell'annullamento un motivo lo porta sempre.
+	 *
+	 * @param mixed  $annullamento `il` (AAAA-MM-GG) e `motivo`, oppure nulla.
+	 * @param string $oggi         Il giorno di oggi nell'ora del sito.
+	 * @return array{il: string, motivo: string}|null|\WP_Error
+	 */
+	private static function annullamento_importato( $annullamento, string $oggi ) {
+		if ( null === $annullamento ) {
+			return null;
+		}
+
+		$il     = is_array( $annullamento ) && is_string( $annullamento['il'] ?? null ) ? $annullamento['il'] : '';
+		$giorno = self::giorno_dal_testo( $il );
+		$motivo = is_array( $annullamento ) && is_string( $annullamento['motivo'] ?? null ) ? trim( sanitize_textarea_field( $annullamento['motivo'] ) ) : null;
+
+		if ( null === $giorno || $il > $oggi || null === $motivo ) {
+			return new \WP_Error(
+				'albo_importazione_annullamento_non_valido',
+				__( 'L\'atto non si importa: la data o il motivo dell\'annullamento in Albo Pretorio On line non sono validi.', 'albo-pretorio-pa' )
+			);
+		}
+
+		return array(
+			'il'     => $il,
+			'motivo' => '' === $motivo ? __( 'non indicato in Albo Pretorio On line', 'albo-pretorio-pa' ) : $motivo,
+		);
+	}
+
+	/**
+	 * Porta ad annullato l'atto appena importato, nella stessa transazione: stato, voce automatica e voce con il motivo.
+	 *
+	 * L'atto annullato in Albo Pretorio On line non resta mai pubblicato con i
+	 * suoi documenti: la conferma viene dopo queste scritture, o non viene.
+	 * La concessione si rinnova per la sola scrittura dello stato, come
+	 * nell'annullamento.
+	 *
+	 * @param int                  $atto_id Atto.
+	 * @param array<string, mixed> $numero  Anno, numero, dettagli e annullamento.
+	 * @param string               $fine    Data di fine.
+	 * @return int|\WP_Error
+	 */
+	private static function annulla_importato( int $atto_id, array $numero, string $fine ) {
+		$campi = array( 'post_status' => ChiusuraPubblicazione::ANNULLATO );
+
+		self::$in_corso[ $atto_id ] = array(
+			'tipo'      => self::AZIONE_ANNULLAMENTO,
+			'gettone'   => bin2hex( random_bytes( 16 ) ),
+			'campi'     => $campi,
+			'usato'     => false,
+			'fine'      => null,
+			'rifiuto'   => self::$in_corso[ $atto_id ]['rifiuto'],
+			'importato' => true,
+		);
+
+		$esito = self::scrivi_stato( $atto_id, $campi );
+
+		if ( ! is_wp_error( $esito ) ) {
+			$esito = self::controlla_voce_automatica( $atto_id, 'rimozione', $numero['annullamento']['prima'] );
+		}
+
+		if ( is_wp_error( $esito ) ) {
+			return $esito;
+		}
+
+		return self::scrivi_voce(
+			array(
+				'sezione'     => SEZIONE,
+				'azione'      => self::AZIONE_ANNULLAMENTO,
+				'contenuto'   => $atto_id,
+				'motivazione' => $numero['annullamento']['motivo'],
+				'dettagli'    => array(
+					'anno'         => $numero['anno'],
+					'numero'       => $numero['numero'],
+					'fine'         => $fine,
+					'annullato_il' => $numero['annullamento']['il'],
+					'origine'      => self::ORIGINE_ANNULLAMENTO_IMPORTATO,
+				),
+				'chiave'      => SEZIONE . ':' . self::AZIONE_ANNULLAMENTO . ':' . $atto_id,
+			)
 		);
 	}
 
@@ -968,8 +1089,12 @@ final class Passaggi {
 	 * dell'atto: il registro e' solo in aggiunta, e una seconda copia
 	 * sull'atto sarebbe un dato in piu' da difendere.
 	 *
+	 * Per l'atto annullato in Albo Pretorio On line e importato, la data e'
+	 * quella scritta la', che ha solo il giorno: l'istante e' la sua
+	 * mezzanotte nell'ora del sito, e `giorno` lo dice.
+	 *
 	 * @param int $atto_id Atto.
-	 * @return array{motivo: string, istante: \DateTimeImmutable}|null
+	 * @return array{motivo: string, istante: \DateTimeImmutable, giorno: bool}|null
 	 */
 	public static function annullamento( int $atto_id ): ?array {
 		$voci = conformita_core_voci_registro(
@@ -984,10 +1109,93 @@ final class Passaggi {
 			return null;
 		}
 
+		$giorno = self::giorno_importato( $atto_id, $voci[0] );
+
+		// La provenienza non si verifica: la data non si legge, e non si sostituisce con l'istante della voce.
+		if ( false === $giorno ) {
+			return null;
+		}
+
+		if ( null !== $giorno ) {
+			return array(
+				'motivo'  => (string) $voci[0]['motivazione'],
+				'istante' => $giorno,
+				'giorno'  => true,
+			);
+		}
+
 		return array(
 			'motivo'  => (string) $voci[0]['motivazione'],
 			'istante' => $voci[0]['istante'],
+			'giorno'  => false,
 		);
+	}
+
+	/**
+	 * Un giorno scritto come AAAA-MM-GG, nell'ora del sito, oppure nulla.
+	 *
+	 * La forma si controlla prima di leggere la data: un testo con caratteri
+	 * nulli farebbe sollevare un'eccezione alla lettura invece di non valere.
+	 *
+	 * @param mixed $testo Valore fornito.
+	 * @return \DateTimeImmutable|null
+	 */
+	private static function giorno_dal_testo( $testo ): ?\DateTimeImmutable {
+		if ( ! is_string( $testo ) || 1 !== preg_match( '/\A[0-9]{4}-[0-9]{2}-[0-9]{2}\z/', $testo ) ) {
+			return null;
+		}
+
+		$giorno = \DateTimeImmutable::createFromFormat( '!Y-m-d', $testo, wp_timezone() );
+
+		return false !== $giorno && $giorno->format( 'Y-m-d' ) === $testo ? $giorno : null;
+	}
+
+	/**
+	 * Il giorno dell'annullamento in Albo Pretorio On line, se la voce e' quella scritta dall'importazione.
+	 *
+	 * Il dettaglio vale solo se la voce ne dichiara l'origine, se l'atto ha la
+	 * sua voce di importazione con la stessa data dell'annullamento, e se il
+	 * giorno non viene dopo la voce: un'altra voce con una data nei dettagli
+	 * si legge con il suo istante. Se la voce di importazione non si legge,
+	 * la provenienza non si sa: falso, e la data non si legge.
+	 *
+	 * @param int                  $atto_id Atto.
+	 * @param array<string, mixed> $voce    Voce dell'annullamento.
+	 * @return \DateTimeImmutable|false|null
+	 */
+	private static function giorno_importato( int $atto_id, array $voce ) {
+		$il = $voce['dettagli']['annullato_il'] ?? null;
+
+		if ( ! is_string( $il ) || self::ORIGINE_ANNULLAMENTO_IMPORTATO !== ( $voce['dettagli']['origine'] ?? null ) ) {
+			return null;
+		}
+
+		$giorno = self::giorno_dal_testo( $il );
+
+		if ( null === $giorno || $giorno > $voce['istante'] ) {
+			return null;
+		}
+
+		global $wpdb;
+
+		$importazione = conformita_core_voci_registro(
+			array(
+				'sezione'   => SEZIONE,
+				'contenuto' => $atto_id,
+				'azione'    => self::AZIONE_IMPORTAZIONE,
+			)
+		);
+
+		// Il meccanismo comune risponde con un elenco vuoto anche a una lettura fallita: l'errore si legge dalla connessione.
+		if ( ! is_array( $importazione ) || '' !== (string) $wpdb->last_error ) {
+			return false;
+		}
+
+		if ( 1 !== count( $importazione ) || ( $importazione[0]['dettagli']['annullamento'] ?? null ) !== $il ) {
+			return null;
+		}
+
+		return $giorno;
 	}
 
 	/**
@@ -2678,7 +2886,7 @@ final class Passaggi {
 				continue;
 			}
 
-			if ( 'post_name' === $colonna && '' === (string) $valore && self::pubblicazione_in_corso( $atto_id ) && '' !== (string) $nuovo ) {
+			if ( 'post_name' === $colonna && '' === (string) $valore && ( self::pubblicazione_in_corso( $atto_id ) || ! empty( self::$in_corso[ $atto_id ]['importato'] ) ) && '' !== (string) $nuovo ) {
 				continue;
 			}
 
