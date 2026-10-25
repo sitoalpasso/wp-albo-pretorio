@@ -2623,7 +2623,7 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 		$mandate     = array();
 
 		foreach ( $this->righe as $riga ) {
-			list( $nome, $valore )      = array_map( 'trim', explode( ':', $riga, 2 ) );
+			list( $nome, $valore )     = array_map( 'trim', explode( ':', $riga, 2 ) );
 			$mandate[ (string) $nome ] = (string) $valore;
 		}
 
@@ -2646,7 +2646,17 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			$this->assertFalse( $this->consegnato( $this->consegna( (int) DocumentiAtto::principale( $atto ) ) ), $atto . ': il documento non si scarica.' );
 		}
 
-		$this->assertNull( $this->rinvio( $this->indirizzo( array( 'action' => 'visatto', 'id' => '501' ) ) ), 'Il vecchio indirizzo non rinvia piu\'.' );
+		$this->assertNull(
+			$this->rinvio(
+				$this->indirizzo(
+					array(
+						'action' => 'visatto',
+						'id'     => '501',
+					)
+				)
+			),
+			'Il vecchio indirizzo non rinvia piu\'.'
+		);
 	}
 
 	/**
