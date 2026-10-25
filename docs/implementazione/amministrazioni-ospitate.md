@@ -116,8 +116,14 @@ e nessun ruolo nuovo.
   leggibile in questo momento" invece di tacere, perché tacere farebbe sembrare l'atto di
   questa amministrazione.
 - **Elenco cancellato o sostituito da fuori**: il prossimo numero viene anche dopo ogni numero
-  che un atto indica, così una voce nuova non prende mai il numero scelto da un atto per
-  un'altra amministrazione, e quell'atto resta fermo finché non si sceglie di nuovo.
+  che un atto indica e dopo ogni numero segnato nel registro, così una voce nuova non prende
+  mai il numero già dato a un'altra amministrazione, nemmeno se nessun atto l'ha ancora
+  scelto; un modulo aperto prima con quel numero non sceglie la voce nuova. Ogni numero si
+  segna nel registro con una chiave unica, e la banca dati rifiuta un numero già segnato.
+  Un registro che non si legge ferma il salvataggio.
+- **Salvataggio rifiutato a metà** (scrittura che non si conferma, numero già segnato,
+  lettura di conferma che fallisce): voci del registro ed elenco stanno in una transazione,
+  e il rifiuto torna indietro su tutto; l'elenco resta quello di prima.
 - **Due persone che salvano l'elenco insieme**: i salvataggi vanno in fila, dalla lettura
   alla scrittura confermata, con un blocco della banca dati; senza, due salvataggi
   sovrapposti darebbero lo stesso numero a due amministrazioni diverse. Dentro la fila, una
@@ -182,6 +188,15 @@ la riga nella scheda. Rinominare la voce: la scheda dell'atto pubblicato non cam
   viene anche dopo ogni numero che un atto indica. Il giro ha chiesto anche di legare alcune
   verifiche alla riga dell'atto giusto, invece di cercarle in tutta la pagina.
 
+- Il terzo giro ha visto che il pavimento sugli atti non basta: un numero dato a una voce e
+  non ancora scelto da nessun atto, con l'elenco cancellato, si poteva ridare, e un modulo
+  aperto prima l'avrebbe assegnato alla voce nuova. Ora ogni numero dato si segna nel
+  registro, che è solo in aggiunta, con una chiave unica per numero: il prossimo numero viene
+  dopo il più alto segnato, e la banca dati rifiuta un numero già segnato. Un registro che
+  non si legge ferma il salvataggio. E un salvataggio rifiutato dopo la scrittura lasciava
+  l'elenco cambiato: ora voci del registro ed elenco si scrivono in una transazione, e un
+  rifiuto torna indietro su tutto.
+
 Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 
 | Guasto | Prova caduta |
@@ -210,3 +225,8 @@ Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 | salvataggio annidato nella stessa richiesta accettato | A-253 |
 | numeri che ripartono da uno con l'elenco cancellato | A-253 |
 | nome nella riga sbagliata della consultazione riservata | A-250 |
+| numero dato e mai scelto ridato con l'elenco cancellato | A-253 |
+| numero dato non segnato nel registro | A-253 |
+| numero gia' segnato non rifiutato dalla chiave unica | A-253 |
+| registro illeggibile trattato come nessun numero dato | A-253 |
+| salvataggio rifiutato che lascia l'elenco cambiato | A-253 |

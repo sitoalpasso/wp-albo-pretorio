@@ -664,6 +664,97 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 		$this->assertWPError( $interno, 'Quello annidato si rifiuta.' );
 		$this->assertNotContains( 'Ente annidato', AmministrazioniOspitate::voci() );
 		$this->assertContains( 'Ente esterno', AmministrazioniOspitate::voci() );
+
+		// Un numero dato e mai scritto su un atto non si ridà nemmeno con l'elenco cancellato: lo ricorda il registro.
+		$this->aggiungi( 'Ente Alfa' );
+		$alfa   = $this->numero_di( 'Ente Alfa' );
+		$aperta = $this->atto_completo_senza_controllo( 'Bozza con il modulo aperto' );
+
+		delete_option( AmministrazioniOspitate::OPZIONE );
+		$this->aggiungi( 'Ente Beta' );
+
+		$this->assertGreaterThan( $alfa, $this->numero_di( 'Ente Beta' ), 'Il numero di Alfa non va a Beta.' );
+		$motivi = $this->invia_scheda( $aperta, (string) $alfa );
+		$this->assertStringContainsString( 'non e\' nell\'elenco', implode( ' ', $motivi ), 'Il modulo aperto prima non sceglie Beta con il numero di Alfa.' );
+		$this->assertSame( array(), get_post_meta( $aperta, AmministrazioniOspitate::META, false ) );
+
+		// Un salvataggio che non si conferma torna indietro su tutto: elenco e registro restano com'erano.
+		$prima     = get_option( AmministrazioniOspitate::OPZIONE );
+		$numeri    = count( conformita_core_voci_registro( array( 'azione' => AmministrazioniOspitate::AZIONE_NUMERO ) ) );
+		$altera    = static function ( $valore ) {
+			array_pop( $valore['voci'] );
+
+			return $valore;
+		};
+		$letture   = 0;
+		$cieca     = static function ( $istruzione ) use ( &$letture ) {
+			if ( false !== strpos( (string) $istruzione, AmministrazioniOspitate::OPZIONE ) && 0 === stripos( ltrim( (string) $istruzione ), 'SELECT' ) && 2 === ++$letture ) {
+				return 'SELECT * FROM tabella_che_non_esiste';
+			}
+
+			return $istruzione;
+		};
+		$suppressi = $GLOBALS['wpdb']->suppress_errors( true );
+
+		foreach ( array(
+			'scrittura alterata'               => array( 'pre_update_option_' . AmministrazioniOspitate::OPZIONE, $altera ),
+			'lettura di conferma che fallisce' => array( 'query', $cieca ),
+		) as $caso => list( $aggancio, $funzione ) ) {
+			$letture = 0;
+			add_filter( $aggancio, $funzione );
+
+			try {
+				$esito = AmministrazioniOspitate::salva( array(), array(), "Ente Gamma\nEnte Delta", $this->pubblicatore, Passaggi::ora() );
+			} finally {
+				remove_filter( $aggancio, $funzione );
+			}
+
+			$this->assertWPError( $esito, $caso . ': il salvataggio si rifiuta.' );
+			$this->assertSame( $prima, get_option( AmministrazioniOspitate::OPZIONE ), $caso . ': l\'elenco e\' quello di prima.' );
+			$this->assertCount( $numeri, conformita_core_voci_registro( array( 'azione' => AmministrazioniOspitate::AZIONE_NUMERO ) ), $caso . ': nessun numero segnato.' );
+		}
+
+		// Un registro che non si legge non vale come "nessun numero dato".
+		$registro_cieco = static function ( $istruzione ) {
+			if ( false !== strpos( (string) $istruzione, 'conformita_core_registro' ) && false !== strpos( (string) $istruzione, AmministrazioniOspitate::AZIONE_NUMERO ) && 0 === stripos( ltrim( (string) $istruzione ), 'SELECT' ) ) {
+				return 'SELECT * FROM tabella_che_non_esiste';
+			}
+
+			return $istruzione;
+		};
+
+		add_filter( 'query', $registro_cieco );
+
+		try {
+			$esito = AmministrazioniOspitate::salva( array(), array(), 'Ente Epsilon', $this->pubblicatore, Passaggi::ora() );
+		} finally {
+			remove_filter( 'query', $registro_cieco );
+			$GLOBALS['wpdb']->suppress_errors( $suppressi );
+		}
+
+		$this->assertWPError( $esito, 'Registro illeggibile: il salvataggio si rifiuta.' );
+		$this->assertSame( 'albo_ospitate_illeggibile', $esito->get_error_code() );
+		$this->assertSame( $prima, get_option( AmministrazioniOspitate::OPZIONE ), 'Registro illeggibile: l\'elenco e\' quello di prima.' );
+
+		// Un numero gia' segnato nel registro per un'altra strada si rifiuta dalla banca dati, con la chiave unica.
+		$this->assertTrue(
+			conformita_core_registra_voce(
+				array(
+					'sezione'     => \AlboPretorioPa\SEZIONE,
+					'azione'      => 'prova_numero_preso',
+					'motivazione' => 'Numero preso da un\'altra strada.',
+					'dettagli'    => array(),
+					'chiave'      => \AlboPretorioPa\SEZIONE . ':amministrazione_ospitata:' . $prima['prossimo'],
+				)
+			) > 0
+		);
+		$suppressi = $GLOBALS['wpdb']->suppress_errors( true );
+		$esito     = AmministrazioniOspitate::salva( array(), array(), 'Ente Zeta', $this->pubblicatore, Passaggi::ora() );
+		$GLOBALS['wpdb']->suppress_errors( $suppressi );
+
+		$this->assertWPError( $esito, 'Numero gia\' segnato: il salvataggio si rifiuta.' );
+		$this->assertSame( 'albo_ospitate_numero', $esito->get_error_code() );
+		$this->assertSame( $prima, get_option( AmministrazioniOspitate::OPZIONE ), 'Numero gia\' segnato: l\'elenco e\' quello di prima.' );
 	}
 
 	/**
@@ -877,7 +968,7 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 	 * voce nuova e l'ultimo cancellerebbe le aggiunte dell'altro.
 	 */
 	public function test_a256_salvataggi_sovrapposti(): void {
-		global $table_prefix;
+		global $wpdb, $table_prefix;
 
 		$processi  = 6;
 		$per_ogni  = 10;
@@ -989,7 +1080,9 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 				}
 			}
 
+			// I processi hanno confermato voci del registro fuori dalla transazione della prova: si tolgono a mano.
 			delete_option( AmministrazioniOspitate::OPZIONE );
+			$wpdb->query( $wpdb->prepare( 'DELETE FROM %i WHERE azione = %s', $wpdb->prefix . 'conformita_core_registro', AmministrazioniOspitate::AZIONE_NUMERO ) );
 			self::commit_transaction();
 
 			foreach ( (array) glob( $cartella . '/*' ) as $file ) {

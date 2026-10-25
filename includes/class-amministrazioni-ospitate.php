@@ -117,6 +117,13 @@ final class AmministrazioniOspitate {
 	const NUMERO_MASSIMO = 999999999;
 
 	/**
+	 * Azione della voce del registro che segna un numero di voce come dato.
+	 *
+	 * @var string
+	 */
+	const AZIONE_NUMERO = 'amministrazione_ospitata_numero';
+
+	/**
 	 * Un salvataggio dell'elenco e' in corso in questa richiesta.
 	 *
 	 * @var bool
@@ -347,14 +354,65 @@ final class AmministrazioniOspitate {
 		}
 
 		try {
-			return self::salva_in_fila( $nomi, $tolte, $nuove, $utente, $adesso );
+			return self::salva_in_transazione( $nomi, $tolte, $nuove, $utente, $adesso );
 		} finally {
 			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', $blocco ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- blocco della fila, non dati.
 		}
 	}
 
 	/**
-	 * Il salvataggio vero, con il blocco gia' preso.
+	 * Il salvataggio in una transazione: le voci del registro e l'elenco, tutto o niente.
+	 *
+	 * Se la scrittura non si conferma uguale a quella chiesta, o qualcosa
+	 * fallisce a meta', la banca dati torna indietro su tutto e la memoria si
+	 * svuota: un rifiuto non lascia un elenco cambiato. Con la scrittura
+	 * automatica spenta la connessione e' gia' in una transazione, e si usa
+	 * un punto di ripristino.
+	 *
+	 * @param mixed              $nomi   Nomi delle voci esistenti, per numero.
+	 * @param mixed              $tolte  Numeri delle voci da togliere.
+	 * @param mixed              $nuove  Voci nuove, un nome per riga.
+	 * @param int                $utente Chi salva.
+	 * @param \DateTimeImmutable $adesso Istante del salvataggio.
+	 * @return true|\WP_Error
+	 */
+	private static function salva_in_transazione( $nomi, $tolte, $nuove, int $utente, \DateTimeImmutable $adesso ) {
+		global $wpdb;
+
+		$automatica = $wpdb->get_var( 'SELECT @@autocommit' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- stato della connessione, non dati.
+		$modo       = array(
+			'1' => 'transazione',
+			'0' => 'punto',
+		)[ (string) $automatica ] ?? null;
+
+		$aperta = null === $automatica || null === $modo ? false : $wpdb->query( 'transazione' === $modo ? 'START TRANSACTION' : 'SAVEPOINT albo_pretorio_ospitate' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- istruzioni fisse della transazione.
+
+		if ( false === $aperta ) {
+			return self::errore( 'albo_ospitate_transazione', __( 'la banca dati non ha aperto la transazione che rende il salvataggio tutto o niente.', 'albo-pretorio-pa' ) );
+		}
+
+		$esito = new \WP_Error( 'albo_ospitate_non_scritto', '' );
+
+		try {
+			$esito = self::salva_in_fila( $nomi, $tolte, $nuove, $utente, $adesso );
+		} finally {
+			$chiusa = ! is_wp_error( $esito ) && false !== $wpdb->query( 'transazione' === $modo ? 'COMMIT' : 'RELEASE SAVEPOINT albo_pretorio_ospitate' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- istruzioni fisse della transazione.
+
+			if ( ! $chiusa ) {
+				$wpdb->query( 'transazione' === $modo ? 'ROLLBACK' : 'ROLLBACK TO SAVEPOINT albo_pretorio_ospitate' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- istruzioni fisse della transazione.
+				wp_cache_flush();
+
+				if ( ! is_wp_error( $esito ) ) {
+					$esito = self::errore( 'albo_ospitate_non_scritto', __( 'la banca dati non ha confermato la scrittura. Riprovare.', 'albo-pretorio-pa' ) );
+				}
+			}
+		}
+
+		return $esito;
+	}
+
+	/**
+	 * Il salvataggio vero, con il blocco gia' preso e la transazione aperta.
 	 *
 	 * @param mixed              $nomi   Nomi delle voci esistenti, per numero.
 	 * @param mixed              $tolte  Numeri delle voci da togliere.
@@ -391,7 +449,13 @@ final class AmministrazioniOspitate {
 			return self::errore( 'albo_ospitate_illeggibile', __( 'non si riesce a leggere quali numeri gli atti hanno gia\' scelto. Riprovare.', 'albo-pretorio-pa' ) );
 		}
 
-		$prossimo = max( $prossimo, $usato + 1 );
+		$dato = self::numero_piu_alto_dato();
+
+		if ( null === $dato ) {
+			return self::errore( 'albo_ospitate_illeggibile', __( 'non si riesce a leggere dal registro quali numeri sono gia\' stati dati. Riprovare.', 'albo-pretorio-pa' ) );
+		}
+
+		$prossimo = max( $prossimo, $usato + 1, $dato + 1 );
 
 		foreach ( $tolte as $numero ) {
 			$id = is_string( $numero ) && 1 === preg_match( '/^[1-9]\d{0,8}$/D', $numero ) ? (int) $numero : 0;
@@ -437,12 +501,15 @@ final class AmministrazioniOspitate {
 			return self::errore( 'albo_ospitate_nome', sprintf( __( 'fra le voci nuove, %s', 'albo-pretorio-pa' ), $aggiunte->get_error_message() ) );
 		}
 
+		$dati = array();
+
 		foreach ( $aggiunte as $nome ) {
 			if ( $prossimo > self::NUMERO_MASSIMO ) {
 				return self::errore( 'albo_ospitate_troppe', __( 'i numeri delle voci sono esauriti.', 'albo-pretorio-pa' ) );
 			}
 
 			$voci[ $prossimo ] = $nome;
+			$dati[ $prossimo ] = $nome;
 			++$prossimo;
 		}
 
@@ -482,6 +549,32 @@ final class AmministrazioniOspitate {
 			'istante'  => $adesso->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' ),
 		);
 
+		/*
+		 * Ogni numero dato si segna nel registro, che e' solo in aggiunta e
+		 * non dipende dall'elenco, con una chiave unica per numero: anche con
+		 * l'elenco cancellato da fuori e nessun atto che lo indichi ancora, la
+		 * banca dati rifiuta di dare due volte lo stesso numero.
+		 */
+		foreach ( $dati as $numero => $nome ) {
+			$segnato = conformita_core_registra_voce(
+				array(
+					'sezione'     => SEZIONE,
+					'azione'      => self::AZIONE_NUMERO,
+					'motivazione' => __( 'Voce aggiunta all\'elenco delle amministrazioni ospitate.', 'albo-pretorio-pa' ),
+					'dettagli'    => array(
+						'numero' => (int) $numero,
+						'nome'   => $nome,
+					),
+					'chiave'      => SEZIONE . ':amministrazione_ospitata:' . $numero,
+				)
+			);
+
+			if ( is_wp_error( $segnato ) ) {
+				/* translators: %s: motivo riportato dal registro. */
+				return self::errore( 'albo_ospitate_numero', sprintf( __( 'il numero della voce nuova non si e\' potuto segnare nel registro. %s', 'albo-pretorio-pa' ), $segnato->get_error_message() ) );
+			}
+		}
+
 		update_option( self::OPZIONE, $valore, true );
 
 		if ( self::impostazione() !== $valore ) {
@@ -489,6 +582,37 @@ final class AmministrazioniOspitate {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Il numero di voce piu' alto segnato nel registro, zero se nessuno, nullo se la lettura fallisce.
+	 *
+	 * @return int|null
+	 */
+	private static function numero_piu_alto_dato(): ?int {
+		global $wpdb;
+
+		$voci = conformita_core_voci_registro(
+			array(
+				'sezione'    => SEZIONE,
+				'azione'     => self::AZIONE_NUMERO,
+				'ordine'     => 'decrescente',
+				'per_pagina' => 1,
+			)
+		);
+
+		// Il meccanismo comune risponde con un elenco vuoto anche a una lettura fallita: l'errore si legge dalla connessione.
+		if ( ! is_array( $voci ) || '' !== (string) $wpdb->last_error ) {
+			return null;
+		}
+
+		if ( array() === $voci ) {
+			return 0;
+		}
+
+		$numero = $voci[0]['dettagli']['numero'] ?? null;
+
+		return is_int( $numero ) && $numero > 0 ? $numero : null;
 	}
 
 	/**
