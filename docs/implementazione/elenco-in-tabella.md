@@ -111,7 +111,8 @@ Righe A-195, A-196, A-203 riviste e A-218, A-219 nuove di `collaudo.md`, in
   tipo di atto, e un numero che sembra la durata senza esserlo su una pagina che produce
   effetti legali crea più dubbi di quanti ne risolve.
 - **Non mostra l'amministrazione** che ha chiesto la pubblicazione di un atto ospitato
-  (ALBO-29): arriva con quell'unità, e allora potrà entrare nella riga.
+  (ALBO-29): arriva con quell'unità, poi fatta in
+  [`amministrazioni-ospitate.md`](amministrazioni-ospitate.md), che la mette sotto l'oggetto.
 - **Non aggiunge pulsanti di condivisione**: la pagina è fuori dai motori di ricerca e gli
   atti contengono dati di persone; spingerli fuori dall'albo non è il suo compito.
 

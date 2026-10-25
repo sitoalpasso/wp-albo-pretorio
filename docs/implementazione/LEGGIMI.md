@@ -78,3 +78,7 @@ Schede presenti:
 - [`effetto-rimozione.md`](effetto-rimozione.md): dopo una defissione anticipata,
   l'amministrazione dichiara una volta sola se la pubblicazione vale per il periodo
   trascorso o va rifatta, senza valore preselezionato. Righe di collaudo A-243..A-248.
+- [`amministrazioni-ospitate.md`](amministrazioni-ospitate.md): l'elenco delle
+  amministrazioni per cui l'albo pubblica, la scelta senza preselezione sull'atto quando
+  l'elenco ha voci, e il nome fissato alla pubblicazione e mostrato al pubblico. Righe di
+  collaudo A-249..A-255.
