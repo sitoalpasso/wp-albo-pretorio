@@ -355,7 +355,9 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 		$this->assertStringNotContainsString( 'Atto di:', $elenco );
 		$this->assertStringNotContainsString( 'albo-pretorio__amministrazione', $elenco );
 		$this->assertArrayNotHasKey( AmministrazioniOspitate::etichetta(), $this->scheda( $id ) );
-		$this->assertStringNotContainsString( 'Atto di:', $this->disegnata( array( VistaPubblica::CAMPO_TESTO => 'elenco vuoto' ) ) );
+		$ricerca = $this->disegnata( array( VistaPubblica::CAMPO_TESTO => 'elenco vuoto' ) );
+		$this->assertNotNull( $this->riga( $ricerca, $id ), 'Precondizione: la ricerca trova l\'atto.' );
+		$this->assertStringNotContainsString( 'Atto di:', $ricerca );
 
 		// Controllo: sullo stesso assetto con una voce nell'elenco la scelta compare.
 		$this->aggiungi( self::OSPITATA );
@@ -408,6 +410,7 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 		);
 
 		$elenco = $this->disegnata();
+		$this->assertNotNull( $this->riga( $elenco, $questa ), 'Precondizione: l\'atto di questa amministrazione e\' in elenco.' );
 		$this->assertStringContainsString( 'Atto di: ' . self::OSPITATA, (string) $this->riga( $elenco, $altra ), 'In elenco.' );
 		$this->assertStringNotContainsString( 'Atto di:', (string) $this->riga( $elenco, $questa ) );
 		$this->assertSame( self::OSPITATA, $this->scheda( $altra )[ AmministrazioniOspitate::etichetta() ], 'Nella scheda.' );
@@ -424,8 +427,15 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 		SchermataScaduti::mostra();
 		$riservata                 = (string) ob_get_clean();
 		$GLOBALS['current_screen'] = null;
-		$this->assertStringContainsString( 'data-atto="' . $altra . '"', $riservata, 'Precondizione: l\'atto scaduto e\' in elenco.' );
-		$this->assertStringContainsString( self::OSPITATA, $riservata );
+		$righe                     = array();
+
+		foreach ( array( $altra, $questa ) as $atto ) {
+			$this->assertSame( 1, preg_match( '#<tr data-atto="' . $atto . '">(.*?)</tr>#s', $riservata, $trovata ), 'Precondizione: l\'atto scaduto ' . $atto . ' e\' in elenco.' );
+			$righe[ $atto ] = html_entity_decode( $trovata[1], ENT_QUOTES, 'UTF-8' );
+		}
+
+		$this->assertStringContainsString( self::OSPITATA, $righe[ $altra ], 'Il nome sta nella riga dell\'atto ospitato.' );
+		$this->assertStringNotContainsString( self::OSPITATA, $righe[ $questa ], 'E non in quella dell\'atto di questa amministrazione.' );
 	}
 
 	/**
@@ -617,6 +627,43 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 		$this->aggiungi( 'Consorzio arrivato dopo' );
 		$this->assertWPError( $this->pubblica_da_codice( $senza, $this->pubblicatore ) );
 		$this->assertSame( 'pending', get_post_status( $senza ) );
+
+		// L'elenco cancellato da fuori non fa ripartire i numeri: la voce nuova non prende quello che un atto ha gia' scelto.
+		$consorzio = $this->numero_di( 'Consorzio arrivato dopo' );
+		$scelto    = $this->in_verifica_con( 'In verifica prima della cancellazione', (string) $consorzio );
+		$this->assertSame( 'pending', get_post_status( $scelto ), 'Precondizione: in verifica con la voce.' );
+
+		delete_option( AmministrazioniOspitate::OPZIONE );
+		$this->aggiungi( 'Ente arrivato dopo la cancellazione' );
+
+		$this->assertGreaterThan( $consorzio, $this->numero_di( 'Ente arrivato dopo la cancellazione' ), 'Il numero nuovo viene dopo quelli che gli atti indicano.' );
+		$this->assertWPError( $this->pubblica_da_codice( $scelto, $this->pubblicatore ), 'L\'atto non passa all\'amministrazione nuova.' );
+		$this->assertNull( Repertorio::di( $scelto ) );
+
+		// Un salvataggio chiamato dentro un salvataggio si rifiuta, e il numero non si da' due volte.
+		$interno  = null;
+		$chiamato = false;
+		$dentro   = function ( $valore ) use ( &$interno, &$chiamato ) {
+			if ( ! $chiamato ) {
+				$chiamato = true;
+				$interno  = AmministrazioniOspitate::salva( array(), array(), 'Ente annidato', $this->pubblicatore, Passaggi::ora() );
+			}
+
+			return $valore;
+		};
+
+		add_filter( 'pre_update_option_' . AmministrazioniOspitate::OPZIONE, $dentro );
+
+		try {
+			$esterno = AmministrazioniOspitate::salva( array(), array(), 'Ente esterno', $this->pubblicatore, Passaggi::ora() );
+		} finally {
+			remove_filter( 'pre_update_option_' . AmministrazioniOspitate::OPZIONE, $dentro );
+		}
+
+		$this->assertTrue( $esterno, 'Il salvataggio esterno riesce.' );
+		$this->assertWPError( $interno, 'Quello annidato si rifiuta.' );
+		$this->assertNotContains( 'Ente annidato', AmministrazioniOspitate::voci() );
+		$this->assertContains( 'Ente esterno', AmministrazioniOspitate::voci() );
 	}
 
 	/**

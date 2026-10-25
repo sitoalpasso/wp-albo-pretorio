@@ -115,6 +115,9 @@ e nessun ruolo nuovo.
 - **Voce di conferma che non si legge**, per un atto ospitato pubblicato: la pagina dice "non
   leggibile in questo momento" invece di tacere, perché tacere farebbe sembrare l'atto di
   questa amministrazione.
+- **Elenco cancellato o sostituito da fuori**: il prossimo numero viene anche dopo ogni numero
+  che un atto indica, così una voce nuova non prende mai il numero scelto da un atto per
+  un'altra amministrazione, e quell'atto resta fermo finché non si sceglie di nuovo.
 - **Due persone che salvano l'elenco insieme**: i salvataggi vanno in fila, dalla lettura
   alla scrittura confermata, con un blocco della banca dati; senza, due salvataggi
   sovrapposti darebbero lo stesso numero a due amministrazioni diverse. Dentro la fila, una
@@ -171,6 +174,14 @@ la riga nella scheda. Rinominare la voce: la scheda dell'atto pubblicato non cam
   dell'elenco fallita valeva come elenco mai salvato. Ora l'elenco si legge una volta per
   controllo, fresco dalla banca dati, e la scelta storta si distingue da quella assente.
 
+- Il secondo giro ne ha trovati altri due, più rari. Il blocco della banca dati vale per la
+  connessione, e un salvataggio chiamato da un aggancio del primo lo riprendeva senza
+  attendere: ora un salvataggio annidato nella stessa richiesta si rifiuta. E un elenco
+  cancellato da fuori faceva ripartire i numeri da uno, così una voce nuova poteva prendere il
+  numero che un atto aveva già scelto per un'altra amministrazione: ora il prossimo numero
+  viene anche dopo ogni numero che un atto indica. Il giro ha chiesto anche di legare alcune
+  verifiche alla riga dell'atto giusto, invece di cercarle in tutta la pagina.
+
 Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 
 | Guasto | Prova caduta |
@@ -196,3 +207,6 @@ Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 | lettura fallita dell'elenco trattata come elenco mai salvato | A-254 |
 | nome preso da una seconda lettura dell'elenco | A-254 |
 | salvataggi dell'elenco senza fila | A-256 |
+| salvataggio annidato nella stessa richiesta accettato | A-253 |
+| numeri che ripartono da uno con l'elenco cancellato | A-253 |
+| nome nella riga sbagliata della consultazione riservata | A-250 |

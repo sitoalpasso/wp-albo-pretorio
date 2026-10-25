@@ -117,6 +117,13 @@ final class AmministrazioniOspitate {
 	const NUMERO_MASSIMO = 999999999;
 
 	/**
+	 * Un salvataggio dell'elenco e' in corso in questa richiesta.
+	 *
+	 * @var bool
+	 */
+	private static $in_salvataggio = false;
+
+	/**
 	 * Dichiara il dato dell'atto a WordPress, protetto e senza esposizione per programmi.
 	 *
 	 * @return bool
@@ -303,6 +310,38 @@ final class AmministrazioniOspitate {
 		 */
 		$blocco = substr( $wpdb->prefix, 0, 40 ) . 'albo_ospitate';
 
+		/*
+		 * Il blocco della banca dati vale per la connessione, e la stessa
+		 * connessione lo riprende senza attendere: un salvataggio chiamato da
+		 * un aggancio di questo salvataggio passerebbe. Si rifiuta qui.
+		 */
+		if ( self::$in_salvataggio ) {
+			return self::errore( 'albo_ospitate_occupato', __( 'un salvataggio dell\'elenco e\' gia\' in corso in questa richiesta.', 'albo-pretorio-pa' ) );
+		}
+
+		self::$in_salvataggio = true;
+
+		try {
+			return self::salva_bloccando( $blocco, $nomi, $tolte, $nuove, $utente, $adesso );
+		} finally {
+			self::$in_salvataggio = false;
+		}
+	}
+
+	/**
+	 * Prende il blocco, salva e lo lascia.
+	 *
+	 * @param string             $blocco Nome del blocco.
+	 * @param mixed              $nomi   Nomi delle voci esistenti, per numero.
+	 * @param mixed              $tolte  Numeri delle voci da togliere.
+	 * @param mixed              $nuove  Voci nuove, un nome per riga.
+	 * @param int                $utente Chi salva.
+	 * @param \DateTimeImmutable $adesso Istante del salvataggio.
+	 * @return true|\WP_Error
+	 */
+	private static function salva_bloccando( string $blocco, $nomi, $tolte, $nuove, int $utente, \DateTimeImmutable $adesso ) {
+		global $wpdb;
+
 		if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK( %s, %d )', $blocco, self::ATTESA_BLOCCO ) ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- blocco della fila, non dati.
 			return self::errore( 'albo_ospitate_occupato', __( 'qualcun altro sta salvando l\'elenco in questo momento. Riprovare fra poco.', 'albo-pretorio-pa' ) );
 		}
@@ -338,6 +377,21 @@ final class AmministrazioniOspitate {
 		$impostazione = $fotografia['impostazione'];
 		$voci         = self::voci_di( $fotografia );
 		$prossimo     = null === $impostazione ? 1 : $impostazione['prossimo'];
+
+		/*
+		 * Il prossimo numero viene anche dopo ogni numero che un atto indica: se
+		 * l'elenco fosse cancellato o sostituito da fuori, ricominciare da uno
+		 * darebbe a un'amministrazione nuova il numero che un atto ha gia'
+		 * scelto per un'altra, e l'atto cambierebbe autore senza che nessuno
+		 * lo scelga.
+		 */
+		$usato = self::numero_piu_alto_sugli_atti();
+
+		if ( null === $usato ) {
+			return self::errore( 'albo_ospitate_illeggibile', __( 'non si riesce a leggere quali numeri gli atti hanno gia\' scelto. Riprovare.', 'albo-pretorio-pa' ) );
+		}
+
+		$prossimo = max( $prossimo, $usato + 1 );
 
 		foreach ( $tolte as $numero ) {
 			$id = is_string( $numero ) && 1 === preg_match( '/^[1-9]\d{0,8}$/D', $numero ) ? (int) $numero : 0;
@@ -435,6 +489,23 @@ final class AmministrazioniOspitate {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Il numero di voce piu' alto che un atto indica, zero se nessuno, nullo se la lettura fallisce.
+	 *
+	 * @return int|null
+	 */
+	private static function numero_piu_alto_sugli_atti(): ?int {
+		global $wpdb;
+
+		$piu_alto = $wpdb->get_var( $wpdb->prepare( "SELECT MAX( CAST( meta_value AS UNSIGNED ) ) FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value REGEXP %s", self::META, '^[1-9][0-9]{0,8}$' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lettura fresca dentro la fila dei salvataggi.
+
+		if ( '' !== $wpdb->last_error ) {
+			return null;
+		}
+
+		return null === $piu_alto ? 0 : (int) $piu_alto;
 	}
 
 	/**
