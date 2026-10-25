@@ -75,6 +75,34 @@ final class AmministrazioniOspitate {
 	const DETTAGLIO_VOCE = 'amministrazione_voce';
 
 	/**
+	 * Esito della lettura dell'elenco: mai salvato.
+	 *
+	 * @var string
+	 */
+	const ASSENTE = 'assente';
+
+	/**
+	 * Esito della lettura dell'elenco: letto e nella forma giusta.
+	 *
+	 * @var string
+	 */
+	const VALIDA = 'valida';
+
+	/**
+	 * Esito della lettura dell'elenco: la banca dati non ha risposto, o il valore ha un'altra forma.
+	 *
+	 * @var string
+	 */
+	const ILLEGGIBILE = 'illeggibile';
+
+	/**
+	 * Attesa massima, in secondi, del blocco che mette in fila i salvataggi dell'elenco.
+	 *
+	 * @var int
+	 */
+	const ATTESA_BLOCCO = 5;
+
+	/**
 	 * Voci massime dell'elenco.
 	 *
 	 * @var int
@@ -113,13 +141,63 @@ final class AmministrazioniOspitate {
 	}
 
 	/**
+	 * L'elenco come sta adesso nella banca dati: assente, valido o illeggibile.
+	 *
+	 * **Si legge dalla banca dati a ogni chiamata**, senza la memoria delle
+	 * opzioni di WordPress, per due ragioni. `get_option()` risponde con il
+	 * valore predefinito sia quando l'opzione non c'e' sia quando la lettura
+	 * fallisce, e una lettura fallita scambiata per "nessun elenco" farebbe
+	 * passare un atto ospitato come atto di questa amministrazione; qui
+	 * l'errore della banca dati si vede e vale come elenco illeggibile. E la
+	 * memoria di una richiesta non vede il salvataggio fatto nel frattempo da
+	 * un'altra: chi controlla e poi prende il nome deve farlo su una lettura
+	 * sola, e fresca.
+	 *
+	 * @return array{esito: string, impostazione: array<string, mixed>|null}
+	 */
+	public static function fotografia(): array {
+		global $wpdb;
+
+		$righe = $wpdb->get_col( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", self::OPZIONE ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lettura fresca che distingue l'errore dall'assenza, vedi sopra.
+
+		if ( '' !== $wpdb->last_error || ! is_array( $righe ) || count( $righe ) > 1 ) {
+			return array(
+				'esito'        => self::ILLEGGIBILE,
+				'impostazione' => null,
+			);
+		}
+
+		if ( array() === $righe ) {
+			return array(
+				'esito'        => self::ASSENTE,
+				'impostazione' => null,
+			);
+		}
+
+		$impostazione = self::controlla( maybe_unserialize( $righe[0] ) );
+
+		return array(
+			'esito'        => null === $impostazione ? self::ILLEGGIBILE : self::VALIDA,
+			'impostazione' => $impostazione,
+		);
+	}
+
+	/**
 	 * L'impostazione salvata, controllata, o nulla se manca o non si legge.
 	 *
 	 * @return array{voci: array<int, array{id: int, nome: string}>, prossimo: int, utente: int, istante: string}|null
 	 */
 	public static function impostazione(): ?array {
-		$valore = get_option( self::OPZIONE, null );
+		return self::fotografia()['impostazione'];
+	}
 
+	/**
+	 * Il valore letto se ha la forma dell'impostazione, oppure nullo.
+	 *
+	 * @param mixed $valore Valore letto.
+	 * @return array{voci: array<int, array{id: int, nome: string}>, prossimo: int, utente: int, istante: string}|null
+	 */
+	private static function controlla( $valore ): ?array {
 		if ( ! is_array( $valore ) || array_keys( $valore ) !== array( 'voci', 'prossimo', 'utente', 'istante' ) ) {
 			return null;
 		}
@@ -172,10 +250,19 @@ final class AmministrazioniOspitate {
 	 * @return array<int, string>
 	 */
 	public static function voci(): array {
-		$impostazione = self::impostazione();
-		$voci         = array();
+		return self::voci_di( self::fotografia() );
+	}
 
-		foreach ( null === $impostazione ? array() : $impostazione['voci'] as $voce ) {
+	/**
+	 * Le voci di una fotografia dell'elenco, per numero.
+	 *
+	 * @param array{esito: string, impostazione: array<string, mixed>|null} $fotografia Fotografia.
+	 * @return array<int, string>
+	 */
+	private static function voci_di( array $fotografia ): array {
+		$voci = array();
+
+		foreach ( null === $fotografia['impostazione'] ? array() : $fotografia['impostazione']['voci'] as $voce ) {
 			$voci[ $voce['id'] ] = $voce['nome'];
 		}
 
@@ -183,12 +270,12 @@ final class AmministrazioniOspitate {
 	}
 
 	/**
-	 * Se l'impostazione e' stata scritta ma non si legge.
+	 * Se l'elenco non si legge: la banca dati non risponde, o e' stato scritto in un'altra forma.
 	 *
 	 * @return bool
 	 */
 	public static function illeggibile(): bool {
-		return null !== get_option( self::OPZIONE, null ) && null === self::impostazione();
+		return self::ILLEGGIBILE === self::fotografia()['esito'];
 	}
 
 	/**
@@ -206,7 +293,41 @@ final class AmministrazioniOspitate {
 	 * @return true|\WP_Error
 	 */
 	public static function salva( $nomi, $tolte, $nuove, int $utente, \DateTimeImmutable $adesso ) {
-		if ( self::illeggibile() ) {
+		global $wpdb;
+
+		/*
+		 * I salvataggi vanno in fila, dalla lettura alla scrittura confermata:
+		 * due salvataggi sovrapposti leggerebbero lo stesso numero per la voce
+		 * nuova e lo darebbero a due amministrazioni diverse, e il secondo
+		 * cancellerebbe le aggiunte e le tolte del primo.
+		 */
+		$blocco = substr( $wpdb->prefix, 0, 40 ) . 'albo_ospitate';
+
+		if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK( %s, %d )', $blocco, self::ATTESA_BLOCCO ) ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- blocco della fila, non dati.
+			return self::errore( 'albo_ospitate_occupato', __( 'qualcun altro sta salvando l\'elenco in questo momento. Riprovare fra poco.', 'albo-pretorio-pa' ) );
+		}
+
+		try {
+			return self::salva_in_fila( $nomi, $tolte, $nuove, $utente, $adesso );
+		} finally {
+			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', $blocco ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- blocco della fila, non dati.
+		}
+	}
+
+	/**
+	 * Il salvataggio vero, con il blocco gia' preso.
+	 *
+	 * @param mixed              $nomi   Nomi delle voci esistenti, per numero.
+	 * @param mixed              $tolte  Numeri delle voci da togliere.
+	 * @param mixed              $nuove  Voci nuove, un nome per riga.
+	 * @param int                $utente Chi salva.
+	 * @param \DateTimeImmutable $adesso Istante del salvataggio.
+	 * @return true|\WP_Error
+	 */
+	private static function salva_in_fila( $nomi, $tolte, $nuove, int $utente, \DateTimeImmutable $adesso ) {
+		$fotografia = self::fotografia();
+
+		if ( self::ILLEGGIBILE === $fotografia['esito'] ) {
 			return self::errore( 'albo_ospitate_illeggibile', __( 'l\'elenco salvato non si legge, e salvarlo sopra perderebbe le voci che gli atti indicano. Va ripristinato dalla banca dati.', 'albo-pretorio-pa' ) );
 		}
 
@@ -214,8 +335,8 @@ final class AmministrazioniOspitate {
 			return self::errore( 'albo_ospitate_invio', __( 'l\'invio non ha la forma della schermata. Ricaricare la pagina e riprovare.', 'albo-pretorio-pa' ) );
 		}
 
-		$impostazione = self::impostazione();
-		$voci         = self::voci();
+		$impostazione = $fotografia['impostazione'];
+		$voci         = self::voci_di( $fotografia );
 		$prossimo     = null === $impostazione ? 1 : $impostazione['prossimo'];
 
 		foreach ( $tolte as $numero ) {
@@ -360,6 +481,42 @@ final class AmministrazioniOspitate {
 	}
 
 	/**
+	 * La scelta scritta sull'atto, come si legge: assente, un valore, oppure storta.
+	 *
+	 * **Assente e storta non sono la stessa cosa.** Assente vuol dire che
+	 * nessuno ha mai scelto; storta vuol dire che sull'atto c'e' qualcosa che
+	 * non si legge come una scelta (zeri davanti, spazi, due righe, un numero
+	 * troppo lungo), e non si puo' presumere che fosse "questa
+	 * amministrazione": l'atto si ferma anche a elenco vuoto, finche' non si
+	 * sceglie di nuovo.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return array{esito: string, id: int|null}
+	 */
+	public static function scelta_letta( int $atto_id ): array {
+		$righe = get_post_meta( $atto_id, self::META, false );
+
+		if ( ! is_array( $righe ) || array() === $righe ) {
+			return array(
+				'esito' => self::ASSENTE,
+				'id'    => null,
+			);
+		}
+
+		if ( 1 !== count( $righe ) || ! is_string( $righe[0] ) || 1 !== preg_match( '/^(0|[1-9]\d{0,8})$/D', $righe[0] ) ) {
+			return array(
+				'esito' => self::ILLEGGIBILE,
+				'id'    => null,
+			);
+		}
+
+		return array(
+			'esito' => self::VALIDA,
+			'id'    => (int) $righe[0],
+		);
+	}
+
+	/**
 	 * La scelta scritta sull'atto: zero, il numero di una voce, oppure nullo se manca o non si legge.
 	 *
 	 * Non dice se la voce c'e' ancora: lo dice `scelta_valida()`.
@@ -368,13 +525,7 @@ final class AmministrazioniOspitate {
 	 * @return int|null
 	 */
 	public static function scelta( int $atto_id ): ?int {
-		$righe = get_post_meta( $atto_id, self::META, false );
-
-		if ( 1 !== count( $righe ) || ! is_string( $righe[0] ) || 1 !== preg_match( '/^(0|[1-9]\d{0,8})$/D', $righe[0] ) ) {
-			return null;
-		}
-
-		return (int) $righe[0];
+		return self::scelta_letta( $atto_id )['id'];
 	}
 
 	/**
@@ -394,47 +545,68 @@ final class AmministrazioniOspitate {
 	}
 
 	/**
-	 * Se la domanda va posta per questo atto: l'elenco ha voci, oppure l'atto indica una voce.
+	 * Se la domanda va posta per questo atto.
 	 *
-	 * Il secondo caso e' l'elenco svuotato dopo la scelta: senza la domanda chi
-	 * redige non potrebbe correggere un atto che non va piu' avanti. Con
-	 * l'elenco che non si legge la domanda c'e', con la sola risposta "questa
-	 * amministrazione".
+	 * L'elenco ha voci; oppure l'elenco non si legge, e allora la domanda c'e'
+	 * con la sola risposta "questa amministrazione"; oppure l'atto indica una
+	 * voce o porta una scelta storta. Gli ultimi due casi valgono anche a
+	 * elenco vuoto: senza la domanda chi redige non potrebbe correggere un atto
+	 * che non va piu' avanti.
 	 *
 	 * @param int $atto_id Atto.
 	 * @return bool
 	 */
 	public static function da_chiedere( int $atto_id ): bool {
-		$scelta = self::scelta( $atto_id );
+		$fotografia = self::fotografia();
+		$scelta     = self::scelta_letta( $atto_id );
 
-		return array() !== self::voci() || self::illeggibile() || ( null !== $scelta && self::QUESTA !== $scelta );
+		return array() !== self::voci_di( $fotografia )
+			|| self::ILLEGGIBILE === $fotografia['esito']
+			|| self::ILLEGGIBILE === $scelta['esito']
+			|| ( self::VALIDA === $scelta['esito'] && self::QUESTA !== $scelta['id'] );
 	}
 
 	/**
 	 * Il motivo per cui l'atto non puo' andare avanti, o nullo.
 	 *
-	 * Manca la scelta quando l'elenco ha voci e l'atto non ne indica una valida,
-	 * e quando l'atto indica una voce che non c'e' piu', anche a elenco vuoto:
-	 * pubblicarlo come atto di questa amministrazione cambierebbe l'autore che
-	 * chi redige ha indicato. Un elenco che non si legge non si indovina:
-	 * passa solo l'atto che chi redige ha indicato come di questa
-	 * amministrazione.
-	 *
 	 * @param int $atto_id Atto.
 	 * @return string|null
 	 */
 	public static function manca( int $atto_id ): ?string {
-		$scelta = self::scelta( $atto_id );
+		return self::motivo( self::fotografia(), self::scelta_letta( $atto_id ) );
+	}
 
-		if ( self::illeggibile() && self::QUESTA !== $scelta ) {
+	/**
+	 * Il motivo per cui una scelta non basta con una fotografia dell'elenco, o nullo.
+	 *
+	 * Manca la scelta quando sull'atto c'e' una scelta storta, anche a elenco
+	 * vuoto; quando l'atto indica una voce che non c'e' piu', anche a elenco
+	 * vuoto, perche' pubblicarlo come atto di questa amministrazione
+	 * cambierebbe l'autore che chi redige ha indicato; quando l'elenco ha voci
+	 * e l'atto non ne indica nessuna. Un elenco che non si legge non si
+	 * indovina: passa solo l'atto indicato come di questa amministrazione.
+	 *
+	 * @param array{esito: string, impostazione: array<string, mixed>|null} $fotografia Fotografia dell'elenco.
+	 * @param array{esito: string, id: int|null}                            $scelta     Scelta letta sull'atto.
+	 * @return string|null
+	 */
+	private static function motivo( array $fotografia, array $scelta ): ?string {
+		$voci   = self::voci_di( $fotografia );
+		$questa = self::VALIDA === $scelta['esito'] && self::QUESTA === $scelta['id'];
+
+		if ( self::ILLEGGIBILE === $scelta['esito'] ) {
+			return __( 'La scelta dell\'amministrazione che ha adottato l\'atto non si legge: va fatta di nuovo.', 'albo-pretorio-pa' );
+		}
+
+		if ( self::ILLEGGIBILE === $fotografia['esito'] && ! $questa ) {
 			return __( 'L\'elenco delle amministrazioni ospitate non si legge, quindi non si sa se l\'atto e\' di un\'altra amministrazione. Si puo\' indicare che e\' di questa amministrazione, oppure aspettare che l\'elenco sia ripristinato.', 'albo-pretorio-pa' );
 		}
 
-		if ( null !== $scelta && self::QUESTA !== $scelta && ! isset( self::voci()[ $scelta ] ) ) {
+		if ( self::VALIDA === $scelta['esito'] && ! $questa && ! isset( $voci[ $scelta['id'] ] ) ) {
 			return __( 'L\'amministrazione indicata come autrice dell\'atto non e\' piu\' nell\'elenco delle amministrazioni ospitate: va scelta di nuovo.', 'albo-pretorio-pa' );
 		}
 
-		if ( array() !== self::voci() && null === self::scelta_valida( $atto_id ) ) {
+		if ( array() !== $voci && self::ASSENTE === $scelta['esito'] ) {
 			return __( 'Manca l\'amministrazione che ha adottato l\'atto: va scelto se e\' di questa amministrazione o di una di quelle ospitate.', 'albo-pretorio-pa' );
 		}
 
@@ -444,33 +616,32 @@ final class AmministrazioniOspitate {
 	/**
 	 * I dettagli per la voce di conferma della pubblicazione: il nome si fissa qui.
 	 *
-	 * **Si rifa' il controllo sulla stessa lettura dell'elenco da cui si
-	 * prende il nome**, e non ci si fida di quello fatto prima: fra i due
-	 * un'altra richiesta puo' togliere la voce, e l'atto ospitato uscirebbe
-	 * come atto di questa amministrazione. Il nome si legge una volta sola e
-	 * la pubblicazione lo scrive cosi'.
+	 * **Il controllo e il nome vengono dalla stessa lettura dell'elenco e
+	 * della scelta**, fatta qui e non prima: fra un controllo fatto prima e
+	 * questo momento un'altra richiesta puo' togliere la voce, e l'atto
+	 * ospitato uscirebbe come atto di questa amministrazione. Una voce assente
+	 * dalla lettura e' sempre un rifiuto, mai lo zero.
 	 *
 	 * @param int $atto_id Atto.
 	 * @return array<string, string|int>|\WP_Error
 	 */
 	public static function per_registro( int $atto_id ) {
-		$manca = self::manca( $atto_id );
+		$fotografia = self::fotografia();
+		$scelta     = self::scelta_letta( $atto_id );
+		$motivo     = self::motivo( $fotografia, $scelta );
 
-		if ( null !== $manca ) {
+		if ( null !== $motivo ) {
 			return new \WP_Error(
 				'albo_manca_amministrazione',
 				sprintf(
 					/* translators: %s: il motivo. */
 					__( 'L\'atto resta in verifica e non si pubblica. %s', 'albo-pretorio-pa' ),
-					$manca
+					$motivo
 				)
 			);
 		}
 
-		$scelta = self::scelta( $atto_id );
-		$voci   = self::voci();
-
-		if ( null === $scelta || self::QUESTA === $scelta || ! isset( $voci[ $scelta ] ) ) {
+		if ( self::ASSENTE === $scelta['esito'] || self::QUESTA === $scelta['id'] ) {
 			return array(
 				self::DETTAGLIO_NOME => '',
 				self::DETTAGLIO_VOCE => self::QUESTA,
@@ -478,8 +649,8 @@ final class AmministrazioniOspitate {
 		}
 
 		return array(
-			self::DETTAGLIO_NOME => $voci[ $scelta ],
-			self::DETTAGLIO_VOCE => $scelta,
+			self::DETTAGLIO_NOME => self::voci_di( $fotografia )[ $scelta['id'] ],
+			self::DETTAGLIO_VOCE => (int) $scelta['id'],
 		);
 	}
 
@@ -495,9 +666,12 @@ final class AmministrazioniOspitate {
 	 * @return array{nome: string, leggibile: bool, fissato: bool}|null
 	 */
 	public static function di_atto( int $atto_id ): ?array {
-		$scelta = self::scelta( $atto_id );
+		$letta  = self::scelta_letta( $atto_id );
+		$scelta = $letta['id'];
+		$storta = self::ILLEGGIBILE === $letta['esito'];
 
-		if ( null === $scelta || self::QUESTA === $scelta ) {
+		// Una scelta storta non si presume di questa amministrazione: si dice che non si legge.
+		if ( ! $storta && ( null === $scelta || self::QUESTA === $scelta ) ) {
 			return null;
 		}
 
@@ -505,8 +679,8 @@ final class AmministrazioniOspitate {
 			$voci = self::voci();
 
 			return array(
-				'nome'      => $voci[ $scelta ] ?? '',
-				'leggibile' => isset( $voci[ $scelta ] ),
+				'nome'      => $storta ? '' : ( $voci[ $scelta ] ?? '' ),
+				'leggibile' => ! $storta && isset( $voci[ $scelta ] ),
 				'fissato'   => false,
 			);
 		}
@@ -523,7 +697,10 @@ final class AmministrazioniOspitate {
 
 		if ( is_array( $voci ) && 1 === count( $voci ) && isset( $voci[0]['dettagli'] ) && is_array( $voci[0]['dettagli'] ) ) {
 			$dettagli = $voci[0]['dettagli'];
-			$nome     = isset( $dettagli[ self::DETTAGLIO_NOME ], $dettagli[ self::DETTAGLIO_VOCE ] ) && is_string( $dettagli[ self::DETTAGLIO_NOME ] ) && $scelta === $dettagli[ self::DETTAGLIO_VOCE ]
+			$fissata  = $dettagli[ self::DETTAGLIO_VOCE ] ?? null;
+
+			// Con la scelta storta vale il nome fissato, purche' sia di una voce; altrimenti la voce fissata e' quella sull'atto.
+			$nome = isset( $dettagli[ self::DETTAGLIO_NOME ] ) && is_string( $dettagli[ self::DETTAGLIO_NOME ] ) && is_int( $fissata ) && ( $storta ? $fissata > 0 : $scelta === $fissata )
 				? $dettagli[ self::DETTAGLIO_NOME ]
 				: '';
 		}

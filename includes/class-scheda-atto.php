@@ -485,10 +485,21 @@ final class SchedaAtto {
 
 		$amministrazione = self::campo( self::CAMPO_AMMINISTRAZIONE );
 
+		/*
+		 * "Da scegliere" toglie solo una scelta che vale ancora. Una scelta che
+		 * non vale piu' (la voce e' stata tolta, o sull'atto c'e' un valore
+		 * storto) resta dov'e', e con lei il blocco: il menu la mostra come
+		 * "Da scegliere", e un invio cosi' com'e' non deve sbloccare l'atto
+		 * come atto di questa amministrazione senza che nessuno l'abbia scelto.
+		 * Una scelta nuova sostituisce tutte le righe, anche due righe storte.
+		 */
 		if ( '' === $amministrazione ) {
-			delete_post_meta( $atto_id, AmministrazioniOspitate::META );
+			if ( null !== AmministrazioniOspitate::scelta_valida( $atto_id ) ) {
+				delete_post_meta( $atto_id, AmministrazioniOspitate::META );
+			}
 		} elseif ( is_string( $amministrazione ) && 1 === preg_match( '/^(0|[1-9]\d{0,8})$/D', $amministrazione ) && ( AmministrazioniOspitate::QUESTA === (int) $amministrazione || isset( AmministrazioniOspitate::voci()[ (int) $amministrazione ] ) ) ) {
-			update_post_meta( $atto_id, AmministrazioniOspitate::META, $amministrazione );
+			delete_post_meta( $atto_id, AmministrazioniOspitate::META );
+			add_post_meta( $atto_id, AmministrazioniOspitate::META, $amministrazione, true );
 		} elseif ( null !== $amministrazione ) {
 			$motivi[] = __( 'Amministrazione che ha adottato l\'atto non salvata: la voce scelta non e\' nell\'elenco delle amministrazioni ospitate.', 'albo-pretorio-pa' );
 		}
