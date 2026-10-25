@@ -134,6 +134,15 @@ e nessun ruolo nuovo.
   vera, e un secondo salvataggio cancellerebbe le modifiche del primo. La banca dati non dice
   sempre se una transazione è aperta: i passaggi di stato la segnano da sé. La pubblicazione
   rifiutata per questo motivo non consuma numeri.
+
+  **Limite dichiarato.** Con la scrittura automatica accesa, una transazione aperta a mano da
+  un altro componente si riconosce solo dove la banca dati espone `@@in_transaction`
+  (MariaDB). Dove non la espone (MySQL) non c'è un modo affidabile e senza permessi speciali
+  per saperlo, e il salvataggio parte: la sua transazione chiuderebbe quella dell'altro. È lo
+  stesso limite, con lo stesso controllo, dei passaggi di stato e dell'importazione; serve un
+  componente che apra una transazione sulla connessione di WordPress e, senza chiuderla,
+  chiami il salvataggio dell'elenco. Rifiutare quando non si sa fermerebbe il salvataggio su
+  quasi ogni sito con MySQL.
 - **Due persone che salvano l'elenco insieme**: i salvataggi vanno in fila, dalla lettura
   alla scrittura confermata, con un blocco della banca dati; senza, due salvataggi
   sovrapposti darebbero lo stesso numero a due amministrazioni diverse. Dentro la fila, una
@@ -215,6 +224,12 @@ la riga nella scheda. Rinominare la voce: la scheda dell'atto pubblicato non cam
   blocco si lasciava prima della conferma vera: ora il salvataggio lì non comincia. Prova
   nuova A-260.
 
+- Il quinto giro ha chiesto di provare la lettura unica dell'elenco attraverso la
+  pubblicazione vera, non solo nella funzione che la fa: A-254 ora toglie la voce dopo
+  ciascuna delle letture dell'elenco fatte dalla pubblicazione, una per volta. Ha segnalato
+  anche la transazione aperta a mano da un altro componente su MySQL: è il limite dichiarato
+  sopra, comune a tutto l'albo.
+
 Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 
 | Guasto | Prova caduta |
@@ -254,3 +269,4 @@ Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 | pubblicazione rifiutata durante un salvataggio che consuma il numero | A-260 |
 | transazione dei passaggi mai segnata, o segnata e mai tolta | A-249..A-255, A-260 |
 | tipo delle tabelle mai controllato, o senza la tabella delle opzioni | A-260 |
+| pubblicazione che rilegge il nome dopo il controllo | A-254 |

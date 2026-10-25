@@ -1088,6 +1088,95 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 			$dettagli,
 			'Controllo e nome dalla stessa lettura.'
 		);
+
+		/*
+		 * Lo stesso attraverso la pubblicazione vera: la voce si toglie dopo
+		 * ciascuna delle letture dell'elenco che la pubblicazione fa, una per
+		 * volta. La pubblicazione riesce con il nome letto, o si rifiuta senza
+		 * consumare il numero: mai un nome vuoto o un'altra amministrazione.
+		 */
+		global $wpdb;
+
+		$intero     = $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", AmministrazioniOspitate::OPZIONE ) );
+		$ripristina = static function () use ( $intero ) {
+			global $wpdb;
+
+			$wpdb->update( $wpdb->options, array( 'option_value' => $intero ), array( 'option_name' => AmministrazioniOspitate::OPZIONE ) );
+			wp_cache_delete( AmministrazioniOspitate::OPZIONE, 'options' );
+			wp_cache_delete( 'alloptions', 'options' );
+		};
+		$ripristina();
+
+		$conta  = 0;
+		$conto  = static function ( $istruzione ) use ( &$conta ) {
+			if ( false !== strpos( (string) $istruzione, AmministrazioniOspitate::OPZIONE ) && 0 === stripos( ltrim( (string) $istruzione ), 'SELECT' ) ) {
+				++$conta;
+			}
+
+			return $istruzione;
+		};
+		$misura = $this->in_verifica_con( 'Ospitato misurato', (string) $ospitata );
+
+		add_filter( 'query', $conto );
+
+		try {
+			$this->pubblica( $misura );
+		} finally {
+			remove_filter( 'query', $conto );
+		}
+
+		$this->assertGreaterThan( 0, $conta, 'Precondizione: la pubblicazione legge l\'elenco.' );
+		$this->assertSame( self::OSPITATA, $this->conferma( $misura )[ AmministrazioniOspitate::DETTAGLIO_NOME ] );
+
+		for ( $dopo = 1; $dopo <= $conta; $dopo++ ) {
+			$ripristina();
+
+			$atto    = $this->in_verifica_con( 'Ospitato conteso nella pubblicazione ' . $dopo, (string) $ospitata );
+			$letture = 0;
+			$togli   = static function ( $istruzione ) use ( &$letture, $dopo, $ospitata ) {
+				if ( false === strpos( (string) $istruzione, AmministrazioniOspitate::OPZIONE ) || 0 !== stripos( ltrim( (string) $istruzione ), 'SELECT' ) ) {
+					return $istruzione;
+				}
+
+				++$letture;
+
+				if ( $dopo + 1 === $letture ) {
+					global $wpdb;
+
+					$valore         = maybe_unserialize( (string) $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s AND %d", AmministrazioniOspitate::OPZIONE, 1 ) ) );
+					$valore['voci'] = array_values( array_filter( $valore['voci'], static fn( $voce ) => $voce['id'] !== $ospitata ) );
+					$wpdb->update( $wpdb->options, array( 'option_value' => maybe_serialize( $valore ) ), array( 'option_name' => AmministrazioniOspitate::OPZIONE ) );
+				}
+
+				return $istruzione;
+			};
+
+			add_filter( 'query', $togli );
+
+			try {
+				$esito = $this->pubblica_da_codice( $atto, $this->pubblicatore );
+			} finally {
+				remove_filter( 'query', $togli );
+			}
+
+			if ( is_wp_error( $esito ) ) {
+				$this->assertSame( 'pending', get_post_status( $atto ), 'Rifiuto dopo la lettura ' . $dopo . ': l\'atto resta in verifica.' );
+				$this->assertNull( Repertorio::di( $atto ), 'Rifiuto dopo la lettura ' . $dopo . ': nessun numero.' );
+				continue;
+			}
+
+			$this->assertSame( 'publish', get_post_status( $atto ), 'Dopo la lettura ' . $dopo );
+			$this->assertSame(
+				array(
+					AmministrazioniOspitate::DETTAGLIO_NOME => self::OSPITATA,
+					AmministrazioniOspitate::DETTAGLIO_VOCE => $ospitata,
+				),
+				array_intersect_key( $this->conferma( $atto ), array_flip( array( AmministrazioniOspitate::DETTAGLIO_NOME, AmministrazioniOspitate::DETTAGLIO_VOCE ) ) ),
+				'Pubblicato dopo la lettura ' . $dopo . ': il nome e\' quello letto.'
+			);
+		}
+
+		$ripristina();
 	}
 
 	/**
