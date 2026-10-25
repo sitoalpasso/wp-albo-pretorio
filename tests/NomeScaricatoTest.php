@@ -1,6 +1,6 @@
 <?php
 /**
- * Il nome del file scaricato: righe A-256 e A-257 (ALBO-30).
+ * Il nome del file scaricato: righe A-257 e A-258 (ALBO-30).
  *
  * Le prove scaricano dal punto pubblico di consegna del meccanismo comune,
  * come farebbe un visitatore dalla scheda dell'atto, e leggono il nome dalla
@@ -141,9 +141,9 @@ class NomeScaricatoTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * A-256: numero di registro e date nel nome, niente oggetto e niente nome originale, contenuto identico.
+	 * A-257: numero di registro e date nel nome, niente oggetto e niente nome originale, contenuto identico.
 	 */
-	public function test_a256_nome_del_file_scaricato(): void {
+	public function test_a257_nome_del_file_scaricato(): void {
 		$contenuti = array(
 			'principale' => "%PDF-1.4\n% documento principale\n%%EOF\n",
 			'primo'      => "%PDF-1.4\n% primo allegato\n%%EOF\n",
@@ -199,9 +199,9 @@ class NomeScaricatoTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * A-257: cifre del numero, fuso del sito, atto senza numero, documento fuori dall'atto.
+	 * A-258: cifre del numero, fuso del sito, atto senza numero, documento fuori dall'atto.
 	 */
-	public function test_a257_casi_al_margine_del_nome(): void {
+	public function test_a258_casi_al_margine_del_nome(): void {
 		// Un numero a cinque cifre: si dichiara la partenza prima del primo numero dell'anno.
 		$this->assertTrue( Repertorio::dichiara( 12344, $this->amministratore, Passaggi::ora() ) );
 

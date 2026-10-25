@@ -3,7 +3,7 @@
  * La pagina pubblica dell'albo: righe A-195..A-209 (ALBO-06, ALBO-16, ALBO-28),
  * il codice breve e gli indirizzi di "Albo Pretorio On line", A-220..A-223 (ALBO-35),
  * l'avviso dell'atto annullato, A-227 e A-228, e l'atto tolto dall'albo prima
- * della scadenza, A-235 e A-241 (ALBO-22).
+ * della scadenza, A-235 e A-241 (ALBO-22), e le memorie di pagina, A-259 (ALBO-20).
  *
  * Le prove fanno richieste vere alla pagina che contiene il codice breve, con
  * gli atti portati a pubblicato dal passaggio vero e l'orologio fissato. Il
@@ -2535,7 +2535,7 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * A-258: nessuna memoria di pagina conserva una risposta dell'albo, quindi nessuna la ripresenta.
+	 * A-259: nessuna memoria di pagina conserva una risposta dell'albo, quindi nessuna la ripresenta.
 	 *
 	 * La memoria simulata segue la regola delle memorie condivise e di quelle
 	 * dei browser: conserva una risposta solo se l'intestazione `Cache-Control`
@@ -2546,7 +2546,7 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	 * e' la "non trovata". Le estensioni che leggono `DONOTCACHEPAGE` hanno la
 	 * loro prova, A-202.
 	 */
-	public function test_a258_nessuna_memoria_ripresenta_un_atto_tolto(): void {
+	public function test_a259_nessuna_memoria_ripresenta_un_atto_tolto(): void {
 		$this->pagina_con( '[Albo stato="1"]' );
 
 		$tolto   = $this->importato_il( '2041-10-01 09:30:00', 'Atto che si togliera\' dall\'albo', '501' );
