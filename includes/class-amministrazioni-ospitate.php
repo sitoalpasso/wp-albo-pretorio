@@ -131,6 +131,29 @@ final class AmministrazioniOspitate {
 	private static $in_salvataggio = false;
 
 	/**
+	 * Se il salvataggio lavora anche dentro la transazione di un altro: mai, fuori dalle prove.
+	 *
+	 * Le prove girano dentro una transazione che annullano alla fine, e la
+	 * aprono con un valore che solo loro scrivono. Li' il salvataggio usa un
+	 * punto di ripristino.
+	 *
+	 * @var bool
+	 */
+	private static $dentro_altra_transazione = false;
+
+	/**
+	 * Se un salvataggio dell'elenco e' in corso in questa richiesta.
+	 *
+	 * I passaggi di stato lo leggono per non aprire la loro transazione
+	 * dentro quella dell'elenco, che confermerebbe a meta' l'una o l'altra.
+	 *
+	 * @return bool
+	 */
+	public static function in_salvataggio(): bool {
+		return self::$in_salvataggio;
+	}
+
+	/**
 	 * Dichiara il dato dell'atto a WordPress, protetto e senza esposizione per programmi.
 	 *
 	 * @return bool
@@ -326,6 +349,18 @@ final class AmministrazioniOspitate {
 			return self::errore( 'albo_ospitate_occupato', __( 'un salvataggio dell\'elenco e\' gia\' in corso in questa richiesta.', 'albo-pretorio-pa' ) );
 		}
 
+		/*
+		 * Il salvataggio apre la sua transazione e la conferma prima di
+		 * lasciare il blocco. Dentro la transazione di un altro, aperta da un
+		 * passaggio di stato o da un altro componente, aprirla confermerebbe
+		 * a meta' quella dell'altro, e un punto di ripristino lascerebbe il
+		 * blocco prima della conferma vera: un secondo salvataggio leggerebbe
+		 * l'elenco vecchio e cancellerebbe le modifiche del primo. Si rifiuta.
+		 */
+		if ( Passaggi::transazione_aperta() || ( ! self::$dentro_altra_transazione && Repertorio::transazione_esterna() ) ) {
+			return self::errore( 'albo_ospitate_transazione_esterna', __( 'la connessione alla banca dati e\' dentro una transazione aperta da un\'altra operazione, e il salvataggio non sarebbe definitivo. Riprovare a operazione finita.', 'albo-pretorio-pa' ) );
+		}
+
 		self::$in_salvataggio = true;
 
 		try {
@@ -365,9 +400,12 @@ final class AmministrazioniOspitate {
 	 *
 	 * Se la scrittura non si conferma uguale a quella chiesta, o qualcosa
 	 * fallisce a meta', la banca dati torna indietro su tutto e la memoria si
-	 * svuota: un rifiuto non lascia un elenco cambiato. Con la scrittura
-	 * automatica spenta la connessione e' gia' in una transazione, e si usa
-	 * un punto di ripristino.
+	 * svuota: un rifiuto non lascia un elenco cambiato. Tornare indietro
+	 * disfa qualcosa solo su tabelle che conoscono le transazioni: con la
+	 * tabella delle opzioni o quella del registro di un altro tipo il
+	 * salvataggio si rifiuta prima di scrivere, anche quando il tipo non si
+	 * legge. Una transazione esterna e' gia' esclusa da salva(), fuori dalle
+	 * prove, che usano un punto di ripristino dentro la loro.
 	 *
 	 * @param mixed              $nomi   Nomi delle voci esistenti, per numero.
 	 * @param mixed              $tolte  Numeri delle voci da togliere.
@@ -378,6 +416,13 @@ final class AmministrazioniOspitate {
 	 */
 	private static function salva_in_transazione( $nomi, $tolte, $nuove, int $utente, \DateTimeImmutable $adesso ) {
 		global $wpdb;
+
+		$tabelle = Passaggi::non_transazionali( array( $wpdb->options, $wpdb->prefix . 'conformita_core_registro' ) );
+
+		if ( array() !== $tabelle ) {
+			/* translators: %s: elenco delle tabelle. */
+			return self::errore( 'albo_ospitate_tabelle_non_transazionali', sprintf( __( 'queste tabelle della banca dati non permettono di annullare una scrittura a meta\' (%s). Chi gestisce il sito puo\' convertirle al tipo InnoDB.', 'albo-pretorio-pa' ), implode( ', ', $tabelle ) ) );
+		}
 
 		$automatica = $wpdb->get_var( 'SELECT @@autocommit' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- stato della connessione, non dati.
 		$modo       = array(

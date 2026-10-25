@@ -1,6 +1,6 @@
 <?php
 /**
- * Atti di un'altra amministrazione ospitati sull'albo: righe A-249..A-255 (ALBO-29).
+ * Atti di un'altra amministrazione ospitati sull'albo: righe A-249..A-256 e A-260 (ALBO-29).
  *
  * L'elenco si salva con invii veri della schermata, la scelta sull'atto con
  * invii veri della schermata dell'atto, la pubblicazione con il passaggio vero.
@@ -58,6 +58,18 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 		$this->set_permalink_structure( '' );
 
 		PaginaPubblica::fissa_emettitore( static function ( string $riga ): void {} );
+		$this->ammetti_transazione_esterna( true );
+	}
+
+	/**
+	 * Lascia salvare l'elenco dentro la transazione delle prove, o no.
+	 *
+	 * @param bool $ammessa Se e' ammessa.
+	 */
+	private function ammetti_transazione_esterna( bool $ammessa ): void {
+		$valore = new \ReflectionProperty( AmministrazioniOspitate::class, 'dentro_altra_transazione' );
+		$valore->setAccessible( true );
+		$valore->setValue( null, $ammessa );
 	}
 
 	/**
@@ -65,6 +77,7 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 	 */
 	public function tear_down(): void {
 		PaginaPubblica::fissa_emettitore( null );
+		$this->ammetti_transazione_esterna( false );
 
 		$this->smonta_flusso();
 		unset( $GLOBALS['post'] );
@@ -755,6 +768,147 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 		$this->assertWPError( $esito, 'Numero gia\' segnato: il salvataggio si rifiuta.' );
 		$this->assertSame( 'albo_ospitate_numero', $esito->get_error_code() );
 		$this->assertSame( $prima, get_option( AmministrazioniOspitate::OPZIONE ), 'Numero gia\' segnato: l\'elenco e\' quello di prima.' );
+	}
+
+	/**
+	 * A-260: [attacco] salvataggio dell'elenco e transazioni di altri.
+	 */
+	public function test_a260_transazioni_altrui(): void {
+		global $wpdb;
+
+		$this->aggiungi( 'Ente Alfa' );
+
+		$prima  = get_option( AmministrazioniOspitate::OPZIONE );
+		$numeri = static function (): int {
+			return count( conformita_core_voci_registro( array( 'azione' => AmministrazioniOspitate::AZIONE_NUMERO ) ) );
+		};
+		$quanti = $numeri();
+
+		// Dentro la transazione di un altro componente (qui quella delle prove) il salvataggio si rifiuta.
+		$this->assertTrue( \AlboPretorioPa\Repertorio::transazione_esterna(), 'Precondizione: la suite tiene aperta la sua transazione.' );
+		$this->ammetti_transazione_esterna( false );
+
+		try {
+			$esito = AmministrazioniOspitate::salva( array(), array(), 'Ente esterno', $this->pubblicatore, Passaggi::ora() );
+		} finally {
+			$this->ammetti_transazione_esterna( true );
+		}
+
+		$this->assertWPError( $esito );
+		$this->assertSame( 'albo_ospitate_transazione_esterna', $esito->get_error_code() );
+		$this->assertSame( $prima, get_option( AmministrazioniOspitate::OPZIONE ) );
+		$this->assertSame( $quanti, $numeri() );
+
+		// Un salvataggio chiamato durante una pubblicazione si rifiuta, e la pubblicazione riesce.
+		$atto     = $this->in_verifica_con( 'Pubblicato con un salvataggio in mezzo', '0' );
+		$interno  = null;
+		$aggancio = function () use ( &$interno ) {
+			if ( null === $interno ) {
+				$interno = AmministrazioniOspitate::salva( array(), array(), 'Ente dentro la pubblicazione', $this->pubblicatore, Passaggi::ora() );
+			}
+		};
+
+		add_action( 'save_post_' . TIPO, $aggancio );
+
+		try {
+			$this->pubblica( $atto );
+		} finally {
+			remove_action( 'save_post_' . TIPO, $aggancio );
+		}
+
+		$this->assertWPError( $interno, 'Il salvataggio dentro la pubblicazione si rifiuta.' );
+		$this->assertSame( 'albo_ospitate_transazione_esterna', $interno->get_error_code() );
+		$this->assertFalse( Passaggi::transazione_aperta(), 'Chiusa la pubblicazione, nessuna transazione resta aperta.' );
+
+		// Una pubblicazione che fallisce a meta' non lascia segnata una transazione aperta.
+		$fallito = $this->in_verifica_con( 'Pubblicazione che fallisce', '0' );
+		$guasto  = static function () {
+			throw new \RuntimeException( 'guasto di prova' );
+		};
+
+		add_action( 'save_post_' . TIPO, $guasto );
+
+		try {
+			$this->pubblica_da_codice( $fallito, $this->pubblicatore );
+			$this->fail( 'La pubblicazione doveva fallire.' );
+		} catch ( \RuntimeException $errore ) {
+			$this->assertSame( 'guasto di prova', $errore->getMessage() );
+		} finally {
+			remove_action( 'save_post_' . TIPO, $guasto );
+		}
+
+		$this->assertSame( 'pending', get_post_status( $fallito ) );
+		$this->assertFalse( Passaggi::transazione_aperta(), 'Annullata la pubblicazione, nessuna transazione resta aperta.' );
+		$this->assertSame( $prima, get_option( AmministrazioniOspitate::OPZIONE ) );
+		$this->assertSame( $quanti, $numeri() );
+
+		// Una pubblicazione o un rimando in bozza chiamati durante il salvataggio si rifiutano, e il salvataggio riesce.
+		$altro      = $this->in_verifica_con( 'Pubblicato durante un salvataggio', '0' );
+		$rimandato  = $this->in_verifica_con( 'Rimandato durante un salvataggio', '0' );
+		$pubblicato = null;
+		$rimando    = null;
+		$dentro     = function ( $valore ) use ( &$pubblicato, &$rimando, $altro, $rimandato ) {
+			if ( null === $pubblicato ) {
+				$pubblicato = $this->pubblica_da_codice( $altro, $this->pubblicatore );
+				$rimando    = $this->come(
+					$this->pubblicatore,
+					static function () use ( $rimandato ) {
+						return albo_pretorio_rimanda_in_bozza( $rimandato, 'Da rivedere.' );
+					}
+				);
+			}
+
+			return $valore;
+		};
+
+		add_filter( 'pre_update_option_' . AmministrazioniOspitate::OPZIONE, $dentro );
+
+		try {
+			$esito = AmministrazioniOspitate::salva( array(), array(), 'Ente Beta', $this->pubblicatore, Passaggi::ora() );
+		} finally {
+			remove_filter( 'pre_update_option_' . AmministrazioniOspitate::OPZIONE, $dentro );
+		}
+
+		$this->assertTrue( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+		$this->assertWPError( $pubblicato, 'La pubblicazione dentro il salvataggio si rifiuta.' );
+		$this->assertSame( 'pending', get_post_status( $altro ) );
+		$this->assertNull( Repertorio::di( $altro ), 'Il rifiuto non consuma il numero.' );
+		$this->assertWPError( $rimando, 'Il rimando in bozza dentro il salvataggio si rifiuta.' );
+		$this->assertSame( 'pending', get_post_status( $rimandato ) );
+		$this->assertContains( 'Ente Beta', AmministrazioniOspitate::voci() );
+
+		// Con la tabella delle opzioni o quella del registro che non annullano, o con il tipo che non si legge, si rifiuta prima di scrivere.
+		$prima  = get_option( AmministrazioniOspitate::OPZIONE );
+		$quanti = $numeri();
+
+		foreach ( array(
+			'opzioni'  => $wpdb->options,
+			'registro' => $wpdb->prefix . 'conformita_core_registro',
+			'lettura'  => null,
+		) as $caso => $tabella ) {
+			$motore = static function ( $istruzione ) use ( $tabella ) {
+				if ( false === strpos( (string) $istruzione, 'information_schema.ENGINES' ) ) {
+					return $istruzione;
+				}
+
+				return null === $tabella ? 'SELECT guasto_forzato FROM tabella_che_non_esiste' : str_replace( 't.TABLE_NAME IN (', "t.TABLE_NAME <> '{$tabella}' AND t.TABLE_NAME IN (", (string) $istruzione );
+			};
+
+			add_filter( 'query', $motore );
+			$zitto = $wpdb->suppress_errors( true );
+
+			try {
+				$esito = AmministrazioniOspitate::salva( array(), array(), 'Ente Gamma', $this->pubblicatore, Passaggi::ora() );
+			} finally {
+				$wpdb->suppress_errors( $zitto );
+				remove_filter( 'query', $motore );
+			}
+
+			$this->assertWPError( $esito, $caso );
+			$this->assertSame( 'albo_ospitate_tabelle_non_transazionali', $esito->get_error_code(), $caso );
+			$this->assertSame( $prima, get_option( AmministrazioniOspitate::OPZIONE ), $caso . ': l\'elenco e\' quello di prima.' );
+			$this->assertSame( $quanti, $numeri(), $caso . ': nessun numero segnato.' );
+		}
 	}
 
 	/**

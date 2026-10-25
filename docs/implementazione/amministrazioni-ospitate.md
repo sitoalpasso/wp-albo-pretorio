@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro
 com'è andata davvero.
 
 **Stato: costruita, in attesa di revisione.** Requisito ALBO-29, righe di collaudo
-A-249..A-256. Com'è andata davvero è in fondo.
+A-249..A-256 e A-260. Com'è andata davvero è in fondo.
 
 ## In tre paragrafi
 
@@ -124,6 +124,16 @@ e nessun ruolo nuovo.
 - **Salvataggio rifiutato a metà** (scrittura che non si conferma, numero già segnato,
   lettura di conferma che fallisce): voci del registro ed elenco stanno in una transazione,
   e il rifiuto torna indietro su tutto; l'elenco resta quello di prima.
+- **Tabelle che non annullano**: tornare indietro disfa qualcosa solo se la tabella delle
+  opzioni e quella del registro conoscono le transazioni. Se una delle due non le conosce, o
+  il loro tipo non si legge, il salvataggio si rifiuta prima di scrivere.
+- **Transazione di un altro**: il salvataggio non comincia dentro la transazione di un altro
+  componente, né durante un passaggio di stato dell'albo, e un passaggio di stato non
+  comincia durante il salvataggio. Aprire la propria transazione dentro quella dell'altro la
+  confermerebbe a metà; un punto di ripristino lascerebbe il blocco prima della conferma
+  vera, e un secondo salvataggio cancellerebbe le modifiche del primo. La banca dati non dice
+  sempre se una transazione è aperta: i passaggi di stato la segnano da sé. La pubblicazione
+  rifiutata per questo motivo non consuma numeri.
 - **Due persone che salvano l'elenco insieme**: i salvataggi vanno in fila, dalla lettura
   alla scrittura confermata, con un blocco della banca dati; senza, due salvataggi
   sovrapposti darebbero lo stesso numero a due amministrazioni diverse. Dentro la fila, una
@@ -132,7 +142,7 @@ e nessun ruolo nuovo.
 
 ### 7. Prove aggiunte
 
-A-249..A-256, in `tests/AmministrazioniOspitateTest.php`; la prova dei salvataggi
+A-249..A-256 e A-260, in `tests/AmministrazioniOspitateTest.php`; la prova dei salvataggi
 sovrapposti lancia processi veri con `tests/concorrenza/ospitate.php`.
 
 ### 8. Cosa NON si implementa
@@ -197,6 +207,14 @@ la riga nella scheda. Rinominare la voce: la scheda dell'atto pubblicato non cam
   l'elenco cambiato: ora voci del registro ed elenco si scrivono in una transazione, e un
   rifiuto torna indietro su tutto.
 
+- Il quarto giro ha trovato tre punti, tutti sulle transazioni. Tornare indietro non disfa
+  niente su tabelle che non conoscono le transazioni: ora il salvataggio controlla prima il
+  tipo della tabella delle opzioni e di quella del registro. Un salvataggio chiamato durante
+  una pubblicazione, o il contrario, confermava a metà l'altra operazione: ora l'uno rifiuta
+  l'altro, in tutte e due le direzioni. E dentro la transazione di un altro componente il
+  blocco si lasciava prima della conferma vera: ora il salvataggio lì non comincia. Prova
+  nuova A-260.
+
 Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 
 | Guasto | Prova caduta |
@@ -230,3 +248,9 @@ Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 | numero gia' segnato non rifiutato dalla chiave unica | A-253 |
 | registro illeggibile trattato come nessun numero dato | A-253 |
 | salvataggio rifiutato che lascia l'elenco cambiato | A-253 |
+| salvataggio dentro la transazione di un altro componente accettato | A-260 |
+| salvataggio durante una pubblicazione accettato | A-260 |
+| pubblicazione o rimando durante un salvataggio accettati | A-260 |
+| pubblicazione rifiutata durante un salvataggio che consuma il numero | A-260 |
+| transazione dei passaggi mai segnata, o segnata e mai tolta | A-249..A-255, A-260 |
+| tipo delle tabelle mai controllato, o senza la tabella delle opzioni | A-260 |
