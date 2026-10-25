@@ -453,10 +453,17 @@ final class SchermataScaduti {
 			$dati[ $etichetta ] = $valore;
 		}
 
-		$annullato = ChiusuraPubblicazione::ANNULLATO === get_post_status( $atto );
+		$annullato     = ChiusuraPubblicazione::ANNULLATO === get_post_status( $atto );
+		$fermo         = $annullato || ChiusuraPubblicazione::DEFISSO === get_post_status( $atto );
+		$defisso_prima = $fermo ? Passaggi::defissione_registrata( $atto ) : false;
 
-		// Anche un atto tolto dall'albo e poi annullato porta la sua defissione.
-		if ( ChiusuraPubblicazione::DEFISSO === get_post_status( $atto ) || ( $annullato && null !== Passaggi::defissione( $atto ) ) ) {
+		if ( null === $defisso_prima ) {
+			$dati[ __( 'Tolto dall\'albo prima della scadenza', 'albo-pretorio-pa' ) ] = __( 'non leggibile in questo momento', 'albo-pretorio-pa' );
+			$dati[ __( 'Effetto sul periodo', 'albo-pretorio-pa' ) ]                   = __( 'non leggibile in questo momento', 'albo-pretorio-pa' );
+		}
+
+		// La defissione si legge dal registro, non dallo stato: anche sull'annullato, e mai sul defisso alla scadenza naturale.
+		if ( true === $defisso_prima ) {
 			$voce  = Passaggi::defissione( $atto );
 			$cause = Passaggi::cause_defissione();
 
@@ -464,6 +471,17 @@ final class SchermataScaduti {
 			$dati[ __( 'Fine pianificata', 'albo-pretorio-pa' ) ]        = null === $voce ? __( 'non leggibile in questo momento', 'albo-pretorio-pa' ) : self::data( $voce['fine_pianificata'] );
 			$dati[ __( 'Causa della defissione', 'albo-pretorio-pa' ) ]  = null === $voce ? __( 'non leggibile in questo momento', 'albo-pretorio-pa' ) : ( $cause[ $voce['causa'] ] ?? $voce['causa'] );
 			$dati[ __( 'Motivo della defissione', 'albo-pretorio-pa' ) ] = null === $voce ? __( 'non leggibile in questo momento', 'albo-pretorio-pa' ) : $voce['motivo'];
+
+			$effetto = Passaggi::effetto( $atto );
+			$effetti = Passaggi::effetti_rimozione();
+
+			if ( false === $effetto ) {
+				$dati[ __( 'Effetto sul periodo', 'albo-pretorio-pa' ) ] = __( 'non leggibile in questo momento', 'albo-pretorio-pa' );
+			} elseif ( null === $effetto ) {
+				$dati[ __( 'Effetto sul periodo', 'albo-pretorio-pa' ) ] = __( 'non dichiarato', 'albo-pretorio-pa' );
+			} else {
+				$dati[ __( 'Effetto sul periodo', 'albo-pretorio-pa' ) ] = $effetti[ $effetto['effetto'] ];
+			}
 		}
 
 		if ( $annullato ) {

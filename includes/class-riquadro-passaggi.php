@@ -98,6 +98,20 @@ final class RiquadroPassaggi {
 	const CAMPO_MOTIVO_DEFISSIONE = 'albo_pretorio_motivo_defissione';
 
 	/**
+	 * Nome del gruppo di scelte dell'effetto della rimozione sul periodo.
+	 *
+	 * @var string
+	 */
+	const CAMPO_EFFETTO = 'albo_pretorio_effetto_rimozione';
+
+	/**
+	 * Gli atti di cui il riquadro ha gia' stampato il gettone, in questa stampa.
+	 *
+	 * @var array<int, true>
+	 */
+	private static $gettoni = array();
+
+	/**
 	 * Parametro dell'indirizzo di ritorno con l'esito riuscito.
 	 *
 	 * @var string
@@ -168,6 +182,8 @@ final class RiquadroPassaggi {
 			return;
 		}
 
+		self::$gettoni = array();
+
 		if ( ChiusuraPubblicazione::PUBBLICATO === $atto->post_status ) {
 			self::pubblicato( $atto );
 			self::annullamento( $atto );
@@ -178,6 +194,7 @@ final class RiquadroPassaggi {
 		if ( ChiusuraPubblicazione::DEFISSO === $atto->post_status ) {
 			self::pubblicato( $atto );
 			self::defisso( $atto );
+			self::effetto( $atto );
 			self::annullamento( $atto );
 			return;
 		}
@@ -185,6 +202,7 @@ final class RiquadroPassaggi {
 		if ( ChiusuraPubblicazione::ANNULLATO === $atto->post_status ) {
 			self::pubblicato( $atto );
 			self::annullato( $atto );
+			self::effetto( $atto );
 			return;
 		}
 
@@ -322,7 +340,7 @@ final class RiquadroPassaggi {
 			return;
 		}
 
-		wp_nonce_field( self::azione( (int) $atto->ID ), self::CAMPO_GETTONE );
+		self::gettone( (int) $atto->ID );
 
 		printf( '<fieldset class="albo-pretorio-passaggio"><legend><strong>%s</strong></legend>', esc_html__( 'Annulla l\'atto', 'albo-pretorio-pa' ) );
 
@@ -402,6 +420,8 @@ final class RiquadroPassaggi {
 			esc_html__( 'Obbligatorio. Il motivo finisce nel registro delle modifiche con la causa, chi e quando. Per l\'ordine di un\'autorita\', gli estremi dell\'ordine. La defissione non si ritira; l\'atto si potra\' ancora annullare.', 'albo-pretorio-pa' )
 		);
 
+		self::scelte_effetto( __( 'Si puo\' rispondere adesso oppure dopo, una volta sola: l\'atto si toglie anche senza risposta.', 'albo-pretorio-pa' ) );
+
 		printf(
 			'<p><button type="submit" class="button" name="%1$s" value="defiggi">%2$s</button></p></fieldset>',
 			esc_attr( self::CAMPO_PASSAGGIO ),
@@ -415,6 +435,11 @@ final class RiquadroPassaggi {
 	 * @param \WP_Post $atto Atto.
 	 */
 	private static function defisso( \WP_Post $atto ): void {
+		// Lo stato non basta: un atto defisso alla scadenza naturale non ha una defissione anticipata.
+		if ( false === Passaggi::defissione_registrata( (int) $atto->ID ) ) {
+			return;
+		}
+
 		$voce = Passaggi::defissione( (int) $atto->ID );
 
 		printf( '<p><strong>%s</strong></p>', esc_html__( 'Atto tolto dall\'albo prima della scadenza', 'albo-pretorio-pa' ) );
@@ -433,6 +458,111 @@ final class RiquadroPassaggi {
 		}
 
 		printf( '<p class="description">%s</p>', esc_html__( 'La fine della pubblicazione e\' il giorno prima della defissione, cosi\' che l\'atto sparisca subito dalla vista pubblica. Un atto tolto dall\'albo non si modifica e non torna pubblicato; si puo\' soltanto annullare.', 'albo-pretorio-pa' ) );
+	}
+
+	/**
+	 * L'effetto della rimozione sul periodo: il valore dichiarato, oppure la domanda finche' manca.
+	 *
+	 * Solo dove il registro ha una defissione anticipata: sull'atto tolto
+	 * dall'albo e sull'annullato dopo una defissione, mai per il solo stato.
+	 *
+	 * @param \WP_Post $atto Atto.
+	 */
+	private static function effetto( \WP_Post $atto ): void {
+		$atto_id = (int) $atto->ID;
+
+		// Si lega all'evento registrato, non allo stato: ne' il defisso ne' l'annullato dicono se c'e' stata una defissione anticipata.
+		$defisso_prima = Passaggi::defissione_registrata( $atto_id );
+
+		if ( false === $defisso_prima ) {
+			return;
+		}
+
+		if ( null === $defisso_prima ) {
+			printf( '<fieldset class="albo-pretorio-passaggio"><legend><strong>%1$s</strong></legend><p>%2$s</p></fieldset>', esc_html__( 'Effetto della rimozione sul periodo', 'albo-pretorio-pa' ), esc_html__( 'Il registro delle modifiche non risponde: non si legge se l\'atto e\' stato tolto dall\'albo prima della scadenza, ne\' l\'effetto dichiarato.', 'albo-pretorio-pa' ) );
+			return;
+		}
+
+		$effetto = Passaggi::effetto( $atto_id );
+		$effetti = Passaggi::effetti_rimozione();
+
+		printf( '<fieldset class="albo-pretorio-passaggio"><legend><strong>%s</strong></legend>', esc_html__( 'Effetto della rimozione sul periodo', 'albo-pretorio-pa' ) );
+
+		if ( false === $effetto ) {
+			printf( '<p>%s</p></fieldset>', esc_html__( 'Il registro delle modifiche non risponde: l\'effetto dichiarato non si legge in questo momento.', 'albo-pretorio-pa' ) );
+			return;
+		}
+
+		if ( null !== $effetto ) {
+			$utente = get_userdata( $effetto['utente'] );
+
+			echo '<dl class="albo-pretorio-dati">';
+			printf( '<dt>%1$s</dt><dd>%2$s</dd>', esc_html__( 'Effetto dichiarato', 'albo-pretorio-pa' ), esc_html( $effetti[ $effetto['effetto'] ] ) );
+			printf( '<dt>%1$s</dt><dd>%2$s</dd>', esc_html__( 'Dichiarato il', 'albo-pretorio-pa' ), esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $effetto['istante']->getTimestamp() ) ) );
+			printf( '<dt>%1$s</dt><dd>%2$s</dd>', esc_html__( 'Da', 'albo-pretorio-pa' ), esc_html( $utente instanceof \WP_User ? $utente->display_name : __( 'utente non piu\' presente', 'albo-pretorio-pa' ) ) );
+			echo '</dl>';
+			printf( '<p class="description">%s</p></fieldset>', esc_html__( 'La dichiarazione si rende una volta sola e non si cambia.', 'albo-pretorio-pa' ) );
+			return;
+		}
+
+		$mappa = Permessi::mappa();
+
+		if ( is_wp_error( $mappa ) || ! isset( $mappa[ Permessi::CHIAVE_DEFISSIONE ] ) || ! current_user_can( $mappa[ Permessi::CHIAVE_DEFISSIONE ] ) ) {
+			printf( '<p>%s</p></fieldset>', esc_html__( 'Non ancora dichiarato.', 'albo-pretorio-pa' ) );
+			return;
+		}
+
+		self::gettone( $atto_id );
+		self::scelte_effetto( __( 'Si risponde una volta sola, e la risposta non si cambia.', 'albo-pretorio-pa' ) );
+
+		printf(
+			'<p><button type="submit" class="button" name="%1$s" value="dichiara">%2$s</button></p></fieldset>',
+			esc_attr( self::CAMPO_PASSAGGIO ),
+			esc_html__( 'Dichiara l\'effetto', 'albo-pretorio-pa' )
+		);
+	}
+
+	/**
+	 * La domanda sull'effetto della rimozione, con i due valori e nessuno scelto.
+	 *
+	 * Nessun valore e' scelto in partenza: una scelta fatta dal programma e
+	 * inviata come se l'avesse fatta chi dichiara sarebbe una valutazione
+	 * presa al suo posto.
+	 *
+	 * @param string $quando La frase su quando si risponde.
+	 */
+	private static function scelte_effetto( string $quando ): void {
+		printf( '<fieldset aria-describedby="%1$s-descrizione"><legend>%2$s</legend>', esc_attr( self::CAMPO_EFFETTO ), esc_html__( 'Che cosa ne e\' della pubblicazione?', 'albo-pretorio-pa' ) );
+
+		foreach ( Passaggi::effetti_rimozione() as $chiave => $etichetta ) {
+			printf(
+				'<p><input type="radio" id="%1$s-%2$s" name="%1$s" value="%2$s" /> <label for="%1$s-%2$s">%3$s</label></p>',
+				esc_attr( self::CAMPO_EFFETTO ),
+				esc_attr( $chiave ),
+				esc_html( $etichetta )
+			);
+		}
+
+		printf(
+			'<p class="description" id="%1$s-descrizione">%2$s %3$s</p></fieldset>',
+			esc_attr( self::CAMPO_EFFETTO ),
+			esc_html__( 'La norma impone che la diffusione cessi e non dice che cosa ne sia dell\'adempimento: lo valuta l\'amministrazione. Nessuna delle due risposte cambia date, stato, numero o visibilita\' dell\'atto, e "va rifatta" non crea l\'atto nuovo: si prepara e si pubblica come ogni altro, con il suo numero.', 'albo-pretorio-pa' ),
+			esc_html( $quando )
+		);
+	}
+
+	/**
+	 * Il gettone del modulo, una volta sola per atto in ogni stampa del riquadro.
+	 *
+	 * @param int $atto_id Atto.
+	 */
+	private static function gettone( int $atto_id ): void {
+		if ( isset( self::$gettoni[ $atto_id ] ) ) {
+			return;
+		}
+
+		self::$gettoni[ $atto_id ] = true;
+		wp_nonce_field( self::azione( $atto_id ), self::CAMPO_GETTONE );
 	}
 
 	/**
@@ -518,8 +648,11 @@ final class RiquadroPassaggi {
 			$causa = isset( $_POST[ self::CAMPO_CAUSA ] ) && is_string( $_POST[ self::CAMPO_CAUSA ] ) ? sanitize_key( wp_unslash( $_POST[ self::CAMPO_CAUSA ] ) ) : null;
 			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- lo ripulisce Passaggi, con la regola dei testi su piu' righe.
 			$motivo = isset( $_POST[ self::CAMPO_MOTIVO_DEFISSIONE ] ) ? wp_unslash( $_POST[ self::CAMPO_MOTIVO_DEFISSIONE ] ) : '';
-			$esito  = Passaggi::defiggi_atto( $atto_id, $causa, $motivo );
+			$esito  = Passaggi::defiggi_atto( $atto_id, $causa, $motivo, self::effetto_dalla_schermata() );
 			$fatto  = 'defisso';
+		} elseif ( 'dichiara' === $passaggio ) {
+			$esito = Passaggi::dichiara_effetto( $atto_id, self::effetto_dalla_schermata() );
+			$fatto = 'dichiarato';
 		} elseif ( 'annulla' === $passaggio ) {
 			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- lo ripulisce Passaggi, con la regola dei testi su piu' righe.
 			$motivo = isset( $_POST[ self::CAMPO_MOTIVO_ANNULLAMENTO ] ) ? wp_unslash( $_POST[ self::CAMPO_MOTIVO_ANNULLAMENTO ] ) : '';
@@ -535,6 +668,22 @@ final class RiquadroPassaggi {
 		}
 
 		return add_query_arg( self::ESITO, $fatto, $indirizzo );
+	}
+
+	/**
+	 * L'effetto inviato dal modulo cosi' com'e', oppure nullo se il campo manca.
+	 *
+	 * Non si ripulisce: una ripulitura trasformerebbe "VA_RIFATTA" in un
+	 * valore valido e un valore illeggibile in nessuna scelta. Passaggi lo
+	 * confronta con l'elenco chiuso dei due valori e rifiuta tutto il resto,
+	 * il testo vuoto compreso: nessuna scelta e' solo il campo che manca.
+	 *
+	 * @return mixed
+	 */
+	private static function effetto_dalla_schermata() {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- il gettone e' gia' stato verificato da chi chiama; il valore lo valida Passaggi contro l'elenco chiuso.
+		return isset( $_POST[ self::CAMPO_EFFETTO ] ) ? wp_unslash( $_POST[ self::CAMPO_EFFETTO ] ) : null;
+		// phpcs:enable
 	}
 
 	/**
@@ -604,6 +753,7 @@ final class RiquadroPassaggi {
 			'rimandato'  => __( 'Atto rimandato in bozza: il motivo e\' nel registro delle modifiche.', 'albo-pretorio-pa' ),
 			'annullato'  => __( 'Atto annullato: il motivo e\' nel registro delle modifiche e, fino alla data di fine, nell\'avviso al pubblico.', 'albo-pretorio-pa' ),
 			'defisso'    => __( 'Atto tolto dall\'albo: non e\' piu\' nella vista pubblica, e causa, motivo e fine pianificata sono nel registro delle modifiche.', 'albo-pretorio-pa' ),
+			'dichiarato' => __( 'Effetto della rimozione dichiarato: e\' nel registro delle modifiche, e non si cambia.', 'albo-pretorio-pa' ),
 		);
 
 		if ( ! isset( $messaggi[ $esito ] ) ) {

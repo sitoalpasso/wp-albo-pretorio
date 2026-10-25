@@ -1,7 +1,8 @@
 <?php
 /**
  * La consultazione riservata degli atti scaduti: righe A-180..A-185 (ALBO-34),
- * con l'annullato scaduto (A-230) e l'atto tolto dall'albo (A-242).
+ * con l'annullato scaduto (A-230), l'atto tolto dall'albo (A-242) e l'effetto
+ * della rimozione sul periodo (A-248).
  *
  * La schermata vive nell'amministrazione, dove il filtro di scadenza del
  * meccanismo comune non si applica: le prove la aprono con lo schermo
@@ -19,8 +20,10 @@ declare( strict_types = 1 );
 
 namespace AlboPretorioPa\Tests;
 
+use AlboPretorioPa\ChiusuraPubblicazione;
 use AlboPretorioPa\DocumentiAtto;
 use AlboPretorioPa\Installazione;
+use AlboPretorioPa\Passaggi;
 use AlboPretorioPa\Permessi;
 use AlboPretorioPa\Repertorio;
 use AlboPretorioPa\SchermataScaduti;
@@ -778,5 +781,97 @@ class ConsultazioneScadutiTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( '<strong>Annullato il</strong>: 06/10/2041', $riga[1], 'Annullato dopo: la data dell\'annullamento.' );
 		$this->assertStringContainsString( '<strong>Tolto dall&#039;albo il</strong>: 05/10/2041', $riga[1], 'Annullato dopo: la defissione resta.' );
 		$this->assertStringContainsString( '<strong>Motivo della defissione</strong>: Contiene una diagnosi.', $riga[1], 'Annullato dopo: il motivo della defissione resta.' );
+	}
+
+	/**
+	 * A-248: la consultazione riservata dice l'effetto della rimozione, o che non e' dichiarato.
+	 */
+	public function test_a248_effetto_in_consultazione(): void {
+		$atto = $this->pubblicato_il( '2041-10-01 09:30:00', 'Graduatoria tolta di prova' );
+
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+		$esito = $this->come(
+			$this->amministratore,
+			static function () use ( $atto ) {
+				return albo_pretorio_defiggi( $atto, 'dati_inesatti', 'Il destinatario e\' sbagliato.' );
+			}
+		);
+		$this->assertIsInt( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : 'Precondizione: la defissione.' );
+
+		$this->fissa_orologi( '2041-10-06 10:00:00' );
+
+		$riga = function () use ( $atto ): string {
+			$contenuto = (string) $this->schermata( $this->consultatore );
+			$this->assertSame( 1, preg_match( '/<tr data-atto="' . $atto . '">(.*?)<\/tr>/s', $contenuto, $trovata ), 'La riga dell\'atto.' );
+
+			return $trovata[1];
+		};
+
+		$this->assertStringContainsString( '<strong>Effetto sul periodo</strong>: non dichiarato', $riga(), 'Prima della dichiarazione.' );
+
+		$esito = $this->come(
+			$this->amministratore,
+			static function () use ( $atto ) {
+				return albo_pretorio_dichiara_effetto( $atto, 'va_rifatta' );
+			}
+		);
+		$this->assertIsInt( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : 'Precondizione: la dichiarazione.' );
+
+		$this->assertStringContainsString( '<strong>Effetto sul periodo</strong>: La pubblicazione va rifatta, con un atto nuovo', $riga(), 'Dopo la dichiarazione.' );
+
+		global $wpdb;
+
+		$tabella  = $wpdb->prefix . 'conformita_core_registro';
+		$guastate = function ( string $stato ) use ( $wpdb, $tabella, $riga ): void {
+			foreach ( array( Passaggi::AZIONE_DEFISSIONE, Passaggi::AZIONE_EFFETTO ) as $azione ) {
+				$guasta = static function ( $istruzione ) use ( $tabella, $azione ) {
+					return is_string( $istruzione ) && false !== strpos( $istruzione, 'SELECT' ) && false !== strpos( $istruzione, $tabella ) && false !== strpos( $istruzione, "'" . $azione . "'" ) ? 'SELECT guasto_forzato FROM tabella_che_non_esiste' : $istruzione;
+				};
+
+				$wpdb->suppress_errors( true );
+				add_filter( 'query', $guasta );
+
+				try {
+					$letta = $riga();
+				} finally {
+					remove_filter( 'query', $guasta );
+					$wpdb->suppress_errors( false );
+				}
+
+				$this->assertStringContainsString( '<strong>Effetto sul periodo</strong>: non leggibile in questo momento', $letta, $stato . ', ' . $azione . ': la consultazione lo dice.' );
+				$this->assertStringNotContainsString( 'non dichiarato', $letta, $stato . ', ' . $azione . ': e non dice che manca.' );
+			}
+		};
+
+		// Sul defisso, una lettura del registro per volta non risponde.
+		$guastate( 'defisso' );
+
+		// Annullato dopo la defissione: lo stesso.
+		$esito = $this->come(
+			$this->amministratore,
+			static function () use ( $atto ) {
+				return albo_pretorio_annulla( $atto, 'Atto annullato in autotutela.' );
+			}
+		);
+		$this->assertIsInt( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : 'Precondizione: l\'annullamento.' );
+		$this->assertStringContainsString( '<strong>Effetto sul periodo</strong>: La pubblicazione va rifatta, con un atto nuovo', $riga(), 'Annullato: il valore resta.' );
+		$guastate( 'annullato' );
+
+		// Defisso per scadenza naturale, con lo stato scritto come lo lascera' il compito pianificato: niente defissione, niente effetto.
+		$naturale = $this->pubblicato_il( '2041-09-01 09:30:00', 'Atto scaduto per la sua data' );
+		$this->fissa_orologi( '2041-10-06 10:00:00' );
+		$this->scavalca_barriera(
+			static function () use ( $naturale ) {
+				global $wpdb;
+
+				$wpdb->update( $wpdb->posts, array( 'post_status' => ChiusuraPubblicazione::DEFISSO ), array( 'ID' => $naturale ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: lo stato come lo lascera' il compito pianificato.
+			}
+		);
+		clean_post_cache( $naturale );
+
+		$contenuto = (string) $this->schermata( $this->consultatore );
+		$this->assertSame( 1, preg_match( '/<tr data-atto="' . $naturale . '">(.*?)<\/tr>/s', $contenuto, $trovata ), 'Precondizione: la riga del defisso per scadenza naturale.' );
+		$this->assertStringNotContainsString( 'Effetto sul periodo', $trovata[1], 'Senza defissione anticipata nessun effetto.' );
+		$this->assertStringNotContainsString( 'Tolto dall&#039;albo', $trovata[1], 'E nessuna defissione.' );
 	}
 }
