@@ -75,6 +75,7 @@ trait AmbienteAlbo {
 		delete_option( \AlboPretorioPa\OPZIONE_VERSIONE );
 		delete_option( \AlboPretorioPa\Festivi::OPZIONE );
 		delete_option( \AlboPretorioPa\DatiProcedimento::OPZIONE );
+		delete_option( \AlboPretorioPa\AmministrazioniOspitate::OPZIONE );
 	}
 
 	/**
