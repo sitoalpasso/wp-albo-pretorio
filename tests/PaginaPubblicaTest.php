@@ -2535,6 +2535,121 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-258: nessuna memoria di pagina conserva una risposta dell'albo, quindi nessuna la ripresenta.
+	 *
+	 * La memoria simulata segue la regola delle memorie condivise e di quelle
+	 * dei browser: conserva una risposta solo se l'intestazione `Cache-Control`
+	 * non dice `no-store`. Si riempie con tutte le strade di un atto in corso
+	 * (elenco, scheda, ricerca, documento, vecchio indirizzo) e con la "non
+	 * trovata"; poi l'atto si toglie dall'albo, un altro scade, e si guarda che
+	 * cosa la memoria avrebbe da consegnare: niente, mentre la risposta viva
+	 * e' la "non trovata". Le estensioni che leggono `DONOTCACHEPAGE` hanno la
+	 * loro prova, A-202.
+	 */
+	public function test_a258_nessuna_memoria_ripresenta_un_atto_tolto(): void {
+		$this->pagina_con( '[Albo stato="1"]' );
+
+		$tolto   = $this->importato_il( '2041-10-01 09:30:00', 'Atto che si togliera\' dall\'albo', '501' );
+		$scadra  = $this->pubblicato_il( '2041-09-25 09:30:00', 'Atto che scadra\'' );
+		$memoria = array();
+
+		$conserva = static function ( array &$memoria, string $chiave, array $intestazioni ): void {
+			foreach ( $intestazioni as $nome => $valore ) {
+				if ( 0 === strcasecmp( (string) $nome, 'Cache-Control' ) && false !== stripos( (string) $valore, 'no-store' ) ) {
+					return;
+				}
+			}
+
+			$memoria[ $chiave ] = $intestazioni;
+		};
+
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+		wp_set_current_user( 0 );
+
+		// Controllo positivo: la memoria simulata conserva una pagina ordinaria.
+		$ordinaria = self::factory()->post->create(
+			array(
+				'post_type'   => 'page',
+				'post_status' => 'publish',
+				'post_title'  => 'Pagina ordinaria',
+			)
+		);
+		$controllo = array();
+		$conserva( $controllo, 'ordinaria', $this->risposta( (string) get_permalink( $ordinaria ) )['intestazioni'] );
+		$this->assertArrayHasKey( 'ordinaria', $controllo, 'Controllo positivo: una pagina ordinaria si conserva.' );
+
+		$strade = array();
+
+		foreach ( array( $tolto, $scadra ) as $atto ) {
+			$strade[ $atto . ' scheda' ]  = $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $atto ) );
+			$strade[ $atto . ' elenco' ]  = $this->indirizzo();
+			$strade[ $atto . ' ricerca' ] = $this->indirizzo( array( VistaPubblica::CAMPO_TESTO => 'atto' ) );
+		}
+
+		$strade['non trovata'] = $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => 999999 ) );
+
+		foreach ( $strade as $quale => $dove ) {
+			$risposta = $this->risposta( $dove );
+
+			if ( 'non trovata' === $quale ) {
+				$this->assertTrue( $risposta['non trovata'], 'Precondizione: un atto mai esistito e\' "non trovata".' );
+			} else {
+				$this->assertFalse( $risposta['non trovata'], $quale . ': precondizione, la pagina si apre.' );
+				$this->assertStringContainsString( 'data-atto="' . (int) $quale . '"', $risposta['corpo'], $quale . ': precondizione, l\'atto e\' nella pagina.' );
+			}
+
+			$conserva( $memoria, $quale, $risposta['intestazioni'] );
+		}
+
+		foreach ( array( $tolto, $scadra ) as $atto ) {
+			$consegne = $this->consegna( (int) DocumentiAtto::principale( $atto ) );
+			$this->assertTrue( $this->consegnato( $consegne ), $atto . ': precondizione, il documento si scarica.' );
+			$conserva( $memoria, $atto . ' documento', $consegne[0]['intestazioni'] );
+		}
+
+		// Il vecchio indirizzo rinvia alla scheda: si conservano le intestazioni che il rinvio manda.
+		$this->richiesta_pubblica(
+			$this->indirizzo(
+				array(
+					'action' => 'visatto',
+					'id'     => '501',
+				)
+			)
+		);
+
+		// Si osserva solo il rinvio: le righe della pagina, mandate prima, non contano.
+		$this->righe = array();
+		$rinvio      = $this->rinvio_predisposto();
+		$mandate     = array();
+
+		foreach ( $this->righe as $riga ) {
+			list( $nome, $valore )      = array_map( 'trim', explode( ':', $riga, 2 ) );
+			$mandate[ (string) $nome ] = (string) $valore;
+		}
+
+		$this->assertSame( 302, $rinvio['stato'] ?? 0, 'Precondizione: il vecchio indirizzo rinvia.' );
+		$this->assertArrayHasKey( 'Cache-Control', $mandate, 'Il rinvio manda l\'intestazione che decide se conservarlo.' );
+		$conserva( $memoria, 'vecchio indirizzo', $mandate );
+
+		$this->assertSame( array(), $memoria, 'Nessuna risposta dell\'albo e\' stata conservata.' );
+
+		// Ora uno si toglie dall'albo e l'altro scade: la memoria non ha niente da ripresentare, la risposta viva e' la "non trovata".
+		$this->defisso_il( $tolto, '2041-10-05 11:00:00' );
+		$this->fissa_orologi( '2041-10-11 10:00:00' );
+		wp_set_current_user( 0 );
+
+		$this->assertTrue( conformita_core_scaduto( $scadra ), 'Precondizione: il secondo atto e\' scaduto.' );
+
+		foreach ( array( $tolto, $scadra ) as $atto ) {
+			$this->assertTrue( $this->risposta( $strade[ $atto . ' scheda' ] )['non trovata'], $atto . ': la scheda e\' "non trovata".' );
+			$this->assertStringNotContainsString( 'data-atto="' . $atto . '"', $this->risposta( $strade[ $atto . ' elenco' ] )['corpo'], $atto . ': l\'elenco non lo mostra.' );
+			$this->assertFalse( $this->consegnato( $this->consegna( (int) DocumentiAtto::principale( $atto ) ) ), $atto . ': il documento non si scarica.' );
+		}
+
+		$this->assertNull( $this->rinvio( $this->indirizzo( array( 'action' => 'visatto', 'id' => '501' ) ) ), 'Il vecchio indirizzo non rinvia piu\'.' );
+	}
+
+	/**
 	 * Toglie dall'albo da codice come chi pubblica, all'istante indicato.
 	 *
 	 * @param int    $atto    Atto.

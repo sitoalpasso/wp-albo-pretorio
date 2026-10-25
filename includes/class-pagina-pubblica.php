@@ -645,7 +645,7 @@ final class PaginaPubblica {
 		$scheda = self::richiesta_dell_albo() && self::in_pubblicazione( $atto ) ? self::indirizzo_scheda( $atto ) : null;
 
 		if ( null !== $scheda ) {
-			nocache_headers();
+			self::vieta_memorie();
 
 			if ( wp_safe_redirect( $scheda, 302, 'Albo Pretorio' ) ) {
 				exit;
@@ -935,6 +935,27 @@ final class PaginaPubblica {
 		}
 
 		self::manda( 'X-Robots-Tag: noindex' );
+	}
+
+	/**
+	 * Le intestazioni con cui WordPress vieta di conservare una risposta, per un rinvio.
+	 *
+	 * Un rinvio conservato da una memoria continuerebbe a portare alla scheda
+	 * anche dopo la scadenza (A-258). Con l'emettitore delle prove le righe
+	 * vanno a lui, al posto delle intestazioni vere.
+	 */
+	private static function vieta_memorie(): void {
+		if ( null === self::$emettitore ) {
+			nocache_headers();
+
+			return;
+		}
+
+		foreach ( wp_get_nocache_headers() as $nome => $valore ) {
+			if ( is_string( $valore ) && '' !== $valore ) {
+				call_user_func( self::$emettitore, $nome . ': ' . $valore, true );
+			}
+		}
 	}
 
 	/**

@@ -305,9 +305,16 @@ final class TipoAtto {
 				 * ogni contenuto pubblicato, senza guardare se il tipo e' pubblico.
 				 * Si accende quando la pubblicazione si apre.
 				 */
-				'show_in_rest' => false,
-				'sezione'      => SEZIONE,
-				'argomenti'    => self::argomenti(),
+				'show_in_rest'   => false,
+				'sezione'        => SEZIONE,
+				'argomenti'      => self::argomenti(),
+
+				/*
+				 * Il nome con cui i documenti escono dal punto di consegna:
+				 * numero di registro e date di pubblicazione, mai l'oggetto ne'
+				 * il nome originale del file (ALBO-30).
+				 */
+				'nome_scaricato' => array( NomeScaricato::class, 'nome' ),
 			)
 		);
 
