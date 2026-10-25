@@ -26,6 +26,9 @@ use AlboPretorioPa\VistaPubblica;
 
 use const AlboPretorioPa\TIPO;
 
+// La prova della lettura sola scrive l'elenco di lato, e quella dei salvataggi sovrapposti lancia processi veri.
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.PHP.DiscouragedPHPFunctions.system_calls_proc_open
+
 /**
  * L'elenco delle amministrazioni ospitate, la scelta sull'atto e cio' che vede il pubblico.
  */
@@ -589,6 +592,13 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 		$this->invia_scheda( $bozza, null, 'pending' );
 		$this->assertSame( 'draft', get_post_status( $bozza ), 'La voce tolta ferma la bozza.' );
 
+		// Il menu mostra "Da scegliere", e il browser lo manda vuoto: salvare o chiedere la verifica cosi' non sblocca niente.
+		$this->invia_scheda( $bozza, '' );
+		$this->assertSame( array( (string) $ospitata ), get_post_meta( $bozza, AmministrazioniOspitate::META, false ), '"Da scegliere" non cancella una scelta che non vale piu\'.' );
+		$this->invia_scheda( $bozza, '', 'pending' );
+		$this->assertSame( 'draft', get_post_status( $bozza ), 'Inviato com\'e\', il riquadro non sblocca la bozza.' );
+		$this->assertArrayHasKey( 'albo_manca_amministrazione', DatiAtto::mancanti( $bozza ) );
+
 		$senza_numero = Repertorio::di( $verifica );
 		$this->assertNull( $senza_numero );
 		$esito = $this->pubblica_da_codice( $verifica, $this->pubblicatore );
@@ -631,6 +641,42 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 		add_post_meta( $doppio, AmministrazioniOspitate::META, (string) $ospitata );
 		$this->assertNull( AmministrazioniOspitate::scelta( $doppio ), 'Due righe valgono come nessuna.' );
 
+		// Una scelta storta non e' una scelta assente: anche a elenco vuoto l'atto non va avanti, e "Da scegliere" non la toglie.
+		$storta_uno = $this->atto_completo_senza_controllo( 'Storta con zero davanti' );
+		$verifica   = $this->in_verifica_con( 'In verifica, poi scritta storta', (string) $ospitata );
+		$storte     = array( $storta_uno => array( '01' ) );
+
+		update_post_meta( $storta_uno, AmministrazioniOspitate::META, '01' );
+		$storte[ $doppio ] = array( '0', (string) $ospitata );
+		$this->scavalca_barriera(
+			static function () use ( $verifica ) {
+				update_post_meta( $verifica, AmministrazioniOspitate::META, '01' );
+			}
+		);
+
+		$this->assertTrue( $this->invia_elenco( $this->pubblicatore, array( SchermataAmministrazioniOspitate::CAMPO_TOGLI => array( (string) $ospitata ) ) ) );
+		$this->assertSame( array(), AmministrazioniOspitate::voci(), 'Precondizione: l\'elenco e\' vuoto.' );
+
+		foreach ( $storte as $id => $righe ) {
+			$this->assertTrue( AmministrazioniOspitate::da_chiedere( $id ), $id . ': la domanda resta.' );
+			$this->assertStringContainsString( 'non si legge', $this->riquadro( $id ), $id . ': il riquadro dice perche\'.' );
+			$this->invia_scheda( $id, '', 'pending' );
+			$this->assertSame( 'draft', get_post_status( $id ), $id . ': resta in bozza.' );
+			$this->assertSame( $righe, get_post_meta( $id, AmministrazioniOspitate::META, false ), $id . ': le righe storte restano.' );
+		}
+
+		$esito = $this->pubblica_da_codice( $verifica, $this->pubblicatore );
+		$this->assertWPError( $esito, 'La scelta storta ferma la pubblicazione anche a elenco vuoto.' );
+		$this->assertNull( Repertorio::di( $verifica ), 'Nessun numero consumato.' );
+
+		// Una scelta vera sostituisce tutte le righe storte.
+		$this->invia_scheda( $doppio, '0', 'pending' );
+		$this->assertSame( array( '0' ), get_post_meta( $doppio, AmministrazioniOspitate::META, false ) );
+		$this->assertSame( 'pending', get_post_status( $doppio ), 'Con la scelta fatta va in verifica.' );
+
+		$this->aggiungi( self::OSPITATA );
+		$ospitata = $this->numero_di( self::OSPITATA );
+
 		// La scheda rifiuta una voce che non c'e' e salva il resto.
 		$fuori  = $this->atto_completo_senza_controllo( 'Voce fuori elenco' );
 		$motivi = $this->invia_scheda( $fuori, '42' );
@@ -655,6 +701,19 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 		// L'atto pubblicato conserva il nome fissato nel registro anche con l'elenco guasto.
 		$this->assertSame( self::OSPITATA, $this->scheda( $atto_ospitato )[ AmministrazioniOspitate::etichetta() ] );
 
+		// E anche con due righe scritte di lato sull'atto pubblicato: vale il nome fissato, non "questa amministrazione".
+		$this->scavalca_barriera(
+			static function () use ( $atto_ospitato ) {
+				add_post_meta( $atto_ospitato, AmministrazioniOspitate::META, '0' );
+			}
+		);
+		$this->assertSame( self::OSPITATA, AmministrazioniOspitate::da_mostrare( $atto_ospitato ), 'Scelta storta sull\'atto pubblicato: il nome fissato.' );
+		$this->scavalca_barriera(
+			static function () use ( $atto_ospitato ) {
+				delete_post_meta( $atto_ospitato, AmministrazioniOspitate::META, '0' );
+			}
+		);
+
 		// Se la voce di conferma non si legge si dice, invece di tacere.
 		$guasto = static function ( $istruzione ) {
 			return false !== strpos( (string) $istruzione, 'conformita_core_registro' ) ? 'SELECT * FROM tabella_che_non_esiste' : $istruzione;
@@ -668,6 +727,75 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 			remove_filter( 'query', $guasto );
 			$GLOBALS['wpdb']->suppress_errors( $suppressi );
 		}
+
+		// Ripristinato un elenco valido, la sua lettura che fallisce non vale come elenco vuoto.
+		delete_option( AmministrazioniOspitate::OPZIONE );
+		$this->aggiungi( self::OSPITATA );
+		$salvata  = get_option( AmministrazioniOspitate::OPZIONE );
+		$senza    = $this->atto_completo_senza_controllo( 'Senza scelta, lettura fallita' );
+		$ospitata = $this->numero_di( self::OSPITATA );
+		$guasto   = static function ( $istruzione ) {
+			return false !== strpos( (string) $istruzione, AmministrazioniOspitate::OPZIONE ) && 0 === stripos( ltrim( (string) $istruzione ), 'SELECT' ) ? 'SELECT * FROM tabella_che_non_esiste' : $istruzione;
+		};
+
+		$this->assertArrayHasKey( 'albo_manca_amministrazione', DatiAtto::mancanti( $senza ), 'Controllo positivo: con l\'elenco letto la scelta manca.' );
+
+		add_filter( 'query', $guasto );
+		$suppressi = $GLOBALS['wpdb']->suppress_errors( true );
+
+		try {
+			$this->assertTrue( AmministrazioniOspitate::illeggibile(), 'La lettura fallita e\' un elenco illeggibile.' );
+			$this->assertArrayHasKey( 'albo_manca_amministrazione', DatiAtto::mancanti( $senza ), 'La lettura fallita non fa passare l\'atto senza scelta.' );
+			$this->assertWPError( AmministrazioniOspitate::salva( array(), array(), 'Ente durante il guasto', $this->pubblicatore, Passaggi::ora() ), 'Sopra una lettura fallita non si salva.' );
+		} finally {
+			remove_filter( 'query', $guasto );
+			$GLOBALS['wpdb']->suppress_errors( $suppressi );
+		}
+
+		$this->assertSame( $salvata, get_option( AmministrazioniOspitate::OPZIONE ), 'L\'elenco non e\' stato ricominciato.' );
+
+		/*
+		 * La pubblicazione controlla e prende il nome da una lettura sola. Se
+		 * l'elenco si rileggesse, la seconda lettura troverebbe la voce tolta
+		 * da un'altra richiesta e l'atto ospitato uscirebbe come atto di
+		 * questa amministrazione.
+		 */
+		$conteso = $this->in_verifica_con( 'Ospitato conteso', (string) $ospitata );
+		$letture = 0;
+		$togli   = static function ( $istruzione ) use ( &$letture, $ospitata ) {
+			if ( false === strpos( (string) $istruzione, AmministrazioniOspitate::OPZIONE ) || 0 !== stripos( ltrim( (string) $istruzione ), 'SELECT' ) ) {
+				return $istruzione;
+			}
+
+			++$letture;
+
+			if ( 2 === $letture ) {
+				global $wpdb;
+
+				$valore         = maybe_unserialize( (string) $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s AND %d", AmministrazioniOspitate::OPZIONE, 1 ) ) );
+				$valore['voci'] = array_values( array_filter( $valore['voci'], static fn( $voce ) => $voce['id'] !== $ospitata ) );
+				$wpdb->update( $wpdb->options, array( 'option_value' => maybe_serialize( $valore ) ), array( 'option_name' => AmministrazioniOspitate::OPZIONE ) );
+			}
+
+			return $istruzione;
+		};
+
+		add_filter( 'query', $togli );
+
+		try {
+			$dettagli = AmministrazioniOspitate::per_registro( $conteso );
+		} finally {
+			remove_filter( 'query', $togli );
+		}
+
+		$this->assertSame(
+			array(
+				AmministrazioniOspitate::DETTAGLIO_NOME => self::OSPITATA,
+				AmministrazioniOspitate::DETTAGLIO_VOCE => $ospitata,
+			),
+			$dettagli,
+			'Controllo e nome dalla stessa lettura.'
+		);
 	}
 
 	/**
@@ -692,5 +820,136 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 
 		$this->assertSame( self::OSPITATA, $this->scheda( $id )[ AmministrazioniOspitate::etichetta() ] );
 		$this->assertStringContainsString( 'Atto di: ' . self::OSPITATA, (string) $this->riga( $this->disegnata(), $id ) );
+	}
+
+	/**
+	 * A-256: salvataggi dell'elenco sovrapposti, da processi veri.
+	 *
+	 * Sei processi aggiungono dieci voci ciascuno, una per salvataggio, partendo
+	 * insieme. Senza la fila due salvataggi leggerebbero lo stesso numero per la
+	 * voce nuova e l'ultimo cancellerebbe le aggiunte dell'altro.
+	 */
+	public function test_a256_salvataggi_sovrapposti(): void {
+		global $table_prefix;
+
+		$processi  = 6;
+		$per_ogni  = 10;
+		$cartella  = get_temp_dir() . 'albo-ospitate-' . wp_generate_password( 8, false );
+		$core_file = albo_pretorio_file_core();
+		$attesi    = array();
+		$gruppi    = array();
+
+		for ( $i = 0; $i < $processi; $i++ ) {
+			for ( $j = 0; $j < $per_ogni; $j++ ) {
+				$gruppi[ $i ][] = sprintf( 'Ente %d di %d', $j, $i );
+				$attesi[]       = sprintf( 'Ente %d di %d', $j, $i );
+			}
+		}
+
+		$this->assertNotSame( '', $core_file, 'Precondizione: il componente comune deve essere raggiungibile dai figli.' );
+		$this->assertTrue( wp_mkdir_p( $cartella ) );
+
+		self::commit_transaction();
+
+		$tubi  = array();
+		$figli = array();
+
+		try {
+			for ( $i = 0; $i < $processi; $i++ ) {
+				$ambiente                     = getenv();
+				$ambiente['ALBO_CONCORRENZA'] = wp_json_encode(
+					array(
+						'abspath'     => ABSPATH,
+						'db_name'     => DB_NAME,
+						'db_user'     => DB_USER,
+						'db_password' => DB_PASSWORD,
+						'db_host'     => DB_HOST,
+						'prefisso'    => $table_prefix,
+						'core'        => $core_file,
+						'albo'        => \AlboPretorioPa\FILE_PRINCIPALE,
+						'cartella'    => $cartella,
+						'indice'      => $i,
+						'nomi'        => $gruppi[ $i ],
+					)
+				);
+
+				$figli[ $i ] = proc_open(
+					array( PHP_BINARY, __DIR__ . '/concorrenza/ospitate.php' ),
+					array(
+						1 => array( 'pipe', 'w' ),
+						2 => array( 'pipe', 'w' ),
+					),
+					$tubi[ $i ],
+					null,
+					$ambiente
+				);
+
+				$this->assertIsResource( $figli[ $i ], "Il processo {$i} deve partire." );
+			}
+
+			$limite = microtime( true ) + 60;
+
+			do {
+				$pronti = count( (array) glob( $cartella . '/pronto-*' ) );
+
+				$this->assertLessThan( $limite, microtime( true ), 'I processi figli non sono diventati pronti.' );
+				usleep( 10000 );
+			} while ( $pronti < $processi );
+
+			touch( $cartella . '/via' );
+
+			$risultati = array();
+
+			for ( $i = 0; $i < $processi; $i++ ) {
+				$uscita = stream_get_contents( $tubi[ $i ][1] );
+				$errori = stream_get_contents( $tubi[ $i ][2] );
+				$codice = proc_close( $figli[ $i ] );
+
+				$figli[ $i ] = null;
+
+				$this->assertSame( 0, $codice, "Il processo {$i} e' terminato male: {$errori}" );
+
+				$risultati[ $i ] = json_decode( (string) $uscita, true );
+
+				$this->assertIsArray( $risultati[ $i ], "Il processo {$i} non ha restituito esiti: {$uscita} {$errori}" );
+			}
+
+			self::commit_transaction();
+
+			// Controllo di realta': i processi si sono sovrapposti davvero.
+			$this->assertLessThan( min( array_column( $risultati, 'fine' ) ), max( array_column( $risultati, 'inizio' ) ), 'I processi non si sono sovrapposti: la prova non misurerebbe niente.' );
+
+			foreach ( $risultati as $i => $risultato ) {
+				foreach ( $risultato['esiti'] as $esito ) {
+					$this->assertTrue( $esito['esito'], "Il processo {$i} ha ricevuto un rifiuto per {$esito['nome']}." );
+				}
+			}
+
+			$impostazione = AmministrazioniOspitate::impostazione();
+			$voci         = AmministrazioniOspitate::voci();
+			$nomi         = array_values( $voci );
+
+			sort( $nomi );
+			sort( $attesi );
+
+			$this->assertSame( $attesi, $nomi, 'Ogni voce aggiunta c\'e\', una volta sola.' );
+			$this->assertSame( range( 1, $processi * $per_ogni ), array_keys( $voci ), 'Ogni voce ha un numero suo, senza buchi e senza doppioni.' );
+			$this->assertSame( $processi * $per_ogni + 1, $impostazione['prossimo'] ?? null, 'Il prossimo numero viene dopo l\'ultimo dato.' );
+		} finally {
+			foreach ( $figli as $figlio ) {
+				if ( is_resource( $figlio ) ) {
+					proc_terminate( $figlio );
+				}
+			}
+
+			delete_option( AmministrazioniOspitate::OPZIONE );
+			self::commit_transaction();
+
+			foreach ( (array) glob( $cartella . '/*' ) as $file ) {
+				unlink( $file );
+			}
+
+			rmdir( $cartella );
+		}
 	}
 }
