@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro
 com'è andata davvero.
 
 **Stato: costruita, in attesa di revisione.** Requisito ALBO-29, righe di collaudo
-A-249..A-255. Com'è andata davvero è in fondo.
+A-249..A-256. Com'è andata davvero è in fondo.
 
 ## In tre paragrafi
 
@@ -102,18 +102,29 @@ e nessun ruolo nuovo.
   con la sola risposta "Questa amministrazione"; gli altri atti aspettano che l'elenco sia
   ripristinato, e la schermata rifiuta di salvarci sopra, perché un elenco ricominciato
   darebbe a un'altra amministrazione il numero di una voce già scelta.
-- **Valore scritto di lato sull'atto** (zeri davanti, spazi, due righe, numero enorme):
-  scelta mancante.
+- **Valore scritto di lato sull'atto** (zeri davanti, spazi, due righe, numero enorme): non
+  è una scelta assente ma una scelta storta. L'atto si ferma anche a elenco vuoto e la domanda
+  resta finché non si sceglie di nuovo; una scelta vera sostituisce tutte le righe.
+- **"Da scegliere" inviato così com'è** su un atto la cui scelta non vale più: il menu la
+  mostra come "Da scegliere" e il browser manda il campo vuoto. Il vuoto toglie solo una
+  scelta che vale ancora; una scelta che non vale più resta, e con lei il blocco.
+- **Lettura dell'elenco che fallisce**: l'elenco si legge dalla banca dati a ogni controllo,
+  senza la memoria delle opzioni di WordPress, che risponde con lo stesso valore predefinito
+  per "non c'è" e per "la lettura è fallita". Una lettura fallita vale come elenco
+  illeggibile: la domanda resta e la schermata non salva.
 - **Voce di conferma che non si legge**, per un atto ospitato pubblicato: la pagina dice "non
   leggibile in questo momento" invece di tacere, perché tacere farebbe sembrare l'atto di
   questa amministrazione.
-- **Due persone che salvano l'elenco insieme**: una voce aggiunta dall'altra e assente
-  dall'invio resta; si tolgono solo le voci indicate; il nome inviato per una voce che
-  l'altra ha tolto rifiuta il salvataggio.
+- **Due persone che salvano l'elenco insieme**: i salvataggi vanno in fila, dalla lettura
+  alla scrittura confermata, con un blocco della banca dati; senza, due salvataggi
+  sovrapposti darebbero lo stesso numero a due amministrazioni diverse. Dentro la fila, una
+  voce aggiunta dall'altra e assente dall'invio resta; si tolgono solo le voci indicate; il
+  nome inviato per una voce che l'altra ha tolto rifiuta il salvataggio.
 
 ### 7. Prove aggiunte
 
-A-249..A-255, in `tests/AmministrazioniOspitateTest.php`.
+A-249..A-256, in `tests/AmministrazioniOspitateTest.php`; la prova dei salvataggi
+sovrapposti lancia processi veri con `tests/concorrenza/ospitate.php`.
 
 ### 8. Cosa NON si implementa
 
@@ -152,6 +163,14 @@ la riga nella scheda. Rinominare la voce: la scheda dell'atto pubblicato non cam
   altra richiesta della pagina dell'albo. Le prove nuove, che leggono la pagina, vengono
   prima in ordine di file: ora A-202 gira in un processo a parte, come già A-205.
 
+- Il primo giro di revisione indipendente ha trovato cinque buchi, tutti corretti con una
+  prova che prima non c'era. "Da scegliere" inviato così com'è cancellava una scelta non più
+  valida e sbloccava l'atto come atto di questa amministrazione; una scelta storta valeva
+  come assente, e a elenco vuoto passava; i salvataggi dell'elenco non erano in fila; la
+  pubblicazione leggeva l'elenco due volte, e il commento diceva il contrario; una lettura
+  dell'elenco fallita valeva come elenco mai salvato. Ora l'elenco si legge una volta per
+  controllo, fresco dalla banca dati, e la scelta storta si distingue da quella assente.
+
 Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 
 | Guasto | Prova caduta |
@@ -170,3 +189,10 @@ Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 | voce fuori elenco accettata dalla scheda | A-254 |
 | nome assente dall'elenco pubblico | A-250, A-255 |
 | nome assente dalla consultazione riservata | A-250 |
+| "Da scegliere" che cancella una scelta non più valida | A-253, A-254 |
+| scelta storta trattata come assente | A-254 |
+| scelta nuova scritta sopra due righe storte senza toglierle | A-254 |
+| nome di un atto pubblicato con scelta storta taciuto | A-254 |
+| lettura fallita dell'elenco trattata come elenco mai salvato | A-254 |
+| nome preso da una seconda lettura dell'elenco | A-254 |
+| salvataggi dell'elenco senza fila | A-256 |

@@ -81,4 +81,4 @@ Schede presenti:
 - [`amministrazioni-ospitate.md`](amministrazioni-ospitate.md): l'elenco delle
   amministrazioni per cui l'albo pubblica, la scelta senza preselezione sull'atto quando
   l'elenco ha voci, e il nome fissato alla pubblicazione e mostrato al pubblico. Righe di
-  collaudo A-249..A-255.
+  collaudo A-249..A-256.
