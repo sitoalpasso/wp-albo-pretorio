@@ -64,6 +64,13 @@ final class DatiAtto {
 			}
 		}
 
+		if ( ! AmministrazioniOspitate::registra() ) {
+			return new \WP_Error(
+				'albo_dati_non_dichiarati',
+				__( 'Dati dell\'atto non dichiarati: WordPress ha rifiutato la dichiarazione dell\'amministrazione che ha adottato l\'atto.', 'albo-pretorio-pa' )
+			);
+		}
+
 		if ( ! DatiProcedimento::registra() ) {
 			return new \WP_Error(
 				'albo_dati_non_dichiarati',
@@ -185,6 +192,12 @@ final class DatiAtto {
 			$mancanti['albo_manca_documento_principale'] = __( 'Manca il documento principale dell\'atto.', 'albo-pretorio-pa' );
 		}
 
+		$amministrazione = AmministrazioniOspitate::manca( $atto_id );
+
+		if ( null !== $amministrazione ) {
+			$mancanti['albo_manca_amministrazione'] = $amministrazione;
+		}
+
 		return $mancanti;
 	}
 
@@ -283,5 +296,6 @@ final class DatiAtto {
 		unregister_post_meta( TIPO, META_DATA_ADOZIONE );
 		unregister_post_meta( TIPO, META_NUMERO_PROPRIO );
 		DatiProcedimento::azzera();
+		AmministrazioniOspitate::azzera();
 	}
 }

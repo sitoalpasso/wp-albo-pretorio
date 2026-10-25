@@ -417,6 +417,13 @@ final class Passaggi {
 			return $durata;
 		}
 
+		// L'amministrazione dell'atto ospitato si fissa qui, prima del numero, e si scrive cosi' (ALBO-29).
+		$ospitata = AmministrazioniOspitate::per_registro( $atto_id );
+
+		if ( is_wp_error( $ospitata ) ) {
+			return $ospitata;
+		}
+
 		/*
 		 * La fine si calcola qui, prima del numero: senza la scelta sui
 		 * festivi non si sa quale fine scrivere, e il rifiuto non deve
@@ -469,7 +476,7 @@ final class Passaggi {
 		self::inizia( $atto_id, $campi, $fine, 'pubblicazione' );
 
 		try {
-			$esito = self::pubblica_dentro( $atto_id, $campi, $slittata, $numero, $partenza, $prima_fine, ! $fine_uguale, $prima );
+			$esito = self::pubblica_dentro( $atto_id, $campi, $slittata, $numero, $partenza, $prima_fine, ! $fine_uguale, $prima, $ospitata );
 		} finally {
 			unset( self::$in_corso[ $atto_id ] );
 		}
@@ -488,11 +495,12 @@ final class Passaggi {
 	 * @param int                           $prima_fine Voci della fine prima del passaggio.
 	 * @param bool                          $cambia     La data di fine cambia.
 	 * @param int                           $prima      Voci della pubblicazione prima.
+	 * @param array<string, string|int>     $ospitata   Amministrazione dell'atto, fissata prima del numero.
 	 * @return array{anno: int, numero: int, inizio: string, fine: string, voce: int}|\WP_Error
 	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
 	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, con l'eccezione come causa.
 	 */
-	private static function pubblica_dentro( int $atto_id, array $campi, array $slittata, array $numero, array $partenza, int $prima_fine, bool $cambia, int $prima ) {
+	private static function pubblica_dentro( int $atto_id, array $campi, array $slittata, array $numero, array $partenza, int $prima_fine, bool $cambia, int $prima, array $ospitata ) {
 		$fine     = (string) $slittata['fine'];
 		$apertura = self::apri();
 
@@ -538,7 +546,7 @@ final class Passaggi {
 							'fine_calcolata'  => $slittata['calcolata'],
 							'slittamento'     => $slittata['slittamento'],
 							'festivi_saltati' => self::saltati_per_registro( $slittata['saltati'] ),
-						) + DatiProcedimento::per_registro( $atto_id ),
+						) + DatiProcedimento::per_registro( $atto_id ) + $ospitata,
 						'chiave'    => SEZIONE . ':' . self::AZIONE_CONFERMA . ':' . $atto_id,
 					)
 				);

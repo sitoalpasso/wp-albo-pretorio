@@ -76,6 +76,13 @@ final class SchedaAtto {
 	const CAMPO_NUMERO = 'albo_pretorio_numero_proprio';
 
 	/**
+	 * Campo dell'amministrazione che ha adottato l'atto (ALBO-29).
+	 *
+	 * @var string
+	 */
+	const CAMPO_AMMINISTRAZIONE = 'albo_pretorio_amministrazione';
+
+	/**
 	 * Per quanti secondi i motivi di un rifiuto aspettano la pagina successiva.
 	 *
 	 * @var int
@@ -170,7 +177,43 @@ final class SchedaAtto {
 			esc_html__( 'Facoltativo. E\' il numero dell\'atto, per esempio della determinazione, non quello di pubblicazione, che assegna il sistema.', 'albo-pretorio-pa' )
 		);
 
+		self::campo_amministrazione( $atto_id );
 		self::campi_procedimento( $atto_id );
+	}
+
+	/**
+	 * La scelta dell'amministrazione che ha adottato l'atto, quando va chiesta (ALBO-29).
+	 *
+	 * **Nessuna risposta segnata in partenza**: la voce in testa e' "da
+	 * scegliere", che non e' una risposta. Il campo non porta l'obbligo di
+	 * compilazione del browser, perche' la bozza si salva anche incompleta: la
+	 * scelta si pretende al passaggio in verifica.
+	 *
+	 * @param int $atto_id Atto.
+	 */
+	private static function campo_amministrazione( int $atto_id ): void {
+		if ( ! AmministrazioniOspitate::da_chiedere( $atto_id ) ) {
+			return;
+		}
+
+		$scelta = AmministrazioniOspitate::scelta_valida( $atto_id );
+		$campo  = self::CAMPO_AMMINISTRAZIONE;
+
+		printf( '<p><label for="%1$s">%2$s</label><br /><select id="%1$s" name="%1$s" aria-describedby="%1$s_aiuto">', esc_attr( $campo ), esc_html( AmministrazioniOspitate::etichetta() ) );
+		printf( '<option value=""%1$s>%2$s</option>', null === $scelta ? ' selected="selected"' : '', esc_html__( 'Da scegliere', 'albo-pretorio-pa' ) );
+		printf( '<option value="%1$d"%2$s>%3$s</option>', (int) AmministrazioniOspitate::QUESTA, AmministrazioniOspitate::QUESTA === $scelta ? ' selected="selected"' : '', esc_html__( 'Questa amministrazione', 'albo-pretorio-pa' ) );
+
+		foreach ( AmministrazioniOspitate::voci() as $id => $nome ) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- codificato per intero da self::attributo().
+			printf( '<option value="%1$d"%2$s>%3$s</option>', (int) $id, $id === $scelta ? ' selected="selected"' : '', self::attributo( $nome ) );
+		}
+
+		echo '</select></p>';
+
+		$aiuto = __( 'Obbligatorio per mandare l\'atto in verifica. Si sceglie un\'altra amministrazione quando l\'atto e\' suo e questo albo lo pubblica per conto di quella: il nome compare a chi consulta l\'albo, nell\'elenco e nella scheda. Alla pubblicazione il nome si fissa e non cambia piu\'.', 'albo-pretorio-pa' );
+		$manca = null === $scelta && array() !== get_post_meta( $atto_id, AmministrazioniOspitate::META, false ) ? AmministrazioniOspitate::manca( $atto_id ) : null;
+
+		printf( '<p class="description" id="%1$s_aiuto">%2$s</p>', esc_attr( $campo ), esc_html( null === $manca ? $aiuto : $manca . ' ' . $aiuto ) );
 	}
 
 	/**
@@ -275,6 +318,16 @@ final class SchedaAtto {
 			__( 'Data di adozione', 'albo-pretorio-pa' ) => (string) ( DatiAtto::data_adozione( $atto_id ) ?? $assente ),
 			__( 'Numero proprio dell\'atto', 'albo-pretorio-pa' ) => '' === DatiAtto::numero_proprio( $atto_id ) ? $assente : DatiAtto::numero_proprio( $atto_id ),
 		);
+
+		$di = AmministrazioniOspitate::di_atto( $atto_id );
+
+		if ( null !== $di ) {
+			$righe[ AmministrazioniOspitate::etichetta() ] = $di['leggibile']
+				? $di['nome']
+				: ( $di['fissato'] ? __( 'non leggibile in questo momento', 'albo-pretorio-pa' ) : __( 'voce non piu\' nell\'elenco', 'albo-pretorio-pa' ) );
+		} elseif ( AmministrazioniOspitate::QUESTA === AmministrazioniOspitate::scelta( $atto_id ) ) {
+			$righe[ AmministrazioniOspitate::etichetta() ] = __( 'Questa amministrazione', 'albo-pretorio-pa' );
+		}
 
 		foreach ( DatiProcedimento::DATI as $dato ) {
 			if ( DatiProcedimento::in_uso( $dato ) ) {
@@ -428,6 +481,16 @@ final class SchedaAtto {
 			} else {
 				update_post_meta( $atto_id, META_NUMERO_PROPRIO, wp_slash( $numero ) );
 			}
+		}
+
+		$amministrazione = self::campo( self::CAMPO_AMMINISTRAZIONE );
+
+		if ( '' === $amministrazione ) {
+			delete_post_meta( $atto_id, AmministrazioniOspitate::META );
+		} elseif ( is_string( $amministrazione ) && 1 === preg_match( '/^(0|[1-9]\d{0,8})$/D', $amministrazione ) && ( AmministrazioniOspitate::QUESTA === (int) $amministrazione || isset( AmministrazioniOspitate::voci()[ (int) $amministrazione ] ) ) ) {
+			update_post_meta( $atto_id, AmministrazioniOspitate::META, $amministrazione );
+		} elseif ( null !== $amministrazione ) {
+			$motivi[] = __( 'Amministrazione che ha adottato l\'atto non salvata: la voce scelta non e\' nell\'elenco delle amministrazioni ospitate.', 'albo-pretorio-pa' );
 		}
 
 		$motivi = array_merge( $motivi, self::salva_procedimento( $atto_id ) );
