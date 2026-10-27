@@ -114,10 +114,12 @@ e nessun ruolo nuovo.
 - **Scelta cambiata mentre un'altra richiesta toglie la voce e manda l'atto in verifica**: la
   scelta nuova non si scrive cancellando e riscrivendo, che lascerebbe un istante senza
   scelta. Le righe che ci sono si riscrivono tutte con il valore nuovo in una sola istruzione,
-  poi si tolgono quelle in più; la scelta uguale non si tocca. Se qualcosa non riesce a metà
-  si rimettono le righe di prima, con i loro identificativi, e la scheda dice che è rimasta la
-  scelta di prima solo se la banca dati le mostra davvero; altrimenti dice che va rifatta. In
-  ogni caso diverso da una riga sola valida l'atto resta fermo.
+  poi si tolgono quelle in più; la scelta uguale non si tocca. Tutto sta in una transazione:
+  se qualcosa non riesce a metà la banca dati torna indietro su tutto, e la scheda dice che è
+  rimasta la scelta di prima solo se la banca dati la mostra davvero; altrimenti dice di
+  ricontrollare la scelta, che è comunque quella di prima o quella chiesta. Una prima lettura
+  che fallisce non scrive niente: una lettura fallita risponde come un elenco vuoto, e si
+  riconosce dall'errore della connessione.
 - **Lettura dell'elenco che fallisce**: l'elenco si legge dalla banca dati a ogni controllo,
   senza la memoria delle opzioni di WordPress, che risponde con lo stesso valore predefinito
   per "non c'è" e per "la lettura è fallita". Una lettura fallita vale come elenco
@@ -256,6 +258,11 @@ la riga nella scheda. Rinominare la voce: la scheda dell'atto pubblicato non cam
   si tolgono, rilettura che non riesce), la scheda diceva "resta la scelta di prima" senza
   rimetterla. Ora le righe di prima si rimettono e si controlla che ci siano davvero.
 
+- Il nono giro ha mostrato che rimettere le righe a mano apre altri casi: una prima lettura
+  fallita valeva come nessuna scelta, e il ripristino cancellava la scelta valida. Ora la
+  sostituzione sta in una transazione, come il salvataggio dell'elenco, e ogni lettura
+  controlla l'errore della connessione.
+
 Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 
 | Guasto | Prova caduta |
@@ -300,5 +307,6 @@ Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 | scelta cambiata cancellando e riscrivendo | A-253 |
 | esito della scrittura della scelta non controllato | A-253 |
 | righe in più lasciate dopo una scelta vera | A-253 |
-| nessun ripristino dopo una scrittura a metà | A-253 |
-| ripristino dichiarato senza controllarlo | A-253 |
+| nessun ritorno indietro dopo una scrittura a metà | A-253 |
+| ritorno indietro dichiarato senza controllarlo | A-253 |
+| lettura fallita delle righe trattata come nessuna scelta | A-253 |

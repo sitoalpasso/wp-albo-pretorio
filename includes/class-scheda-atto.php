@@ -505,7 +505,7 @@ final class SchedaAtto {
 			if ( 'ripristinata' === $sostituita ) {
 				$motivi[] = __( 'Amministrazione che ha adottato l\'atto non salvata: la scrittura non e\' riuscita, e resta la scelta di prima.', 'albo-pretorio-pa' );
 			} elseif ( 'incerta' === $sostituita ) {
-				$motivi[] = __( 'Amministrazione che ha adottato l\'atto non salvata: la scrittura non e\' riuscita e la scelta di prima non si e\' potuta rimettere. L\'atto resta fermo finche\' non si sceglie di nuovo.', 'albo-pretorio-pa' );
+				$motivi[] = __( 'Amministrazione che ha adottato l\'atto: la scrittura non e\' riuscita e la banca dati non ha confermato se e\' rimasta la scelta di prima o quella nuova. Ricontrollare la scelta prima di mandare l\'atto in verifica.', 'albo-pretorio-pa' );
 			}
 		} elseif ( null !== $amministrazione ) {
 			$motivi[] = __( 'Amministrazione che ha adottato l\'atto non salvata: la voce scelta non e\' nell\'elenco delle amministrazioni ospitate.', 'albo-pretorio-pa' );
@@ -526,13 +526,17 @@ final class SchedaAtto {
 	 * quel momento lo vedrebbe come atto di questa amministrazione. Qui le
 	 * righe che ci sono si riscrivono tutte con il valore nuovo in una sola
 	 * istruzione, poi si tolgono quelle in piu'; si scrive una riga nuova solo
-	 * se non ce n'e' nessuna. La scelta uguale a quella scritta non si tocca.
-	 * Alla fine si rilegge dalla banca dati: riuscito vuol dire una riga sola,
-	 * con il valore chiesto. Se non e' riuscito si rimettono le righe di prima
-	 * e si rilegge di nuovo: `ripristinata` solo se la banca dati le mostra
-	 * davvero, altrimenti `incerta`. In ogni caso diverso da una riga sola
-	 * valida l'atto e' fermo, perche' piu' righe o un valore storto valgono
-	 * come scelta da rifare.
+	 * se non ce n'e' nessuna. La scelta uguale non si tocca.
+	 *
+	 * Tutto sta in una transazione, o in un punto di ripristino dentro quella
+	 * di un altro: o la banca dati mostra una riga sola con il valore chiesto,
+	 * o si torna indietro su tutto. Ogni lettura controlla l'errore della
+	 * connessione, perche' una lettura fallita risponde come un elenco vuoto.
+	 * Una prima lettura che fallisce non scrive niente. `ripristinata` vuol
+	 * dire che la banca dati mostra di nuovo le righe di prima; `incerta`
+	 * che non lo si e' potuto confermare: lo stato e' comunque quello di prima
+	 * o quello chiesto, mai un altro, perche' la transazione non lascia vie di
+	 * mezzo, ma va ricontrollato.
 	 *
 	 * @param int    $atto_id Atto.
 	 * @param string $valore  Scelta gia' validata.
@@ -542,12 +546,15 @@ final class SchedaAtto {
 		global $wpdb;
 
 		$righe = static function () use ( $wpdb, $atto_id ) {
-			return $wpdb->get_results( $wpdb->prepare( "SELECT meta_id, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s ORDER BY meta_id", $atto_id, AmministrazioniOspitate::META ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- si legge la banca dati, non la memoria.
+			$wpdb->last_error = '';
+			$lette            = $wpdb->get_results( $wpdb->prepare( "SELECT meta_id, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s ORDER BY meta_id", $atto_id, AmministrazioniOspitate::META ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- si legge la banca dati, non la memoria.
+
+			return is_array( $lette ) && '' === (string) $wpdb->last_error ? $lette : null;
 		};
 
 		$prima = $righe();
 
-		if ( ! is_array( $prima ) ) {
+		if ( null === $prima ) {
 			return 'ripristinata';
 		}
 
@@ -555,55 +562,45 @@ final class SchedaAtto {
 			return 'scritta';
 		}
 
-		if ( array() === $prima ) {
-			add_post_meta( $atto_id, AmministrazioniOspitate::META, $valore, true );
-		} else {
-			update_post_meta( $atto_id, AmministrazioniOspitate::META, $valore );
+		$modo = Repertorio::transazione_esterna() ? 'punto' : 'transazione';
 
-			$adesso = $righe();
+		if ( false === $wpdb->query( 'punto' === $modo ? 'SAVEPOINT albo_pretorio_scelta' : 'START TRANSACTION' ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- istruzioni fisse della transazione.
+			return 'ripristinata';
+		}
 
-			if ( is_array( $adesso ) && count( $adesso ) > 1 && array( $valore ) === array_values( array_unique( array_map( 'strval', array_column( $adesso, 'meta_value' ) ) ) ) ) {
-				foreach ( array_slice( $adesso, 1 ) as $riga ) {
-					delete_metadata_by_mid( 'post', (int) $riga['meta_id'] );
+		$riuscita = false;
+
+		try {
+			if ( array() === $prima ) {
+				add_post_meta( $atto_id, AmministrazioniOspitate::META, $valore, true );
+			} else {
+				update_post_meta( $atto_id, AmministrazioniOspitate::META, $valore );
+
+				$adesso = $righe();
+
+				if ( null !== $adesso && array( $valore ) === array_values( array_unique( array_map( 'strval', array_column( $adesso, 'meta_value' ) ) ) ) ) {
+					foreach ( array_slice( $adesso, 1 ) as $riga ) {
+						delete_metadata_by_mid( 'post', (int) $riga['meta_id'] );
+					}
 				}
+			}
+
+			wp_cache_delete( $atto_id, 'post_meta' );
+			$dopo     = $righe();
+			$riuscita = null !== $dopo && 1 === count( $dopo ) && $valore === (string) $dopo[0]['meta_value']
+				&& false !== $wpdb->query( 'punto' === $modo ? 'RELEASE SAVEPOINT albo_pretorio_scelta' : 'COMMIT' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- istruzioni fisse della transazione.
+		} finally {
+			if ( ! $riuscita ) {
+				$wpdb->query( 'punto' === $modo ? 'ROLLBACK TO SAVEPOINT albo_pretorio_scelta' : 'ROLLBACK' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- istruzioni fisse della transazione.
+				wp_cache_delete( $atto_id, 'post_meta' );
 			}
 		}
 
-		wp_cache_delete( $atto_id, 'post_meta' );
-		$dopo = $righe();
-
-		if ( is_array( $dopo ) && 1 === count( $dopo ) && $valore === (string) $dopo[0]['meta_value'] ) {
+		if ( $riuscita ) {
 			return 'scritta';
 		}
 
-		// Si rimettono le righe di prima: quelle ancora presenti al loro valore, quelle tolte di nuovo.
-		foreach ( $prima as $riga ) {
-			if ( false !== get_metadata_by_mid( 'post', (int) $riga['meta_id'] ) ) {
-				update_metadata_by_mid( 'post', (int) $riga['meta_id'], wp_slash( (string) $riga['meta_value'] ) );
-			} else {
-				// La riga tolta torna con il suo identificativo, com'era.
-				$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- si rimette la riga tolta con il suo identificativo.
-					$wpdb->postmeta,
-					array(
-						'meta_id'    => (int) $riga['meta_id'],
-						'post_id'    => $atto_id,
-						'meta_key'   => AmministrazioniOspitate::META, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- scrittura di una riga, non ricerca.
-						'meta_value' => (string) $riga['meta_value'], // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- scrittura di una riga, non ricerca.
-					)
-				);
-			}
-		}
-
-		if ( array() === $prima && is_array( $dopo ) ) {
-			foreach ( $dopo as $riga ) {
-				delete_metadata_by_mid( 'post', (int) $riga['meta_id'] );
-			}
-		}
-
-		wp_cache_delete( $atto_id, 'post_meta' );
-		$rimesse = $righe();
-
-		return is_array( $rimesse ) && $rimesse === $prima ? 'ripristinata' : 'incerta';
+		return $righe() === $prima ? 'ripristinata' : 'incerta';
 	}
 
 	/**
