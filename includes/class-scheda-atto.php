@@ -486,17 +486,19 @@ final class SchedaAtto {
 		$amministrazione = self::campo( self::CAMPO_AMMINISTRAZIONE );
 
 		/*
-		 * "Da scegliere" toglie solo una scelta che vale ancora. Una scelta che
+		 * "Da scegliere" non toglie mai una scelta gia' scritta. Una scelta che
 		 * non vale piu' (la voce e' stata tolta, o sull'atto c'e' un valore
 		 * storto) resta dov'e', e con lei il blocco: il menu la mostra come
 		 * "Da scegliere", e un invio cosi' com'e' non deve sbloccare l'atto
 		 * come atto di questa amministrazione senza che nessuno l'abbia scelto.
-		 * Una scelta nuova sostituisce tutte le righe, anche due righe storte.
+		 * Nemmeno una scelta che vale si toglie: fra il controllo e la
+		 * cancellazione un'altra richiesta potrebbe togliere la voce, e l'atto
+		 * resterebbe senza scelta a elenco vuoto, cioe' di questa
+		 * amministrazione. Solo una scelta esplicita, "Questa amministrazione"
+		 * compresa, sostituisce tutte le righe, anche due righe storte.
 		 */
 		if ( '' === $amministrazione ) {
-			if ( null !== AmministrazioniOspitate::scelta_valida( $atto_id ) ) {
-				delete_post_meta( $atto_id, AmministrazioniOspitate::META );
-			}
+			$amministrazione = null;
 		} elseif ( is_string( $amministrazione ) && 1 === preg_match( '/^(0|[1-9]\d{0,8})$/D', $amministrazione ) && ( AmministrazioniOspitate::QUESTA === (int) $amministrazione || isset( AmministrazioniOspitate::voci()[ (int) $amministrazione ] ) ) ) {
 			delete_post_meta( $atto_id, AmministrazioniOspitate::META );
 			add_post_meta( $atto_id, AmministrazioniOspitate::META, $amministrazione, true );

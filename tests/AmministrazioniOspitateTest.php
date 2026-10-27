@@ -603,6 +603,43 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 		$verifica = $this->in_verifica_con( 'In verifica con voce tolta', (string) $ospitata );
 		$this->assertSame( 'pending', get_post_status( $verifica ), 'Precondizione: in verifica.' );
 
+		/*
+		 * "Da scegliere" non toglie nemmeno una scelta che vale: un'altra
+		 * richiesta che toglie la voce mentre la scheda si salva lascerebbe
+		 * l'atto senza scelta, cioe' di questa amministrazione a elenco vuoto.
+		 */
+		$this->aggiungi( 'Ente in corsa' );
+		$corsa   = $this->numero_di( 'Ente in corsa' );
+		$tornata = $this->atto_completo_senza_controllo( 'Bozza che torna a Da scegliere' );
+		$this->assertSame( array(), $this->invia_scheda( $tornata, (string) $corsa ) );
+
+		$this->invia_scheda( $tornata, '' );
+		$this->assertSame( array( (string) $corsa ), get_post_meta( $tornata, AmministrazioniOspitate::META, false ), 'Con la voce ancora in elenco "Da scegliere" non toglie la scelta.' );
+
+		$toglie = static function ( $id ) use ( $tornata, $corsa ) {
+			global $wpdb;
+
+			if ( $tornata !== $id ) {
+				return;
+			}
+
+			$valore         = maybe_unserialize( (string) $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", AmministrazioniOspitate::OPZIONE ) ) );
+			$valore['voci'] = array_values( array_filter( $valore['voci'], static fn( $voce ) => $voce['id'] !== $corsa ) );
+			$wpdb->update( $wpdb->options, array( 'option_value' => maybe_serialize( $valore ) ), array( 'option_name' => AmministrazioniOspitate::OPZIONE ) );
+		};
+
+		add_action( 'save_post_' . TIPO, $toglie, 1 );
+
+		try {
+			$this->invia_scheda( $tornata, '' );
+		} finally {
+			remove_action( 'save_post_' . TIPO, $toglie, 1 );
+		}
+
+		$this->assertNotContains( 'Ente in corsa', AmministrazioniOspitate::voci(), 'Precondizione: la voce e\' stata tolta durante il salvataggio.' );
+		$this->assertSame( array( (string) $corsa ), get_post_meta( $tornata, AmministrazioniOspitate::META, false ), '"Da scegliere" non cancella la scelta.' );
+		$this->assertArrayHasKey( 'albo_manca_amministrazione', DatiAtto::mancanti( $tornata ), 'La bozza resta ferma finche\' non si sceglie di nuovo.' );
+
 		// Mandato in verifica senza scelta a elenco vuoto non si puo': si prepara a mano un atto in verifica senza scelta.
 		$this->assertTrue( $this->invia_elenco( $this->pubblicatore, array( SchermataAmministrazioniOspitate::CAMPO_TOGLI => array( (string) $ospitata ) ) ) );
 		$this->assertSame( array(), AmministrazioniOspitate::voci(), 'Precondizione: l\'elenco e\' vuoto.' );
@@ -1133,31 +1170,47 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 
 			$atto    = $this->in_verifica_con( 'Ospitato conteso nella pubblicazione ' . $dopo, (string) $ospitata );
 			$letture = 0;
-			$togli   = static function ( $istruzione ) use ( &$letture, $dopo, $ospitata ) {
-				if ( false === strpos( (string) $istruzione, AmministrazioniOspitate::OPZIONE ) || 0 !== stripos( ltrim( (string) $istruzione ), 'SELECT' ) ) {
+			$tolta   = false;
+			$rimuovi = static function () use ( &$tolta, $ospitata ) {
+				global $wpdb;
+
+				$tolta          = true;
+				$valore         = maybe_unserialize( (string) $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s AND %d", AmministrazioniOspitate::OPZIONE, 1 ) ) );
+				$valore['voci'] = array_values( array_filter( $valore['voci'], static fn( $voce ) => $voce['id'] !== $ospitata ) );
+				$wpdb->update( $wpdb->options, array( 'option_value' => maybe_serialize( $valore ) ), array( 'option_name' => AmministrazioniOspitate::OPZIONE ) );
+			};
+			$togli   = static function ( $istruzione ) use ( &$letture, &$tolta, $dopo, $rimuovi ) {
+				if ( $tolta || false === strpos( (string) $istruzione, AmministrazioniOspitate::OPZIONE ) || 0 !== stripos( ltrim( (string) $istruzione ), 'SELECT' ) ) {
 					return $istruzione;
 				}
 
 				++$letture;
 
+				// Prima della lettura seguente, cioe' dopo la lettura numero $dopo.
 				if ( $dopo + 1 === $letture ) {
-					global $wpdb;
-
-					$valore         = maybe_unserialize( (string) $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s AND %d", AmministrazioniOspitate::OPZIONE, 1 ) ) );
-					$valore['voci'] = array_values( array_filter( $valore['voci'], static fn( $voce ) => $voce['id'] !== $ospitata ) );
-					$wpdb->update( $wpdb->options, array( 'option_value' => maybe_serialize( $valore ) ), array( 'option_name' => AmministrazioniOspitate::OPZIONE ) );
+					$rimuovi();
 				}
 
 				return $istruzione;
 			};
+			// Dopo l'ultima lettura non ne segue un'altra: la voce si toglie alla prima scrittura dell'atto.
+			$dopo_ultima = static function () use ( &$tolta, &$letture, $dopo, $rimuovi ) {
+				if ( ! $tolta && $letture >= $dopo ) {
+					$rimuovi();
+				}
+			};
 
 			add_filter( 'query', $togli );
+			add_action( 'save_post_' . TIPO, $dopo_ultima, 1 );
 
 			try {
 				$esito = $this->pubblica_da_codice( $atto, $this->pubblicatore );
 			} finally {
 				remove_filter( 'query', $togli );
+				remove_action( 'save_post_' . TIPO, $dopo_ultima, 1 );
 			}
+
+			$this->assertTrue( $tolta, 'La voce e\' stata tolta dopo la lettura ' . $dopo . '.' );
 
 			if ( is_wp_error( $esito ) ) {
 				$this->assertSame( 'pending', get_post_status( $atto ), 'Rifiuto dopo la lettura ' . $dopo . ': l\'atto resta in verifica.' );

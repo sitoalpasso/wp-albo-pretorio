@@ -106,8 +106,11 @@ e nessun ruolo nuovo.
   è una scelta assente ma una scelta storta. L'atto si ferma anche a elenco vuoto e la domanda
   resta finché non si sceglie di nuovo; una scelta vera sostituisce tutte le righe.
 - **"Da scegliere" inviato così com'è** su un atto la cui scelta non vale più: il menu la
-  mostra come "Da scegliere" e il browser manda il campo vuoto. Il vuoto toglie solo una
-  scelta che vale ancora; una scelta che non vale più resta, e con lei il blocco.
+  mostra come "Da scegliere" e il browser manda il campo vuoto. Il vuoto non toglie mai una
+  scelta già scritta: una scelta che non vale più resta, e con lei il blocco; una che vale
+  resta anche lei, perché fra il controllo e la cancellazione un'altra richiesta potrebbe
+  togliere la voce e lasciare l'atto senza scelta a elenco vuoto. Si cambia solo con una
+  scelta esplicita, "Questa amministrazione" compresa.
 - **Lettura dell'elenco che fallisce**: l'elenco si legge dalla banca dati a ogni controllo,
   senza la memoria delle opzioni di WordPress, che risponde con lo stesso valore predefinito
   per "non c'è" e per "la lettura è fallita". Una lettura fallita vale come elenco
@@ -230,6 +233,13 @@ la riga nella scheda. Rinominare la voce: la scheda dell'atto pubblicato non cam
   anche la transazione aperta a mano da un altro componente su MySQL: è il limite dichiarato
   sopra, comune a tutto l'albo.
 
+- Il sesto giro ha trovato che "Da scegliere" toglieva ancora una scelta valida, e fra il
+  controllo e la cancellazione un'altra richiesta poteva togliere la voce: l'atto restava
+  senza scelta a elenco vuoto, quindi di questa amministrazione. Ora "Da scegliere" non
+  toglie mai niente. E la prova attraverso la pubblicazione vera non toglieva la voce dopo
+  l'ultima lettura: ora la toglie alla prima scrittura dell'atto, e verifica ogni volta che
+  sia stata tolta davvero.
+
 Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 
 | Guasto | Prova caduta |
@@ -270,3 +280,4 @@ Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 | transazione dei passaggi mai segnata, o segnata e mai tolta | A-249..A-255, A-260 |
 | tipo delle tabelle mai controllato, o senza la tabella delle opzioni | A-260 |
 | pubblicazione che rilegge il nome dopo il controllo | A-254 |
+| "Da scegliere" che toglie una scelta che vale | A-253 |
