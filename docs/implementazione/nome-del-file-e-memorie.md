@@ -91,6 +91,11 @@ consegnare il file, con i controlli di sempre.
   giorno invece di indovinarlo.
 - **Memoria che ignora le intestazioni**: è fuori dal controllo del componente, ed è un limite
   dichiarato. Le estensioni di memoria più diffuse leggono anche `DONOTCACHEPAGE` (A-202).
+- **Intestazioni vere non osservate dalle prove**: in PHPUnit da riga di comando `header()`
+  non lascia traccia, quindi le prove guardano le righe che passano all'emettitore delle
+  prove e le intestazioni che WordPress passa a `wp_headers` durante la risposta. Le righe
+  sono costruite una volta sola (`senza_memoria()`), e cambia solo dove vanno; la chiamata
+  finale a `header()` resta fuori dalle prove. È un limite dichiarato.
 
 ### 7. Prove aggiunte
 
@@ -129,6 +134,12 @@ trovata".
   decisa dopo le intestazioni (l'atto che scade fra la lettura e il rinvio) rimandava
   `nocache_headers()` di WordPress, che toglieva `no-store` gia' mandato: ora rimanda il
   divieto dell'albo.
+- Il secondo giro di revisione ha trovato che il rinvio e la "non trovata" tardiva
+  costruivano le intestazioni in due modi: con l'emettitore delle prove da `senza_memoria()`,
+  senza da `nocache_headers()` più una riga a parte. Togliere quella riga lasciava le prove
+  verdi. Ora c'è una sola costruzione per le due strade, e `Last-Modified` si toglie come fa
+  WordPress. La prova delle memorie conserva le intestazioni che WordPress ha mandato durante
+  la risposta, non un ricalcolo fatto dopo, e A-222 riproduce l'anonimo di WordPress 6.5.
 
 Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 
@@ -151,3 +162,5 @@ Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 | pagina dell'albo con le intestazioni di WordPress | A-259 |
 | rinvio con le intestazioni di WordPress | A-259 |
 | "non trovata" decisa dopo le intestazioni con quelle di WordPress | A-222 |
+| divieto dell'albo senza `no-store` | A-222, A-259 |
+| rinvio e "non trovata" tardiva con le intestazioni di WordPress | A-222, A-259 |

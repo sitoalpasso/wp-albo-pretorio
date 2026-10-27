@@ -81,6 +81,13 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	private int $pagina = 0;
 
 	/**
+	 * Le intestazioni mandate da WordPress nell'ultima richiesta, come le ha viste `send_headers`.
+	 *
+	 * @var array<string, mixed>
+	 */
+	private array $mandate = array();
+
+	/**
 	 * Assetto comune, indirizzi semplici, consegna e stati osservati.
 	 */
 	public function set_up(): void {
@@ -103,6 +110,19 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 
 		add_filter( 'status_header', array( $this, 'osserva_stato' ), 10, 2 );
 		add_action( 'parse_request', array( $this, 'dimentica_righe' ), 1 );
+		add_filter( 'wp_headers', array( $this, 'osserva_intestazioni' ), PHP_INT_MAX );
+	}
+
+	/**
+	 * Le intestazioni che WordPress sta per mandare, dopo tutti i filtri, quelli dell'albo compresi.
+	 *
+	 * @param mixed $intestazioni Intestazioni.
+	 * @return mixed
+	 */
+	public function osserva_intestazioni( $intestazioni ) {
+		$this->mandate = is_array( $intestazioni ) ? $intestazioni : array();
+
+		return $intestazioni;
 	}
 
 	/**
@@ -118,6 +138,7 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	public function tear_down(): void {
 		remove_filter( 'status_header', array( $this, 'osserva_stato' ), 10 );
 		remove_action( 'parse_request', array( $this, 'dimentica_righe' ), 1 );
+		remove_filter( 'wp_headers', array( $this, 'osserva_intestazioni' ), PHP_INT_MAX );
 		\Conformita_Core_Consegna::azzera_emettitore();
 		PaginaPubblica::fissa_emettitore( null );
 		unset( $_COOKIE[ 'wp-postpass_' . COOKIEHASH ] );
@@ -338,8 +359,9 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	 * @return array<string, mixed>
 	 */
 	private function risposta( string $indirizzo ): array {
-		$this->stati = array();
-		$this->righe = array();
+		$this->stati   = array();
+		$this->righe   = array();
+		$this->mandate = array();
 		$this->globali_nuove();
 		$this->richiesta_pubblica( $indirizzo );
 
@@ -363,6 +385,22 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	 * @return array<string, mixed>
 	 */
 	private function fotografia(): array {
+		// Il ricalcolo qui sotto non e' una risposta mandata: non deve passare per l'osservatore.
+		remove_filter( 'wp_headers', array( $this, 'osserva_intestazioni' ), PHP_INT_MAX );
+
+		try {
+			return $this->fotografia_ricalcolata();
+		} finally {
+			add_filter( 'wp_headers', array( $this, 'osserva_intestazioni' ), PHP_INT_MAX );
+		}
+	}
+
+	/**
+	 * La fotografia, con le intestazioni ricalcolate.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function fotografia_ricalcolata(): array {
 		return array(
 			'non trovata'  => is_404(),
 			'stati'        => array_values( array_unique( $this->stati ) ),
@@ -2153,6 +2191,16 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 		$this->fissa_orologi( self::PRIMO_ISTANTE_SCADUTO );
 		wp_set_current_user( 0 );
 
+		// Il visitatore anonimo come lo tratta WordPress dalla 6.3, versione minima compresa: niente no-store.
+		add_filter(
+			'nocache_headers',
+			static function ( $intestazioni ) {
+				$intestazioni['Cache-Control'] = 'no-cache, must-revalidate, max-age=0';
+
+				return $intestazioni;
+			}
+		);
+
 		$mai = $this->risposta( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => 999999999 ) ) );
 
 		foreach ( array( 'visatto', 'printatto' ) as $azione ) {
@@ -2178,7 +2226,12 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			$this->fissa_orologi( self::PRIMO_ISTANTE_SCADUTO );
 			$this->assertNull( $this->rinvio_predisposto(), $azione . ': a cavallo della mezzanotte, nessun rinvio.' );
 			$this->assertSame( $mai, $this->fotografia(), $azione . ': a cavallo della mezzanotte, come un atto mai esistito.' );
-			$this->assertContains( 'Cache-Control: ' . PaginaPubblica::CACHE_CONTROL, $this->righe, $azione . ': a cavallo della mezzanotte, la risposta decisa dopo le intestazioni vieta comunque di conservarla.' );
+			$divieti = preg_grep( '/^Cache-Control:/i', $this->righe );
+			$this->assertNotEmpty( $divieti, $azione . ': a cavallo della mezzanotte, la risposta decisa dopo le intestazioni riscrive Cache-Control.' );
+
+			foreach ( $divieti as $riga ) {
+				$this->assertStringContainsString( 'no-store', $riga, $azione . ': a cavallo della mezzanotte, la risposta vieta comunque di conservarla.' );
+			}
 		}
 	}
 
@@ -2605,7 +2658,10 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			)
 		);
 		$controllo = array();
-		$conserva( $controllo, 'ordinaria', $this->risposta( (string) get_permalink( $ordinaria ) )['intestazioni'] );
+		// Si conserva quello che WordPress ha mandato durante la risposta, non un ricalcolo fatto dopo.
+		$this->risposta( (string) get_permalink( $ordinaria ) );
+		$this->assertArrayHasKey( 'Content-Type', $this->mandate, 'Precondizione: le intestazioni mandate sono osservate.' );
+		$conserva( $controllo, 'ordinaria', $this->mandate );
 		$this->assertArrayHasKey( 'ordinaria', $controllo, 'Controllo positivo: una pagina ordinaria si conserva.' );
 
 		$strade = array();
@@ -2628,7 +2684,8 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 				$this->assertStringContainsString( 'data-atto="' . (int) $quale . '"', $risposta['corpo'], $quale . ': precondizione, l\'atto e\' nella pagina.' );
 			}
 
-			$conserva( $memoria, $quale, $risposta['intestazioni'] );
+			$this->assertArrayHasKey( 'Content-Type', $this->mandate, $quale . ': precondizione, le intestazioni mandate sono osservate.' );
+			$conserva( $memoria, $quale, $this->mandate );
 		}
 
 		foreach ( array( $tolto, $scadra ) as $atto ) {

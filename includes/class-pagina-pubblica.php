@@ -948,23 +948,30 @@ final class PaginaPubblica {
 	 * Le intestazioni con cui WordPress vieta di conservare una risposta, per un rinvio.
 	 *
 	 * Un rinvio conservato da una memoria continuerebbe a portare alla scheda
-	 * anche dopo la scadenza (A-258). Con l'emettitore delle prove le righe
-	 * vanno a lui, al posto delle intestazioni vere.
+	 * anche dopo la scadenza (A-258). Le righe sono sempre quelle di
+	 * `senza_memoria()`: cambia solo dove vanno, alle intestazioni vere o
+	 * all'emettitore delle prove, cosi' la prova guarda la stessa costruzione
+	 * che parte davvero. Come `nocache_headers()`, un valore falso toglie
+	 * l'intestazione (`Last-Modified`).
 	 */
 	private static function vieta_memorie(): void {
-		if ( null === self::$emettitore ) {
-			nocache_headers();
+		foreach ( self::senza_memoria() as $nome => $valore ) {
+			if ( false === $valore ) {
+				if ( null === self::$emettitore && ! headers_sent() ) {
+					header_remove( (string) $nome );
+				}
 
-			if ( ! headers_sent() ) {
-				header( 'Cache-Control: ' . self::CACHE_CONTROL );
+				continue;
 			}
 
-			return;
-		}
+			if ( ! is_string( $valore ) || '' === $valore ) {
+				continue;
+			}
 
-		foreach ( self::senza_memoria() as $nome => $valore ) {
-			if ( is_string( $valore ) && '' !== $valore ) {
+			if ( null !== self::$emettitore ) {
 				call_user_func( self::$emettitore, $nome . ': ' . $valore, true );
+			} elseif ( ! headers_sent() ) {
+				header( $nome . ': ' . $valore );
 			}
 		}
 	}
