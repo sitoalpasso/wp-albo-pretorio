@@ -535,7 +535,8 @@ final class SchedaAtto {
 	 * o si torna indietro su tutto. Ogni lettura controlla l'errore della
 	 * connessione, perche' una lettura fallita risponde come un elenco vuoto.
 	 * Una prima lettura che fallisce non scrive niente, e nemmeno una tabella
-	 * che non annulla, o il cui tipo non si legge. `ripristinata` vuol
+	 * che non annulla, o il cui tipo non si legge, o una connessione di cui non
+	 * si sa se e' in una transazione (`modo_scelta()`). `ripristinata` vuol
 	 * dire che la banca dati mostra di nuovo le righe di prima; `incerta`
 	 * che non lo si e' potuto confermare: lo stato e' comunque quello di prima
 	 * o quello chiesto, mai un altro, perche' la transazione non lascia vie di
@@ -570,7 +571,11 @@ final class SchedaAtto {
 			return 'tabella';
 		}
 
-		$modo = Repertorio::transazione_esterna() ? 'punto' : 'transazione';
+		$modo = self::modo_scelta();
+
+		if ( null === $modo ) {
+			return 'ripristinata';
+		}
 
 		if ( false === $wpdb->query( 'punto' === $modo ? 'SAVEPOINT albo_pretorio_scelta' : 'START TRANSACTION' ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- istruzioni fisse della transazione.
 			return 'ripristinata';
@@ -612,6 +617,45 @@ final class SchedaAtto {
 		}
 
 		return $righe() === $prima ? 'ripristinata' : 'incerta';
+	}
+
+	/**
+	 * Come rendere annullabile la sostituzione della scelta: `transazione`, `punto`, oppure nullo per non scrivere.
+	 *
+	 * **Si decide solo su una risposta certa**, come per i passaggi e per
+	 * l'elenco. Con la scrittura automatica spenta la connessione e' gia' in
+	 * una transazione, e si mette un punto di ripristino. Con la scrittura
+	 * automatica accesa si apre una transazione, salvo che un'altra sia gia'
+	 * aperta a mano: allora il punto di ripristino. Un punto di ripristino
+	 * fuori da una transazione non trattiene niente, quindi una lettura che
+	 * fallisce, della scrittura automatica o della transazione in corso, non
+	 * porta mai a quello: non si scrive.
+	 *
+	 * @return string|null
+	 */
+	private static function modo_scelta(): ?string {
+		global $wpdb;
+
+		$automatica = $wpdb->get_var( 'SELECT @@autocommit' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- stato della connessione, non dati.
+
+		if ( '0' === $automatica ) {
+			return 'punto';
+		}
+
+		if ( '1' !== $automatica ) {
+			return null;
+		}
+
+		$zitto = $wpdb->suppress_errors( true );
+		$in    = $wpdb->get_var( 'SELECT @@in_transaction' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- stato della connessione, non dati.
+		$wpdb->suppress_errors( $zitto );
+
+		if ( '0' === $in || '1' === $in ) {
+			return '1' === $in ? 'punto' : 'transazione';
+		}
+
+		// Senza la variabile si apre la transazione solo se si sa che la variabile non esiste (MySQL, limite dichiarato).
+		return Repertorio::transazione_esterna() ? null : 'transazione';
 	}
 
 	/**

@@ -284,6 +284,13 @@ la riga nella scheda. Rinominare la voce: la scheda dell'atto pubblicato non cam
   come per i passaggi e l'elenco, si controlla il tipo della tabella prima di scrivere e si
   rifiuta anche quando il tipo non si legge.
 
+- L'undicesimo giro ha trovato che la sostituzione sceglieva il punto di ripristino anche
+  quando la lettura della scrittura automatica falliva, e un punto di ripristino fuori da
+  una transazione non trattiene niente. Ora, come per i passaggi e l'elenco, si decide solo
+  su una risposta certa (`modo_scelta()`): scrittura automatica spenta, punto di ripristino;
+  accesa, transazione, o punto di ripristino se un'altra transazione è aperta; qualunque
+  lettura fallita, nessuna scrittura.
+
 Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 
 | Guasto | Prova caduta |
@@ -338,3 +345,5 @@ Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 | scelta mostrata e segnata nel riquadro letta dalla memoria | A-254 |
 | sostituzione della scelta senza controllo della tabella | A-253 |
 | tipo della tabella che non si legge trattato come transazionale | A-253 |
+| punto di ripristino scelto con la scrittura automatica illeggibile | A-253 |
+| punto di ripristino scelto con la transazione in corso illeggibile | A-253 |

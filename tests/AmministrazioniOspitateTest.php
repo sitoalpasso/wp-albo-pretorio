@@ -1648,6 +1648,84 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-253: se non si sa se la connessione e' in una transazione, la scelta non si cambia.
+	 *
+	 * Un punto di ripristino fuori da una transazione non trattiene niente:
+	 * con la cancellazione delle righe in piu' rifiutata la riscrittura
+	 * resterebbe. La lettura della scrittura automatica che fallisce, o quella
+	 * della transazione in corso che fallisce senza che si sappia se la
+	 * variabile esiste, fermano la sostituzione prima di scrivere.
+	 */
+	public function test_a253_transazione_incerta(): void {
+		global $wpdb;
+
+		$this->aggiungi( self::OSPITATA );
+
+		$ospitata = $this->numero_di( self::OSPITATA );
+		$id       = $this->atto_completo_senza_controllo( 'Scelta con la transazione incerta' );
+
+		$this->invia_scheda( $id, '0' );
+		add_post_meta( $id, AmministrazioniOspitate::META, '0' );
+
+		$righe = static function () use ( $wpdb, $id ): array {
+			return $wpdb->get_results( $wpdb->prepare( "SELECT meta_id, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s ORDER BY meta_id", $id, AmministrazioniOspitate::META ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- la prova guarda la banca dati.
+		};
+		$prima = $righe();
+		$this->assertCount( 2, $prima, 'Precondizione: due righe, da ridurre a una.' );
+
+		$guasti = array(
+			'scrittura automatica illeggibile' => array(
+				'SELECT @@autocommit' => 'SELECT guasto_forzato FROM tabella_che_non_esiste',
+			),
+			'transazione in corso illeggibile' => array(
+				'SELECT @@autocommit'     => 'SELECT 1',
+				'SELECT @@in_transaction' => 'SELECT guasto_forzato FROM tabella_che_non_esiste',
+				'SHOW SESSION VARIABLES'  => 'SELECT guasto_forzato FROM tabella_che_non_esiste',
+			),
+		);
+
+		foreach ( $guasti as $caso => $sostituzioni ) {
+			$guasto    = static function ( $istruzione ) use ( $sostituzioni ) {
+				foreach ( $sostituzioni as $inizio => $al_posto ) {
+					if ( 0 === strpos( ltrim( (string) $istruzione ), $inizio ) ) {
+						return $al_posto;
+					}
+				}
+
+				return $istruzione;
+			};
+			$scritture = 0;
+			$conta     = static function () use ( &$scritture ): void {
+				++$scritture;
+			};
+
+			add_filter( 'query', $guasto );
+			add_action( 'updated_post_meta', $conta );
+			add_action( 'added_post_meta', $conta );
+			add_action( 'deleted_post_meta', $conta );
+			$zitto = $wpdb->suppress_errors( true );
+
+			try {
+				$motivi = $this->invia_scheda( $id, (string) $ospitata );
+			} finally {
+				$wpdb->suppress_errors( $zitto );
+				remove_filter( 'query', $guasto );
+				remove_action( 'updated_post_meta', $conta );
+				remove_action( 'added_post_meta', $conta );
+				remove_action( 'deleted_post_meta', $conta );
+			}
+
+			$this->assertCount( 1, $motivi, $caso );
+			$this->assertStringContainsString( 'resta la scelta di prima', $motivi[0], $caso );
+			$this->assertSame( 0, $scritture, $caso . ': niente scritto.' );
+			$this->assertSame( $prima, $righe(), $caso . ': stesse righe, stessi identificativi.' );
+		}
+
+		$this->assertSame( array(), $this->invia_scheda( $id, (string) $ospitata ), 'Con le letture che rispondono la scelta si scrive.' );
+		$this->assertSame( array( (string) $ospitata ), array_column( $righe(), 'meta_value' ) );
+	}
+
+	/**
 	 * A-255: l'avviso di un atto ospitato annullato porta ancora l'amministrazione.
 	 */
 	public function test_a255_annullato_ospitato(): void {
