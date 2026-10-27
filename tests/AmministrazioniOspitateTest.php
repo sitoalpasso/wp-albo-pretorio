@@ -702,6 +702,77 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 
 		$this->assertStringContainsString( 'non e\' riuscita', implode( ' ', $motivi ) );
 		$this->assertSame( array( (string) $resta ), get_post_meta( $cambiata, AmministrazioniOspitate::META, false ), 'Resta la scelta di prima.' );
+
+		/*
+		 * Un guasto dopo la riscrittura: la cancellazione delle righe in piu'
+		 * rifiutata, o la rilettura finale che fallisce. Si rimettono le righe
+		 * di prima, con i loro identificativi, e la scheda lo dice.
+		 */
+		global $wpdb;
+
+		$righe = static function () use ( $cambiata ) {
+			global $wpdb;
+
+			return $wpdb->get_results( $wpdb->prepare( "SELECT meta_id, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s ORDER BY meta_id", $cambiata, AmministrazioniOspitate::META ), ARRAY_A );
+		};
+
+		add_post_meta( $cambiata, AmministrazioniOspitate::META, '01' );
+		$prima = $righe();
+		$this->assertCount( 2, $prima, 'Precondizione: due righe diverse.' );
+
+		$nega_cancellazione = static function ( $controllo, $id ) use ( $prima ) {
+			return in_array( (string) $id, array_column( $prima, 'meta_id' ), true ) ? false : $controllo;
+		};
+		$letture            = 0;
+		$rilettura_cieca    = static function ( $istruzione ) use ( &$letture ) {
+			if ( 0 === strpos( (string) $istruzione, 'SELECT meta_id, meta_value FROM' ) && false !== strpos( (string) $istruzione, AmministrazioniOspitate::META ) && 3 === ++$letture ) {
+				return 'SELECT * FROM tabella_che_non_esiste';
+			}
+
+			return $istruzione;
+		};
+
+		foreach ( array(
+			'cancellazione rifiutata'  => array( 'delete_post_metadata_by_mid', $nega_cancellazione ),
+			'rilettura che non riesce' => array( 'query', $rilettura_cieca ),
+		) as $caso => list( $aggancio, $funzione ) ) {
+			$letture = 0;
+			add_filter( $aggancio, $funzione, 10, 2 );
+			$zitto = $wpdb->suppress_errors( true );
+
+			try {
+				$motivi = $this->invia_scheda( $cambiata, '0' );
+			} finally {
+				$wpdb->suppress_errors( $zitto );
+				remove_filter( $aggancio, $funzione, 10 );
+			}
+
+			$this->assertStringContainsString( 'resta la scelta di prima', implode( ' ', $motivi ), $caso );
+			$this->assertSame( $prima, $righe(), $caso . ': le righe di prima, con i loro identificativi e valori.' );
+			$this->assertArrayHasKey( 'albo_manca_amministrazione', DatiAtto::mancanti( $cambiata ), $caso . ': l\'atto resta fermo.' );
+		}
+
+		// Se anche il ripristino non riesce, la scheda non dice che la scelta di prima e' rimasta, e l'atto resta fermo.
+		$nega_ripristino = static function ( $controllo, $id ) use ( $prima ) {
+			return in_array( (string) $id, array_column( $prima, 'meta_id' ), true ) ? false : $controllo;
+		};
+
+		add_filter( 'delete_post_metadata_by_mid', $nega_cancellazione, 10, 2 );
+		add_filter( 'update_post_metadata_by_mid', $nega_ripristino, 10, 2 );
+
+		try {
+			$motivi = $this->invia_scheda( $cambiata, '0' );
+		} finally {
+			remove_filter( 'delete_post_metadata_by_mid', $nega_cancellazione, 10 );
+			remove_filter( 'update_post_metadata_by_mid', $nega_ripristino, 10 );
+		}
+
+		$this->assertStringNotContainsString( 'resta la scelta di prima', implode( ' ', $motivi ) );
+		$this->assertStringContainsString( 'non si e\' potuta rimettere', implode( ' ', $motivi ) );
+		$this->assertArrayHasKey( 'albo_manca_amministrazione', DatiAtto::mancanti( $cambiata ), 'Con due righe l\'atto resta fermo.' );
+
+		delete_post_meta( $cambiata, AmministrazioniOspitate::META );
+		add_post_meta( $cambiata, AmministrazioniOspitate::META, (string) $resta );
 		$this->assertTrue( $this->invia_elenco( $this->pubblicatore, array( SchermataAmministrazioniOspitate::CAMPO_TOGLI => array( (string) $resta ) ) ) );
 
 		// Mandato in verifica senza scelta a elenco vuoto non si puo': si prepara a mano un atto in verifica senza scelta.

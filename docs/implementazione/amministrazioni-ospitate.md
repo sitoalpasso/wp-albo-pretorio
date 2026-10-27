@@ -114,8 +114,10 @@ e nessun ruolo nuovo.
 - **Scelta cambiata mentre un'altra richiesta toglie la voce e manda l'atto in verifica**: la
   scelta nuova non si scrive cancellando e riscrivendo, che lascerebbe un istante senza
   scelta. Le righe che ci sono si riscrivono tutte con il valore nuovo in una sola istruzione,
-  poi si tolgono quelle in più; la scelta uguale non si tocca. Una scrittura che non riesce
-  lascia la scelta di prima, e la scheda lo dice.
+  poi si tolgono quelle in più; la scelta uguale non si tocca. Se qualcosa non riesce a metà
+  si rimettono le righe di prima, con i loro identificativi, e la scheda dice che è rimasta la
+  scelta di prima solo se la banca dati le mostra davvero; altrimenti dice che va rifatta. In
+  ogni caso diverso da una riga sola valida l'atto resta fermo.
 - **Lettura dell'elenco che fallisce**: l'elenco si legge dalla banca dati a ogni controllo,
   senza la memoria delle opzioni di WordPress, che risponde con lo stesso valore predefinito
   per "non c'è" e per "la lettura è fallita". Una lettura fallita vale come elenco
@@ -250,6 +252,10 @@ la riga nella scheda. Rinominare la voce: la scheda dell'atto pubblicato non cam
   appena tolta, passava come atto di questa amministrazione. Ora la scelta si riscrive sopra
   quella che c'è, senza toglierla prima, e l'esito si rilegge dalla banca dati.
 
+- L'ottavo giro ha visto che, se la scrittura falliva dopo la riscrittura (righe in più che non
+  si tolgono, rilettura che non riesce), la scheda diceva "resta la scelta di prima" senza
+  rimetterla. Ora le righe di prima si rimettono e si controlla che ci siano davvero.
+
 Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 
 | Guasto | Prova caduta |
@@ -294,3 +300,5 @@ Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 | scelta cambiata cancellando e riscrivendo | A-253 |
 | esito della scrittura della scelta non controllato | A-253 |
 | righe in più lasciate dopo una scelta vera | A-253 |
+| nessun ripristino dopo una scrittura a metà | A-253 |
+| ripristino dichiarato senza controllarlo | A-253 |

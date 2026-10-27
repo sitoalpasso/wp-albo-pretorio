@@ -500,8 +500,12 @@ final class SchedaAtto {
 		if ( '' === $amministrazione ) {
 			$amministrazione = null;
 		} elseif ( is_string( $amministrazione ) && 1 === preg_match( '/^(0|[1-9]\d{0,8})$/D', $amministrazione ) && ( AmministrazioniOspitate::QUESTA === (int) $amministrazione || isset( AmministrazioniOspitate::voci()[ (int) $amministrazione ] ) ) ) {
-			if ( ! self::sostituisci_scelta( $atto_id, $amministrazione ) ) {
+			$sostituita = self::sostituisci_scelta( $atto_id, $amministrazione );
+
+			if ( 'ripristinata' === $sostituita ) {
 				$motivi[] = __( 'Amministrazione che ha adottato l\'atto non salvata: la scrittura non e\' riuscita, e resta la scelta di prima.', 'albo-pretorio-pa' );
+			} elseif ( 'incerta' === $sostituita ) {
+				$motivi[] = __( 'Amministrazione che ha adottato l\'atto non salvata: la scrittura non e\' riuscita e la scelta di prima non si e\' potuta rimettere. L\'atto resta fermo finche\' non si sceglie di nuovo.', 'albo-pretorio-pa' );
 			}
 		} elseif ( null !== $amministrazione ) {
 			$motivi[] = __( 'Amministrazione che ha adottato l\'atto non salvata: la voce scelta non e\' nell\'elenco delle amministrazioni ospitate.', 'albo-pretorio-pa' );
@@ -524,13 +528,17 @@ final class SchedaAtto {
 	 * istruzione, poi si tolgono quelle in piu'; si scrive una riga nuova solo
 	 * se non ce n'e' nessuna. La scelta uguale a quella scritta non si tocca.
 	 * Alla fine si rilegge dalla banca dati: riuscito vuol dire una riga sola,
-	 * con il valore chiesto.
+	 * con il valore chiesto. Se non e' riuscito si rimettono le righe di prima
+	 * e si rilegge di nuovo: `ripristinata` solo se la banca dati le mostra
+	 * davvero, altrimenti `incerta`. In ogni caso diverso da una riga sola
+	 * valida l'atto e' fermo, perche' piu' righe o un valore storto valgono
+	 * come scelta da rifare.
 	 *
 	 * @param int    $atto_id Atto.
 	 * @param string $valore  Scelta gia' validata.
-	 * @return bool
+	 * @return string `scritta`, `ripristinata` o `incerta`.
 	 */
-	private static function sostituisci_scelta( int $atto_id, string $valore ): bool {
+	private static function sostituisci_scelta( int $atto_id, string $valore ): string {
 		global $wpdb;
 
 		$righe = static function () use ( $wpdb, $atto_id ) {
@@ -540,11 +548,11 @@ final class SchedaAtto {
 		$prima = $righe();
 
 		if ( ! is_array( $prima ) ) {
-			return false;
+			return 'ripristinata';
 		}
 
 		if ( 1 === count( $prima ) && $valore === (string) $prima[0]['meta_value'] ) {
-			return true;
+			return 'scritta';
 		}
 
 		if ( array() === $prima ) {
@@ -564,7 +572,38 @@ final class SchedaAtto {
 		wp_cache_delete( $atto_id, 'post_meta' );
 		$dopo = $righe();
 
-		return is_array( $dopo ) && 1 === count( $dopo ) && $valore === (string) $dopo[0]['meta_value'];
+		if ( is_array( $dopo ) && 1 === count( $dopo ) && $valore === (string) $dopo[0]['meta_value'] ) {
+			return 'scritta';
+		}
+
+		// Si rimettono le righe di prima: quelle ancora presenti al loro valore, quelle tolte di nuovo.
+		foreach ( $prima as $riga ) {
+			if ( false !== get_metadata_by_mid( 'post', (int) $riga['meta_id'] ) ) {
+				update_metadata_by_mid( 'post', (int) $riga['meta_id'], wp_slash( (string) $riga['meta_value'] ) );
+			} else {
+				// La riga tolta torna con il suo identificativo, com'era.
+				$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- si rimette la riga tolta con il suo identificativo.
+					$wpdb->postmeta,
+					array(
+						'meta_id'    => (int) $riga['meta_id'],
+						'post_id'    => $atto_id,
+						'meta_key'   => AmministrazioniOspitate::META, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- scrittura di una riga, non ricerca.
+						'meta_value' => (string) $riga['meta_value'], // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- scrittura di una riga, non ricerca.
+					)
+				);
+			}
+		}
+
+		if ( array() === $prima && is_array( $dopo ) ) {
+			foreach ( $dopo as $riga ) {
+				delete_metadata_by_mid( 'post', (int) $riga['meta_id'] );
+			}
+		}
+
+		wp_cache_delete( $atto_id, 'post_meta' );
+		$rimesse = $righe();
+
+		return is_array( $rimesse ) && $rimesse === $prima ? 'ripristinata' : 'incerta';
 	}
 
 	/**
