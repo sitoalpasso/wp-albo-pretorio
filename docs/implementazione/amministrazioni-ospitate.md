@@ -274,6 +274,16 @@ la riga nella scheda. Rinominare la voce: la scheda dell'atto pubblicato non cam
   nuovo dopo la conferma. La scheda e le pagine continuano a leggere dalla memoria: mostrano,
   non decidono.
 
+- Il decimo giro ha mostrato che anche mostrare decide: con la memoria vecchia l'atto ospitato
+  pubblicato appariva di questa amministrazione, e il riquadro poteva segnare "Questa
+  amministrazione", che un invio così com'è avrebbe scritto davvero. Ora la scelta si legge
+  dalla banca dati per ogni uso (`scelta_letta()`, che ha preso il posto di `scelta_fresca()`):
+  una lettura in più per atto nell'elenco pubblico, il prezzo di non mostrare mai un autore
+  sbagliato. Lo stesso giro ha trovato che la sostituzione della scelta non controllava che la
+  tabella delle scelte annullasse: con MyISAM il ritorno indietro non ripristina niente. Ora,
+  come per i passaggi e l'elenco, si controlla il tipo della tabella prima di scrivere e si
+  rifiuta anche quando il tipo non si legge.
+
 Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 
 | Guasto | Prova caduta |
@@ -325,3 +335,6 @@ Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 | scelta per la verifica letta dalla memoria | A-254 |
 | lettura fallita della scelta fresca trattata come assente | A-254 |
 | memoria non pulita dopo la conferma della scelta | A-253 |
+| scelta mostrata e segnata nel riquadro letta dalla memoria | A-254 |
+| sostituzione della scelta senza controllo della tabella | A-253 |
+| tipo della tabella che non si legge trattato come transazionale | A-253 |

@@ -1506,6 +1506,148 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-254: la memoria vecchia non decide nemmeno che cosa si mostra e che cosa si segna nel riquadro.
+	 *
+	 * La memoria degli oggetti dice "questa amministrazione", oppure non ha la
+	 * scelta, mentre la banca dati ha la voce: l'elenco pubblico, la scheda
+	 * pubblica, la consultazione riservata e la sola lettura del riquadro
+	 * mostrano la voce; il riquadro della bozza segna la voce, e un invio cosi'
+	 * com'e' non la cambia.
+	 */
+	public function test_a254_memoria_vecchia_in_vista_e_riquadro(): void {
+		$this->pagina_albo();
+		$this->aggiungi( self::OSPITATA );
+
+		$ospitata = $this->numero_di( self::OSPITATA );
+		$memorie  = array(
+			'questa amministrazione' => array( AmministrazioniOspitate::META => array( '0' ) ),
+			'scelta assente'         => array(),
+		);
+		$vecchia  = static function ( int $atto, array $memoria ): void {
+			wp_cache_set( $atto, $memoria, 'post_meta' );
+		};
+		$segnata  = static function ( string $riquadro ): ?string {
+			return 1 === preg_match( '#<option value="([^"]*)" selected="selected">#', $riquadro, $trovata ) ? $trovata[1] : null;
+		};
+
+		// La bozza: il riquadro segna la voce, e l'invio di quello che segna non cambia niente.
+		$bozza = $this->atto_completo_senza_controllo( 'Bozza ospitata, memoria vecchia' );
+		$this->invia_scheda( $bozza, (string) $ospitata );
+
+		foreach ( $memorie as $caso => $memoria ) {
+			$vecchia( $bozza, $memoria );
+			$this->assertNotSame( array( (string) $ospitata ), get_post_meta( $bozza, AmministrazioniOspitate::META, false ), $caso . ': precondizione, la memoria e\' vecchia.' );
+
+			$riquadro = $this->riquadro( $bozza );
+			$this->assertSame( (string) $ospitata, $segnata( $riquadro ), $caso . ': il riquadro segna la voce.' );
+
+			$vecchia( $bozza, $memoria );
+			$this->assertSame( array(), $this->invia_scheda( $bozza, $segnata( $riquadro ) ), $caso . ': l\'invio cosi\' com\'e\' passa.' );
+			wp_cache_delete( $bozza, 'post_meta' );
+			$this->assertSame( array( (string) $ospitata ), get_post_meta( $bozza, AmministrazioniOspitate::META, false ), $caso . ': la scelta resta la voce.' );
+		}
+
+		// L'atto pubblicato: elenco, scheda e sola lettura mostrano la voce.
+		$pubblicato = $this->in_verifica_con( 'Pubblicato ospitato, memoria vecchia', (string) $ospitata );
+		$this->pubblica( $pubblicato );
+
+		foreach ( $memorie as $caso => $memoria ) {
+			$vecchia( $pubblicato, $memoria );
+			$this->assertStringContainsString( 'Atto di: ' . self::OSPITATA, (string) $this->riga( $this->disegnata(), $pubblicato ), $caso . ': in elenco.' );
+
+			$vecchia( $pubblicato, $memoria );
+			$this->assertSame( self::OSPITATA, $this->scheda( $pubblicato )[ AmministrazioniOspitate::etichetta() ] ?? null, $caso . ': nella scheda.' );
+
+			$vecchia( $pubblicato, $memoria );
+			$this->assertStringContainsString( '<dd>' . self::OSPITATA . '</dd>', $this->riquadro( $pubblicato ), $caso . ': nella sola lettura.' );
+		}
+
+		// Nella consultazione riservata, dopo la scadenza.
+		$this->fissa_orologi( '2041-12-31 10:00:00' );
+		wp_set_current_user( $this->amministratore );
+		set_current_screen( 'dashboard' );
+
+		foreach ( $memorie as $caso => $memoria ) {
+			$vecchia( $pubblicato, $memoria );
+			ob_start();
+			SchermataScaduti::mostra();
+			$riservata = (string) ob_get_clean();
+
+			$this->assertSame( 1, preg_match( '#<tr data-atto="' . $pubblicato . '">(.*?)</tr>#s', $riservata, $trovata ), $caso . ': precondizione, l\'atto scaduto e\' in elenco.' );
+			$this->assertStringContainsString( self::OSPITATA, html_entity_decode( $trovata[1], ENT_QUOTES, 'UTF-8' ), $caso . ': nella consultazione riservata.' );
+		}
+
+		$GLOBALS['current_screen'] = null;
+	}
+
+	/**
+	 * A-253: con la tabella delle scelte che non annulla, o con il suo tipo che non si legge, la scelta non si cambia.
+	 *
+	 * Senza una tabella che annulla, tornare indietro dopo una cancellazione
+	 * rifiutata non ripristinerebbe niente: si rifiuta prima di scrivere, e le
+	 * righe restano le stesse, con gli stessi identificativi.
+	 */
+	public function test_a253_tabella_che_non_annulla(): void {
+		global $wpdb;
+
+		$this->aggiungi( self::OSPITATA );
+
+		$ospitata = $this->numero_di( self::OSPITATA );
+		$id       = $this->atto_completo_senza_controllo( 'Scelta su una tabella che non annulla' );
+
+		$this->invia_scheda( $id, '0' );
+		add_post_meta( $id, AmministrazioniOspitate::META, '0' );
+
+		$righe = static function () use ( $wpdb, $id ): array {
+			return $wpdb->get_results( $wpdb->prepare( "SELECT meta_id, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s ORDER BY meta_id", $id, AmministrazioniOspitate::META ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- la prova guarda la banca dati.
+		};
+		$prima = $righe();
+		$this->assertCount( 2, $prima, 'Precondizione: due righe, da ridurre a una.' );
+
+		foreach ( array(
+			'tabella' => $wpdb->postmeta,
+			'lettura' => null,
+		) as $caso => $tabella ) {
+			$motore    = static function ( $istruzione ) use ( $tabella ) {
+				if ( false === strpos( (string) $istruzione, 'information_schema.ENGINES' ) ) {
+					return $istruzione;
+				}
+
+				return null === $tabella ? 'SELECT guasto_forzato FROM tabella_che_non_esiste' : str_replace( 't.TABLE_NAME IN (', "t.TABLE_NAME <> '{$tabella}' AND t.TABLE_NAME IN (", (string) $istruzione );
+			};
+			$scritture = 0;
+			$conta     = static function () use ( &$scritture ): void {
+				++$scritture;
+			};
+
+			add_filter( 'query', $motore );
+			add_action( 'updated_post_meta', $conta );
+			add_action( 'added_post_meta', $conta );
+			add_action( 'deleted_post_meta', $conta );
+			$zitto = $wpdb->suppress_errors( true );
+
+			try {
+				$motivi = $this->invia_scheda( $id, (string) $ospitata );
+			} finally {
+				$wpdb->suppress_errors( $zitto );
+				remove_filter( 'query', $motore );
+				remove_action( 'updated_post_meta', $conta );
+				remove_action( 'added_post_meta', $conta );
+				remove_action( 'deleted_post_meta', $conta );
+			}
+
+			$this->assertCount( 1, $motivi, $caso );
+			$this->assertStringContainsString( 'InnoDB', $motivi[0], $caso . ': il rifiuto dice perche\'.' );
+			$this->assertSame( 0, $scritture, $caso . ': niente scritto.' );
+			$this->assertSame( $prima, $righe(), $caso . ': stesse righe, stessi identificativi.' );
+		}
+
+		// Con la tabella che annulla la stessa scelta si scrive.
+		$this->assertSame( array(), $this->invia_scheda( $id, (string) $ospitata ) );
+		$this->assertSame( array( (string) $ospitata ), array_column( $righe(), 'meta_value' ) );
+	}
+
+	/**
 	 * A-255: l'avviso di un atto ospitato annullato porta ancora l'amministrazione.
 	 */
 	public function test_a255_annullato_ospitato(): void {

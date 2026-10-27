@@ -211,7 +211,7 @@ final class SchedaAtto {
 		echo '</select></p>';
 
 		$aiuto = __( 'Obbligatorio per mandare l\'atto in verifica. Si sceglie un\'altra amministrazione quando l\'atto e\' suo e questo albo lo pubblica per conto di quella: il nome compare a chi consulta l\'albo, nell\'elenco e nella scheda. Alla pubblicazione il nome si fissa e non cambia piu\'.', 'albo-pretorio-pa' );
-		$manca = null === $scelta && array() !== get_post_meta( $atto_id, AmministrazioniOspitate::META, false ) ? AmministrazioniOspitate::manca( $atto_id ) : null;
+		$manca = null === $scelta && AmministrazioniOspitate::ASSENTE !== AmministrazioniOspitate::scelta_letta( $atto_id )['esito'] ? AmministrazioniOspitate::manca( $atto_id ) : null;
 
 		printf( '<p class="description" id="%1$s_aiuto">%2$s</p>', esc_attr( $campo ), esc_html( null === $manca ? $aiuto : $manca . ' ' . $aiuto ) );
 	}
@@ -504,6 +504,8 @@ final class SchedaAtto {
 
 			if ( 'ripristinata' === $sostituita ) {
 				$motivi[] = __( 'Amministrazione che ha adottato l\'atto non salvata: la scrittura non e\' riuscita, e resta la scelta di prima.', 'albo-pretorio-pa' );
+			} elseif ( 'tabella' === $sostituita ) {
+				$motivi[] = __( 'Amministrazione che ha adottato l\'atto non salvata: la tabella della banca dati che la contiene non permette di annullare una scrittura a meta\', e resta la scelta di prima. Chi gestisce il sito puo\' convertirla al tipo InnoDB.', 'albo-pretorio-pa' );
 			} elseif ( 'incerta' === $sostituita ) {
 				$motivi[] = __( 'Amministrazione che ha adottato l\'atto: la scrittura non e\' riuscita e la banca dati non ha confermato se e\' rimasta la scelta di prima o quella nuova. Ricontrollare la scelta prima di mandare l\'atto in verifica.', 'albo-pretorio-pa' );
 			}
@@ -532,7 +534,8 @@ final class SchedaAtto {
 	 * di un altro: o la banca dati mostra una riga sola con il valore chiesto,
 	 * o si torna indietro su tutto. Ogni lettura controlla l'errore della
 	 * connessione, perche' una lettura fallita risponde come un elenco vuoto.
-	 * Una prima lettura che fallisce non scrive niente. `ripristinata` vuol
+	 * Una prima lettura che fallisce non scrive niente, e nemmeno una tabella
+	 * che non annulla, o il cui tipo non si legge. `ripristinata` vuol
 	 * dire che la banca dati mostra di nuovo le righe di prima; `incerta`
 	 * che non lo si e' potuto confermare: lo stato e' comunque quello di prima
 	 * o quello chiesto, mai un altro, perche' la transazione non lascia vie di
@@ -540,7 +543,7 @@ final class SchedaAtto {
 	 *
 	 * @param int    $atto_id Atto.
 	 * @param string $valore  Scelta gia' validata.
-	 * @return string `scritta`, `ripristinata` o `incerta`.
+	 * @return string `scritta`, `ripristinata`, `tabella` (la tabella non annulla, niente scritto) o `incerta`.
 	 */
 	private static function sostituisci_scelta( int $atto_id, string $valore ): string {
 		global $wpdb;
@@ -560,6 +563,11 @@ final class SchedaAtto {
 
 		if ( 1 === count( $prima ) && $valore === (string) $prima[0]['meta_value'] ) {
 			return 'scritta';
+		}
+
+		// Senza una tabella che annulla, il ritorno indietro non ripristinerebbe niente: non si scrive.
+		if ( array() !== Passaggi::non_transazionali( array( $wpdb->postmeta ) ) ) {
+			return 'tabella';
 		}
 
 		$modo = Repertorio::transazione_esterna() ? 'punto' : 'transazione';
