@@ -111,6 +111,11 @@ e nessun ruolo nuovo.
   resta anche lei, perché fra il controllo e la cancellazione un'altra richiesta potrebbe
   togliere la voce e lasciare l'atto senza scelta a elenco vuoto. Si cambia solo con una
   scelta esplicita, "Questa amministrazione" compresa.
+- **Scelta cambiata mentre un'altra richiesta toglie la voce e manda l'atto in verifica**: la
+  scelta nuova non si scrive cancellando e riscrivendo, che lascerebbe un istante senza
+  scelta. Le righe che ci sono si riscrivono tutte con il valore nuovo in una sola istruzione,
+  poi si tolgono quelle in più; la scelta uguale non si tocca. Una scrittura che non riesce
+  lascia la scelta di prima, e la scheda lo dice.
 - **Lettura dell'elenco che fallisce**: l'elenco si legge dalla banca dati a ogni controllo,
   senza la memoria delle opzioni di WordPress, che risponde con lo stesso valore predefinito
   per "non c'è" e per "la lettura è fallita". Una lettura fallita vale come elenco
@@ -240,6 +245,11 @@ la riga nella scheda. Rinominare la voce: la scheda dell'atto pubblicato non cam
   l'ultima lettura: ora la toglie alla prima scrittura dell'atto, e verifica ogni volta che
   sia stata tolta davvero.
 
+- Il settimo giro ha trovato la stessa cosa sul cambio di scelta: cancellare e poi riscrivere
+  lasciava un istante senza scelta, e un invio in verifica in quell'istante, con l'ultima voce
+  appena tolta, passava come atto di questa amministrazione. Ora la scelta si riscrive sopra
+  quella che c'è, senza toglierla prima, e l'esito si rilegge dalla banca dati.
+
 Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 
 | Guasto | Prova caduta |
@@ -281,3 +291,6 @@ Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 | tipo delle tabelle mai controllato, o senza la tabella delle opzioni | A-260 |
 | pubblicazione che rilegge il nome dopo il controllo | A-254 |
 | "Da scegliere" che toglie una scelta che vale | A-253 |
+| scelta cambiata cancellando e riscrivendo | A-253 |
+| esito della scrittura della scelta non controllato | A-253 |
+| righe in più lasciate dopo una scelta vera | A-253 |

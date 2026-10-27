@@ -640,6 +640,70 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 		$this->assertSame( array( (string) $corsa ), get_post_meta( $tornata, AmministrazioniOspitate::META, false ), '"Da scegliere" non cancella la scelta.' );
 		$this->assertArrayHasKey( 'albo_manca_amministrazione', DatiAtto::mancanti( $tornata ), 'La bozza resta ferma finche\' non si sceglie di nuovo.' );
 
+		/*
+		 * Una scelta esplicita sostituisce quella scritta senza lasciare
+		 * l'atto senza scelta nemmeno per un istante: dopo ogni scrittura
+		 * della scelta si guarda la banca dati, e una riga c'e' sempre.
+		 */
+		$this->aggiungi( 'Ente che resta' );
+		$resta    = $this->numero_di( 'Ente che resta' );
+		$cambiata = $this->atto_completo_senza_controllo( 'Bozza che cambia scelta' );
+		$this->assertSame( array(), $this->invia_scheda( $cambiata, (string) $resta ) );
+
+		$minimo    = PHP_INT_MAX;
+		$scritture = 0;
+		$guarda    = static function ( $meta, $id, $chiave ) use ( $cambiata, &$minimo, &$scritture ) {
+			global $wpdb;
+
+			if ( $cambiata !== (int) $id || AmministrazioniOspitate::META !== $chiave ) {
+				return;
+			}
+
+			++$scritture;
+			$minimo = min( $minimo, (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s", $id, $chiave ) ) );
+		};
+
+		foreach ( array( 'added_post_meta', 'updated_post_meta', 'deleted_post_meta' ) as $azione ) {
+			add_action( $azione, $guarda, 10, 3 );
+		}
+
+		try {
+			$this->invia_scheda( $cambiata, (string) $resta );
+			$this->assertSame( 0, $scritture, 'La stessa scelta non si riscrive.' );
+
+			$this->invia_scheda( $cambiata, '0' );
+			$this->assertSame( array( '0' ), get_post_meta( $cambiata, AmministrazioniOspitate::META, false ) );
+
+			// Due righe storte scritte di lato, poi una scelta vera.
+			add_post_meta( $cambiata, AmministrazioniOspitate::META, '01' );
+			$this->invia_scheda( $cambiata, (string) $resta );
+			$this->assertSame( array( (string) $resta ), get_post_meta( $cambiata, AmministrazioniOspitate::META, false ), 'Una riga sola, con la scelta nuova.' );
+		} finally {
+			foreach ( array( 'added_post_meta', 'updated_post_meta', 'deleted_post_meta' ) as $azione ) {
+				remove_action( $azione, $guarda, 10 );
+			}
+		}
+
+		$this->assertGreaterThan( 0, $scritture, 'Precondizione: la scelta e\' stata riscritta.' );
+		$this->assertGreaterThanOrEqual( 1, $minimo, 'Mai un istante senza scelta.' );
+
+		// Una scrittura della scelta che non riesce lascia la scelta di prima, e lo dice.
+		$rifiuta = static function ( $controllo, $id, $chiave ) use ( $cambiata ) {
+			return $cambiata === (int) $id && AmministrazioniOspitate::META === $chiave ? false : $controllo;
+		};
+
+		add_filter( 'update_post_metadata', $rifiuta, 10, 3 );
+
+		try {
+			$motivi = $this->invia_scheda( $cambiata, '0' );
+		} finally {
+			remove_filter( 'update_post_metadata', $rifiuta, 10 );
+		}
+
+		$this->assertStringContainsString( 'non e\' riuscita', implode( ' ', $motivi ) );
+		$this->assertSame( array( (string) $resta ), get_post_meta( $cambiata, AmministrazioniOspitate::META, false ), 'Resta la scelta di prima.' );
+		$this->assertTrue( $this->invia_elenco( $this->pubblicatore, array( SchermataAmministrazioniOspitate::CAMPO_TOGLI => array( (string) $resta ) ) ) );
+
 		// Mandato in verifica senza scelta a elenco vuoto non si puo': si prepara a mano un atto in verifica senza scelta.
 		$this->assertTrue( $this->invia_elenco( $this->pubblicatore, array( SchermataAmministrazioniOspitate::CAMPO_TOGLI => array( (string) $ospitata ) ) ) );
 		$this->assertSame( array(), AmministrazioniOspitate::voci(), 'Precondizione: l\'elenco e\' vuoto.' );

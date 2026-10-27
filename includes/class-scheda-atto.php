@@ -500,8 +500,9 @@ final class SchedaAtto {
 		if ( '' === $amministrazione ) {
 			$amministrazione = null;
 		} elseif ( is_string( $amministrazione ) && 1 === preg_match( '/^(0|[1-9]\d{0,8})$/D', $amministrazione ) && ( AmministrazioniOspitate::QUESTA === (int) $amministrazione || isset( AmministrazioniOspitate::voci()[ (int) $amministrazione ] ) ) ) {
-			delete_post_meta( $atto_id, AmministrazioniOspitate::META );
-			add_post_meta( $atto_id, AmministrazioniOspitate::META, $amministrazione, true );
+			if ( ! self::sostituisci_scelta( $atto_id, $amministrazione ) ) {
+				$motivi[] = __( 'Amministrazione che ha adottato l\'atto non salvata: la scrittura non e\' riuscita, e resta la scelta di prima.', 'albo-pretorio-pa' );
+			}
 		} elseif ( null !== $amministrazione ) {
 			$motivi[] = __( 'Amministrazione che ha adottato l\'atto non salvata: la voce scelta non e\' nell\'elenco delle amministrazioni ospitate.', 'albo-pretorio-pa' );
 		}
@@ -511,6 +512,59 @@ final class SchedaAtto {
 		if ( array() !== $motivi ) {
 			self::rifiuta( $atto_id, $motivi );
 		}
+	}
+
+	/**
+	 * Sostituisce la scelta dell'amministrazione senza lasciare l'atto senza scelta nemmeno per un istante.
+	 *
+	 * Cancellare e poi scrivere lascerebbe un momento senza scelta: un'altra
+	 * richiesta che togliesse l'ultima voce e mandasse l'atto in verifica in
+	 * quel momento lo vedrebbe come atto di questa amministrazione. Qui le
+	 * righe che ci sono si riscrivono tutte con il valore nuovo in una sola
+	 * istruzione, poi si tolgono quelle in piu'; si scrive una riga nuova solo
+	 * se non ce n'e' nessuna. La scelta uguale a quella scritta non si tocca.
+	 * Alla fine si rilegge dalla banca dati: riuscito vuol dire una riga sola,
+	 * con il valore chiesto.
+	 *
+	 * @param int    $atto_id Atto.
+	 * @param string $valore  Scelta gia' validata.
+	 * @return bool
+	 */
+	private static function sostituisci_scelta( int $atto_id, string $valore ): bool {
+		global $wpdb;
+
+		$righe = static function () use ( $wpdb, $atto_id ) {
+			return $wpdb->get_results( $wpdb->prepare( "SELECT meta_id, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s ORDER BY meta_id", $atto_id, AmministrazioniOspitate::META ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- si legge la banca dati, non la memoria.
+		};
+
+		$prima = $righe();
+
+		if ( ! is_array( $prima ) ) {
+			return false;
+		}
+
+		if ( 1 === count( $prima ) && $valore === (string) $prima[0]['meta_value'] ) {
+			return true;
+		}
+
+		if ( array() === $prima ) {
+			add_post_meta( $atto_id, AmministrazioniOspitate::META, $valore, true );
+		} else {
+			update_post_meta( $atto_id, AmministrazioniOspitate::META, $valore );
+
+			$adesso = $righe();
+
+			if ( is_array( $adesso ) && count( $adesso ) > 1 && array( $valore ) === array_values( array_unique( array_map( 'strval', array_column( $adesso, 'meta_value' ) ) ) ) ) {
+				foreach ( array_slice( $adesso, 1 ) as $riga ) {
+					delete_metadata_by_mid( 'post', (int) $riga['meta_id'] );
+				}
+			}
+		}
+
+		wp_cache_delete( $atto_id, 'post_meta' );
+		$dopo = $righe();
+
+		return is_array( $dopo ) && 1 === count( $dopo ) && $valore === (string) $dopo[0]['meta_value'];
 	}
 
 	/**
