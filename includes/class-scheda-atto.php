@@ -76,6 +76,13 @@ final class SchedaAtto {
 	const CAMPO_NUMERO = 'albo_pretorio_numero_proprio';
 
 	/**
+	 * Campo dell'amministrazione che ha adottato l'atto (ALBO-29).
+	 *
+	 * @var string
+	 */
+	const CAMPO_AMMINISTRAZIONE = 'albo_pretorio_amministrazione';
+
+	/**
 	 * Per quanti secondi i motivi di un rifiuto aspettano la pagina successiva.
 	 *
 	 * @var int
@@ -170,7 +177,43 @@ final class SchedaAtto {
 			esc_html__( 'Facoltativo. E\' il numero dell\'atto, per esempio della determinazione, non quello di pubblicazione, che assegna il sistema.', 'albo-pretorio-pa' )
 		);
 
+		self::campo_amministrazione( $atto_id );
 		self::campi_procedimento( $atto_id );
+	}
+
+	/**
+	 * La scelta dell'amministrazione che ha adottato l'atto, quando va chiesta (ALBO-29).
+	 *
+	 * **Nessuna risposta segnata in partenza**: la voce in testa e' "da
+	 * scegliere", che non e' una risposta. Il campo non porta l'obbligo di
+	 * compilazione del browser, perche' la bozza si salva anche incompleta: la
+	 * scelta si pretende al passaggio in verifica.
+	 *
+	 * @param int $atto_id Atto.
+	 */
+	private static function campo_amministrazione( int $atto_id ): void {
+		if ( ! AmministrazioniOspitate::da_chiedere( $atto_id ) ) {
+			return;
+		}
+
+		$scelta = AmministrazioniOspitate::scelta_valida( $atto_id );
+		$campo  = self::CAMPO_AMMINISTRAZIONE;
+
+		printf( '<p><label for="%1$s">%2$s</label><br /><select id="%1$s" name="%1$s" aria-describedby="%1$s_aiuto">', esc_attr( $campo ), esc_html( AmministrazioniOspitate::etichetta() ) );
+		printf( '<option value=""%1$s>%2$s</option>', null === $scelta ? ' selected="selected"' : '', esc_html__( 'Da scegliere', 'albo-pretorio-pa' ) );
+		printf( '<option value="%1$d"%2$s>%3$s</option>', (int) AmministrazioniOspitate::QUESTA, AmministrazioniOspitate::QUESTA === $scelta ? ' selected="selected"' : '', esc_html__( 'Questa amministrazione', 'albo-pretorio-pa' ) );
+
+		foreach ( AmministrazioniOspitate::voci() as $id => $nome ) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- codificato per intero da self::attributo().
+			printf( '<option value="%1$d"%2$s>%3$s</option>', (int) $id, $id === $scelta ? ' selected="selected"' : '', self::attributo( $nome ) );
+		}
+
+		echo '</select></p>';
+
+		$aiuto = __( 'Obbligatorio per mandare l\'atto in verifica. Si sceglie un\'altra amministrazione quando l\'atto e\' suo e questo albo lo pubblica per conto di quella: il nome compare a chi consulta l\'albo, nell\'elenco e nella scheda. Alla pubblicazione il nome si fissa e non cambia piu\'.', 'albo-pretorio-pa' );
+		$manca = null === $scelta && AmministrazioniOspitate::ASSENTE !== AmministrazioniOspitate::scelta_letta( $atto_id )['esito'] ? AmministrazioniOspitate::manca( $atto_id ) : null;
+
+		printf( '<p class="description" id="%1$s_aiuto">%2$s</p>', esc_attr( $campo ), esc_html( null === $manca ? $aiuto : $manca . ' ' . $aiuto ) );
 	}
 
 	/**
@@ -275,6 +318,16 @@ final class SchedaAtto {
 			__( 'Data di adozione', 'albo-pretorio-pa' ) => (string) ( DatiAtto::data_adozione( $atto_id ) ?? $assente ),
 			__( 'Numero proprio dell\'atto', 'albo-pretorio-pa' ) => '' === DatiAtto::numero_proprio( $atto_id ) ? $assente : DatiAtto::numero_proprio( $atto_id ),
 		);
+
+		$di = AmministrazioniOspitate::di_atto( $atto_id );
+
+		if ( null !== $di ) {
+			$righe[ AmministrazioniOspitate::etichetta() ] = $di['leggibile']
+				? $di['nome']
+				: ( $di['fissato'] ? __( 'non leggibile in questo momento', 'albo-pretorio-pa' ) : __( 'voce non piu\' nell\'elenco', 'albo-pretorio-pa' ) );
+		} elseif ( AmministrazioniOspitate::QUESTA === AmministrazioniOspitate::scelta( $atto_id ) ) {
+			$righe[ AmministrazioniOspitate::etichetta() ] = __( 'Questa amministrazione', 'albo-pretorio-pa' );
+		}
 
 		foreach ( DatiProcedimento::DATI as $dato ) {
 			if ( DatiProcedimento::in_uso( $dato ) ) {
@@ -430,11 +483,179 @@ final class SchedaAtto {
 			}
 		}
 
+		$amministrazione = self::campo( self::CAMPO_AMMINISTRAZIONE );
+
+		/*
+		 * "Da scegliere" non toglie mai una scelta gia' scritta. Una scelta che
+		 * non vale piu' (la voce e' stata tolta, o sull'atto c'e' un valore
+		 * storto) resta dov'e', e con lei il blocco: il menu la mostra come
+		 * "Da scegliere", e un invio cosi' com'e' non deve sbloccare l'atto
+		 * come atto di questa amministrazione senza che nessuno l'abbia scelto.
+		 * Nemmeno una scelta che vale si toglie: fra il controllo e la
+		 * cancellazione un'altra richiesta potrebbe togliere la voce, e l'atto
+		 * resterebbe senza scelta a elenco vuoto, cioe' di questa
+		 * amministrazione. Solo una scelta esplicita, "Questa amministrazione"
+		 * compresa, sostituisce tutte le righe, anche due righe storte.
+		 */
+		if ( '' === $amministrazione ) {
+			$amministrazione = null;
+		} elseif ( is_string( $amministrazione ) && 1 === preg_match( '/^(0|[1-9]\d{0,8})$/D', $amministrazione ) && ( AmministrazioniOspitate::QUESTA === (int) $amministrazione || isset( AmministrazioniOspitate::voci()[ (int) $amministrazione ] ) ) ) {
+			$sostituita = self::sostituisci_scelta( $atto_id, $amministrazione );
+
+			if ( 'ripristinata' === $sostituita ) {
+				$motivi[] = __( 'Amministrazione che ha adottato l\'atto non salvata: la scrittura non e\' riuscita, e resta la scelta di prima.', 'albo-pretorio-pa' );
+			} elseif ( 'tabella' === $sostituita ) {
+				$motivi[] = __( 'Amministrazione che ha adottato l\'atto non salvata: la tabella della banca dati che la contiene non permette di annullare una scrittura a meta\', e resta la scelta di prima. Chi gestisce il sito puo\' convertirla al tipo InnoDB.', 'albo-pretorio-pa' );
+			} elseif ( 'incerta' === $sostituita ) {
+				$motivi[] = __( 'Amministrazione che ha adottato l\'atto: la scrittura non e\' riuscita e la banca dati non ha confermato se e\' rimasta la scelta di prima o quella nuova. Ricontrollare la scelta prima di mandare l\'atto in verifica.', 'albo-pretorio-pa' );
+			}
+		} elseif ( null !== $amministrazione ) {
+			$motivi[] = __( 'Amministrazione che ha adottato l\'atto non salvata: la voce scelta non e\' nell\'elenco delle amministrazioni ospitate.', 'albo-pretorio-pa' );
+		}
+
 		$motivi = array_merge( $motivi, self::salva_procedimento( $atto_id ) );
 
 		if ( array() !== $motivi ) {
 			self::rifiuta( $atto_id, $motivi );
 		}
+	}
+
+	/**
+	 * Sostituisce la scelta dell'amministrazione senza lasciare l'atto senza scelta nemmeno per un istante.
+	 *
+	 * Cancellare e poi scrivere lascerebbe un momento senza scelta: un'altra
+	 * richiesta che togliesse l'ultima voce e mandasse l'atto in verifica in
+	 * quel momento lo vedrebbe come atto di questa amministrazione. Qui le
+	 * righe che ci sono si riscrivono tutte con il valore nuovo in una sola
+	 * istruzione, poi si tolgono quelle in piu'; si scrive una riga nuova solo
+	 * se non ce n'e' nessuna. La scelta uguale non si tocca.
+	 *
+	 * Tutto sta in una transazione, o in un punto di ripristino dentro quella
+	 * di un altro: o la banca dati mostra una riga sola con il valore chiesto,
+	 * o si torna indietro su tutto. Ogni lettura controlla l'errore della
+	 * connessione, perche' una lettura fallita risponde come un elenco vuoto.
+	 * Una prima lettura che fallisce non scrive niente, e nemmeno una tabella
+	 * che non annulla, o il cui tipo non si legge, o una connessione di cui non
+	 * si sa se e' in una transazione (`modo_scelta()`). `ripristinata` vuol
+	 * dire che la banca dati mostra di nuovo le righe di prima; `incerta`
+	 * che non lo si e' potuto confermare: lo stato e' comunque quello di prima
+	 * o quello chiesto, mai un altro, perche' la transazione non lascia vie di
+	 * mezzo, ma va ricontrollato.
+	 *
+	 * @param int    $atto_id Atto.
+	 * @param string $valore  Scelta gia' validata.
+	 * @return string `scritta`, `ripristinata`, `tabella` (la tabella non annulla, niente scritto) o `incerta`.
+	 */
+	private static function sostituisci_scelta( int $atto_id, string $valore ): string {
+		global $wpdb;
+
+		$righe = static function () use ( $wpdb, $atto_id ) {
+			$wpdb->last_error = '';
+			$lette            = $wpdb->get_results( $wpdb->prepare( "SELECT meta_id, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s ORDER BY meta_id", $atto_id, AmministrazioniOspitate::META ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- si legge la banca dati, non la memoria.
+
+			return is_array( $lette ) && '' === (string) $wpdb->last_error ? $lette : null;
+		};
+
+		$prima = $righe();
+
+		if ( null === $prima ) {
+			return 'ripristinata';
+		}
+
+		if ( 1 === count( $prima ) && $valore === (string) $prima[0]['meta_value'] ) {
+			return 'scritta';
+		}
+
+		// Senza una tabella che annulla, il ritorno indietro non ripristinerebbe niente: non si scrive.
+		if ( array() !== Passaggi::non_transazionali( array( $wpdb->postmeta ) ) ) {
+			return 'tabella';
+		}
+
+		$modo = self::modo_scelta();
+
+		if ( null === $modo ) {
+			return 'ripristinata';
+		}
+
+		if ( false === $wpdb->query( 'punto' === $modo ? 'SAVEPOINT albo_pretorio_scelta' : 'START TRANSACTION' ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- istruzioni fisse della transazione.
+			return 'ripristinata';
+		}
+
+		$riuscita = false;
+
+		try {
+			if ( array() === $prima ) {
+				add_post_meta( $atto_id, AmministrazioniOspitate::META, $valore, true );
+			} else {
+				update_post_meta( $atto_id, AmministrazioniOspitate::META, $valore );
+
+				$adesso = $righe();
+
+				if ( null !== $adesso && array( $valore ) === array_values( array_unique( array_map( 'strval', array_column( $adesso, 'meta_value' ) ) ) ) ) {
+					foreach ( array_slice( $adesso, 1 ) as $riga ) {
+						delete_metadata_by_mid( 'post', (int) $riga['meta_id'] );
+					}
+				}
+			}
+
+			wp_cache_delete( $atto_id, 'post_meta' );
+			$dopo     = $righe();
+			$riuscita = null !== $dopo && 1 === count( $dopo ) && $valore === (string) $dopo[0]['meta_value']
+				&& false !== $wpdb->query( 'punto' === $modo ? 'RELEASE SAVEPOINT albo_pretorio_scelta' : 'COMMIT' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- istruzioni fisse della transazione.
+		} finally {
+			if ( ! $riuscita ) {
+				$wpdb->query( 'punto' === $modo ? 'ROLLBACK TO SAVEPOINT albo_pretorio_scelta' : 'ROLLBACK' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- istruzioni fisse della transazione.
+				wp_cache_delete( $atto_id, 'post_meta' );
+			}
+		}
+
+		if ( $riuscita ) {
+			// Fra la pulizia di prima e la conferma un'altra richiesta puo' aver rimesso in memoria la scelta vecchia.
+			wp_cache_delete( $atto_id, 'post_meta' );
+
+			return 'scritta';
+		}
+
+		return $righe() === $prima ? 'ripristinata' : 'incerta';
+	}
+
+	/**
+	 * Come rendere annullabile la sostituzione della scelta: `transazione`, `punto`, oppure nullo per non scrivere.
+	 *
+	 * **Si decide solo su una risposta certa**, come per i passaggi e per
+	 * l'elenco. Con la scrittura automatica spenta la connessione e' gia' in
+	 * una transazione, e si mette un punto di ripristino. Con la scrittura
+	 * automatica accesa si apre una transazione, salvo che un'altra sia gia'
+	 * aperta a mano: allora il punto di ripristino. Un punto di ripristino
+	 * fuori da una transazione non trattiene niente, quindi una lettura che
+	 * fallisce, della scrittura automatica o della transazione in corso, non
+	 * porta mai a quello: non si scrive.
+	 *
+	 * @return string|null
+	 */
+	private static function modo_scelta(): ?string {
+		global $wpdb;
+
+		$automatica = $wpdb->get_var( 'SELECT @@autocommit' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- stato della connessione, non dati.
+
+		if ( '0' === $automatica ) {
+			return 'punto';
+		}
+
+		if ( '1' !== $automatica ) {
+			return null;
+		}
+
+		$zitto = $wpdb->suppress_errors( true );
+		$in    = $wpdb->get_var( 'SELECT @@in_transaction' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- stato della connessione, non dati.
+		$wpdb->suppress_errors( $zitto );
+
+		if ( '0' === $in || '1' === $in ) {
+			return '1' === $in ? 'punto' : 'transazione';
+		}
+
+		// Senza la variabile si apre la transazione solo se si sa che la variabile non esiste (MySQL, limite dichiarato).
+		return Repertorio::transazione_esterna() ? null : 'transazione';
 	}
 
 	/**

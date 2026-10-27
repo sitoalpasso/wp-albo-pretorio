@@ -35,7 +35,7 @@ lì e resta una scelta separata.
 | Oggetto (titolo) | sì | contenuto WordPress | redattore |
 | Tipo di atto | sì, una e una sola voce | elenco di voci dedicato, `albo_tipo_atto`; due voci valgono come nessuna | redattore, scelto tra i tipi configurati senza preselezione. Le voci nuove le crea solo chi governa l'elenco |
 | Organo che ha adottato | sì, una e una sola voce | elenco di voci dedicato, `albo_organo`; come sopra | redattore, come sopra |
-| Amministrazione che ha adottato l'atto, se è un atto ospitato | sì per andare in verifica, **solo se** l'elenco delle amministrazioni ospitate ha almeno una voce | metadato con **il nome copiato alla pubblicazione**, oltre al riferimento alla voce dell'elenco | redattore, scegliendo fra "questa amministrazione" e le voci dell'elenco, senza preselezione. Dopo la pubblicazione non cambia, nemmeno se la voce viene rinominata o tolta (ALBO-29) |
+| Amministrazione che ha adottato l'atto, se è un atto ospitato | sì per andare in verifica, **solo se** l'elenco delle amministrazioni ospitate ha almeno una voce | metadato protetto `_albo_pretorio_amministrazione`, `0` per "questa amministrazione" oppure il numero della voce, che non cambia e non si riusa; **il nome si copia alla pubblicazione** nella voce di conferma del registro (dettagli `amministrazione` e `amministrazione_voce`) | redattore, scegliendo fra "questa amministrazione" e le voci dell'elenco, senza preselezione. Dopo la pubblicazione non cambia, nemmeno se la voce viene rinominata o tolta (ALBO-29) |
 | Numero proprio dell'atto (es. determina 45/2026) | no | metadato protetto `_albo_pretorio_numero_proprio`, testo su una riga | redattore. È il numero dell'atto, non quello di pubblicazione |
 | Responsabile del procedimento, ufficio, richiedente | no | metadati protetti `_albo_pretorio_responsabile`, `_albo_pretorio_ufficio`, `_albo_pretorio_richiedente`, testo su una riga fino a 200 caratteri; letti come assenti se malformati o se le righe sono più di una. Nella voce di conferma della pubblicazione come `responsabile`, `ufficio` e `richiedente` | redattore, solo se l'amministrazione ha scelto di usarli (ALBO-33): i primi due scelti dagli elenchi tenuti da chi pubblica, il terzo scritto. Si conservano qualunque sia la scelta; dopo la pubblicazione non cambiano |
 | Data di adozione | sì | metadato protetto `_albo_pretorio_data_adozione`, testo `AAAA-MM-GG`; letto come assente se non è una data vera del calendario o se le righe sono più di una | redattore |
@@ -228,7 +228,8 @@ Questa è la mappa delle azioni:
   che non lascia niente scritto.
 - **Battito** (di core): il timestamp dell'ultima esecuzione riuscita del cron.
 - **Configurazione**: tipi di atto con durata in giorni (obbligatoria per tipo),
-  elenco delle amministrazioni ospitate (vuoto finché non se ne aggiunge una, ALBO-29),
+  elenco delle amministrazioni ospitate (vuoto finché non se ne aggiunge una, ALBO-29;
+  opzione `albo_pretorio_amministrazioni_ospitate`, con numero e nome per voce),
   destinatario degli avvisi del battito. Ogni valore validato al salvataggio.
   La durata di un tipo è **costruita**: un solo metadato sulla voce dell'elenco dei tipi
   di atto, `albo_pretorio_durata_tipo`, con giorni, origine ed estremi insieme, così che

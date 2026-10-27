@@ -433,6 +433,12 @@ final class SchermataScaduti {
 			$dati[ __( 'Tipo', 'albo-pretorio-pa' ) ] = $tipo->name;
 		}
 
+		$amministrazione = AmministrazioniOspitate::da_mostrare( $atto );
+
+		if ( null !== $amministrazione ) {
+			$dati[ AmministrazioniOspitate::etichetta() ] = $amministrazione;
+		}
+
 		$organo = DatiAtto::organo( $atto );
 
 		if ( null !== $organo ) {

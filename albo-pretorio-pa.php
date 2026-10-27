@@ -197,6 +197,8 @@ require_once __DIR__ . '/includes/class-durate.php';
 require_once __DIR__ . '/includes/class-dati-atto.php';
 require_once __DIR__ . '/includes/class-dati-procedimento.php';
 require_once __DIR__ . '/includes/class-schermata-dati-procedimento.php';
+require_once __DIR__ . '/includes/class-amministrazioni-ospitate.php';
+require_once __DIR__ . '/includes/class-schermata-amministrazioni-ospitate.php';
 require_once __DIR__ . '/includes/class-scheda-atto.php';
 require_once __DIR__ . '/includes/class-documenti-atto.php';
 require_once __DIR__ . '/includes/class-scheda-documenti.php';
@@ -275,6 +277,8 @@ add_action( 'admin_menu', array( SchermataScaduti::class, 'menu' ) );
 add_action( 'admin_menu', array( SchermataImportazione::class, 'menu' ) );
 add_action( 'admin_post_' . SchermataDatiProcedimento::AZIONE, array( SchermataDatiProcedimento::class, 'da_invio' ) );
 add_action( 'admin_notices', array( SchermataDatiProcedimento::class, 'avviso' ) );
+add_action( 'admin_menu', array( SchermataAmministrazioniOspitate::class, 'menu' ) );
+add_action( 'admin_post_' . SchermataAmministrazioniOspitate::AZIONE, array( SchermataAmministrazioniOspitate::class, 'da_invio' ) );
 
 /*
  * I dati dell'atto si compilano nel riquadro della schermata dell'atto. Una

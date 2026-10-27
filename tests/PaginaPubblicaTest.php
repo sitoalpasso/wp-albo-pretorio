@@ -445,9 +445,13 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	/**
 	 * A-202 (memorie di pagina): la costante che le estensioni di memoria leggono.
 	 *
-	 * Sta per prima perche' una costante, una volta definita, non si toglie:
-	 * il controllo che prima di una richiesta della pagina dell'albo non ci
-	 * sia vale solo qui.
+	 * Gira in un processo a parte perche' una costante, una volta definita,
+	 * non si toglie: il controllo che prima di una richiesta della pagina
+	 * dell'albo non ci sia vale solo in un processo dove nessuna prova l'ha
+	 * ancora aperta, e l'ordine dei file di prova non lo garantisce.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
 	 */
 	public function test_a202_memorie_di_pagina_la_costante(): void {
 		$ordinaria = self::factory()->post->create(

@@ -662,6 +662,18 @@ final class VistaPubblica {
 			$oggetto .= ' <strong class="albo-pretorio__annullato">' . esc_html__( 'Annullato', 'albo-pretorio-pa' ) . '</strong>';
 		}
 
+		$amministrazione = AmministrazioniOspitate::da_mostrare( $atto );
+
+		if ( null !== $amministrazione ) {
+			$oggetto .= ' <span class="albo-pretorio__amministrazione">' . esc_html(
+				sprintf(
+					/* translators: %s: amministrazione che ha adottato l'atto ospitato. */
+					__( 'Atto di: %s', 'albo-pretorio-pa' ),
+					$amministrazione
+				)
+			) . '</span>';
+		}
+
 		if ( null !== $organo ) {
 			$oggetto .= ' <span class="albo-pretorio__organo">' . esc_html( $organo->name ) . '</span>';
 		}
@@ -739,6 +751,12 @@ final class VistaPubblica {
 
 		if ( null !== $tipo ) {
 			$dati[ __( 'Tipo', 'albo-pretorio-pa' ) ] = $tipo->name;
+		}
+
+		$amministrazione = AmministrazioniOspitate::da_mostrare( $atto );
+
+		if ( null !== $amministrazione ) {
+			$dati[ AmministrazioniOspitate::etichetta() ] = $amministrazione;
 		}
 
 		$organo = DatiAtto::organo( $atto );

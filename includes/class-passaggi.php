@@ -155,6 +155,13 @@ final class Passaggi {
 	private static $operazione = false;
 
 	/**
+	 * Transazioni dei passaggi aperte in questa richiesta e non ancora chiuse.
+	 *
+	 * @var int
+	 */
+	private static $transazioni = 0;
+
+	/**
 	 * Istante fissato dalle prove, o nullo per l'ora vera.
 	 *
 	 * @var \DateTimeImmutable|null
@@ -188,6 +195,19 @@ final class Passaggi {
 	 */
 	public static function azzera_orologio(): void {
 		self::$orologio = null;
+	}
+
+	/**
+	 * Se la transazione di un passaggio e' aperta in questa richiesta.
+	 *
+	 * Con la scrittura automatica accesa la banca dati non lo dice sempre:
+	 * il salvataggio dell'elenco delle amministrazioni ospitate lo legge qui
+	 * per non aprire la sua transazione dentro questa.
+	 *
+	 * @return bool
+	 */
+	public static function transazione_aperta(): bool {
+		return self::$transazioni > 0;
 	}
 
 	/**
@@ -417,6 +437,13 @@ final class Passaggi {
 			return $durata;
 		}
 
+		// L'amministrazione dell'atto ospitato si fissa qui, prima del numero, e si scrive cosi' (ALBO-29).
+		$ospitata = AmministrazioniOspitate::per_registro( $atto_id );
+
+		if ( is_wp_error( $ospitata ) ) {
+			return $ospitata;
+		}
+
 		/*
 		 * La fine si calcola qui, prima del numero: senza la scelta sui
 		 * festivi non si sa quale fine scrivere, e il rifiuto non deve
@@ -428,6 +455,11 @@ final class Passaggi {
 
 		if ( is_wp_error( $slittata ) ) {
 			return $slittata;
+		}
+
+		// Si sa gia' qui che la transazione non si aprira': il rifiuto viene prima del numero.
+		if ( AmministrazioniOspitate::in_salvataggio() ) {
+			return self::errore_salvataggio_elenco();
 		}
 
 		$tabelle = self::tabelle_senza_transazioni();
@@ -469,7 +501,7 @@ final class Passaggi {
 		self::inizia( $atto_id, $campi, $fine, 'pubblicazione' );
 
 		try {
-			$esito = self::pubblica_dentro( $atto_id, $campi, $slittata, $numero, $partenza, $prima_fine, ! $fine_uguale, $prima );
+			$esito = self::pubblica_dentro( $atto_id, $campi, $slittata, $numero, $partenza, $prima_fine, ! $fine_uguale, $prima, $ospitata );
 		} finally {
 			unset( self::$in_corso[ $atto_id ] );
 		}
@@ -488,11 +520,12 @@ final class Passaggi {
 	 * @param int                           $prima_fine Voci della fine prima del passaggio.
 	 * @param bool                          $cambia     La data di fine cambia.
 	 * @param int                           $prima      Voci della pubblicazione prima.
+	 * @param array<string, string|int>     $ospitata   Amministrazione dell'atto, fissata prima del numero.
 	 * @return array{anno: int, numero: int, inizio: string, fine: string, voce: int}|\WP_Error
 	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
 	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, con l'eccezione come causa.
 	 */
-	private static function pubblica_dentro( int $atto_id, array $campi, array $slittata, array $numero, array $partenza, int $prima_fine, bool $cambia, int $prima ) {
+	private static function pubblica_dentro( int $atto_id, array $campi, array $slittata, array $numero, array $partenza, int $prima_fine, bool $cambia, int $prima, array $ospitata ) {
 		$fine     = (string) $slittata['fine'];
 		$apertura = self::apri();
 
@@ -538,7 +571,7 @@ final class Passaggi {
 							'fine_calcolata'  => $slittata['calcolata'],
 							'slittamento'     => $slittata['slittamento'],
 							'festivi_saltati' => self::saltati_per_registro( $slittata['saltati'] ),
-						) + DatiProcedimento::per_registro( $atto_id ),
+						) + DatiProcedimento::per_registro( $atto_id ) + $ospitata,
 						'chiave'    => SEZIONE . ':' . self::AZIONE_CONFERMA . ':' . $atto_id,
 					)
 				);
@@ -3069,6 +3102,21 @@ final class Passaggi {
 			$tabelle[] = Repertorio::tabella_assegnazioni();
 		}
 
+		return self::non_transazionali( $tabelle );
+	}
+
+	/**
+	 * Fra le tabelle indicate, quelle che non permettono di annullare una scrittura.
+	 *
+	 * Una tabella che non si trova, o una lettura che fallisce, conta come
+	 * non transazionale.
+	 *
+	 * @param array<int, string> $tabelle Nomi delle tabelle.
+	 * @return array<int, string> Nomi delle tabelle, vuoto se sono tutte transazionali.
+	 */
+	public static function non_transazionali( array $tabelle ): array {
+		global $wpdb;
+
 		$segnaposto = implode( ', ', array_fill( 0, count( $tabelle ), '%s' ) );
 
 		$transazionali = $wpdb->get_col(
@@ -3100,6 +3148,18 @@ final class Passaggi {
 	}
 
 	/**
+	 * Il rifiuto di un passaggio chiamato durante il salvataggio dell'elenco delle amministrazioni ospitate.
+	 *
+	 * @return \WP_Error
+	 */
+	private static function errore_salvataggio_elenco(): \WP_Error {
+		return new \WP_Error(
+			'albo_transazione_non_aperta',
+			__( 'L\'atto resta com\'era: e\' in corso il salvataggio dell\'elenco delle amministrazioni ospitate, e il passaggio non comincia dentro la sua transazione.', 'albo-pretorio-pa' )
+		);
+	}
+
+	/**
 	 * Apre la transazione, o un punto di ripristino dentro quella di un altro.
 	 *
 	 * Con la scrittura automatica spenta la connessione e' gia' dentro una
@@ -3110,6 +3170,14 @@ final class Passaggi {
 	 */
 	private static function apri() {
 		global $wpdb;
+
+		/*
+		 * Dentro il salvataggio dell'elenco delle amministrazioni ospitate,
+		 * che ha la sua transazione, aprirne un'altra la confermerebbe a meta'.
+		 */
+		if ( AmministrazioniOspitate::in_salvataggio() ) {
+			return self::errore_salvataggio_elenco();
+		}
 
 		/*
 		 * Si decide solo su una risposta certa. Una lettura fallita non vuol
@@ -3137,6 +3205,8 @@ final class Passaggi {
 				__( 'L\'atto resta in verifica: la banca dati non ha aperto la transazione che rende la pubblicazione tutta o niente.', 'albo-pretorio-pa' )
 			);
 		}
+
+		++self::$transazioni;
 
 		return $modo;
 	}
@@ -3196,6 +3266,10 @@ final class Passaggi {
 			? $wpdb->query( 'COMMIT' )
 			: $wpdb->query( 'RELEASE SAVEPOINT albo_pretorio_passaggio' );
 
+		if ( false !== $esito ) {
+			self::$transazioni = max( 0, self::$transazioni - 1 );
+		}
+
 		if ( false === $esito ) {
 			$annullato = self::annulla( $modo, $atto_id );
 
@@ -3237,6 +3311,8 @@ final class Passaggi {
 		$esito = 'transazione' === $modo
 			? $wpdb->query( 'ROLLBACK' )
 			: $wpdb->query( 'ROLLBACK TO SAVEPOINT albo_pretorio_passaggio' );
+
+		self::$transazioni = max( 0, self::$transazioni - 1 );
 
 		wp_cache_flush();
 

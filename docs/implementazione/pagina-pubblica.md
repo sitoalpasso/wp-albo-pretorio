@@ -137,7 +137,7 @@ Righe A-195..A-209 di `collaudo.md`, in `tests/PaginaPubblicaTest.php`.
   L'elenco dei documenti però non mostra il nome del file caricato, che può contenere nomi di
   persona: dice "Documento principale" e "Allegato 1", con formato e dimensione.
 - **Non mostra l'amministrazione che ha adottato un atto ospitato** (ALBO-29): arriva con
-  quell'unità.
+  quell'unità, poi fatta in [`amministrazioni-ospitate.md`](amministrazioni-ospitate.md).
 - **Non svuota le memorie di pagina alla scadenza** (ALBO-20): vieta soltanto di conservare
   la pagina.
 - **Non porta il motore di verifica dell'accessibilità nella verifica continua**: le due
