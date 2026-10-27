@@ -105,6 +105,13 @@ final class PaginaPubblica {
 	const STATI_IN_VISTA = array( 'publish', 'albo_annullato' );
 
 	/**
+	 * Il divieto di conservare una risposta dell'albo, per chiunque la chieda (ALBO-20).
+	 *
+	 * @var string
+	 */
+	const CACHE_CONTROL = 'no-cache, must-revalidate, max-age=0, no-store, private';
+
+	/**
 	 * Le pagine dell'albo lette in questa richiesta, o nullo se non ancora lette.
 	 *
 	 * @var array<int, int>|null
@@ -834,7 +841,7 @@ final class PaginaPubblica {
 		$interrogazione->current_post  = -1;
 
 		status_header( 404 );
-		nocache_headers();
+		self::vieta_memorie();
 	}
 
 	/**
@@ -911,7 +918,7 @@ final class PaginaPubblica {
 
 		$intestazioni['X-Robots-Tag'] = $robot;
 
-		return array_merge( $intestazioni, wp_get_nocache_headers() );
+		return array_merge( $intestazioni, self::senza_memoria() );
 	}
 
 	/**
@@ -948,14 +955,43 @@ final class PaginaPubblica {
 		if ( null === self::$emettitore ) {
 			nocache_headers();
 
+			if ( ! headers_sent() ) {
+				header( 'Cache-Control: ' . self::CACHE_CONTROL );
+			}
+
 			return;
 		}
 
-		foreach ( wp_get_nocache_headers() as $nome => $valore ) {
+		foreach ( self::senza_memoria() as $nome => $valore ) {
 			if ( is_string( $valore ) && '' !== $valore ) {
 				call_user_func( self::$emettitore, $nome . ': ' . $valore, true );
 			}
 		}
+	}
+
+	/**
+	 * Le intestazioni che vietano di conservare una risposta, con `no-store` per chiunque.
+	 *
+	 * WordPress mette `no-store, private` solo per chi ha fatto l'accesso
+	 * (dalla versione 6.3): al visitatore anonimo, che e' il caso che conta,
+	 * manda solo `no-cache`, che permette di conservare la risposta e di
+	 * ripresentarla dopo una verifica. Le altre intestazioni di WordPress si
+	 * tengono; `Cache-Control` si scrive qui, dopo i filtri.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function senza_memoria(): array {
+		$intestazioni = wp_get_nocache_headers();
+
+		foreach ( array_keys( $intestazioni ) as $nome ) {
+			if ( 0 === strcasecmp( (string) $nome, 'Cache-Control' ) ) {
+				unset( $intestazioni[ $nome ] );
+			}
+		}
+
+		$intestazioni['Cache-Control'] = self::CACHE_CONTROL;
+
+		return $intestazioni;
 	}
 
 	/**

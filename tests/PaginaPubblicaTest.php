@@ -366,7 +366,8 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 		return array(
 			'non trovata'  => is_404(),
 			'stati'        => array_values( array_unique( $this->stati ) ),
-			'righe'        => $this->righe,
+			// L'ordine delle righe dipende dal momento in cui la risposta si decide, non da che cosa dice.
+			'righe'        => $this->righe_in_ordine(),
 			'risultati'    => wp_list_pluck( (array) $GLOBALS['wp_query']->posts, 'ID' ),
 			'titolo'       => wp_get_document_title(),
 			'corpo'        => $this->corpo_del_modello(),
@@ -381,6 +382,18 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			// Un modello 404 che legge il post globale senza percorrere i risultati.
 			'post letto'   => get_the_title(),
 		);
+	}
+
+	/**
+	 * Le righe mandate, in ordine alfabetico.
+	 *
+	 * @return array<int, string>
+	 */
+	private function righe_in_ordine(): array {
+		$righe = $this->righe;
+		sort( $righe );
+
+		return $righe;
 	}
 
 	/**
@@ -1013,7 +1026,7 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			$this->assertSame( 'noindex', $risposta['intestazioni']['X-Robots-Tag'] ?? '', $quale . ': il divieto nell\'intestazione.' );
 			$this->assertStringContainsString( 'noindex', $risposta['robot'], $quale . ': il divieto nel sorgente.' );
 
-			foreach ( wp_get_nocache_headers() as $nome => $valore ) {
+			foreach ( array_merge( wp_get_nocache_headers(), array( 'Cache-Control' => PaginaPubblica::CACHE_CONTROL ) ) as $nome => $valore ) {
 				$this->assertSame( $valore, $risposta['intestazioni'][ $nome ] ?? null, $quale . ': ' . $nome . ' vieta di conservare la pagina.' );
 			}
 		}
@@ -1139,11 +1152,15 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 
 			$this->assertTrue( $risposta['non trovata'], $quale . ': precondizione, la scheda risponde "non trovata".' );
 			$this->assertSame( 'noindex', $risposta['intestazioni']['X-Robots-Tag'] ?? '', $quale . ': il divieto nell\'intestazione.' );
-			$this->assertSame( array( 'X-Robots-Tag: noindex' ), $risposta['righe'], $quale . ': il divieto su una riga propria.' );
+			$this->assertSame( array( 'X-Robots-Tag: noindex' ), array_values( preg_grep( '/^X-Robots-Tag:/i', $risposta['righe'] ) ), $quale . ': il divieto su una riga propria.' );
 			$this->assertStringContainsString( 'noindex', $risposta['robot'], $quale . ': il divieto nel sorgente.' );
 
-			foreach ( wp_get_nocache_headers() as $nome => $valore ) {
+			foreach ( array_merge( wp_get_nocache_headers(), array( 'Cache-Control' => PaginaPubblica::CACHE_CONTROL ) ) as $nome => $valore ) {
 				$this->assertSame( $valore, $risposta['intestazioni'][ $nome ] ?? null, $quale . ': ' . $nome . ' vieta di conservare la risposta.' );
+			}
+
+			foreach ( preg_grep( '/^Cache-Control:/i', $risposta['righe'] ) as $riga ) {
+				$this->assertStringContainsString( 'no-store', $riga, $quale . ': ogni riga mandata vieta di conservare.' );
 			}
 		}
 
@@ -2161,6 +2178,7 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			$this->fissa_orologi( self::PRIMO_ISTANTE_SCADUTO );
 			$this->assertNull( $this->rinvio_predisposto(), $azione . ': a cavallo della mezzanotte, nessun rinvio.' );
 			$this->assertSame( $mai, $this->fotografia(), $azione . ': a cavallo della mezzanotte, come un atto mai esistito.' );
+			$this->assertContains( 'Cache-Control: ' . PaginaPubblica::CACHE_CONTROL, $this->righe, $azione . ': a cavallo della mezzanotte, la risposta decisa dopo le intestazioni vieta comunque di conservarla.' );
 		}
 	}
 
@@ -2565,6 +2583,18 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 
 		$this->fissa_orologi( '2041-10-05 10:00:00' );
 		wp_set_current_user( 0 );
+
+		// Il visitatore anonimo come lo tratta WordPress dalla 6.3, versione minima compresa: niente no-store.
+		add_filter(
+			'nocache_headers',
+			static function ( $intestazioni ) {
+				$intestazioni['Cache-Control'] = 'no-cache, must-revalidate, max-age=0';
+
+				return $intestazioni;
+			}
+		);
+		$this->assertFalse( is_user_logged_in(), 'Precondizione: visitatore anonimo.' );
+		$this->assertStringNotContainsString( 'no-store', wp_get_nocache_headers()['Cache-Control'], 'Precondizione: WordPress da solo non vieta di conservare.' );
 
 		// Controllo positivo: la memoria simulata conserva una pagina ordinaria.
 		$ordinaria = self::factory()->post->create(

@@ -3,7 +3,7 @@
 Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro finito con
 com'è andata davvero.
 
-**Stato: costruita, in attesa di revisione.** Requisiti ALBO-30 e ALBO-20, righe di collaudo
+**Stato: costruita, in attesa di revisione.** Requisiti ALBO-30 e ALBO-20 (in parte: l'oscuramento a pubblicazione attiva resta con ALBO-12), righe di collaudo
 A-257..A-259. Richiede il meccanismo comune con l'interfaccia `1.8.0`. Com'è andata davvero è
 in fondo.
 
@@ -120,6 +120,15 @@ trovata".
 - Il rinvio dei vecchi indirizzi chiamava `nocache_headers()`, che in una prova non manda
   niente perché l'uscita è già cominciata: un rinvio senza divieto passava inosservato. Ora con
   l'emettitore delle prove le righe vanno a lui, e il guasto si vede.
+- La rilettura ha trovato che la prova girava su una versione di WordPress che dice `no-store`
+  a tutti. Dalla 6.3, versione minima compresa, WordPress lo dice solo a chi ha fatto
+  l'accesso; al visitatore anonimo manda solo `no-cache`, che lascia conservare la risposta.
+  Le risposte dell'albo (elenco, scheda, ricerca, "non trovata", rinvio dei vecchi indirizzi)
+  ora scrivono da sé `Cache-Control` con `no-store` (`PaginaPubblica::senza_memoria()`), e la
+  prova riproduce le intestazioni che WordPress manda all'anonimo. Anche la "non trovata"
+  decisa dopo le intestazioni (l'atto che scade fra la lettura e il rinvio) rimandava
+  `nocache_headers()` di WordPress, che toglieva `no-store` gia' mandato: ora rimanda il
+  divieto dell'albo.
 
 Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 
@@ -138,3 +147,7 @@ Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 | pagina dell'albo conservabile | A-259 |
 | rinvio senza divieto | A-259 |
 | rinvio con il divieto senza `no-store` | A-259 |
+| intestazioni di WordPress per l'anonimo senza `no-store` | A-259 |
+| pagina dell'albo con le intestazioni di WordPress | A-259 |
+| rinvio con le intestazioni di WordPress | A-259 |
+| "non trovata" decisa dopo le intestazioni con quelle di WordPress | A-222 |
