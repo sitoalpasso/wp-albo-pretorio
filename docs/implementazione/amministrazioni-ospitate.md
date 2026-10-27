@@ -77,7 +77,8 @@ pubblicati conservano il nome della loro pubblicazione.
   schermata o da `AmministrazioniOspitate::salva()`, tutto insieme o niente.
 - Metadato protetto dell'atto `_albo_pretorio_amministrazione`: `0` oppure il numero della
   voce, senza esposizione per programmi. Bloccato, come gli altri dati, dall'atto in verifica
-  in poi.
+  in poi. Verifica e pubblicazione lo leggono dalla banca dati, non dalla memoria degli
+  oggetti.
 - Voce di conferma della pubblicazione: dettagli `amministrazione` (il nome, testo vuoto per
   un atto di questa amministrazione) e `amministrazione_voce` (il numero, zero per questa
   amministrazione).
@@ -263,6 +264,16 @@ la riga nella scheda. Rinominare la voce: la scheda dell'atto pubblicato non cam
   sostituzione sta in una transazione, come il salvataggio dell'elenco, e ogni lettura
   controlla l'errore della connessione.
 
+- La rilettura prima del decimo giro ha trovato che verifica e pubblicazione leggevano la
+  scelta dalla memoria degli oggetti, mentre l'elenco si leggeva gia' dalla banca dati. Con una
+  memoria persistente un'altra richiesta poteva rimettervi la scelta di prima nell'istante fra
+  la pulizia e la conferma della sostituzione, e la pubblicazione avrebbe fissato
+  l'amministrazione vecchia, o pubblicato come atto di questa amministrazione un atto la cui
+  voce era stata tolta. Ora le due decisioni leggono la scelta dalla banca dati
+  (`scelta_fresca()`), una lettura fallita vale come scelta storta, e la memoria si pulisce di
+  nuovo dopo la conferma. La scheda e le pagine continuano a leggere dalla memoria: mostrano,
+  non decidono.
+
 Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 
 | Guasto | Prova caduta |
@@ -310,3 +321,7 @@ Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 | nessun ritorno indietro dopo una scrittura a metà | A-253 |
 | ritorno indietro dichiarato senza controllarlo | A-253 |
 | lettura fallita delle righe trattata come nessuna scelta | A-253 |
+| scelta per la pubblicazione letta dalla memoria | A-254 |
+| scelta per la verifica letta dalla memoria | A-254 |
+| lettura fallita della scelta fresca trattata come assente | A-254 |
+| memoria non pulita dopo la conferma della scelta | A-253 |

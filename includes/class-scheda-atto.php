@@ -597,6 +597,9 @@ final class SchedaAtto {
 		}
 
 		if ( $riuscita ) {
+			// Fra la pulizia di prima e la conferma un'altra richiesta puo' aver rimesso in memoria la scelta vecchia.
+			wp_cache_delete( $atto_id, 'post_meta' );
+
 			return 'scritta';
 		}
 

@@ -1405,6 +1405,107 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-253: un'altra richiesta rimette in memoria la scelta di prima mentre la nuova si conferma.
+	 */
+	public function test_a253_memoria_rimessa_prima_della_conferma(): void {
+		$this->aggiungi( self::OSPITATA );
+
+		$ospitata = $this->numero_di( self::OSPITATA );
+		$id       = $this->atto_completo_senza_controllo( 'Scelta cambiata, memoria rimessa' );
+
+		$this->invia_scheda( $id, '0' );
+		$this->assertSame( array( '0' ), get_post_meta( $id, AmministrazioniOspitate::META, false ), 'Precondizione: la scelta di prima.' );
+
+		// Nell'istante della conferma un'altra richiesta legge la riga ancora confermata e la rimette in memoria.
+		$rimesse = 0;
+		$rimette = static function ( $istruzione ) use ( $id, &$rimesse ) {
+			if ( 1 === preg_match( '/^\s*(COMMIT|RELEASE SAVEPOINT albo_pretorio_scelta)\b/i', (string) $istruzione ) ) {
+				wp_cache_set( $id, array( AmministrazioniOspitate::META => array( '0' ) ), 'post_meta' );
+				++$rimesse;
+			}
+
+			return $istruzione;
+		};
+		$vista   = null;
+		$guarda  = static function ( $atto ) use ( $id, &$vista ) {
+			if ( $id === (int) $atto ) {
+				$vista = get_post_meta( $id, AmministrazioniOspitate::META, false );
+			}
+		};
+
+		add_filter( 'query', $rimette );
+		add_action( 'wp_after_insert_post', $guarda, PHP_INT_MAX );
+
+		try {
+			$motivi = $this->invia_scheda( $id, (string) $ospitata );
+		} finally {
+			remove_filter( 'query', $rimette );
+			remove_action( 'wp_after_insert_post', $guarda, PHP_INT_MAX );
+		}
+
+		$this->assertSame( array(), $motivi );
+		$this->assertSame( 1, $rimesse, 'Precondizione: la memoria e\' stata rimessa una volta, alla conferma.' );
+		$this->assertSame( array( (string) $ospitata ), $vista, 'Dopo la conferma la memoria non tiene la scelta di prima.' );
+	}
+
+	/**
+	 * A-254: [attacco] la memoria tiene una scelta diversa da quella nella banca dati.
+	 */
+	public function test_a254_scelta_in_memoria_diversa(): void {
+		$this->pagina_albo();
+		$this->aggiungi( self::OSPITATA );
+
+		$ospitata = $this->numero_di( self::OSPITATA );
+		$vecchia  = static function ( int $atto, string $valore ): void {
+			wp_cache_set( $atto, array( AmministrazioniOspitate::META => array( $valore ) ), 'post_meta' );
+		};
+
+		// La memoria dice "questa amministrazione", la banca dati la voce: si fissa la voce.
+		$ospitato = $this->in_verifica_con( 'Ospitato, memoria vecchia', (string) $ospitata );
+		$this->assertSame( 'pending', get_post_status( $ospitato ), 'Precondizione: in verifica.' );
+		$vecchia( $ospitato, '0' );
+		$this->assertSame( array( '0' ), get_post_meta( $ospitato, AmministrazioniOspitate::META, false ), 'Precondizione: la memoria e\' vecchia.' );
+		$this->assertSame( $ospitata, AmministrazioniOspitate::per_registro( $ospitato )[ AmministrazioniOspitate::DETTAGLIO_VOCE ], 'Il nome da fissare viene dalla banca dati.' );
+
+		$vecchia( $ospitato, '0' );
+		$this->pubblica( $ospitato );
+		$this->assertSame( $ospitata, $this->conferma( $ospitato )[ AmministrazioniOspitate::DETTAGLIO_VOCE ] );
+		$this->assertSame( self::OSPITATA, $this->conferma( $ospitato )[ AmministrazioniOspitate::DETTAGLIO_NOME ] );
+
+		// La voce dell'atto e' stata tolta, la memoria dice "questa amministrazione": l'atto non si pubblica.
+		$tolta = $this->in_verifica_con( 'Ospitato, voce tolta, memoria vecchia', (string) $ospitata );
+		$this->assertSame( 'pending', get_post_status( $tolta ), 'Precondizione: in verifica.' );
+		$this->assertTrue( $this->invia_elenco( $this->pubblicatore, array( SchermataAmministrazioniOspitate::CAMPO_TOGLI => array( (string) $ospitata ) ) ) );
+		$this->assertSame( array(), AmministrazioniOspitate::voci(), 'Precondizione: l\'elenco e\' vuoto.' );
+		$vecchia( $tolta, '0' );
+
+		$this->assertArrayHasKey( 'albo_manca_amministrazione', DatiAtto::mancanti( $tolta ) );
+		$vecchia( $tolta, '0' );
+		$esito = $this->pubblica_da_codice( $tolta, $this->pubblicatore );
+		$this->assertWPError( $esito, 'La voce tolta ferma la pubblicazione anche con la memoria vecchia.' );
+		$this->assertSame( 'pending', get_post_status( $tolta ) );
+		$this->assertNull( Repertorio::di( $tolta ), 'Nessun numero consumato.' );
+
+		// Una lettura della banca dati che fallisce non vale come scelta assente.
+		$senza = $this->in_verifica_con( 'Questa amministrazione, lettura fallita', '0' );
+		$this->assertSame( 'pending', get_post_status( $senza ), 'Precondizione: in verifica.' );
+		$guasto    = static function ( $istruzione ) {
+			return false !== strpos( (string) $istruzione, AmministrazioniOspitate::META ) && 0 === stripos( ltrim( (string) $istruzione ), 'SELECT meta_value' ) ? 'SELECT * FROM tabella_che_non_esiste' : $istruzione;
+		};
+		$suppressi = $GLOBALS['wpdb']->suppress_errors( true );
+		add_filter( 'query', $guasto );
+
+		try {
+			$this->assertArrayHasKey( 'albo_manca_amministrazione', DatiAtto::mancanti( $senza ) );
+		} finally {
+			remove_filter( 'query', $guasto );
+			$GLOBALS['wpdb']->suppress_errors( $suppressi );
+		}
+
+		$this->assertArrayNotHasKey( 'albo_manca_amministrazione', DatiAtto::mancanti( $senza ), 'Con la lettura ripristinata la scelta vale.' );
+	}
+
+	/**
 	 * A-255: l'avviso di un atto ospitato annullato porta ancora l'amministrazione.
 	 */
 	public function test_a255_annullato_ospitato(): void {

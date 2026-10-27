@@ -734,8 +734,46 @@ final class AmministrazioniOspitate {
 	 * @return array{esito: string, id: int|null}
 	 */
 	public static function scelta_letta( int $atto_id ): array {
-		$righe = get_post_meta( $atto_id, self::META, false );
+		return self::classifica( get_post_meta( $atto_id, self::META, false ) );
+	}
 
+	/**
+	 * La scelta sull'atto letta dalla banca dati, per le decisioni: verifica e pubblicazione.
+	 *
+	 * **Non passa dalla memoria degli oggetti**, per la stessa ragione della
+	 * fotografia dell'elenco. Con una memoria persistente un'altra richiesta
+	 * puo' rimettervi la scelta di prima mentre questa viene sostituita, e la
+	 * pubblicazione fisserebbe un'amministrazione che chi redige ha gia'
+	 * cambiato. Una lettura che fallisce vale come scelta storta, mai come
+	 * scelta assente: assente, a elenco vuoto, vorrebbe dire "questa
+	 * amministrazione".
+	 *
+	 * @param int $atto_id Atto.
+	 * @return array{esito: string, id: int|null}
+	 */
+	public static function scelta_fresca( int $atto_id ): array {
+		global $wpdb;
+
+		$wpdb->last_error = '';
+		$righe            = $wpdb->get_col( $wpdb->prepare( "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s ORDER BY meta_id", $atto_id, self::META ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lettura fresca che distingue l'errore dall'assenza, vedi sopra.
+
+		if ( '' !== (string) $wpdb->last_error || ! is_array( $righe ) ) {
+			return array(
+				'esito' => self::ILLEGGIBILE,
+				'id'    => null,
+			);
+		}
+
+		return self::classifica( array_map( 'maybe_unserialize', $righe ) );
+	}
+
+	/**
+	 * Le righe della scelta lette sull'atto, classificate.
+	 *
+	 * @param mixed $righe Valori delle righe, in ordine.
+	 * @return array{esito: string, id: int|null}
+	 */
+	private static function classifica( $righe ): array {
 		if ( ! is_array( $righe ) || array() === $righe ) {
 			return array(
 				'esito' => self::ASSENTE,
@@ -813,7 +851,7 @@ final class AmministrazioniOspitate {
 	 * @return string|null
 	 */
 	public static function manca( int $atto_id ): ?string {
-		return self::motivo( self::fotografia(), self::scelta_letta( $atto_id ) );
+		return self::motivo( self::fotografia(), self::scelta_fresca( $atto_id ) );
 	}
 
 	/**
@@ -867,7 +905,7 @@ final class AmministrazioniOspitate {
 	 */
 	public static function per_registro( int $atto_id ) {
 		$fotografia = self::fotografia();
-		$scelta     = self::scelta_letta( $atto_id );
+		$scelta     = self::scelta_fresca( $atto_id );
 		$motivo     = self::motivo( $fotografia, $scelta );
 
 		if ( null !== $motivo ) {
