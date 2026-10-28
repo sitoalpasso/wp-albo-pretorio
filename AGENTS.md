@@ -142,8 +142,9 @@ limite o come unità futura non è un difetto di questa PR.
 ### Che cosa non segnalare
 
 - Stile, nomi, lingua dei commenti, formattazione: li controlla PHPCS.
-- Rilievi fuori dalla materia della PR, salvo un difetto grave di sicurezza o di scadenza:
-  in quel caso segnalalo una volta, dicendo che è fuori materia.
+- Rilievi fuori dalla materia della PR, salvo un difetto grave di sicurezza o di scadenza,
+  o un difetto sfruttabile senza poteri da amministratore: in quel caso segnalalo una volta,
+  dicendo che è fuori materia.
 - Il codice di WordPress o del componente comune in sé.
 - Le decisioni di prodotto già prese e scritte nei documenti: le trovi nelle schede di
   `docs/implementazione/` e in `docs/requisiti.md`. Esempi: niente pubblicazione
@@ -151,14 +152,16 @@ limite o come unità futura non è un difetto di questa PR.
   in corso mostra solo l'avviso, senza documenti; nessuna risposta preselezionata nelle
   scelte lasciate all'amministrazione; il documento firmato non si modifica.
 - I limiti dichiarati come tali in `docs/sicurezza.md` o nella scheda della PR, e le parti
-  indicate come unità future (per esempio esportazione, oscuramento, referto).
+  indicate come unità future (per esempio esportazione, oscuramento, referto). Eccezione: un
+  limite dichiarato che si rivela sfruttabile senza poteri da amministratore si segnala
+  sempre.
 - Le prove HTTP che da riga di comando non si possono fare (in PHPUnit `header()` non lascia
   traccia), se la scheda le dichiara.
 
 ### Come scrivere ogni rilievo
 
 Un rilievo per difetto concreto e riproducibile, con il file, la riga, lo scenario che lo fa
-emergere e la correzione precisa. Nel testo di ogni rilievo aggiungi due righe:
+emergere e la correzione precisa. Nel testo di ogni rilievo aggiungi tre righe:
 
 - **Realismo:** "configurazione comune" se basta un'installazione o un uso ordinario di
   WordPress; "componente insolito" se serve un altro plugin o un tema che fa qualcosa di non
