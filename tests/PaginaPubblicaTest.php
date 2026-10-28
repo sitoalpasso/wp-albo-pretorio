@@ -3,7 +3,7 @@
  * La pagina pubblica dell'albo: righe A-195..A-209 (ALBO-06, ALBO-16, ALBO-28),
  * il codice breve e gli indirizzi di "Albo Pretorio On line", A-220..A-223 (ALBO-35),
  * l'avviso dell'atto annullato, A-227 e A-228, e l'atto tolto dall'albo prima
- * della scadenza, A-235 e A-241 (ALBO-22).
+ * della scadenza, A-235 e A-241 (ALBO-22), e le memorie di pagina, A-259 (ALBO-20).
  *
  * Le prove fanno richieste vere alla pagina che contiene il codice breve, con
  * gli atti portati a pubblicato dal passaggio vero e l'orologio fissato. Il
@@ -81,6 +81,13 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	private int $pagina = 0;
 
 	/**
+	 * Le intestazioni mandate da WordPress nell'ultima richiesta, come le ha viste `send_headers`.
+	 *
+	 * @var array<string, mixed>
+	 */
+	private array $mandate = array();
+
+	/**
 	 * Assetto comune, indirizzi semplici, consegna e stati osservati.
 	 */
 	public function set_up(): void {
@@ -103,6 +110,19 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 
 		add_filter( 'status_header', array( $this, 'osserva_stato' ), 10, 2 );
 		add_action( 'parse_request', array( $this, 'dimentica_righe' ), 1 );
+		add_filter( 'wp_headers', array( $this, 'osserva_intestazioni' ), PHP_INT_MAX );
+	}
+
+	/**
+	 * Le intestazioni che WordPress sta per mandare, dopo tutti i filtri, quelli dell'albo compresi.
+	 *
+	 * @param mixed $intestazioni Intestazioni.
+	 * @return mixed
+	 */
+	public function osserva_intestazioni( $intestazioni ) {
+		$this->mandate = is_array( $intestazioni ) ? $intestazioni : array();
+
+		return $intestazioni;
 	}
 
 	/**
@@ -118,6 +138,7 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	public function tear_down(): void {
 		remove_filter( 'status_header', array( $this, 'osserva_stato' ), 10 );
 		remove_action( 'parse_request', array( $this, 'dimentica_righe' ), 1 );
+		remove_filter( 'wp_headers', array( $this, 'osserva_intestazioni' ), PHP_INT_MAX );
 		\Conformita_Core_Consegna::azzera_emettitore();
 		PaginaPubblica::fissa_emettitore( null );
 		unset( $_COOKIE[ 'wp-postpass_' . COOKIEHASH ] );
@@ -338,8 +359,9 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	 * @return array<string, mixed>
 	 */
 	private function risposta( string $indirizzo ): array {
-		$this->stati = array();
-		$this->righe = array();
+		$this->stati   = array();
+		$this->righe   = array();
+		$this->mandate = array();
 		$this->globali_nuove();
 		$this->richiesta_pubblica( $indirizzo );
 
@@ -363,10 +385,27 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	 * @return array<string, mixed>
 	 */
 	private function fotografia(): array {
+		// Il ricalcolo qui sotto non e' una risposta mandata: non deve passare per l'osservatore.
+		remove_filter( 'wp_headers', array( $this, 'osserva_intestazioni' ), PHP_INT_MAX );
+
+		try {
+			return $this->fotografia_ricalcolata();
+		} finally {
+			add_filter( 'wp_headers', array( $this, 'osserva_intestazioni' ), PHP_INT_MAX );
+		}
+	}
+
+	/**
+	 * La fotografia, con le intestazioni ricalcolate.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function fotografia_ricalcolata(): array {
 		return array(
 			'non trovata'  => is_404(),
 			'stati'        => array_values( array_unique( $this->stati ) ),
-			'righe'        => $this->righe,
+			// L'ordine delle righe dipende dal momento in cui la risposta si decide, non da che cosa dice.
+			'righe'        => $this->righe_in_ordine(),
 			'risultati'    => wp_list_pluck( (array) $GLOBALS['wp_query']->posts, 'ID' ),
 			'titolo'       => wp_get_document_title(),
 			'corpo'        => $this->corpo_del_modello(),
@@ -381,6 +420,18 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			// Un modello 404 che legge il post globale senza percorrere i risultati.
 			'post letto'   => get_the_title(),
 		);
+	}
+
+	/**
+	 * Le righe mandate, in ordine alfabetico.
+	 *
+	 * @return array<int, string>
+	 */
+	private function righe_in_ordine(): array {
+		$righe = $this->righe;
+		sort( $righe );
+
+		return $righe;
 	}
 
 	/**
@@ -1013,7 +1064,7 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			$this->assertSame( 'noindex', $risposta['intestazioni']['X-Robots-Tag'] ?? '', $quale . ': il divieto nell\'intestazione.' );
 			$this->assertStringContainsString( 'noindex', $risposta['robot'], $quale . ': il divieto nel sorgente.' );
 
-			foreach ( wp_get_nocache_headers() as $nome => $valore ) {
+			foreach ( array_merge( wp_get_nocache_headers(), array( 'Cache-Control' => PaginaPubblica::CACHE_CONTROL ) ) as $nome => $valore ) {
 				$this->assertSame( $valore, $risposta['intestazioni'][ $nome ] ?? null, $quale . ': ' . $nome . ' vieta di conservare la pagina.' );
 			}
 		}
@@ -1139,11 +1190,15 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 
 			$this->assertTrue( $risposta['non trovata'], $quale . ': precondizione, la scheda risponde "non trovata".' );
 			$this->assertSame( 'noindex', $risposta['intestazioni']['X-Robots-Tag'] ?? '', $quale . ': il divieto nell\'intestazione.' );
-			$this->assertSame( array( 'X-Robots-Tag: noindex' ), $risposta['righe'], $quale . ': il divieto su una riga propria.' );
+			$this->assertSame( array( 'X-Robots-Tag: noindex' ), array_values( preg_grep( '/^X-Robots-Tag:/i', $risposta['righe'] ) ), $quale . ': il divieto su una riga propria.' );
 			$this->assertStringContainsString( 'noindex', $risposta['robot'], $quale . ': il divieto nel sorgente.' );
 
-			foreach ( wp_get_nocache_headers() as $nome => $valore ) {
+			foreach ( array_merge( wp_get_nocache_headers(), array( 'Cache-Control' => PaginaPubblica::CACHE_CONTROL ) ) as $nome => $valore ) {
 				$this->assertSame( $valore, $risposta['intestazioni'][ $nome ] ?? null, $quale . ': ' . $nome . ' vieta di conservare la risposta.' );
+			}
+
+			foreach ( preg_grep( '/^Cache-Control:/i', $risposta['righe'] ) as $riga ) {
+				$this->assertStringContainsString( 'no-store', $riga, $quale . ': ogni riga mandata vieta di conservare.' );
 			}
 		}
 
@@ -2136,6 +2191,16 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 		$this->fissa_orologi( self::PRIMO_ISTANTE_SCADUTO );
 		wp_set_current_user( 0 );
 
+		// Il visitatore anonimo come lo tratta WordPress dalla 6.3, versione minima compresa: niente no-store.
+		add_filter(
+			'nocache_headers',
+			static function ( $intestazioni ) {
+				$intestazioni['Cache-Control'] = 'no-cache, must-revalidate, max-age=0';
+
+				return $intestazioni;
+			}
+		);
+
 		$mai = $this->risposta( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => 999999999 ) ) );
 
 		foreach ( array( 'visatto', 'printatto' ) as $azione ) {
@@ -2161,6 +2226,12 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			$this->fissa_orologi( self::PRIMO_ISTANTE_SCADUTO );
 			$this->assertNull( $this->rinvio_predisposto(), $azione . ': a cavallo della mezzanotte, nessun rinvio.' );
 			$this->assertSame( $mai, $this->fotografia(), $azione . ': a cavallo della mezzanotte, come un atto mai esistito.' );
+			$divieti = preg_grep( '/^Cache-Control:/i', $this->righe );
+			$this->assertNotEmpty( $divieti, $azione . ': a cavallo della mezzanotte, la risposta decisa dopo le intestazioni riscrive Cache-Control.' );
+
+			foreach ( $divieti as $riga ) {
+				$this->assertStringContainsString( 'no-store', $riga, $azione . ': a cavallo della mezzanotte, la risposta vieta comunque di conservarla.' );
+			}
 		}
 	}
 
@@ -2532,6 +2603,200 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			$this->assertSame( $mai, $this->risposta( $scheda ), $chi . ', annullato dopo la defissione: la scheda resta "non trovata".' );
 			$this->assertSame( $this->consegna( $di_rifer ), $this->consegna( $documento ), $chi . ', annullato dopo la defissione: il documento resta chiuso.' );
 		}
+	}
+
+	/**
+	 * A-259: un divieto scritto da un altro componente con un'altra grafia non resta accanto a quello dell'albo.
+	 *
+	 * I nomi delle intestazioni non badano a maiuscole: `cache-control` e
+	 * `Cache-Control` sono la stessa intestazione, e se restassero entrambe
+	 * fra quelle che WordPress manda, l'ultima mandata sostituirebbe l'altra.
+	 */
+	public function test_a259_divieto_con_altre_grafie(): void {
+		$this->pagina_albo();
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+		wp_set_current_user( 0 );
+
+		$grafie = array(
+			'minuscole prima' => array( 'cache-control', 'Cache-Control', 'EXPIRES' ),
+			'canonica prima'  => array( 'Cache-Control', 'cache-control', 'expires' ),
+		);
+
+		foreach ( $grafie as $caso => $nomi ) {
+			$altrui = static function ( $intestazioni ) use ( $nomi ) {
+				foreach ( $nomi as $nome ) {
+					$intestazioni[ $nome ] = 0 === strcasecmp( $nome, 'Expires' ) ? 'Thu, 01 Jan 2099 00:00:00 GMT' : 'public, max-age=86400';
+				}
+
+				return $intestazioni;
+			};
+
+			add_filter( 'wp_headers', $altrui, 10 );
+
+			try {
+				$this->risposta( $this->indirizzo() );
+			} finally {
+				remove_filter( 'wp_headers', $altrui, 10 );
+			}
+
+			$this->assertArrayHasKey( 'Content-Type', $this->mandate, $caso . ': precondizione, le intestazioni mandate sono osservate.' );
+
+			foreach ( array( 'Cache-Control', 'Expires' ) as $nome ) {
+				$stesse = array_filter(
+					$this->mandate,
+					static function ( $chiave ) use ( $nome ) {
+						return 0 === strcasecmp( (string) $chiave, $nome );
+					},
+					ARRAY_FILTER_USE_KEY
+				);
+
+				$this->assertCount( 1, $stesse, $caso . ': una sola intestazione ' . $nome . '.' );
+			}
+
+			$this->assertSame( PaginaPubblica::CACHE_CONTROL, $this->mandate['Cache-Control'] ?? null, $caso . ': resta il divieto dell\'albo.' );
+			$this->assertStringNotContainsString( '2099', (string) ( $this->mandate['Expires'] ?? '' ), $caso . ': resta la scadenza di WordPress.' );
+		}
+	}
+
+	/**
+	 * A-259: nessuna memoria di pagina conserva una risposta dell'albo, quindi nessuna la ripresenta.
+	 *
+	 * La memoria simulata segue la regola delle memorie condivise e di quelle
+	 * dei browser: conserva una risposta solo se l'intestazione `Cache-Control`
+	 * non dice `no-store`. Si riempie con tutte le strade di un atto in corso
+	 * (elenco, scheda, ricerca, documento, vecchio indirizzo) e con la "non
+	 * trovata"; poi l'atto si toglie dall'albo, un altro scade, e si guarda che
+	 * cosa la memoria avrebbe da consegnare: niente, mentre la risposta viva
+	 * e' la "non trovata". Le estensioni che leggono `DONOTCACHEPAGE` hanno la
+	 * loro prova, A-202.
+	 */
+	public function test_a259_nessuna_memoria_ripresenta_un_atto_tolto(): void {
+		$this->pagina_con( '[Albo stato="1"]' );
+
+		$tolto   = $this->importato_il( '2041-10-01 09:30:00', 'Atto che si togliera\' dall\'albo', '501' );
+		$scadra  = $this->pubblicato_il( '2041-09-25 09:30:00', 'Atto che scadra\'' );
+		$memoria = array();
+
+		$conserva = static function ( array &$memoria, string $chiave, array $intestazioni ): void {
+			foreach ( $intestazioni as $nome => $valore ) {
+				if ( 0 === strcasecmp( (string) $nome, 'Cache-Control' ) && false !== stripos( (string) $valore, 'no-store' ) ) {
+					return;
+				}
+			}
+
+			$memoria[ $chiave ] = $intestazioni;
+		};
+
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+		wp_set_current_user( 0 );
+
+		// Il visitatore anonimo come lo tratta WordPress dalla 6.3, versione minima compresa: niente no-store.
+		add_filter(
+			'nocache_headers',
+			static function ( $intestazioni ) {
+				$intestazioni['Cache-Control'] = 'no-cache, must-revalidate, max-age=0';
+
+				return $intestazioni;
+			}
+		);
+		$this->assertFalse( is_user_logged_in(), 'Precondizione: visitatore anonimo.' );
+		$this->assertStringNotContainsString( 'no-store', wp_get_nocache_headers()['Cache-Control'], 'Precondizione: WordPress da solo non vieta di conservare.' );
+
+		// Controllo positivo: la memoria simulata conserva una pagina ordinaria.
+		$ordinaria = self::factory()->post->create(
+			array(
+				'post_type'   => 'page',
+				'post_status' => 'publish',
+				'post_title'  => 'Pagina ordinaria',
+			)
+		);
+		$controllo = array();
+		// Si conserva quello che WordPress ha mandato durante la risposta, non un ricalcolo fatto dopo.
+		$this->risposta( (string) get_permalink( $ordinaria ) );
+		$this->assertArrayHasKey( 'Content-Type', $this->mandate, 'Precondizione: le intestazioni mandate sono osservate.' );
+		$conserva( $controllo, 'ordinaria', $this->mandate );
+		$this->assertArrayHasKey( 'ordinaria', $controllo, 'Controllo positivo: una pagina ordinaria si conserva.' );
+
+		$strade = array();
+
+		foreach ( array( $tolto, $scadra ) as $atto ) {
+			$strade[ $atto . ' scheda' ]  = $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $atto ) );
+			$strade[ $atto . ' elenco' ]  = $this->indirizzo();
+			$strade[ $atto . ' ricerca' ] = $this->indirizzo( array( VistaPubblica::CAMPO_TESTO => 'atto' ) );
+		}
+
+		$strade['non trovata'] = $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => 999999 ) );
+
+		foreach ( $strade as $quale => $dove ) {
+			$risposta = $this->risposta( $dove );
+
+			if ( 'non trovata' === $quale ) {
+				$this->assertTrue( $risposta['non trovata'], 'Precondizione: un atto mai esistito e\' "non trovata".' );
+			} else {
+				$this->assertFalse( $risposta['non trovata'], $quale . ': precondizione, la pagina si apre.' );
+				$this->assertStringContainsString( 'data-atto="' . (int) $quale . '"', $risposta['corpo'], $quale . ': precondizione, l\'atto e\' nella pagina.' );
+			}
+
+			$this->assertArrayHasKey( 'Content-Type', $this->mandate, $quale . ': precondizione, le intestazioni mandate sono osservate.' );
+			$conserva( $memoria, $quale, $this->mandate );
+		}
+
+		foreach ( array( $tolto, $scadra ) as $atto ) {
+			$consegne = $this->consegna( (int) DocumentiAtto::principale( $atto ) );
+			$this->assertTrue( $this->consegnato( $consegne ), $atto . ': precondizione, il documento si scarica.' );
+			$conserva( $memoria, $atto . ' documento', $consegne[0]['intestazioni'] );
+		}
+
+		// Il vecchio indirizzo rinvia alla scheda: si conservano le intestazioni che il rinvio manda.
+		$this->richiesta_pubblica(
+			$this->indirizzo(
+				array(
+					'action' => 'visatto',
+					'id'     => '501',
+				)
+			)
+		);
+
+		// Si osserva solo il rinvio: le righe della pagina, mandate prima, non contano.
+		$this->righe = array();
+		$rinvio      = $this->rinvio_predisposto();
+		$mandate     = array();
+
+		foreach ( $this->righe as $riga ) {
+			list( $nome, $valore )     = array_map( 'trim', explode( ':', $riga, 2 ) );
+			$mandate[ (string) $nome ] = (string) $valore;
+		}
+
+		$this->assertSame( 302, $rinvio['stato'] ?? 0, 'Precondizione: il vecchio indirizzo rinvia.' );
+		$this->assertArrayHasKey( 'Cache-Control', $mandate, 'Il rinvio manda l\'intestazione che decide se conservarlo.' );
+		$conserva( $memoria, 'vecchio indirizzo', $mandate );
+
+		$this->assertSame( array(), $memoria, 'Nessuna risposta dell\'albo e\' stata conservata.' );
+
+		// Ora uno si toglie dall'albo e l'altro scade: la memoria non ha niente da ripresentare, la risposta viva e' la "non trovata".
+		$this->defisso_il( $tolto, '2041-10-05 11:00:00' );
+		$this->fissa_orologi( '2041-10-11 10:00:00' );
+		wp_set_current_user( 0 );
+
+		$this->assertTrue( conformita_core_scaduto( $scadra ), 'Precondizione: il secondo atto e\' scaduto.' );
+
+		foreach ( array( $tolto, $scadra ) as $atto ) {
+			$this->assertTrue( $this->risposta( $strade[ $atto . ' scheda' ] )['non trovata'], $atto . ': la scheda e\' "non trovata".' );
+			$this->assertStringNotContainsString( 'data-atto="' . $atto . '"', $this->risposta( $strade[ $atto . ' elenco' ] )['corpo'], $atto . ': l\'elenco non lo mostra.' );
+			$this->assertFalse( $this->consegnato( $this->consegna( (int) DocumentiAtto::principale( $atto ) ) ), $atto . ': il documento non si scarica.' );
+		}
+
+		$this->assertNull(
+			$this->rinvio(
+				$this->indirizzo(
+					array(
+						'action' => 'visatto',
+						'id'     => '501',
+					)
+				)
+			),
+			'Il vecchio indirizzo non rinvia piu\'.'
+		);
 	}
 
 	/**

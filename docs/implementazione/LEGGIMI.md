@@ -82,3 +82,6 @@ Schede presenti:
   amministrazioni per cui l'albo pubblica, la scelta senza preselezione sull'atto quando
   l'elenco ha voci, e il nome fissato alla pubblicazione e mostrato al pubblico. Righe di
   collaudo A-249..A-256 e A-260.
+- [`nome-del-file-e-memorie.md`](nome-del-file-e-memorie.md): il nome del file scaricato, con
+  numero di registro e date di pubblicazione e senza oggetto né nome originale, e la prova che
+  nessuna memoria di pagina conserva una risposta dell'albo. Righe di collaudo A-257..A-259.

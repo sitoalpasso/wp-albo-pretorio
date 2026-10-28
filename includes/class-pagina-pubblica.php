@@ -105,6 +105,13 @@ final class PaginaPubblica {
 	const STATI_IN_VISTA = array( 'publish', 'albo_annullato' );
 
 	/**
+	 * Il divieto di conservare una risposta dell'albo, per chiunque la chieda (ALBO-20).
+	 *
+	 * @var string
+	 */
+	const CACHE_CONTROL = 'no-cache, must-revalidate, max-age=0, no-store, private';
+
+	/**
 	 * Le pagine dell'albo lette in questa richiesta, o nullo se non ancora lette.
 	 *
 	 * @var array<int, int>|null
@@ -645,7 +652,7 @@ final class PaginaPubblica {
 		$scheda = self::richiesta_dell_albo() && self::in_pubblicazione( $atto ) ? self::indirizzo_scheda( $atto ) : null;
 
 		if ( null !== $scheda ) {
-			nocache_headers();
+			self::vieta_memorie();
 
 			if ( wp_safe_redirect( $scheda, 302, 'Albo Pretorio' ) ) {
 				exit;
@@ -834,7 +841,7 @@ final class PaginaPubblica {
 		$interrogazione->current_post  = -1;
 
 		status_header( 404 );
-		nocache_headers();
+		self::vieta_memorie();
 	}
 
 	/**
@@ -911,7 +918,18 @@ final class PaginaPubblica {
 
 		$intestazioni['X-Robots-Tag'] = $robot;
 
-		return array_merge( $intestazioni, wp_get_nocache_headers() );
+		// I nomi delle intestazioni non badano a maiuscole: un `cache-control` di un altro componente resterebbe accanto al divieto.
+		$divieto = self::senza_memoria();
+
+		foreach ( array_keys( $intestazioni ) as $nome ) {
+			foreach ( array_keys( $divieto ) as $nostro ) {
+				if ( 0 === strcasecmp( (string) $nome, (string) $nostro ) ) {
+					unset( $intestazioni[ $nome ] );
+				}
+			}
+		}
+
+		return array_merge( $intestazioni, $divieto );
 	}
 
 	/**
@@ -935,6 +953,63 @@ final class PaginaPubblica {
 		}
 
 		self::manda( 'X-Robots-Tag: noindex' );
+	}
+
+	/**
+	 * Le intestazioni con cui WordPress vieta di conservare una risposta, per un rinvio.
+	 *
+	 * Un rinvio conservato da una memoria continuerebbe a portare alla scheda
+	 * anche dopo la scadenza (A-258). Le righe sono sempre quelle di
+	 * `senza_memoria()`: cambia solo dove vanno, alle intestazioni vere o
+	 * all'emettitore delle prove, cosi' la prova guarda la stessa costruzione
+	 * che parte davvero. Come `nocache_headers()`, un valore falso toglie
+	 * l'intestazione (`Last-Modified`).
+	 */
+	private static function vieta_memorie(): void {
+		foreach ( self::senza_memoria() as $nome => $valore ) {
+			if ( false === $valore ) {
+				if ( null === self::$emettitore && ! headers_sent() ) {
+					header_remove( (string) $nome );
+				}
+
+				continue;
+			}
+
+			if ( ! is_string( $valore ) || '' === $valore ) {
+				continue;
+			}
+
+			if ( null !== self::$emettitore ) {
+				call_user_func( self::$emettitore, $nome . ': ' . $valore, true );
+			} elseif ( ! headers_sent() ) {
+				header( $nome . ': ' . $valore );
+			}
+		}
+	}
+
+	/**
+	 * Le intestazioni che vietano di conservare una risposta, con `no-store` per chiunque.
+	 *
+	 * WordPress mette `no-store, private` solo per chi ha fatto l'accesso
+	 * (dalla versione 6.3): al visitatore anonimo, che e' il caso che conta,
+	 * manda solo `no-cache`, che permette di conservare la risposta e di
+	 * ripresentarla dopo una verifica. Le altre intestazioni di WordPress si
+	 * tengono; `Cache-Control` si scrive qui, dopo i filtri.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function senza_memoria(): array {
+		$intestazioni = wp_get_nocache_headers();
+
+		foreach ( array_keys( $intestazioni ) as $nome ) {
+			if ( 0 === strcasecmp( (string) $nome, 'Cache-Control' ) ) {
+				unset( $intestazioni[ $nome ] );
+			}
+		}
+
+		$intestazioni['Cache-Control'] = self::CACHE_CONTROL;
+
+		return $intestazioni;
 	}
 
 	/**

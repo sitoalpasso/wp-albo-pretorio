@@ -45,7 +45,7 @@ const PHP_MINIMA = '8.1';
  * comune e non la sua versione, perché accetta slug e non vincoli di versione:
  * il vincolo di versione vive qui e si verifica a ogni avvio.
  */
-const CORE_API_RICHIESTA = '1.7.0';
+const CORE_API_RICHIESTA = '1.8.0';
 
 /**
  * Nome visibile del componente, come compare negli avvisi in amministrazione.
@@ -202,6 +202,7 @@ require_once __DIR__ . '/includes/class-schermata-amministrazioni-ospitate.php';
 require_once __DIR__ . '/includes/class-scheda-atto.php';
 require_once __DIR__ . '/includes/class-documenti-atto.php';
 require_once __DIR__ . '/includes/class-scheda-documenti.php';
+require_once __DIR__ . '/includes/class-nome-scaricato.php';
 require_once __DIR__ . '/includes/class-repertorio.php';
 require_once __DIR__ . '/includes/class-schermata-repertorio.php';
 require_once __DIR__ . '/includes/class-installazione.php';
