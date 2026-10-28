@@ -26,10 +26,8 @@ persone o indirizzi di installazioni. Se serve un esempio, usa dati inventati: u
 
 ## Segnalazioni di sicurezza
 
-Le vulnerabilità si segnalano in privato, tramite la funzione di *security advisory* del
-repository GitHub, e non con una issue pubblica. Indica versione, impatto e passi di
-riproduzione. La segnalazione riceve riscontro e, una volta disponibile la correzione,
-l'avviso viene pubblicato con il credito a chi l'ha segnalata, se lo desidera.
+Le vulnerabilità si segnalano in privato, mai con una issue pubblica. Canali, tempi di
+risposta e ambito sono in [SECURITY.md](SECURITY.md).
 
 ## Cosa non copre l'assistenza
 
