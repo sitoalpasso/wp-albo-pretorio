@@ -56,6 +56,8 @@ correzioni di sicurezza si fanno solo sul ramo `main` e sull'ultima versione pub
   procedura.
 - Temi e altri plugin, salvo che il difetto stia nel modo in cui questo plugin li usa.
 - I limiti già dichiarati in `docs/sicurezza.md` e nelle schede di `docs/implementazione/`.
+  Eccezione: un limite dichiarato che si rivela sfruttabile senza poteri da amministratore
+  è in ambito e si corregge.
 - Problemi che richiedono un account che abbia già il permesso di fare la stessa cosa
   dall'interfaccia. Fanno eccezione i divieti che il plugin impone anche all'amministratore,
   come la modifica o la cancellazione di un atto pubblicato: aggirarli è in ambito.
