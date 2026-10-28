@@ -140,6 +140,10 @@ trovata".
   verdi. Ora c'è una sola costruzione per le due strade, e `Last-Modified` si toglie come fa
   WordPress. La prova delle memorie conserva le intestazioni che WordPress ha mandato durante
   la risposta, non un ricalcolo fatto dopo, e A-222 riproduce l'anonimo di WordPress 6.5.
+- Il terzo giro ha trovato che il divieto si aggiungeva alle intestazioni ricevute senza
+  togliere le stesse scritte con un'altra grafia: un `cache-control` di un altro componente
+  restava accanto al nostro. Ora ogni intestazione del divieto sostituisce quelle con lo stesso
+  nome, senza badare a maiuscole.
 
 Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 
@@ -164,3 +168,4 @@ Guasti introdotti di proposito, uno per volta, e prova che li ha visti:
 | "non trovata" decisa dopo le intestazioni con quelle di WordPress | A-222 |
 | divieto dell'albo senza `no-store` | A-222, A-259 |
 | rinvio e "non trovata" tardiva con le intestazioni di WordPress | A-222, A-259 |
+| intestazioni di altri con un'altra grafia non tolte | A-259 |

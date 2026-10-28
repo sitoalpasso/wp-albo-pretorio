@@ -2606,6 +2606,59 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-259: un divieto scritto da un altro componente con un'altra grafia non resta accanto a quello dell'albo.
+	 *
+	 * I nomi delle intestazioni non badano a maiuscole: `cache-control` e
+	 * `Cache-Control` sono la stessa intestazione, e se restassero entrambe
+	 * fra quelle che WordPress manda, l'ultima mandata sostituirebbe l'altra.
+	 */
+	public function test_a259_divieto_con_altre_grafie(): void {
+		$this->pagina_albo();
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+		wp_set_current_user( 0 );
+
+		$grafie = array(
+			'minuscole prima' => array( 'cache-control', 'Cache-Control', 'EXPIRES' ),
+			'canonica prima'  => array( 'Cache-Control', 'cache-control', 'expires' ),
+		);
+
+		foreach ( $grafie as $caso => $nomi ) {
+			$altrui = static function ( $intestazioni ) use ( $nomi ) {
+				foreach ( $nomi as $nome ) {
+					$intestazioni[ $nome ] = 0 === strcasecmp( $nome, 'Expires' ) ? 'Thu, 01 Jan 2099 00:00:00 GMT' : 'public, max-age=86400';
+				}
+
+				return $intestazioni;
+			};
+
+			add_filter( 'wp_headers', $altrui, 10 );
+
+			try {
+				$this->risposta( $this->indirizzo() );
+			} finally {
+				remove_filter( 'wp_headers', $altrui, 10 );
+			}
+
+			$this->assertArrayHasKey( 'Content-Type', $this->mandate, $caso . ': precondizione, le intestazioni mandate sono osservate.' );
+
+			foreach ( array( 'Cache-Control', 'Expires' ) as $nome ) {
+				$stesse = array_filter(
+					$this->mandate,
+					static function ( $chiave ) use ( $nome ) {
+						return 0 === strcasecmp( (string) $chiave, $nome );
+					},
+					ARRAY_FILTER_USE_KEY
+				);
+
+				$this->assertCount( 1, $stesse, $caso . ': una sola intestazione ' . $nome . '.' );
+			}
+
+			$this->assertSame( PaginaPubblica::CACHE_CONTROL, $this->mandate['Cache-Control'] ?? null, $caso . ': resta il divieto dell\'albo.' );
+			$this->assertStringNotContainsString( '2099', (string) ( $this->mandate['Expires'] ?? '' ), $caso . ': resta la scadenza di WordPress.' );
+		}
+	}
+
+	/**
 	 * A-259: nessuna memoria di pagina conserva una risposta dell'albo, quindi nessuna la ripresenta.
 	 *
 	 * La memoria simulata segue la regola delle memorie condivise e di quelle

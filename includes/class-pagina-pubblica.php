@@ -918,7 +918,18 @@ final class PaginaPubblica {
 
 		$intestazioni['X-Robots-Tag'] = $robot;
 
-		return array_merge( $intestazioni, self::senza_memoria() );
+		// I nomi delle intestazioni non badano a maiuscole: un `cache-control` di un altro componente resterebbe accanto al divieto.
+		$divieto = self::senza_memoria();
+
+		foreach ( array_keys( $intestazioni ) as $nome ) {
+			foreach ( array_keys( $divieto ) as $nostro ) {
+				if ( 0 === strcasecmp( (string) $nome, (string) $nostro ) ) {
+					unset( $intestazioni[ $nome ] );
+				}
+			}
+		}
+
+		return array_merge( $intestazioni, $divieto );
 	}
 
 	/**
