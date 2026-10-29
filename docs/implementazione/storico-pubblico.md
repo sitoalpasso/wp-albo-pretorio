@@ -188,8 +188,18 @@ anche chi il registro scrive. I moduli hanno un gettone per atto e per copia.
 
 - Registro, deposito o pubblicazione della copia che non riescono: la copia, il suo documento
   e il file si tolgono, e l'atto resta senza copia.
-- Due ingressi insieme sullo stesso atto: resta la copia più vecchia, l'altra si ritira prima
-  del registro.
+- Due ingressi insieme sullo stesso atto: si mettono in fila con un blocco per atto, e chi
+  arriva secondo trova l'atto occupato e non scrive nulla. Se il blocco non si prende entro
+  cinque secondi, il messaggio chiede di riprovare. Il controllo sulla copia più vecchia
+  resta come seconda difesa.
+- Due uscite insieme sulla stessa copia: un blocco per copia, e chi arriva secondo trova la
+  copia occupata; una sola voce di uscita nel registro.
+- Ritiro di una copia mal riuscita che non va a buon fine: dopo il ritiro si rileggono dal
+  database le righe e dal disco i file. Se qualcosa resta, la fine della copia si porta a
+  ieri, così non si mostra comunque, e il messaggio dice che va tolta a mano.
+- Elenco delle copie che non si legge: lo schermo lo dice, invece di mostrare un elenco
+  vuoto.
+- Atto entrato il 29 febbraio: in un anno non bisestile la fine cade il 28 febbraio.
 - Registro che non scrive l'uscita: la copia resta fuori, e il messaggio chiede di annotare a
   parte chi l'ha tolta e perché. Fra una copia tolta senza voce e una copia rimessa in rete
   contro chi la toglie, si sceglie la prima.

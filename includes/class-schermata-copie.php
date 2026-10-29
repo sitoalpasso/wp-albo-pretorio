@@ -279,6 +279,11 @@ final class SchermataCopie {
 
 		$copie = CopieStorico::presenti();
 
+		if ( null === $copie ) {
+			printf( '<div class="notice notice-error inline"><p>%s</p></div>', esc_html__( 'Le copie nello storico non si leggono in questo momento: ricaricare la pagina.', 'albo-pretorio-pa' ) );
+			return;
+		}
+
 		if ( array() === $copie ) {
 			printf( '<p>%s</p>', esc_html__( 'Nessuna copia nello storico. Per metterne una, cercare l\'atto nella consultazione degli atti scaduti.', 'albo-pretorio-pa' ) );
 			return;

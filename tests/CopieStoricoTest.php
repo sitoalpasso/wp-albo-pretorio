@@ -504,25 +504,53 @@ class CopieStoricoTest extends \WP_UnitTestCase {
 		wp_delete_post( $rivale, true );
 		$rivale = 0;
 
-		$dopo_di_questa = function ( $meta, $contenuto, $chiave ) use ( $entra, &$rivale ): void {
-			if ( 0 === $rivale && CopieStorico::META_DOCUMENTO === $chiave ) {
-				$entra();
+		/*
+		 * Un secondo ingresso vero, che parte mentre il primo e' a meta'
+		 * (dopo il deposito del documento): gli ingressi di un atto vanno in
+		 * fila, e il secondo si rifiuta senza scrivere niente.
+		 */
+		$secondo = null;
+		$dentro  = function ( $meta, $contenuto, $chiave ) use ( $atto, &$secondo ): void {
+			if ( null === $secondo && CopieStorico::META_DOCUMENTO === $chiave ) {
+				$secondo = CopieStorico::metti( $atto, $this->file_temporaneo( 'altra-copia.pdf' ), 'Altra copia', true, 'percorso_locale' );
 			}
 		};
 
-		add_action( 'added_post_meta', $dopo_di_questa, 10, 3 );
+		add_action( 'added_post_meta', $dentro, 10, 3 );
 
 		try {
 			$questa = $this->metti( $atto, $this->custode );
 		} finally {
-			remove_action( 'added_post_meta', $dopo_di_questa, 10 );
+			remove_action( 'added_post_meta', $dentro, 10 );
 		}
 
-		$this->assertIsInt( $questa, 'Questa e\' piu\' vecchia: resta.' );
-		$this->assertSame( array( $questa, $rivale ), CopieStorico::presenti_di( $atto ) );
-		$this->assertCount( 1, $this->voci( CopieStorico::AZIONE_INGRESSO ) );
+		$this->assertWPError( $secondo, 'Il secondo ingresso non passa.' );
+		$this->assertSame( 'albo_copia_occupato', $secondo->get_error_code() );
+		$this->assertIsInt( $questa, 'Il primo finisce.' );
+		$this->assertSame( array( $questa ), $this->copie_scritte(), 'Una copia sola.' );
+		$this->assertCount( 1, $this->voci( CopieStorico::AZIONE_INGRESSO ), 'Una voce sola.' );
 
-		wp_delete_post( $rivale, true );
+		// Un ingresso e un'uscita in corso su un'altra connessione: si aspetta il turno, poi ci si rifiuta senza scrivere.
+		$altra = new \wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
+
+		try {
+			$this->assertSame( '1', (string) $altra->get_var( $altra->prepare( 'SELECT GET_LOCK( %s, 0 )', CopieStorico::nome_blocco_atto( $atto ) ) ) );
+			$this->assertSame( '1', (string) $altra->get_var( $altra->prepare( 'SELECT GET_LOCK( %s, 0 )', CopieStorico::nome_blocco_copia( $questa ) ) ) );
+
+			$occupato = $this->togli( $questa, 'scelta_amministrazione', 'Prova.', $this->custode );
+			$this->assertWPError( $occupato );
+			$this->assertSame( 'albo_copia_occupato', $occupato->get_error_code() );
+			$this->assertFalse( conformita_core_scaduto( $questa ), 'L\'uscita in fila non ha scritto.' );
+
+			$occupato = $this->metti( $atto, $this->custode );
+			$this->assertWPError( $occupato );
+			$this->assertSame( 'albo_copia_occupato', $occupato->get_error_code() );
+			$this->assertSame( array( $questa ), $this->copie_scritte(), 'L\'ingresso in fila non ha scritto.' );
+		} finally {
+			$altra->query( 'SELECT RELEASE_ALL_LOCKS()' );
+			$altra->close();
+		}
+
 		$this->assertTrue( $this->togli( $questa, 'scelta_amministrazione', 'Prova finita.', $this->custode ) );
 
 		// La cartella che non risulta protetta: il deposito si rifiuta, e la copia non resta.
@@ -773,5 +801,139 @@ class CopieStoricoTest extends \WP_UnitTestCase {
 		$this->assertTrue( conformita_core_scaduto( $copia ) );
 		$this->assertSame( 'Nella seconda pagina c\'e\' ancora un nome.', $this->voci( CopieStorico::AZIONE_USCITA )[0]['motivazione'] );
 		$this->assertStringContainsString( 'stata tolta dallo storico', $this->schermata( array( SchermataStorico::class, 'mostra' ), $this->custode ) );
+	}
+
+	/**
+	 * A-268: due uscite insieme sulla stessa copia lasciano una voce sola.
+	 *
+	 * La seconda parte mentre la prima scrive la fine: le uscite di una
+	 * copia vanno in fila, e la seconda si rifiuta.
+	 */
+	public function test_a268_due_uscite_insieme(): void {
+		$atto = $this->pubblicato();
+
+		$this->fissa_orologi( self::DOPO_LA_FINE );
+
+		$copia = $this->metti( $atto, $this->custode );
+		$this->assertIsInt( $copia );
+
+		$seconda = null;
+		$dentro  = function ( $meta, $contenuto, $chiave ) use ( $copia, &$seconda ): void {
+			if ( null === $seconda && $copia === (int) $contenuto && conformita_core_chiave_fine_pubblicazione() === $chiave ) {
+				$seconda = CopieStorico::togli( $copia, 'dati_nella_copia', 'Seconda uscita.' );
+			}
+		};
+
+		add_action( 'updated_post_meta', $dentro, 10, 3 );
+
+		try {
+			$prima = $this->togli( $copia, 'richiesta_interessato', 'Prima uscita.', $this->custode );
+		} finally {
+			remove_action( 'updated_post_meta', $dentro, 10 );
+		}
+
+		$this->assertTrue( $prima );
+		$this->assertWPError( $seconda, 'La seconda uscita non passa.' );
+		$this->assertSame( 'albo_copia_occupato', $seconda->get_error_code() );
+
+		$voci = $this->voci( CopieStorico::AZIONE_USCITA );
+		$this->assertCount( 1, $voci, 'Una voce sola.' );
+		$this->assertSame( '2044-10-20', $this->dettagli( $voci[0] )['fine_precedente'] );
+	}
+
+	/**
+	 * A-268: una copia non riuscita che non si cancella non si dice ritirata.
+	 *
+	 * Il registro non scrive e la banca dati non cancella: la rilettura vede
+	 * che la copia c'e' ancora, la copia esce con la fine al giorno prima, e
+	 * il rifiuto lo dice.
+	 */
+	public function test_a268_ritiro_che_non_riesce(): void {
+		global $wpdb;
+
+		$atto = $this->pubblicato();
+
+		$this->fissa_orologi( self::DOPO_LA_FINE );
+
+		$guasto = static function ( $istruzione ) use ( $wpdb ) {
+			$testo = ltrim( (string) $istruzione );
+
+			if ( 0 === stripos( $testo, 'INSERT' ) && false !== strpos( $testo, 'conformita_core_registro' ) ) {
+				return 'SELECT * FROM tabella_che_non_esiste';
+			}
+
+			return 0 === stripos( $testo, 'DELETE' ) && false !== strpos( $testo, $wpdb->posts ) ? 'SELECT * FROM tabella_che_non_esiste' : $istruzione;
+		};
+		$zitto  = $wpdb->suppress_errors( true );
+
+		add_filter( 'query', $guasto );
+
+		try {
+			$esito = $this->metti( $atto, $this->custode );
+		} finally {
+			remove_filter( 'query', $guasto );
+			$wpdb->suppress_errors( $zitto );
+		}
+
+		$this->assertWPError( $esito );
+		$this->assertSame( 'albo_copia_non_ritirata', $esito->get_error_code(), 'Non si dice ritirata.' );
+		$this->assertStringContainsString( 'fuori dallo storico', $esito->get_error_message() );
+
+		$rimaste = $this->copie_scritte();
+		$this->assertCount( 1, $rimaste, 'La copia c\'e\' ancora.' );
+		$this->assertTrue( conformita_core_scaduto( $rimaste[0] ), 'Ma e\' fuori dallo storico.' );
+		$this->assertSame( '2041-10-19', conformita_core_fine_pubblicazione( $rimaste[0] ) );
+		$this->assertSame( array(), CopieStorico::presenti() );
+	}
+
+	/**
+	 * A-270: l'elenco che non si legge non dice "nessuna copia".
+	 */
+	public function test_a270_elenco_illeggibile(): void {
+		global $wpdb;
+
+		$atto = $this->pubblicato();
+
+		$this->fissa_orologi( self::DOPO_LA_FINE );
+		$this->assertIsInt( $this->metti( $atto, $this->custode ) );
+
+		$guasto = static function ( $istruzione ) use ( $wpdb ) {
+			return 0 === strpos( ltrim( (string) $istruzione ), "SELECT ID FROM {$wpdb->posts} WHERE post_type = '" . TIPO_STORICO . "'" ) ? 'SELECT * FROM tabella_che_non_esiste' : $istruzione;
+		};
+		$zitto  = $wpdb->suppress_errors( true );
+
+		add_filter( 'query', $guasto );
+
+		try {
+			$this->assertNull( CopieStorico::presenti() );
+			$contenuto = $this->schermata( array( SchermataStorico::class, 'mostra' ), $this->custode );
+		} finally {
+			remove_filter( 'query', $guasto );
+			$wpdb->suppress_errors( $zitto );
+		}
+
+		$this->assertStringContainsString( 'non si leggono in questo momento', $contenuto );
+		$this->assertStringNotContainsString( 'Nessuna copia nello storico', $contenuto );
+	}
+
+	/**
+	 * A-270: una copia entrata il 29 febbraio finisce il 28 negli anni che non lo hanno.
+	 *
+	 * La lettura prudente: nessun giorno di diffusione in piu'.
+	 */
+	public function test_a270_ventinove_febbraio(): void {
+		$giorno = new \DateTimeImmutable( '2044-02-29 10:00:00', wp_timezone() );
+
+		$this->assertSame( '2047-02-28', CopieStorico::fine( $giorno, 3 ) );
+		$this->assertSame( '2048-02-29', CopieStorico::fine( $giorno, 4 ) );
+		$this->assertSame( '2044-10-20', CopieStorico::fine( new \DateTimeImmutable( '2041-10-20 10:00:00', wp_timezone() ), 3 ) );
+
+		$atto = $this->pubblicato();
+
+		$this->fissa_orologi( '2044-02-29 10:00:00' );
+
+		$copia = $this->metti( $atto, $this->custode );
+		$this->assertIsInt( $copia );
+		$this->assertSame( '2047-02-28', conformita_core_fine_pubblicazione( $copia ) );
 	}
 }

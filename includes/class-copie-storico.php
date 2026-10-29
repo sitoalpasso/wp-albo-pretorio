@@ -79,6 +79,20 @@ final class CopieStorico {
 	const OGGETTO_MASSIMO = 1000;
 
 	/**
+	 * Secondi di attesa del blocco di un atto o di una copia.
+	 *
+	 * @var int
+	 */
+	const ATTESA_BLOCCO = 5;
+
+	/**
+	 * Un ingresso o un'uscita e' in corso in questa richiesta.
+	 *
+	 * @var bool
+	 */
+	private static $in_corso = false;
+
+	/**
 	 * Le cause di uscita, con il loro nome visibile.
 	 *
 	 * @return array<string, string>
@@ -147,6 +161,25 @@ final class CopieStorico {
 			return $ammesso;
 		}
 
+		return self::in_fila(
+			self::nome_blocco_atto( $atto ),
+			static function () use ( $atto, $file, $oggetto, $conferma, $origine ) {
+				return self::metti_in_fila( $atto, $file, $oggetto, $conferma, $origine );
+			}
+		);
+	}
+
+	/**
+	 * L'ingresso, con il blocco dell'atto preso: dal controllo delle copie presenti al registro.
+	 *
+	 * @param int                  $atto     Atto.
+	 * @param array<string, mixed> $file     Documento oscurato.
+	 * @param mixed                $oggetto  Oggetto della copia.
+	 * @param mixed                $conferma Conferma del controllo.
+	 * @param string               $origine  Origine del documento.
+	 * @return int|\WP_Error
+	 */
+	private static function metti_in_fila( int $atto, array $file, $oggetto, $conferma, string $origine ) {
 		$presenti = self::presenti_di( $atto );
 
 		if ( null === $presenti ) {
@@ -177,7 +210,7 @@ final class CopieStorico {
 
 		$anni     = (int) Storico::anni();
 		$oggi     = Passaggi::ora()->setTimezone( wp_timezone() );
-		$fine     = $oggi->modify( '+' . $anni . ' years' )->format( 'Y-m-d' );
+		$fine     = self::fine( $oggi, $anni );
 		$ingresso = $oggi->format( 'Y-m-d' );
 		$dati     = self::fotografia( $atto );
 
@@ -196,17 +229,7 @@ final class CopieStorico {
 		}
 
 		$fallita = static function ( string $codice, string $messaggio, ?int $documento = null ) use ( $copia ): \WP_Error {
-			if ( null !== $documento ) {
-				wp_delete_attachment( $documento, true );
-			}
-
-			foreach ( get_attached_media( '', $copia ) as $resto ) {
-				wp_delete_attachment( (int) $resto->ID, true );
-			}
-
-			wp_delete_post( $copia, true );
-
-			return new \WP_Error( $codice, $messaggio );
+			return self::ritira( $copia, $documento, new \WP_Error( $codice, $messaggio ) );
 		};
 
 		if ( ! update_post_meta( $copia, self::META_ATTO, $atto ) || ! update_post_meta( $copia, self::META_DATI, $dati ) || ! update_post_meta( $copia, self::META_INGRESSO, $ingresso ) ) {
@@ -307,6 +330,25 @@ final class CopieStorico {
 			return self::errore( 'albo_copia_non_permesso', __( 'Copia non tolta: non si possiede il permesso di gestire lo storico pubblico.', 'albo-pretorio-pa' ) );
 		}
 
+		return self::in_fila(
+			self::nome_blocco_copia( $copia ),
+			static function () use ( $copia, $causa, $motivo ) {
+				return self::togli_in_fila( $copia, $causa, $motivo );
+			}
+		);
+	}
+
+	/**
+	 * L'uscita, con il blocco della copia preso: dal controllo al registro.
+	 *
+	 * @param int   $copia  Copia.
+	 * @param mixed $causa  Causa.
+	 * @param mixed $motivo Motivo.
+	 * @return true|\WP_Error
+	 */
+	private static function togli_in_fila( int $copia, $causa, $motivo ) {
+		clean_post_cache( $copia );
+
 		$contenuto = get_post( $copia );
 
 		if ( ! $contenuto instanceof \WP_Post || TIPO_STORICO !== $contenuto->post_type || 'publish' !== $contenuto->post_status ) {
@@ -404,29 +446,30 @@ final class CopieStorico {
 	/**
 	 * Le copie nello storico, non ancora finite, dalla piu' recente.
 	 *
-	 * @return array<int, int>
+	 * Nulla se la lettura non risponde: un elenco vuoto direbbe "nessuna
+	 * copia" quando non si sa.
+	 *
+	 * @return array<int, int>|null
 	 */
-	public static function presenti(): array {
-		$trovate = get_posts(
-			array(
-				'post_type'        => TIPO_STORICO,
-				'post_status'      => 'publish',
-				'posts_per_page'   => -1,
-				'fields'           => 'ids',
-				'orderby'          => 'ID',
-				'order'            => 'DESC',
-				'suppress_filters' => true,
-			)
-		);
+	public static function presenti(): ?array {
+		global $wpdb;
 
-		return array_values(
-			array_filter(
-				array_map( 'intval', $trovate ),
-				static function ( int $copia ): bool {
-					return true !== conformita_core_scaduto( $copia );
-				}
-			)
-		);
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lettura che distingue l'errore dall'assenza.
+		$righe = $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type = %s AND post_status = 'publish' ORDER BY ID DESC", TIPO_STORICO ) );
+
+		if ( ! is_array( $righe ) || '' !== $wpdb->last_error ) {
+			return null;
+		}
+
+		$presenti = array();
+
+		foreach ( $righe as $riga ) {
+			if ( true !== conformita_core_scaduto( (int) $riga ) ) {
+				$presenti[] = (int) $riga;
+			}
+		}
+
+		return $presenti;
 	}
 
 	/**
@@ -496,6 +539,153 @@ final class CopieStorico {
 			'numero_proprio'  => DatiAtto::numero_proprio( $atto ),
 			'data_adozione'   => (string) DatiAtto::data_adozione( $atto ),
 			'amministrazione' => (string) AmministrazioniOspitate::da_mostrare( $atto ),
+		);
+	}
+
+	/**
+	 * La fine di una copia che entra il giorno indicato: lo stesso giorno, tanti anni dopo.
+	 *
+	 * Il 29 febbraio, in un anno che non lo ha, diventa il 28: la lettura
+	 * prudente, che non aggiunge un giorno di diffusione.
+	 *
+	 * @param \DateTimeImmutable $oggi Giorno d'ingresso, nel fuso del sito.
+	 * @param int                $anni Anni.
+	 * @return string
+	 */
+	public static function fine( \DateTimeImmutable $oggi, int $anni ): string {
+		$anno   = (int) $oggi->format( 'Y' ) + $anni;
+		$mese   = (int) $oggi->format( 'n' );
+		$primo  = $oggi->setDate( $anno, $mese, 1 );
+		$giorno = min( (int) $oggi->format( 'j' ), (int) $primo->format( 't' ) );
+
+		return $primo->setDate( $anno, $mese, $giorno )->format( 'Y-m-d' );
+	}
+
+	/**
+	 * Esegue un ingresso o un'uscita con il blocco indicato preso, uno alla volta.
+	 *
+	 * Il blocco della banca dati vale per la connessione, e la stessa
+	 * connessione lo riprende senza attendere: un ingresso o un'uscita
+	 * chiamati da un aggancio di un altro passerebbero. Si rifiutano qui.
+	 *
+	 * @param string   $blocco   Nome del blocco.
+	 * @param callable $funzione Il lavoro.
+	 * @return mixed
+	 */
+	private static function in_fila( string $blocco, callable $funzione ) {
+		global $wpdb;
+
+		if ( self::$in_corso ) {
+			return self::occupato();
+		}
+
+		if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK( %s, %d )', $blocco, self::ATTESA_BLOCCO ) ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- blocco della fila, non dati.
+			return self::occupato();
+		}
+
+		self::$in_corso = true;
+
+		try {
+			return $funzione();
+		} finally {
+			self::$in_corso = false;
+			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', $blocco ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- blocco della fila, non dati.
+		}
+	}
+
+	/**
+	 * Il nome del blocco degli ingressi di un atto.
+	 *
+	 * @param int $atto Atto.
+	 * @return string
+	 */
+	public static function nome_blocco_atto( int $atto ): string {
+		global $wpdb;
+
+		return substr( $wpdb->prefix, 0, 40 ) . 'albo_copia_' . $atto;
+	}
+
+	/**
+	 * Il nome del blocco delle uscite di una copia.
+	 *
+	 * @param int $copia Copia.
+	 * @return string
+	 */
+	public static function nome_blocco_copia( int $copia ): string {
+		global $wpdb;
+
+		return substr( $wpdb->prefix, 0, 40 ) . 'albo_uscita_' . $copia;
+	}
+
+	/**
+	 * Il rifiuto quando un altro ingresso o un'altra uscita sono in corso.
+	 *
+	 * @return \WP_Error
+	 */
+	private static function occupato(): \WP_Error {
+		return self::errore( 'albo_copia_occupato', __( 'Niente fatto: sulla stessa copia o sullo stesso atto e\' in corso un\'altra operazione dello storico. Riprovare fra poco.', 'albo-pretorio-pa' ) );
+	}
+
+	/**
+	 * Ritira una copia non riuscita, e controlla che non ne resti niente.
+	 *
+	 * Si cancellano documento e copia, poi si rilegge dalla banca dati e dal
+	 * disco. Se qualcosa resta, la copia si mette fuori con la fine al giorno
+	 * prima, e il rifiuto lo dice invece di dire "ritirata".
+	 *
+	 * @param int       $copia     Copia.
+	 * @param int|null  $documento Documento depositato, o nullo.
+	 * @param \WP_Error $errore    Il rifiuto.
+	 * @return \WP_Error
+	 */
+	private static function ritira( int $copia, ?int $documento, \WP_Error $errore ): \WP_Error {
+		global $wpdb;
+
+		$documenti = array_map(
+			static function ( $resto ): int {
+				return (int) $resto->ID;
+			},
+			get_attached_media( '', $copia )
+		);
+
+		if ( null !== $documento ) {
+			$documenti[] = $documento;
+		}
+
+		$documenti = array_values( array_unique( $documenti ) );
+		$file      = array();
+
+		foreach ( $documenti as $allegato ) {
+			$percorso = get_attached_file( $allegato, true );
+
+			if ( is_string( $percorso ) && '' !== $percorso ) {
+				$file[] = $percorso;
+			}
+
+			wp_delete_attachment( $allegato, true );
+		}
+
+		wp_delete_post( $copia, true );
+		clearstatcache();
+
+		$righe     = array_merge( array( $copia ), $documenti );
+		$segni     = implode( ', ', array_fill( 0, count( $righe ), '%d' ) );
+		$restano   = $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE ID IN ( {$segni} )", $righe ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- rilettura di controllo; i segnaposto sono costruiti qui sopra, uno per riga.
+		$letto     = is_array( $restano ) && '' === $wpdb->last_error;
+		$sul_disco = array_filter( $file, 'file_exists' );
+
+		if ( $letto && array() === $restano && array() === $sul_disco ) {
+			return $errore;
+		}
+
+		$ieri  = Passaggi::ora()->setTimezone( wp_timezone() )->modify( '-1 day' )->format( 'Y-m-d' );
+		$fuori = ( $letto && ! in_array( (string) $copia, array_map( 'strval', $restano ), true ) ) || true === conformita_core_imposta_fine_pubblicazione( $copia, $ieri );
+
+		return new \WP_Error(
+			'albo_copia_non_ritirata',
+			$errore->get_error_message() . ' ' . ( $fuori
+				? __( 'La copia non si e\' cancellata del tutto: quello che resta e\' fuori dallo storico, non visibile. Avvisare chi gestisce il sito perche\' lo tolga.', 'albo-pretorio-pa' )
+				: __( 'Attenzione: la copia non si e\' cancellata e non e\' stato possibile metterla fuori dallo storico. Toglierla subito dall\'elenco delle copie e avvisare chi gestisce il sito.', 'albo-pretorio-pa' ) )
 		);
 	}
 
