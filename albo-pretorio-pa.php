@@ -220,6 +220,7 @@ require_once __DIR__ . '/includes/class-amministrazioni-ospitate.php';
 require_once __DIR__ . '/includes/class-schermata-amministrazioni-ospitate.php';
 require_once __DIR__ . '/includes/class-scheda-atto.php';
 require_once __DIR__ . '/includes/class-documenti-atto.php';
+require_once __DIR__ . '/includes/class-scaduti-riservati.php';
 require_once __DIR__ . '/includes/class-scheda-documenti.php';
 require_once __DIR__ . '/includes/class-nome-scaricato.php';
 require_once __DIR__ . '/includes/class-repertorio.php';
@@ -344,6 +345,13 @@ add_filter( 'ajax_query_attachments_args', array( DocumentiAtto::class, 'da_ajax
 add_action( 'pre_get_posts', array( DocumentiAtto::class, 'da_pre_get_posts' ) );
 add_filter( 'posts_where', array( DocumentiAtto::class, 'da_posts_where' ), 10, 2 );
 add_action( 'before_delete_post', array( DocumentiAtto::class, 'da_before_delete_post' ), 10, 2 );
+
+/*
+ * Un atto scaduto si consulta con il permesso apposito: chi redige soltanto
+ * non lo apre e non lo trova nell'elenco degli atti (ALBO-34).
+ */
+add_filter( 'map_meta_cap', array( ScadutiRiservati::class, 'da_map_meta_cap' ), 10, 4 );
+add_filter( 'posts_where', array( ScadutiRiservati::class, 'da_posts_where' ), 10, 2 );
 
 /*
  * I due passaggi che partono dalla verifica hanno un riquadro nella schermata

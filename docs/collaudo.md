@@ -924,9 +924,10 @@ dicevano una cosa non vera o non dicevano all'addetto cosa fare.
 
 ## Ruolo del redattore
 
-Stesso prefisso `A-`. Righe di ALBO-22, quelle della scheda
+Stesso prefisso `A-`. Righe di ALBO-22 e ALBO-34, quelle della scheda
 [`ruolo-del-redattore.md`](implementazione/ruolo-del-redattore.md), in
-`tests/RuoloRedattoreTest.php`.
+`tests/RuoloRedattoreTest.php` (A-286..A-289) e `tests/ScadutiRiservatiTest.php` (A-290,
+A-291).
 
 | Riga | Stato | Prova | Atteso |
 |---|---|---|---|
@@ -934,6 +935,8 @@ Stesso prefisso `A-`. Righe di ALBO-22, quelle della scheda
 | A-287 | fatto | **Un ruolo omonimo di altri** con l'identificativo del redattore | errore di ruolo in conflitto; il ruolo di altri resta intatto; nemmeno il ruolo di chi pubblica nasce; nessun permesso dell'albo su nessun ruolo; nessuna versione memorizzata; l'avviso nomina il ruolo |
 | A-288 | fatto | **Una volta sola**: aggiornamento da 0.7.0-alpha; poi un permesso aggiunto a mano e l'assegnazione da 0.8.0-alpha; poi il ruolo tolto e di nuovo l'assegnazione da 0.8.0-alpha; poi da 0.7.0-alpha | dalla versione precedente nasce; un redattore che c'è conserva il permesso aggiunto a mano; tolto, non torna e il ruolo di chi pubblica resta; dalla versione precedente rinasce |
 | A-289 | fatto | **Il marcatore del solo redattore che non si scrive** | l'installazione non si dichiara riuscita, nessuna versione memorizzata, il ruolo creato a metà è tolto, riletto dalla banca dati; tolto il guasto la richiesta dopo riesce e il ruolo ha il marcatore |
+| A-290 | fatto | **Lo scaduto non si apre a chi redige soltanto**: un atto scaduto, uno in corso e una bozza; il ruolo del redattore e l'insieme di chi redige dato a mano; poi chi pubblica con il ruolo dell'albo, chi ha l'insieme di chi pubblica senza la consultazione, l'amministratore, chi consulta soltanto | a chi redige soltanto sono negati modifica, lettura e cancellazione dello scaduto, e lettura e modifica del suo documento; l'atto in corso e la bozza del suo autore si aprono; chi pubblica e l'amministratore aprono lo scaduto e ne leggono il documento; chi consulta soltanto lo legge e non lo modifica. Anche l'atto tolto dall'albo non si apre a chi redige soltanto (A-239) |
+| A-291 | fatto | **L'elenco degli atti**: uno scaduto, tre con la fine guasta (scritta a parole, un giorno che non esiste, due date), uno in corso, uno all'ultimo giorno, una bozza; poi un'interrogazione degli articoli | chi redige soltanto, con il ruolo o con l'insieme dato a mano, vede soltanto l'atto in corso, quello all'ultimo giorno e la bozza; chi pubblica e l'amministratore vedono tutto; le altre interrogazioni non cambiano |
 
 ## Collaudo congiunto con la trasparenza
 

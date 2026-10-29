@@ -50,6 +50,9 @@ ha soltanto il permesso.
   e il dettaglio sta nel registro delle modifiche.
 - **Non dà una schermata per assegnare il permesso ad altri ruoli**: oggi si assegna con gli
   strumenti di gestione dei ruoli che il sito già usa. Se servisse, è un passo a sé.
+- **Vale anche nell'elenco degli atti** dalla versione 0.8.0-alpha: chi redige soltanto non
+  apre e non vede gli scaduti ([`ruolo-del-redattore.md`](ruolo-del-redattore.md), A-290 e
+  A-291).
 - **Non tiene un registro di chi consulta cosa.** La bacheca di carta non lo prevedeva e
   nessuno l'ha chiesto.
 - **Considera soltanto gli atti in stato pubblicato.** Quando arriverà lo stato "defisso"
