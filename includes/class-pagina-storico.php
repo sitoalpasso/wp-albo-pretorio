@@ -230,11 +230,14 @@ final class PaginaStorico {
 	 * Pubblicata, senza password, con i dati dell'atto e il suo documento, e
 	 * non finita per il meccanismo comune, che resta il solo a decidere della
 	 * fine. Una copia tolta ha la fine al giorno prima e non si mostra.
+	 * Dati e documento si leggono dalla banca dati, o si ricevono gia' letti
+	 * da chi elenca piu' copie: una lettura che non risponde non mostra la copia.
 	 *
-	 * @param int $copia Copia.
+	 * @param int                                                              $copia Copia.
+	 * @param array{dati: array<string, mixed>|null, documento: int|null}|null $letto Dati e documento gia' letti, da `CopieStorico::letture()`.
 	 * @return bool
 	 */
-	public static function mostrabile( int $copia ): bool {
+	public static function mostrabile( int $copia, ?array $letto = null ): bool {
 		if ( $copia < 1 || ! PaginaPubblica::albo_attivo() || ! Storico::pronto() ) {
 			return false;
 		}
@@ -245,7 +248,12 @@ final class PaginaStorico {
 			return false;
 		}
 
-		if ( null === CopieStorico::dati( $copia ) || null === CopieStorico::documento( $copia ) ) {
+		if ( null === $letto ) {
+			$letture = CopieStorico::letture( array( $copia ) );
+			$letto   = null === $letture ? null : ( $letture[ $copia ] ?? null );
+		}
+
+		if ( null === $letto || null === $letto['dati'] || null === $letto['documento'] ) {
 			return false;
 		}
 

@@ -278,7 +278,9 @@ punto di consegna, con lo storico acceso e la pagina presente.
   non esce, perché si consegna soltanto il documento registrato nella copia.
 - Una pagina con il codice dell'albo e quello dello storico insieme: è la pagina dell'albo, e
   lo storico non vi si disegna.
-- Elenco delle copie che non si legge: la pagina lo dice, invece di mostrare un elenco vuoto.
+- Elenco delle copie, o dati e documento delle copie, che non si leggono: la pagina lo dice,
+  invece di mostrare un elenco vuoto o più corto. Dati e documento di tutte le copie si leggono
+  in una volta, con una lettura che distingue l'assenza dalla risposta mancata.
 - Una pagina dell'elenco che non esiste o scritta male: la pagina lo dice e porta alla prima.
 
 ### 7. Test aggiunti

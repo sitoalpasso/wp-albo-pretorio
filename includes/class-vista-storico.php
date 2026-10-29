@@ -57,24 +57,26 @@ final class VistaStorico {
 	/**
 	 * Le copie in vista, dalla piu' recente per numero di registro dell'atto.
 	 *
-	 * Nulla se la lettura non risponde.
+	 * Nulla se la lettura delle copie, o dei loro dati, non risponde: una
+	 * copia non letta non sparisce in silenzio dall'elenco e dal conteggio.
 	 *
 	 * @return array<int, int>|null
 	 */
 	public static function copie(): ?array {
 		$presenti = CopieStorico::presenti();
+		$letture  = null === $presenti ? null : CopieStorico::letture( $presenti );
 
-		if ( null === $presenti ) {
+		if ( null === $presenti || null === $letture ) {
 			return null;
 		}
 
 		$copie = array();
 
 		foreach ( $presenti as $copia ) {
-			$dati = PaginaStorico::mostrabile( $copia ) ? CopieStorico::dati( $copia ) : null;
+			$letto = $letture[ $copia ] ?? null;
 
-			if ( null !== $dati ) {
-				$copie[ $copia ] = array( (int) $dati['anno'], (int) $dati['numero'], $copia );
+			if ( null !== $letto && PaginaStorico::mostrabile( $copia, $letto ) ) {
+				$copie[ $copia ] = array( (int) $letto['dati']['anno'], (int) $letto['dati']['numero'], $copia );
 			}
 		}
 

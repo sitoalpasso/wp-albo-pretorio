@@ -533,6 +533,79 @@ final class CopieStorico {
 	}
 
 	/**
+	 * Dati e documento di piu' copie, letti dalla banca dati in una volta.
+	 *
+	 * Per ogni copia che ha almeno uno dei due: i dati fissati, o nullo se non
+	 * hanno la forma giusta; il documento, o nullo se non e' un allegato della
+	 * copia. Nulla se la lettura non risponde: chi elenca le copie lo dice,
+	 * invece di far sparire in silenzio quelle che non ha letto.
+	 *
+	 * @param array<int, int> $copie Copie.
+	 * @return array<int, array{dati: array<string, string|int>|null, documento: int|null}>|null
+	 */
+	public static function letture( array $copie ): ?array {
+		global $wpdb;
+
+		$copie = array_values( array_unique( array_filter( array_map( 'intval', $copie ) ) ) );
+
+		if ( array() === $copie ) {
+			return array();
+		}
+
+		$righe = Lettura::righe(
+			$wpdb->prepare(
+				'SELECT m.post_id, m.meta_key, m.meta_value, a.post_parent AS genitore FROM %i m LEFT JOIN %i a ON m.meta_key = %s AND a.ID = CAST( m.meta_value AS UNSIGNED ) AND a.post_type = %s WHERE m.meta_key IN ( %s, %s ) AND m.post_id IN ( ' . implode( ', ', array_fill( 0, count( $copie ), '%d' ) ) . ' ) ORDER BY m.meta_id ASC', // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- un segnaposto per copia.
+				array_merge( array( $wpdb->postmeta, $wpdb->posts, self::META_DOCUMENTO, 'attachment', self::META_DATI, self::META_DOCUMENTO ), $copie )
+			),
+			array( 'post_id', 'meta_key', 'meta_value', 'genitore' )
+		);
+
+		if ( null === $righe ) {
+			return null;
+		}
+
+		$letture = array();
+
+		foreach ( $righe as $riga ) {
+			$copia = (int) $riga['post_id'];
+			$campo = self::META_DATI === $riga['meta_key'] ? 'dati' : 'documento';
+
+			$letture[ $copia ] = $letture[ $copia ] ?? array(
+				'dati'      => null,
+				'documento' => null,
+				'letti'     => array(),
+			);
+
+			// La prima riga vale, come per `get_post_meta()` con un valore solo.
+			if ( isset( $letture[ $copia ]['letti'][ $campo ] ) ) {
+				continue;
+			}
+
+			$letture[ $copia ]['letti'][ $campo ] = true;
+
+			if ( 'dati' === $campo ) {
+				$dati = maybe_unserialize( (string) $riga['meta_value'] );
+
+				$letture[ $copia ]['dati'] = is_array( $dati ) && isset( $dati['anno'], $dati['numero'] ) ? $dati : null;
+			} else {
+				$documento = (int) $riga['meta_value'];
+
+				$letture[ $copia ]['documento'] = $documento > 0 && null !== $riga['genitore'] && $copia === (int) $riga['genitore'] ? $documento : null;
+			}
+		}
+
+		return array_map(
+			static function ( array $letto ): array {
+				return array(
+					'dati'      => $letto['dati'],
+					'documento' => $letto['documento'],
+				);
+			},
+			$letture
+		);
+	}
+
+	/**
 	 * Il documento di una copia, o nullo.
 	 *
 	 * @param int $copia Copia.

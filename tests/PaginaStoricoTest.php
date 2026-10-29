@@ -402,6 +402,48 @@ class PaginaStoricoTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-273: i dati delle copie che non si leggono non fanno sparire le copie in silenzio.
+	 *
+	 * La lettura di dati e documento delle copie non risponde: l'elenco dice
+	 * che le copie non si leggono, non che non ce ne sono, e non mostra un
+	 * conteggio sbagliato.
+	 */
+	public function test_a273_dati_che_non_si_leggono(): void {
+		global $wpdb;
+
+		$this->pagina_storico();
+
+		$prima   = $this->copia( $this->pubblicato( 'Concessione a Mario Rossi', '2041-10-01 09:30:00' ) );
+		$seconda = $this->copia( $this->pubblicato( 'Contributo ad Anna Bianchi', '2041-10-01 10:30:00' ) );
+
+		$this->fissa_orologi( self::DURANTE );
+		wp_set_current_user( 0 );
+
+		$this->assertSame( array( $seconda, $prima ), $this->copie_elencate( (string) $this->pagina_disegnata( $this->indirizzo() ) ), 'Controllo positivo: le due copie.' );
+
+		$guasto = static function ( $istruzione ) {
+			return 0 === strpos( ltrim( (string) $istruzione ), 'SELECT m.post_id, m.meta_key' ) ? 'SELECT * FROM tabella_che_non_esiste' : $istruzione;
+		};
+		$zitto  = $wpdb->suppress_errors( true );
+
+		add_filter( 'query', $guasto );
+
+		try {
+			$html = (string) $this->pagina_disegnata( $this->indirizzo() );
+		} finally {
+			remove_filter( 'query', $guasto );
+			$wpdb->suppress_errors( $zitto );
+		}
+
+		$this->assertSame( array(), $this->copie_elencate( $html ), 'Nessuna riga.' );
+		$this->assertStringContainsString( 'Le copie non si leggono in questo momento.', $html, 'L\'elenco dice che la lettura non e\' riuscita.' );
+		$this->assertStringNotContainsString( 'non ci sono copie', $html, 'Non dice che non ce ne sono.' );
+		$this->assertStringNotContainsString( '1 copia', $html, 'Nessun conteggio sbagliato.' );
+
+		$this->assertSame( array( $seconda, $prima ), $this->copie_elencate( (string) $this->pagina_disegnata( $this->indirizzo() ) ), 'Controllo positivo, dopo: le due copie.' );
+	}
+
+	/**
 	 * A-274: la copia finisce da sola; prima e dopo la fine, senza il compito pianificato.
 	 */
 	public function test_a274_fine_della_copia(): void {
