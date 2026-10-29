@@ -51,7 +51,8 @@ final class Installazione {
 	 * aveva. Da `Permessi::DEFISSIONE_DAL` in poi una revoca
 	 * dell'amministrazione resta, e chi pubblica senza quel permesso non lo
 	 * riceve di nuovo. Lo stesso per il permesso dello storico pubblico, da
-	 * `Permessi::STORICO_DAL`.
+	 * `Permessi::STORICO_DAL`, e per la nascita del ruolo del redattore, da
+	 * `Permessi::REDATTORE_DAL`.
 	 *
 	 * @param string $installata Versione memorizzata, stringa vuota se non c'e'.
 	 * @return array<int, string>
@@ -64,8 +65,9 @@ final class Installazione {
 		}
 
 		foreach ( array(
-			Permessi::CHIAVE_DEFISSIONE => Permessi::DEFISSIONE_DAL,
-			Permessi::CHIAVE_STORICO    => Permessi::STORICO_DAL,
+			Permessi::CHIAVE_DEFISSIONE      => Permessi::DEFISSIONE_DAL,
+			Permessi::CHIAVE_STORICO         => Permessi::STORICO_DAL,
+			Permessi::CHIAVE_RUOLO_REDATTORE => Permessi::REDATTORE_DAL,
 		) as $chiave => $dal ) {
 			if ( version_compare( $installata, $dal, '>=' ) ) {
 				$escluse[] = $chiave;

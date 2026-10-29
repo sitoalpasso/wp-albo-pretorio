@@ -922,6 +922,19 @@ dicevano una cosa non vera o non dicevano all'addetto cosa fare.
 | A-284 | fatto | **L'avviso nel riquadro di invio, nella bozza**: come chi redige soltanto e come chi pubblica | a tutti e due dice di salvare prima la bozza; a chi redige di premere "Invia per la revisione", senza il menu Stato; a chi pubblica di scegliere "In attesa di revisione" nel menu Stato, che il pulsante "Pubblica" di WordPress non pubblica l'atto e che si pubblica con "Pubblica l'atto" |
 | A-285 | fatto | **L'avviso solo dove serve**: un atto in verifica, un articolo in bozza, la bozza vista da chi non può modificarla | nessun avviso in nessuno dei tre |
 
+## Ruolo del redattore
+
+Stesso prefisso `A-`. Righe di ALBO-22, quelle della scheda
+[`ruolo-del-redattore.md`](implementazione/ruolo-del-redattore.md), in
+`tests/RuoloRedattoreTest.php`.
+
+| Riga | Stato | Prova | Atteso |
+|---|---|---|---|
+| A-286 | fatto | **Il redattore nasce all'installazione**: i permessi del ruolo riletti dalla banca dati; un utente con quel ruolo e la sua bozza | il ruolo si chiama Redattore dell'albo, ha il marcatore e l'insieme di chi redige; non pubblica, non modifica né cancella gli atti degli altri, non legge il registro, non annulla, non consulta gli scaduti, non tocca lo storico, non ha i permessi degli articoli né la libreria dei media; l'utente modifica la sua bozza e non la pubblica; nessun altro utente riceve il ruolo |
+| A-287 | fatto | **Un ruolo omonimo di altri** con l'identificativo del redattore | errore di ruolo in conflitto; il ruolo di altri resta intatto; nemmeno il ruolo di chi pubblica nasce; nessun permesso dell'albo su nessun ruolo; nessuna versione memorizzata; l'avviso nomina il ruolo |
+| A-288 | fatto | **Una volta sola**: aggiornamento da 0.7.0-alpha; poi un permesso aggiunto a mano e l'assegnazione da 0.8.0-alpha; poi il ruolo tolto e di nuovo l'assegnazione da 0.8.0-alpha; poi da 0.7.0-alpha | dalla versione precedente nasce; un redattore che c'è conserva il permesso aggiunto a mano; tolto, non torna e il ruolo di chi pubblica resta; dalla versione precedente rinasce |
+| A-289 | fatto | **Il marcatore del solo redattore che non si scrive** | l'installazione non si dichiara riuscita, nessuna versione memorizzata, il ruolo creato a metà è tolto, riletto dalla banca dati; tolto il guasto la richiesta dopo riesce e il ruolo ha il marcatore |
+
 ## Collaudo congiunto con la trasparenza
 
 Con entrambi i plugin attivi sullo stesso sito: le pagine dell'albo hanno noindex e sono

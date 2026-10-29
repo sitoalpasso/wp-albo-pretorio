@@ -3,7 +3,7 @@
  * Plugin Name:       Albo Pretorio
  * Plugin URI:        https://github.com/sitoalpasso/wp-albo-pretorio
  * Description:       Pubblicazione con effetto di pubblicità legale. Attua requisiti derivati dalla normativa applicabile ai soggetti dell'art. 2-bis del d.lgs. 33/2013.
- * Version:           0.7.0-alpha
+ * Version:           0.8.0-alpha
  * Requires at least: 6.5
  * Requires PHP:      8.1
  * Requires Plugins:  conformita-core
@@ -26,7 +26,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Versione del plugin.
  */
-const VERSIONE = '0.7.0-alpha';
+const VERSIONE = '0.8.0-alpha';
 
 /**
  * Versione minima di WordPress dichiarata.
@@ -173,6 +173,11 @@ const TABELLA_REPERTORIO = 'albo_pretorio_repertorio';
  * Ruolo proprio del componente, per chi pubblica gli atti.
  */
 const RUOLO = 'albo_responsabile_pubblicazione';
+
+/**
+ * Secondo ruolo proprio del componente, per chi prepara gli atti senza pubblicarli.
+ */
+const RUOLO_REDATTORE = 'albo_redattore_atti';
 
 /**
  * Permesso marcatore che rende riconoscibile il ruolo creato da questo componente.

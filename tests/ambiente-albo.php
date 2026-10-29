@@ -69,8 +69,10 @@ trait AmbienteAlbo {
 			}
 		}
 
-		if ( null !== get_role( \AlboPretorioPa\RUOLO ) ) {
-			remove_role( \AlboPretorioPa\RUOLO );
+		foreach ( array( \AlboPretorioPa\RUOLO, \AlboPretorioPa\RUOLO_REDATTORE ) as $ruolo ) {
+			if ( null !== get_role( $ruolo ) ) {
+				remove_role( $ruolo );
+			}
 		}
 
 		\AlboPretorioPa\Permessi::azzera();
