@@ -936,4 +936,116 @@ class CopieStoricoTest extends \WP_UnitTestCase {
 		$this->assertIsInt( $copia );
 		$this->assertSame( '2047-02-28', conformita_core_fine_pubblicazione( $copia ) );
 	}
+
+	/**
+	 * A-268: i dati dell'atto che non si rileggono non diventano un atto 0/0.
+	 *
+	 * La prima lettura del numero, al controllo dell'atto, risponde; la
+	 * seconda, quando si fissano i dati della copia, no. La copia non entra e
+	 * il registro non ha voci.
+	 */
+	public function test_a268_numero_che_non_si_rilegge(): void {
+		global $wpdb;
+
+		$atto = $this->pubblicato();
+
+		$this->fissa_orologi( self::DOPO_LA_FINE );
+
+		$letture = 0;
+		$guasto  = static function ( $istruzione ) use ( &$letture ) {
+			if ( 0 === strpos( ltrim( (string) $istruzione ), 'SELECT anno, numero FROM' ) ) {
+				++$letture;
+
+				if ( $letture > 1 ) {
+					return 'SELECT * FROM tabella_che_non_esiste';
+				}
+			}
+
+			return $istruzione;
+		};
+		$zitto   = $wpdb->suppress_errors( true );
+
+		add_filter( 'query', $guasto );
+
+		try {
+			$esito = $this->metti( $atto, $this->custode );
+		} finally {
+			remove_filter( 'query', $guasto );
+			$wpdb->suppress_errors( $zitto );
+		}
+
+		$this->assertGreaterThan( 1, $letture, 'Il numero si e\' letto due volte.' );
+		$this->assertWPError( $esito );
+		$this->assertSame( 'albo_copia_lettura', $esito->get_error_code() );
+		$this->assertSame( array(), $this->copie_scritte(), 'Nessuna copia.' );
+		$this->assertSame( array(), $this->voci( CopieStorico::AZIONE_INGRESSO ), 'Nessuna voce.' );
+	}
+
+	/**
+	 * A-270: lo storico spento mentre l'ingresso aspetta il blocco.
+	 *
+	 * Un'altra richiesta spegne lo storico quando l'ingresso ha gia' passato i
+	 * primi controlli e chiede il blocco dell'atto: l'ingresso rilegge
+	 * l'impostazione e si ferma. Lo stesso se l'impostazione, a quel punto,
+	 * non si legge.
+	 */
+	public function test_a270_spento_mentre_aspetta(): void {
+		global $wpdb;
+
+		$atto = $this->pubblicato();
+
+		$this->fissa_orologi( self::DOPO_LA_FINE );
+
+		$blocco = CopieStorico::nome_blocco_atto( $atto );
+		$spento = null;
+		$spegni = function ( $istruzione ) use ( $blocco, &$spento ) {
+			if ( null === $spento && false !== strpos( (string) $istruzione, 'GET_LOCK' ) && false !== strpos( (string) $istruzione, $blocco ) ) {
+				$spento = Storico::salva( Storico::SPENTO, '3', Storico::stato_mostrato(), $this->amministratore, Passaggi::ora() );
+			}
+
+			return $istruzione;
+		};
+
+		add_filter( 'query', $spegni );
+
+		try {
+			$esito = $this->metti( $atto, $this->custode );
+		} finally {
+			remove_filter( 'query', $spegni );
+		}
+
+		$this->assertTrue( $spento, 'Lo storico si e\' spento durante l\'attesa.' );
+		$this->assertWPError( $esito );
+		$this->assertSame( 'albo_copia_spento', $esito->get_error_code() );
+		$this->assertSame( array(), $this->copie_scritte(), 'Spento: nessuna copia.' );
+		$this->assertSame( array(), $this->voci( CopieStorico::AZIONE_INGRESSO ), 'Spento: nessuna voce.' );
+
+		$this->imposta( Storico::ACCESO, '3' );
+
+		$preso  = false;
+		$guasto = static function ( $istruzione ) use ( $wpdb, $blocco, &$preso ) {
+			$testo = (string) $istruzione;
+
+			if ( false !== strpos( $testo, 'GET_LOCK' ) && false !== strpos( $testo, $blocco ) ) {
+				$preso = true;
+			}
+
+			return $preso && 0 === strpos( ltrim( $testo ), "SELECT option_value FROM {$wpdb->options}" ) && false !== strpos( $testo, Storico::OPZIONE ) ? 'SELECT * FROM tabella_che_non_esiste' : $istruzione;
+		};
+		$zitto  = $wpdb->suppress_errors( true );
+
+		add_filter( 'query', $guasto );
+
+		try {
+			$illeggibile = $this->metti( $atto, $this->custode );
+		} finally {
+			remove_filter( 'query', $guasto );
+			$wpdb->suppress_errors( $zitto );
+		}
+
+		$this->assertWPError( $illeggibile );
+		$this->assertSame( 'albo_copia_spento', $illeggibile->get_error_code() );
+		$this->assertSame( array(), $this->copie_scritte(), 'Illeggibile: nessuna copia.' );
+		$this->assertSame( array(), $this->voci( CopieStorico::AZIONE_INGRESSO ), 'Illeggibile: nessuna voce.' );
+	}
 }

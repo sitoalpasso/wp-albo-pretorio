@@ -197,6 +197,10 @@ anche chi il registro scrive. I moduli hanno un gettone per atto e per copia.
 - Ritiro di una copia mal riuscita che non va a buon fine: dopo il ritiro si rileggono dal
   database le righe e dal disco i file. Se qualcosa resta, la fine della copia si porta a
   ieri, così non si mostra comunque, e il messaggio dice che va tolta a mano.
+- Storico spento da un'altra richiesta mentre l'ingresso aspetta il blocco, oppure
+  impostazione o dati dell'atto (numero, anno, fine) che non si leggono: con il blocco preso
+  si rileggono, e se mancano l'ingresso si ferma prima di creare la copia. Una lettura che
+  non risponde non diventa mai zero anni o un atto senza numero.
 - Elenco delle copie che non si legge: lo schermo lo dice, invece di mostrare un elenco
   vuoto.
 - Atto entrato il 29 febbraio: in un anno non bisestile la fine cade il 28 febbraio.

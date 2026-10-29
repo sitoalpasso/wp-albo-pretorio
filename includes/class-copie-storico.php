@@ -208,11 +208,27 @@ final class CopieStorico {
 			return self::errore( 'albo_copia_senza_documento', __( 'Copia non creata: va caricato il documento oscurato. Il documento originale non entra mai nello storico.', 'albo-pretorio-pa' ) );
 		}
 
-		$anni     = (int) Storico::anni();
+		/*
+		 * L'impostazione e i dati dell'atto si rileggono qui, con il blocco
+		 * preso: lo storico puo' essersi spento mentre l'ingresso aspettava,
+		 * e una lettura che non risponde non diventa zero anni o un atto 0/0.
+		 */
+		$impostazione = Storico::fotografia();
+
+		if ( Storico::VALIDA !== $impostazione['esito'] || null === $impostazione['impostazione'] || Storico::ACCESO !== $impostazione['impostazione']['scelta'] || ! is_int( $impostazione['impostazione']['anni'] ) || $impostazione['impostazione']['anni'] < 1 ) {
+			return self::errore( 'albo_copia_spento', __( 'Copia non creata: lo storico pubblico e\' spento, oppure la sua impostazione non si legge in questo momento.', 'albo-pretorio-pa' ) );
+		}
+
+		$dati = self::fotografia( $atto );
+
+		if ( null === $dati ) {
+			return self::errore( 'albo_copia_lettura', __( 'Copia non creata: numero di registro o fine della pubblicazione dell\'atto non si leggono in questo momento. Riprovare.', 'albo-pretorio-pa' ) );
+		}
+
+		$anni     = $impostazione['impostazione']['anni'];
 		$oggi     = Passaggi::ora()->setTimezone( wp_timezone() );
 		$fine     = self::fine( $oggi, $anni );
 		$ingresso = $oggi->format( 'Y-m-d' );
-		$dati     = self::fotografia( $atto );
 
 		$copia = wp_insert_post(
 			array(
@@ -520,20 +536,28 @@ final class CopieStorico {
 	 * adottato. Mai l'oggetto originale, il richiedente, il responsabile o
 	 * l'ufficio: l'oggetto della copia lo scrive chi la mette.
 	 *
+	 * Nulla se numero, anno o fine non si leggono: senza i dati che
+	 * identificano l'atto la copia non entra.
+	 *
 	 * @param int $atto Atto.
-	 * @return array<string, string|int>
+	 * @return array<string, string|int>|null
 	 */
-	private static function fotografia( int $atto ): array {
+	private static function fotografia( int $atto ): ?array {
 		$numero = Repertorio::di( $atto );
-		$tipo   = DatiAtto::tipo( $atto );
-		$organo = DatiAtto::organo( $atto );
 		$fine   = conformita_core_fine_pubblicazione( $atto );
 
+		if ( null === $numero || ! isset( $numero['anno'], $numero['numero'] ) || (int) $numero['anno'] < 1 || (int) $numero['numero'] < 1 || ! is_string( $fine ) || '' === $fine ) {
+			return null;
+		}
+
+		$tipo   = DatiAtto::tipo( $atto );
+		$organo = DatiAtto::organo( $atto );
+
 		return array(
-			'anno'            => null === $numero ? 0 : (int) $numero['anno'],
-			'numero'          => null === $numero ? 0 : (int) $numero['numero'],
+			'anno'            => (int) $numero['anno'],
+			'numero'          => (int) $numero['numero'],
 			'inizio'          => substr( (string) get_post_field( 'post_date', $atto ), 0, 10 ),
-			'fine'            => is_string( $fine ) ? $fine : '',
+			'fine'            => $fine,
 			'tipo'            => null === $tipo ? '' : (string) $tipo->name,
 			'organo'          => null === $organo ? '' : (string) $organo->name,
 			'numero_proprio'  => DatiAtto::numero_proprio( $atto ),
