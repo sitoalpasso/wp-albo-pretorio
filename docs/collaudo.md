@@ -883,7 +883,7 @@ Stesso prefisso `A-`. Righe di ALBO-36, quelle della scheda
 `tests/StoricoTest.php`: l'interruttore, la schermata, il permesso, la seconda sezione e il
 tipo della copia (A-261..A-265). Secondo passo, in `tests/CopieStoricoTest.php`: l'ingresso e
 l'uscita delle copie (A-266..A-271). Terzo passo, in `tests/PaginaStoricoTest.php`: la
-pagina pubblica dello storico (A-272..A-277).
+pagina pubblica dello storico (A-272..A-277) e la sua ricerca (A-278, A-279).
 
 | Riga | Stato | Prova | Atteso |
 |---|---|---|---|
@@ -904,6 +904,8 @@ pagina pubblica dello storico (A-272..A-277).
 | A-275 | fatto | **Solo il documento della copia**: il documento della copia; il documento originale chiesto con il numero della copia; un secondo file depositato sulla copia da un altro componente; l'anteprima incorporata | esce soltanto il documento della copia, prima e dopo; gli altri due no; nessuna anteprima; il tipo resta chiuso agli indirizzi di WordPress |
 | A-276 | fatto | **Motori e memorie**: una pagina ordinaria; elenco, scheda, copia mai esistita, numero scritto con lo zero davanti, pagina dell'elenco oltre l'ultima; la mappa del sito | la pagina ordinaria senza divieto; tutte le altre con `noindex` nell'intestazione, su una riga propria e nel sorgente, e con il divieto di conservare la risposta; le due schede sbagliate "non trovate"; il titolo della finestra della scheda è il numero dell'atto, non l'oggetto; la pagina dello storico non è nella mappa |
 | A-277 | fatto | **Solo nella sua pagina, e le pagine dell'elenco**: una pagina con i due codici brevi insieme; una pagina ordinaria; 21 copie; pagine chieste come 2, 0, 3, `due`, `02` | la pagina con i due codici è dell'albo e lo storico non vi si disegna; fuori dalla sua pagina il codice breve non disegna niente; venti copie nella prima pagina e la più vecchia nella seconda; le pagine sbagliate lo dicono e portano alla prima |
+| A-278 | fatto | **La ricerca**: tre copie con oggetti propri, gli atti con oggetti che nominano persone; ricerca per una parola, in maiuscolo, per due parole, per numero di registro con e senza spazi, per un numero mai dato, per una parola dell'oggetto originale, per una parola che non c'è, vuota; poi 22 copie e una ricerca che ne trova 21 | trovate le copie che hanno tutte le parole nell'oggetto della copia, o il numero di registro dell'atto; la parola dell'oggetto originale non trova niente; la ricerca vuota è l'elenco intero senza il titolo dei risultati; ogni ricerca ha il titolo dei risultati e il collegamento all'elenco intero, e senza risultati lo dice; venti nella prima pagina, il conteggio della ricerca, il collegamento alla seconda pagina che conserva la ricerca, una nella seconda |
+| A-279 | fatto | **Ricerca scritta male e modulo accessibile**: solo segni, numero zero, numero oltre il massimo, anno zero, il campo come elenco, un testo con un marcatore di codice | nessuna riga e mai l'elenco intero; il messaggio che la ricerca non è stata fatta, ad alta voce; il campo segnato come sbagliato e collegato al suo aiuto e all'errore; senza errore il campo ha etichetta e aiuto e non è segnato; il testo scritto non diventa codice |
 
 ## Collaudo congiunto con la trasparenza
 

@@ -38,6 +38,20 @@ final class VistaStorico {
 	const PER_PAGINA = 20;
 
 	/**
+	 * Il campo della ricerca.
+	 *
+	 * @var string
+	 */
+	const CAMPO_TESTO = 'albo_copie_testo';
+
+	/**
+	 * Identificativo del messaggio sull'errore della ricerca.
+	 *
+	 * @var string
+	 */
+	const ID_ERRORE = 'albo-pretorio-errore-ricerca';
+
+	/**
 	 * La pagina, per la richiesta indicata.
 	 *
 	 * @param array<string, mixed> $richiesta Parametri della richiesta.
@@ -91,15 +105,23 @@ final class VistaStorico {
 	}
 
 	/**
-	 * L'avviso, il conteggio, l'elenco e le pagine.
+	 * L'avviso, la ricerca, il conteggio, l'elenco e le pagine.
 	 *
 	 * @param array<string, mixed> $richiesta Parametri della richiesta.
 	 * @return string
 	 */
 	private static function elenco( array $richiesta ): string {
-		$html  = '<section class="albo-pretorio__risultati" aria-labelledby="albo-pretorio-titolo-elenco">';
-		$html .= '<h2 id="albo-pretorio-titolo-elenco" class="albo-pretorio__titolo">' . esc_html__( 'Copie per consultazione di atti non piu\' in pubblicazione', 'albo-pretorio-pa' ) . '</h2>';
-		$html .= '<p class="albo-pretorio__avviso">' . esc_html__( 'Questi non sono gli atti dell\'albo: sono copie con i dati personali oscurati, messe a disposizione dopo la fine della pubblicazione. Il documento originale si chiede all\'amministrazione con l\'accesso agli atti.', 'albo-pretorio-pa' ) . '</p>';
+		$ricerca = self::ricerca( $richiesta );
+		$titolo  = $ricerca['attiva'] ? __( 'Risultati della ricerca', 'albo-pretorio-pa' ) : __( 'Copie per consultazione di atti non piu\' in pubblicazione', 'albo-pretorio-pa' );
+
+		$html  = '<p class="albo-pretorio__avviso">' . esc_html__( 'Questi non sono gli atti dell\'albo: sono copie con i dati personali oscurati, messe a disposizione dopo la fine della pubblicazione. Il documento originale si chiede all\'amministrazione con l\'accesso agli atti.', 'albo-pretorio-pa' ) . '</p>';
+		$html .= self::modulo( $ricerca );
+		$html .= '<section class="albo-pretorio__risultati" aria-labelledby="albo-pretorio-titolo-elenco">';
+		$html .= '<h2 id="albo-pretorio-titolo-elenco" class="albo-pretorio__titolo">' . esc_html( $titolo ) . '</h2>';
+
+		if ( $ricerca['errore'] ) {
+			return $html . '<p id="' . esc_attr( self::ID_ERRORE ) . '" class="albo-pretorio__avviso" role="alert">' . esc_html__( 'La ricerca non e\' stata fatta: scrivere una o piu\' parole dell\'oggetto, oppure il numero di registro con l\'anno, per esempio 71/2026.', 'albo-pretorio-pa' ) . '</p></section>';
+		}
 
 		$copie = self::copie();
 
@@ -107,20 +129,24 @@ final class VistaStorico {
 			return $html . '<p class="albo-pretorio__avviso" role="alert">' . esc_html__( 'Le copie non si leggono in questo momento. Riprovare piu\' tardi.', 'albo-pretorio-pa' ) . '</p></section>';
 		}
 
+		$copie = self::trovate( $copie, $ricerca );
+
 		if ( array() === $copie ) {
-			return $html . '<p class="albo-pretorio__conteggio">' . esc_html__( 'In questo momento non ci sono copie da consultare.', 'albo-pretorio-pa' ) . '</p></section>';
+			$vuoto = $ricerca['attiva'] ? __( 'Nessuna copia risponde alla ricerca.', 'albo-pretorio-pa' ) : __( 'In questo momento non ci sono copie da consultare.', 'albo-pretorio-pa' );
+
+			return $html . '<p class="albo-pretorio__conteggio">' . esc_html( $vuoto ) . '</p></section>';
 		}
 
-		$totale = count( $copie );
-		$quante = (int) ceil( $totale / self::PER_PAGINA );
-		$pagina = self::pagina( $richiesta );
-		$base   = (string) PaginaStorico::indirizzo();
+		$totale    = count( $copie );
+		$quante    = (int) ceil( $totale / self::PER_PAGINA );
+		$pagina    = self::pagina( $richiesta );
+		$parametri = self::parametri( $ricerca );
 
 		if ( null === $pagina || $pagina > $quante ) {
 			$html .= '<p class="albo-pretorio__conteggio">' . esc_html__( 'Questa pagina dell\'elenco non esiste.', 'albo-pretorio-pa' ) . '</p>';
-			$html .= '<p class="albo-pretorio__torna"><a class="albo-pretorio__collegamento" href="' . esc_url( $base ) . '">' . esc_html__( 'Vai alla prima pagina', 'albo-pretorio-pa' ) . '</a></p>';
+			$html .= '<p class="albo-pretorio__torna"><a class="albo-pretorio__collegamento" href="' . esc_url( add_query_arg( $parametri, (string) PaginaStorico::indirizzo() ) ) . '">' . esc_html__( 'Vai alla prima pagina', 'albo-pretorio-pa' ) . '</a></p>';
 
-			return $html . self::pagine( $quante, 0 ) . '</section>';
+			return $html . self::pagine( $quante, 0, $parametri ) . '</section>';
 		}
 
 		$html .= '<p class="albo-pretorio__conteggio">' . esc_html(
@@ -133,7 +159,166 @@ final class VistaStorico {
 
 		$html .= self::tabella( array_slice( $copie, ( $pagina - 1 ) * self::PER_PAGINA, self::PER_PAGINA ) );
 
-		return $html . self::pagine( $quante, $pagina ) . '</section>';
+		return $html . self::pagine( $quante, $pagina, $parametri ) . '</section>';
+	}
+
+	/**
+	 * La ricerca chiesta, ripulita.
+	 *
+	 * La regola della ricerca dell'albo: il valore si guarda com'e' arrivato
+	 * e solo dopo si ripulisce, e un valore che ripulito resta vuoto, o che
+	 * non e' un testo, e' un errore, non una ricerca vuota che mostrerebbe
+	 * l'elenco intero. "71/2026" e' un numero di registro.
+	 *
+	 * @param array<string, mixed> $richiesta Parametri della richiesta.
+	 * @return array{testo: string, parole: array<int, string>, anno: int|null, numero: int|null, attiva: bool, errore: bool}
+	 */
+	public static function ricerca( array $richiesta ): array {
+		$ricerca = array(
+			'testo'  => '',
+			'parole' => array(),
+			'anno'   => null,
+			'numero' => null,
+			'attiva' => false,
+			'errore' => false,
+		);
+
+		if ( ! isset( $richiesta[ self::CAMPO_TESTO ] ) ) {
+			return $ricerca;
+		}
+
+		$ricerca['attiva'] = true;
+
+		if ( ! is_scalar( $richiesta[ self::CAMPO_TESTO ] ) ) {
+			$ricerca['errore'] = true;
+
+			return $ricerca;
+		}
+
+		$grezzo = trim( wp_unslash( (string) $richiesta[ self::CAMPO_TESTO ] ) );
+
+		if ( '' === $grezzo ) {
+			$ricerca['attiva'] = false;
+
+			return $ricerca;
+		}
+
+		$testo = trim( sanitize_text_field( $grezzo ) );
+
+		$ricerca['testo'] = $testo;
+
+		if ( '' === $testo ) {
+			$ricerca['errore'] = true;
+
+			return $ricerca;
+		}
+
+		if ( 1 === preg_match( '#^([0-9]{1,10})\s*/\s*([0-9]{4})$#', $testo, $parti ) ) {
+			$ricerca['numero'] = (int) $parti[1];
+			$ricerca['anno']   = (int) $parti[2];
+			$ricerca['errore'] = $ricerca['numero'] < 1 || $ricerca['numero'] > Repertorio::MASSIMO || $ricerca['anno'] < 1;
+
+			return $ricerca;
+		}
+
+		$parole = preg_split( '/\s+/u', mb_strtolower( $testo ), -1, PREG_SPLIT_NO_EMPTY );
+
+		$ricerca['parole'] = false === $parole ? array() : $parole;
+		$ricerca['errore'] = array() === $ricerca['parole'];
+
+		return $ricerca;
+	}
+
+	/**
+	 * Le copie che rispondono alla ricerca, nell'ordine dell'elenco.
+	 *
+	 * Per numero, il numero di registro dell'atto; per parole, tutte le parole
+	 * nell'oggetto della copia. Mai nell'oggetto originale dell'atto, che la
+	 * copia non porta con se'.
+	 *
+	 * @param array<int, int>      $copie   Copie in vista.
+	 * @param array<string, mixed> $ricerca Ricerca ripulita.
+	 * @return array<int, int>
+	 */
+	private static function trovate( array $copie, array $ricerca ): array {
+		if ( ! $ricerca['attiva'] ) {
+			return $copie;
+		}
+
+		return array_values(
+			array_filter(
+				$copie,
+				static function ( int $copia ) use ( $ricerca ): bool {
+					if ( null !== $ricerca['numero'] ) {
+						$dati = CopieStorico::dati( $copia );
+
+						return null !== $dati && (int) $dati['numero'] === $ricerca['numero'] && (int) $dati['anno'] === $ricerca['anno'];
+					}
+
+					$oggetto = mb_strtolower( (string) get_post_field( 'post_title', $copia, 'raw' ) );
+
+					foreach ( $ricerca['parole'] as $parola ) {
+						if ( false === mb_strpos( $oggetto, $parola ) ) {
+							return false;
+						}
+					}
+
+					return true;
+				}
+			)
+		);
+	}
+
+	/**
+	 * Il modulo della ricerca.
+	 *
+	 * Come quello dell'albo: etichetta visibile, aiuto collegato al campo,
+	 * errore annunciato e collegato, indirizzo della pagina con i suoi
+	 * parametri fissi.
+	 *
+	 * @param array<string, mixed> $ricerca Ricerca ripulita.
+	 * @return string
+	 */
+	private static function modulo( array $ricerca ): string {
+		$base   = (string) PaginaStorico::indirizzo();
+		$azione = strtok( $base, '?' );
+
+		$html  = '<section class="albo-pretorio__ricerca" aria-labelledby="albo-pretorio-titolo-ricerca">';
+		$html .= '<h2 id="albo-pretorio-titolo-ricerca" class="albo-pretorio__titolo">' . esc_html__( 'Cerca nelle copie', 'albo-pretorio-pa' ) . '</h2>';
+		$html .= '<form class="albo-pretorio__modulo" role="search" method="get" action="' . esc_url( false === $azione ? $base : $azione ) . '" aria-labelledby="albo-pretorio-titolo-ricerca">';
+
+		parse_str( (string) wp_parse_url( $base, PHP_URL_QUERY ), $fissi );
+
+		foreach ( $fissi as $nome => $valore ) {
+			if ( is_string( $nome ) && is_scalar( $valore ) ) {
+				$html .= '<input type="hidden" name="' . esc_attr( $nome ) . '" value="' . esc_attr( (string) $valore ) . '" />';
+			}
+		}
+
+		$descritto = self::CAMPO_TESTO . '-aiuto' . ( $ricerca['errore'] ? ' ' . self::ID_ERRORE : '' );
+
+		$html .= '<div class="albo-pretorio__campi"><div class="albo-pretorio__campo albo-pretorio__campo--largo">';
+		$html .= '<label for="' . esc_attr( self::CAMPO_TESTO ) . '">' . esc_html__( 'Oggetto o numero di registro', 'albo-pretorio-pa' ) . '</label>';
+		$html .= '<input type="text" id="' . esc_attr( self::CAMPO_TESTO ) . '" name="' . esc_attr( self::CAMPO_TESTO ) . '" value="' . esc_attr( $ricerca['testo'] ) . '" aria-describedby="' . esc_attr( $descritto ) . '"' . ( $ricerca['errore'] ? ' aria-invalid="true"' : '' ) . ' />';
+		$html .= '<p id="' . esc_attr( self::CAMPO_TESTO ) . '-aiuto" class="albo-pretorio__aiuto">' . esc_html__( 'Una o più parole dell\'oggetto della copia, oppure il numero di registro con l\'anno, per esempio 71/2026.', 'albo-pretorio-pa' ) . '</p>';
+		$html .= '</div></div>';
+		$html .= '<div class="albo-pretorio__pulsanti"><button type="submit" class="albo-pretorio__pulsante">' . esc_html__( 'Cerca', 'albo-pretorio-pa' ) . '</button>';
+
+		if ( $ricerca['attiva'] ) {
+			$html .= '<a class="albo-pretorio__collegamento" href="' . esc_url( $base ) . '">' . esc_html__( 'Mostra tutte le copie', 'albo-pretorio-pa' ) . '</a>';
+		}
+
+		return $html . '</div></form></section>';
+	}
+
+	/**
+	 * I parametri della ricerca, per i collegamenti alle pagine dell'elenco.
+	 *
+	 * @param array<string, mixed> $ricerca Ricerca ripulita.
+	 * @return array<string, string>
+	 */
+	private static function parametri( array $ricerca ): array {
+		return $ricerca['attiva'] && '' !== $ricerca['testo'] ? array( self::CAMPO_TESTO => rawurlencode( $ricerca['testo'] ) ) : array();
 	}
 
 	/**
@@ -309,11 +494,12 @@ final class VistaStorico {
 	/**
 	 * I collegamenti alle pagine dell'elenco.
 	 *
-	 * @param int $quante Pagine in tutto.
-	 * @param int $attuale Pagina mostrata, zero se nessuna.
+	 * @param int                   $quante    Pagine in tutto.
+	 * @param int                   $attuale   Pagina mostrata, zero se nessuna.
+	 * @param array<string, string> $parametri Parametri della ricerca da conservare.
 	 * @return string
 	 */
-	private static function pagine( int $quante, int $attuale ): string {
+	private static function pagine( int $quante, int $attuale, array $parametri = array() ): string {
 		if ( $quante < 2 ) {
 			return '';
 		}
@@ -326,7 +512,7 @@ final class VistaStorico {
 			$nome  = sprintf( __( 'Pagina %d', 'albo-pretorio-pa' ), $pagina );
 			$segno = $pagina === $attuale ? ' aria-current="page"' : '';
 
-			$html .= '<li class="albo-pretorio__numero"><a class="albo-pretorio__collegamento"' . $segno . ' aria-label="' . esc_attr( $nome ) . '" href="' . esc_url( add_query_arg( self::CAMPO_PAGINA, $pagina, $base ) ) . '">' . (int) $pagina . '</a></li>';
+			$html .= '<li class="albo-pretorio__numero"><a class="albo-pretorio__collegamento"' . $segno . ' aria-label="' . esc_attr( $nome ) . '" href="' . esc_url( add_query_arg( array_merge( $parametri, array( self::CAMPO_PAGINA => $pagina ) ), $base ) ) . '">' . (int) $pagina . '</a></li>';
 		}
 
 		return $html . '</ul></nav>';
