@@ -65,6 +65,41 @@ final class Storico {
 	const AZIONE_IMPOSTAZIONE = 'impostazione_storico';
 
 	/**
+	 * Stato dell'opzione letta: non c'e'.
+	 *
+	 * @var string
+	 */
+	const ASSENTE = 'assente';
+
+	/**
+	 * Stato dell'opzione letta: c'e' e ha la forma che il salvataggio scrive.
+	 *
+	 * @var string
+	 */
+	const VALIDA = 'valida';
+
+	/**
+	 * Stato dell'opzione letta: c'e', ma non ha quella forma.
+	 *
+	 * @var string
+	 */
+	const MALFORMATA = 'malformata';
+
+	/**
+	 * Stato dell'opzione letta: la banca dati non ha risposto.
+	 *
+	 * @var string
+	 */
+	const ILLEGGIBILE = 'illeggibile';
+
+	/**
+	 * Secondi di attesa del blocco dei salvataggi.
+	 *
+	 * @var int
+	 */
+	const ATTESA_BLOCCO = 5;
+
+	/**
 	 * Sezione e tipo risultano registrati da questo componente.
 	 *
 	 * @var bool
@@ -94,6 +129,13 @@ final class Storico {
 	 * @var array<int, string>
 	 */
 	private static $avvisi = array();
+
+	/**
+	 * Un salvataggio e' in corso in questa richiesta.
+	 *
+	 * @var bool
+	 */
+	private static $in_salvataggio = false;
 
 	/**
 	 * Aggancio a `init`, dopo il tipo atto.
@@ -244,16 +286,88 @@ final class Storico {
 	}
 
 	/**
+	 * L'opzione come sta adesso nella banca dati.
+	 *
+	 * **Si legge dalla banca dati a ogni chiamata**, senza la memoria delle
+	 * opzioni di WordPress. `get_option()` risponde con il valore predefinito
+	 * sia quando l'opzione non c'e' sia quando la lettura fallisce: qui le due
+	 * cose si distinguono, e il salvataggio con una lettura fallita non scrive
+	 * niente. E la memoria non e' la banca dati: la rilettura dopo una
+	 * scrittura deve guardare la banca dati, o non prova niente.
+	 *
+	 * @return array{esito: string, grezzo: string|null, impostazione: array{scelta: string, anni: int|null, utente: int, istante: string}|null}
+	 */
+	public static function fotografia(): array {
+		global $wpdb;
+
+		$righe = $wpdb->get_col( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", self::OPZIONE ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lettura fresca che distingue l'errore dall'assenza, vedi sopra.
+
+		if ( '' !== $wpdb->last_error || ! is_array( $righe ) || count( $righe ) > 1 ) {
+			return array(
+				'esito'        => self::ILLEGGIBILE,
+				'grezzo'       => null,
+				'impostazione' => null,
+			);
+		}
+
+		if ( array() === $righe ) {
+			return array(
+				'esito'        => self::ASSENTE,
+				'grezzo'       => null,
+				'impostazione' => null,
+			);
+		}
+
+		$impostazione = self::controlla( maybe_unserialize( (string) $righe[0] ) );
+
+		return array(
+			'esito'        => null === $impostazione ? self::MALFORMATA : self::VALIDA,
+			'grezzo'       => (string) $righe[0],
+			'impostazione' => $impostazione,
+		);
+	}
+
+	/**
 	 * L'impostazione salvata, se si legge per intero.
 	 *
-	 * Un valore che non ha la forma che il salvataggio scrive non vale: lo
-	 * storico e' spento, e la schermata lo dice.
+	 * Un valore che non ha la forma che il salvataggio scrive non vale, e
+	 * nemmeno una lettura che fallisce: lo storico e' spento, e la schermata
+	 * lo dice.
 	 *
 	 * @return array{scelta: string, anni: int|null, utente: int, istante: string}|null
 	 */
 	public static function impostazione(): ?array {
-		$valore = get_option( self::OPZIONE, null );
+		return self::fotografia()['impostazione'];
+	}
 
+	/**
+	 * Lo stato dell'opzione in una riga, da portare nel modulo della schermata.
+	 *
+	 * Il salvataggio lo confronta con lo stato che trova: se sono diversi,
+	 * qualcuno ha salvato mentre il modulo era aperto, e il modulo vecchio non
+	 * scrive sopra la scelta nuova. Vuoto se la lettura fallisce: un modulo
+	 * aperto cosi' non salva.
+	 *
+	 * @param array{esito: string, grezzo: string|null, impostazione: array<string, mixed>|null}|null $fotografia Fotografia gia' letta, o nulla per leggerla.
+	 * @return string
+	 */
+	public static function stato_mostrato( ?array $fotografia = null ): string {
+		$fotografia = $fotografia ?? self::fotografia();
+
+		if ( self::ILLEGGIBILE === $fotografia['esito'] ) {
+			return '';
+		}
+
+		return null === $fotografia['grezzo'] ? self::ASSENTE : md5( $fotografia['grezzo'] );
+	}
+
+	/**
+	 * Il valore letto se ha la forma dell'impostazione, oppure nullo.
+	 *
+	 * @param mixed $valore Valore letto.
+	 * @return array{scelta: string, anni: int|null, utente: int, istante: string}|null
+	 */
+	private static function controlla( $valore ): ?array {
 		if ( ! is_array( $valore ) ) {
 			return null;
 		}
@@ -314,14 +428,20 @@ final class Storico {
 	 *
 	 * Gli anni si chiedono soltanto per accendere. Spegnendo si possono
 	 * lasciare: se ci sono si controllano, e restano scritti per la volta dopo.
+	 * I salvataggi vanno in fila, uno alla volta, dalla lettura alla rilettura.
+	 * Un modulo aperto prima di un altro salvataggio non scrive sopra la
+	 * scelta nuova; una scelta uguale a quella in vigore non scrive niente.
 	 *
-	 * @param mixed              $scelta Scelta inviata.
-	 * @param mixed              $anni   Anni inviati, come testo.
-	 * @param int                $utente Chi salva.
-	 * @param \DateTimeImmutable $adesso Istante del salvataggio.
+	 * @param mixed              $scelta   Scelta inviata.
+	 * @param mixed              $anni     Anni inviati, come testo.
+	 * @param mixed              $mostrato Stato dell'opzione all'apertura del modulo, da `stato_mostrato()`.
+	 * @param int                $utente   Chi salva.
+	 * @param \DateTimeImmutable $adesso   Istante del salvataggio.
 	 * @return true|\WP_Error
 	 */
-	public static function salva( $scelta, $anni, int $utente, \DateTimeImmutable $adesso ) {
+	public static function salva( $scelta, $anni, $mostrato, int $utente, \DateTimeImmutable $adesso ) {
+		global $wpdb;
+
 		if ( ! is_string( $scelta ) || ! in_array( $scelta, array( self::ACCESO, self::SPENTO ), true ) ) {
 			return new \WP_Error(
 				'albo_copia_scelta_mancante',
@@ -349,8 +469,65 @@ final class Storico {
 			);
 		}
 
-		$precedente = get_option( self::OPZIONE, null );
-		$valore     = array(
+		/*
+		 * Il blocco della banca dati vale per la connessione, e la stessa
+		 * connessione lo riprende senza attendere: un salvataggio chiamato da
+		 * un aggancio di questo salvataggio passerebbe. Si rifiuta qui.
+		 */
+		if ( self::$in_salvataggio ) {
+			return self::occupato();
+		}
+
+		$blocco = self::nome_blocco();
+
+		if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK( %s, %d )', $blocco, self::ATTESA_BLOCCO ) ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- blocco della fila, non dati.
+			return self::occupato();
+		}
+
+		self::$in_salvataggio = true;
+
+		try {
+			return self::salva_in_fila( $scelta, $numero, $mostrato, $utente, $adesso );
+		} finally {
+			self::$in_salvataggio = false;
+			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', $blocco ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- blocco della fila, non dati.
+		}
+	}
+
+	/**
+	 * Il salvataggio, con il blocco preso.
+	 *
+	 * @param string             $scelta   Scelta controllata.
+	 * @param int|null           $numero   Anni controllati.
+	 * @param mixed              $mostrato Stato dell'opzione all'apertura del modulo.
+	 * @param int                $utente   Chi salva.
+	 * @param \DateTimeImmutable $adesso   Istante del salvataggio.
+	 * @return true|\WP_Error
+	 */
+	private static function salva_in_fila( string $scelta, ?int $numero, $mostrato, int $utente, \DateTimeImmutable $adesso ) {
+		$prima = self::fotografia();
+
+		// Con la lettura fallita non si sa che cosa si sovrascrive, ne' che cosa si rimetterebbe: non si scrive.
+		if ( self::ILLEGGIBILE === $prima['esito'] ) {
+			return new \WP_Error(
+				'albo_copia_lettura',
+				__( 'Impostazione non salvata: l\'impostazione in vigore non si legge in questo momento, e senza leggerla non si scrive. Riprovare.', 'albo-pretorio-pa' )
+			);
+		}
+
+		if ( ! is_string( $mostrato ) || self::stato_mostrato( $prima ) !== $mostrato ) {
+			return new \WP_Error(
+				'albo_copia_conflitto',
+				__( 'Impostazione non salvata: mentre la schermata era aperta l\'impostazione e\' stata cambiata da un altro salvataggio. La schermata mostra ora quella in vigore: rifare la scelta guardando quella.', 'albo-pretorio-pa' )
+			);
+		}
+
+		// La stessa scelta con gli stessi anni: niente da scrivere, e niente nel registro.
+		if ( null !== $prima['impostazione'] && $scelta === $prima['impostazione']['scelta'] && $numero === $prima['impostazione']['anni'] ) {
+			return true;
+		}
+
+		$valore = array(
 			'scelta'  => $scelta,
 			'anni'    => $numero,
 			'utente'  => $utente,
@@ -359,12 +536,13 @@ final class Storico {
 
 		update_option( self::OPZIONE, $valore, true );
 
-		if ( self::impostazione() !== $valore ) {
-			self::ripristina( $precedente );
-
-			return new \WP_Error(
-				'albo_copia_non_scritto',
-				__( 'Impostazione non salvata: la banca dati non ha confermato la scrittura. Riprovare.', 'albo-pretorio-pa' )
+		if ( self::fotografia()['impostazione'] !== $valore ) {
+			return self::rifiuto_ripristinato(
+				$prima,
+				new \WP_Error(
+					'albo_copia_non_scritto',
+					__( 'Impostazione non salvata: la banca dati non ha confermato la scrittura.', 'albo-pretorio-pa' )
+				)
 			);
 		}
 
@@ -380,19 +558,74 @@ final class Storico {
 		);
 
 		if ( is_wp_error( $voce ) ) {
-			self::ripristina( $precedente );
-
-			return new \WP_Error(
-				'albo_copia_registro',
-				sprintf(
-					/* translators: %s: motivo riportato dal registro. */
-					__( 'Impostazione non salvata: il registro non ha scritto la voce, e l\'impostazione e\' tornata com\'era. %s', 'albo-pretorio-pa' ),
-					$voce->get_error_message()
+			return self::rifiuto_ripristinato(
+				$prima,
+				new \WP_Error(
+					'albo_copia_registro',
+					sprintf(
+						/* translators: %s: motivo riportato dal registro. */
+						__( 'Impostazione non salvata: il registro non ha scritto la voce. %s', 'albo-pretorio-pa' ),
+						$voce->get_error_message()
+					)
 				)
 			);
 		}
 
 		return true;
+	}
+
+	/**
+	 * Rimette l'opzione com'era, la rilegge dalla banca dati, e completa il rifiuto.
+	 *
+	 * @param array{esito: string, grezzo: string|null, impostazione: array<string, mixed>|null} $prima  L'opzione letta prima di scrivere.
+	 * @param \WP_Error                                                                          $errore Il rifiuto.
+	 * @return \WP_Error
+	 */
+	private static function rifiuto_ripristinato( array $prima, \WP_Error $errore ): \WP_Error {
+		if ( null === $prima['grezzo'] ) {
+			delete_option( self::OPZIONE );
+		} else {
+			update_option( self::OPZIONE, maybe_unserialize( $prima['grezzo'] ), true );
+		}
+
+		// La memoria delle opzioni puo' aver tenuto il valore rifiutato: si svuota, e decide la banca dati.
+		wp_cache_delete( self::OPZIONE, 'options' );
+		wp_cache_delete( 'alloptions', 'options' );
+		wp_cache_delete( 'notoptions', 'options' );
+
+		$dopo = self::fotografia();
+
+		if ( $dopo['esito'] === $prima['esito'] && $dopo['grezzo'] === $prima['grezzo'] ) {
+			return new \WP_Error( $errore->get_error_code(), $errore->get_error_message() . ' ' . __( 'L\'impostazione e\' tornata com\'era. Riprovare.', 'albo-pretorio-pa' ) );
+		}
+
+		return new \WP_Error(
+			'albo_copia_non_ripristinato',
+			$errore->get_error_message() . ' ' . __( 'E non e\' stato possibile confermare che l\'impostazione sia tornata com\'era: riaprire la schermata e controllare la scelta in vigore prima di fare altro.', 'albo-pretorio-pa' )
+		);
+	}
+
+	/**
+	 * Il nome del blocco dei salvataggi, per sito.
+	 *
+	 * @return string
+	 */
+	public static function nome_blocco(): string {
+		global $wpdb;
+
+		return substr( $wpdb->prefix, 0, 40 ) . 'albo_copie_impostazione';
+	}
+
+	/**
+	 * Il rifiuto di un salvataggio mentre un altro e' in corso.
+	 *
+	 * @return \WP_Error
+	 */
+	private static function occupato(): \WP_Error {
+		return new \WP_Error(
+			'albo_copia_occupato',
+			__( 'Impostazione non salvata: un altro salvataggio dello storico pubblico e\' in corso. Riprovare fra poco.', 'albo-pretorio-pa' )
+		);
 	}
 
 	/**
@@ -423,28 +656,15 @@ final class Storico {
 	}
 
 	/**
-	 * Rimette l'opzione com'era prima del salvataggio.
-	 *
-	 * @param mixed $precedente Valore precedente, nullo se non c'era.
-	 */
-	private static function ripristina( $precedente ): void {
-		if ( null === $precedente ) {
-			delete_option( self::OPZIONE );
-			return;
-		}
-
-		update_option( self::OPZIONE, $precedente, true );
-	}
-
-	/**
 	 * Riporta la classe allo stato del caricamento.
 	 *
 	 * @internal Serve alle prove.
 	 */
 	public static function azzera(): void {
-		self::$pronto       = false;
-		self::$oggetto_tipo = null;
-		self::$sezione      = false;
-		self::$avvisi       = array();
+		self::$pronto         = false;
+		self::$oggetto_tipo   = null;
+		self::$sezione        = false;
+		self::$avvisi         = array();
+		self::$in_salvataggio = false;
 	}
 }

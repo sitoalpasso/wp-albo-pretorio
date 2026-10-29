@@ -57,6 +57,13 @@ final class SchermataStorico {
 	const CAMPO_ANNI = self::AZIONE . '_anni';
 
 	/**
+	 * Nome del campo con lo stato dell'impostazione all'apertura del modulo.
+	 *
+	 * @var string
+	 */
+	const CAMPO_MOSTRATO = self::AZIONE . '_mostrato';
+
+	/**
 	 * Il permesso dello storico, come lo vede WordPress, o nullo.
 	 *
 	 * @return string|null
@@ -127,8 +134,8 @@ final class SchermataStorico {
 			wp_die( esc_html__( 'Non si possiede il permesso di gestire lo storico pubblico.', 'albo-pretorio-pa' ), 403 );
 		}
 
-		$impostazione = Storico::impostazione();
-		$salvata      = null !== get_option( Storico::OPZIONE, null );
+		$fotografia   = Storico::fotografia();
+		$impostazione = $fotografia['impostazione'];
 		$motivo       = self::preleva_rifiuto();
 
 		echo '<div class="wrap">';
@@ -141,11 +148,7 @@ final class SchermataStorico {
 		if ( null === $impostazione ) {
 			printf(
 				'<div class="notice notice-warning inline"><p>%s</p></div>',
-				esc_html(
-					$salvata
-						? __( 'L\'impostazione salvata non si legge: finche\' non la si salva di nuovo, lo storico pubblico e\' spento.', 'albo-pretorio-pa' )
-						: __( 'La scelta non e\' ancora fatta: finche\' manca, lo storico pubblico e\' spento.', 'albo-pretorio-pa' )
-				)
+				esc_html( self::senza_impostazione( $fotografia['esito'] ) )
 			);
 		}
 
@@ -155,6 +158,7 @@ final class SchermataStorico {
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::AZIONE ) );
 		wp_nonce_field( self::AZIONE, self::CAMPO_GETTONE );
+		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::CAMPO_MOSTRATO ), esc_attr( Storico::stato_mostrato( $fotografia ) ) );
 
 		self::scelte( null === $impostazione ? null : $impostazione['scelta'] );
 		self::anni( null === $impostazione || null === $impostazione['anni'] ? '' : (string) $impostazione['anni'] );
@@ -179,6 +183,24 @@ final class SchermataStorico {
 		}
 
 		echo '</div>';
+	}
+
+	/**
+	 * Che cosa dire quando l'impostazione non vale.
+	 *
+	 * @param string $esito Esito della lettura.
+	 * @return string
+	 */
+	private static function senza_impostazione( string $esito ): string {
+		if ( Storico::ILLEGGIBILE === $esito ) {
+			return __( 'L\'impostazione non si legge in questo momento: finche\' non si legge, lo storico pubblico e\' spento e non si salva. Ricaricare la pagina.', 'albo-pretorio-pa' );
+		}
+
+		if ( Storico::MALFORMATA === $esito ) {
+			return __( 'L\'impostazione salvata non si legge: finche\' non la si salva di nuovo, lo storico pubblico e\' spento.', 'albo-pretorio-pa' );
+		}
+
+		return __( 'La scelta non e\' ancora fatta: finche\' manca, lo storico pubblico e\' spento.', 'albo-pretorio-pa' );
 	}
 
 	/**
@@ -335,7 +357,9 @@ final class SchermataStorico {
 			$anni = array();
 		}
 
-		return Storico::salva( $scelta, $anni, get_current_user_id(), current_datetime() );
+		$mostrato = isset( $_POST[ self::CAMPO_MOSTRATO ] ) && is_string( $_POST[ self::CAMPO_MOSTRATO ] ) ? sanitize_text_field( wp_unslash( $_POST[ self::CAMPO_MOSTRATO ] ) ) : null;
+
+		return Storico::salva( $scelta, $anni, $mostrato, get_current_user_id(), current_datetime() );
 	}
 
 	/**

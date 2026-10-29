@@ -103,6 +103,11 @@ class StoricoTest extends \WP_UnitTestCase {
 			$campi[ SchermataStorico::CAMPO_GETTONE ] = wp_create_nonce( SchermataStorico::AZIONE );
 		}
 
+		// Senza indicazione, il modulo e' aperto adesso: porta lo stato in vigore.
+		if ( ! array_key_exists( SchermataStorico::CAMPO_MOSTRATO, $campi ) ) {
+			$campi[ SchermataStorico::CAMPO_MOSTRATO ] = Storico::stato_mostrato();
+		}
+
 		$_POST    = $campi;
 		$_REQUEST = $campi;
 
@@ -411,6 +416,255 @@ class StoricoTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-263: il salvataggio legge e rilegge la banca dati, non la memoria.
+	 *
+	 * Una lettura che fallisce non vale "nessuna impostazione": il salvataggio
+	 * non scrive, e un'impostazione valida non si cancella. Una scrittura che
+	 * la banca dati non ha fatto non passa per fatta, anche se la memoria delle
+	 * opzioni dice il contrario. E un ripristino che non si conferma lo dice.
+	 */
+	public function test_a263_letture_dalla_banca_dati(): void {
+		global $wpdb;
+
+		$scelta = SchermataStorico::CAMPO_SCELTA;
+		$anni   = SchermataStorico::CAMPO_ANNI;
+
+		$this->fissa_orologi( '2041-10-01 10:00:00' );
+		$this->assertTrue(
+			$this->invia(
+				$this->amministratore,
+				array(
+					$scelta => Storico::ACCESO,
+					$anni   => '5',
+				)
+			)
+		);
+
+		$prima    = Storico::fotografia();
+		$mostrato = Storico::stato_mostrato();
+		$opzione  = "'" . Storico::OPZIONE . "'";
+
+		$this->assertSame( Storico::VALIDA, $prima['esito'], 'Precondizione: impostazione valida.' );
+
+		// La lettura dell'opzione fallisce.
+		$guasta = static function ( $istruzione ) use ( $wpdb ) {
+			return 0 === strpos( ltrim( (string) $istruzione ), "SELECT option_value FROM {$wpdb->options} WHERE option_name = '" . Storico::OPZIONE . "'" ) ? 'SELECT * FROM tabella_che_non_esiste' : $istruzione;
+		};
+		$zitto  = $wpdb->suppress_errors( true );
+
+		add_filter( 'query', $guasta );
+		$esito = $this->invia(
+			$this->amministratore,
+			array(
+				$scelta                          => Storico::SPENTO,
+				SchermataStorico::CAMPO_MOSTRATO => $mostrato,
+			)
+		);
+		$this->assertFalse( Storico::acceso(), 'Con la lettura fallita lo storico vale spento.' );
+		$this->assertStringContainsString( 'non si legge in questo momento', (string) $this->schermata( $this->amministratore ), 'La schermata lo dice.' );
+		remove_filter( 'query', $guasta );
+		$wpdb->suppress_errors( $zitto );
+
+		$this->assertWPError( $esito, 'Lettura fallita: niente salvato.' );
+		$this->assertSame( 'albo_copia_lettura', $esito->get_error_code() );
+		$this->assertSame( $prima, Storico::fotografia(), 'L\'impostazione valida e\' rimasta, non cancellata.' );
+		$this->assertCount( 1, $this->voci_impostazione() );
+
+		/*
+		 * La banca dati che finge di scrivere: l'aggiornamento dell'opzione
+		 * diventa una lettura che risponde una riga. WordPress lo crede fatto
+		 * e mette il valore nuovo nella sua memoria; la rilettura guarda la
+		 * banca dati e se ne accorge.
+		 */
+		$finta = static function ( $istruzione ) use ( $opzione ) {
+			return 0 === stripos( ltrim( (string) $istruzione ), 'UPDATE' ) && false !== strpos( (string) $istruzione, $opzione ) ? 'SELECT 1' : $istruzione;
+		};
+
+		add_filter( 'query', $finta );
+		$esito = $this->invia(
+			$this->amministratore,
+			array(
+				$scelta => Storico::SPENTO,
+				$anni   => '5',
+			)
+		);
+		remove_filter( 'query', $finta );
+
+		$this->assertWPError( $esito, 'Scrittura finta: salvataggio rifiutato.' );
+		$this->assertSame( 'albo_copia_non_scritto', $esito->get_error_code() );
+		$this->assertStringContainsString( 'tornata com\'era', $esito->get_error_message() );
+		$this->assertSame( $prima, Storico::fotografia() );
+		$this->assertSame( $prima['impostazione'], array_intersect_key( (array) get_option( Storico::OPZIONE ), $prima['impostazione'] ), 'Nemmeno la memoria tiene il valore rifiutato.' );
+		$this->assertTrue( Storico::acceso() );
+		$this->assertCount( 1, $this->voci_impostazione(), 'Niente nel registro.' );
+
+		/*
+		 * Il registro non scrive e il ripristino non arriva alla banca dati:
+		 * la prima scrittura passa, le successive sono finte. Il rifiuto non
+		 * dice che l'impostazione e' tornata com'era.
+		 */
+		$scritture = 0;
+		$a_meta    = static function ( $istruzione ) use ( $opzione, &$scritture ) {
+			$testo = ltrim( (string) $istruzione );
+
+			if ( 0 === stripos( $testo, 'INSERT' ) && false !== strpos( $testo, 'conformita_core_registro' ) ) {
+				return 'SELECT * FROM tabella_che_non_esiste';
+			}
+
+			if ( 0 === stripos( $testo, 'UPDATE' ) && false !== strpos( $testo, $opzione ) && ++$scritture > 1 ) {
+				return 'SELECT 1';
+			}
+
+			return $istruzione;
+		};
+		$zitto     = $wpdb->suppress_errors( true );
+
+		add_filter( 'query', $a_meta );
+		$esito = $this->invia(
+			$this->amministratore,
+			array(
+				$scelta => Storico::SPENTO,
+				$anni   => '5',
+			)
+		);
+		remove_filter( 'query', $a_meta );
+		$wpdb->suppress_errors( $zitto );
+
+		$this->assertWPError( $esito );
+		$this->assertSame( 'albo_copia_non_ripristinato', $esito->get_error_code(), 'Il ripristino non confermato si dice.' );
+		$this->assertStringNotContainsString( 'tornata com\'era. Riprovare', $esito->get_error_message() );
+		$this->assertSame( Storico::SPENTO, Storico::impostazione()['scelta'], 'E la banca dati tiene davvero la scrittura non registrata: il rifiuto dice il vero.' );
+	}
+
+	/**
+	 * A-263: il modulo rimasto indietro, il salvataggio uguale e la fila.
+	 *
+	 * Due persone aprono la schermata; una spegne, l'altra salva il modulo
+	 * vecchio: il secondo salvataggio si rifiuta, anche sul modulo rimostrato
+	 * dopo un rifiuto, finche' non si parte dalla scelta in vigore. La stessa
+	 * scelta con gli stessi anni non scrive niente. Con un salvataggio in
+	 * corso, un altro aspetta il suo turno e poi si rifiuta.
+	 */
+	public function test_a263_modulo_rimasto_indietro(): void {
+		global $wpdb;
+
+		$scelta = SchermataStorico::CAMPO_SCELTA;
+		$anni   = SchermataStorico::CAMPO_ANNI;
+
+		// Il modulo come lo porta la schermata.
+		$dal_modulo = function ( int $utente ): string {
+			$contenuto = (string) $this->schermata( $utente );
+
+			$this->assertSame( 1, preg_match( '/name="' . preg_quote( SchermataStorico::CAMPO_MOSTRATO, '/' ) . '" value="([^"]*)"/', $contenuto, $trovato ), 'Il modulo porta lo stato mostrato.' );
+
+			return html_entity_decode( $trovato[1] );
+		};
+
+		$aperto_dal_custode = $dal_modulo( $this->custode );
+		$aperto_dall_altro  = $dal_modulo( $this->amministratore );
+
+		$this->fissa_orologi( '2041-10-01 10:00:00' );
+		$this->assertTrue(
+			$this->invia(
+				$this->amministratore,
+				array(
+					$scelta                          => Storico::ACCESO,
+					$anni                            => '5',
+					SchermataStorico::CAMPO_MOSTRATO => $aperto_dall_altro,
+				)
+			)
+		);
+
+		$this->fissa_orologi( '2041-10-01 10:05:00' );
+		$this->assertTrue(
+			$this->invia(
+				$this->amministratore,
+				array(
+					$scelta                          => Storico::SPENTO,
+					SchermataStorico::CAMPO_MOSTRATO => $dal_modulo( $this->amministratore ),
+				)
+			),
+			'Chi parte dalla scelta in vigore salva.'
+		);
+
+		$in_vigore = Storico::fotografia();
+
+		foreach ( array(
+			'modulo aperto prima di tutti' => $aperto_dal_custode,
+			'modulo senza stato'           => null,
+			'stato inventato'              => 'qualcosa',
+			'stato vuoto'                  => '',
+		) as $caso => $mostrato ) {
+			$campi = array(
+				$scelta => Storico::ACCESO,
+				$anni   => '9',
+			);
+
+			if ( null !== $mostrato ) {
+				$campi[ SchermataStorico::CAMPO_MOSTRATO ] = $mostrato;
+			}
+
+			$esito = $this->invia( $this->custode, null === $mostrato ? $campi + array( SchermataStorico::CAMPO_MOSTRATO => null ) : $campi );
+
+			$this->assertWPError( $esito, $caso . ': rifiutato.' );
+			$this->assertSame( 'albo_copia_conflitto', $esito->get_error_code(), $caso );
+			$this->assertSame( $in_vigore, Storico::fotografia(), $caso . ': niente scritto.' );
+		}
+
+		$this->assertCount( 2, $this->voci_impostazione(), 'I modulo vecchi non scrivono nel registro.' );
+
+		// Il modulo rimostrato dopo il rifiuto parte dalla scelta in vigore, e salva.
+		$this->assertTrue(
+			$this->invia(
+				$this->custode,
+				array(
+					$scelta                          => Storico::ACCESO,
+					$anni                            => '9',
+					SchermataStorico::CAMPO_MOSTRATO => $dal_modulo( $this->custode ),
+				)
+			)
+		);
+		$this->assertSame( 9, Storico::anni() );
+
+		// La stessa scelta, con gli stessi anni: niente scritto, niente nel registro.
+		$uguale = Storico::fotografia();
+
+		$this->fissa_orologi( '2041-10-01 11:00:00' );
+		$this->assertTrue(
+			$this->invia(
+				$this->amministratore,
+				array(
+					$scelta => Storico::ACCESO,
+					$anni   => '09',
+				)
+			)
+		);
+		$this->assertSame( $uguale, Storico::fotografia(), 'Stesso valore, stesso istante e stessa persona dell\'ultimo salvataggio vero.' );
+		$this->assertCount( 3, $this->voci_impostazione() );
+
+		// Un altro salvataggio in corso, su un'altra connessione: si aspetta, poi si rifiuta senza scrivere.
+		$altra = new \wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
+
+		try {
+			$this->assertSame( '1', (string) $altra->get_var( $altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Storico::nome_blocco() ) ) );
+
+			$esito = $this->invia(
+				$this->amministratore,
+				array(
+					$scelta => Storico::SPENTO,
+				)
+			);
+		} finally {
+			$altra->query( 'SELECT RELEASE_ALL_LOCKS()' );
+			$altra->close();
+		}
+
+		$this->assertWPError( $esito );
+		$this->assertSame( 'albo_copia_occupato', $esito->get_error_code() );
+		$this->assertSame( $uguale, Storico::fotografia() );
+	}
+
+	/**
 	 * A-264: gettone, permesso, menu.
 	 */
 	public function test_a264_gettone_permesso_e_menu(): void {
@@ -632,7 +886,7 @@ class StoricoTest extends \WP_UnitTestCase {
 
 		$this->assertStringContainsString( 'lo storico pubblico resta fermo', $avviso );
 
-		$this->assertWPError( Storico::salva( Storico::ACCESO, '5', $utente, new \DateTimeImmutable() ), 'Non si accende uno storico fermo.' );
+		$this->assertWPError( Storico::salva( Storico::ACCESO, '5', Storico::stato_mostrato(), $utente, new \DateTimeImmutable() ), 'Non si accende uno storico fermo.' );
 		$this->assertNull( get_option( Storico::OPZIONE, null ) );
 	}
 }

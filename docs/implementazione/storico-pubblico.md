@@ -123,6 +123,16 @@ pubblica. I permessi del tipo dello storico che crea il meccanismo comune non va
   l'albo lavora come prima.
 - Impostazione salvata ma illeggibile: lo storico vale spento, e la schermata lo dice.
 - Registro che non scrive: l'impostazione torna com'era e il salvataggio si rifiuta.
+- Lettura dell'opzione che fallisce: non vale "nessuna impostazione". Il salvataggio non
+  scrive, e un'impostazione valida non si cancella. Per questo l'opzione si legge dalla banca
+  dati a ogni chiamata, senza la memoria delle opzioni.
+- Scrittura che la banca dati non ha fatto: la rilettura guarda la banca dati, non la
+  memoria, e il salvataggio si rifiuta. Anche il ripristino si rilegge: se non si conferma,
+  il rifiuto lo dice invece di dire che tutto è tornato com'era.
+- Due persone con la schermata aperta: il modulo porta lo stato che mostrava, e se nel
+  frattempo un altro salvataggio l'ha cambiato si rifiuta per conflitto. I salvataggi vanno
+  in fila, uno alla volta, con un blocco della banca dati. Una scelta uguale a quella in
+  vigore non scrive e non va nel registro.
 
 ### 7. Test aggiunti
 
