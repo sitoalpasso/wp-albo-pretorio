@@ -708,7 +708,7 @@ final class VistaPubblica {
 	 * @param string $classe  Classe in piu', facoltativa.
 	 * @return string
 	 */
-	private static function cella( string $colonna, string $valore, string $classe = '' ): string {
+	public static function cella( string $colonna, string $valore, string $classe = '' ): string {
 		$classi = trim( 'albo-pretorio__cella ' . $classe );
 
 		return '<td class="' . esc_attr( $classi ) . '" role="cell"><span class="albo-pretorio__etichetta" aria-hidden="true">' . esc_html( $colonna ) . '</span>' . $valore . '</td>';
@@ -861,7 +861,7 @@ final class VistaPubblica {
 	 * @param int $documento Allegato.
 	 * @return string
 	 */
-	private static function dettagli_file( int $documento ): string {
+	public static function dettagli_file( int $documento ): string {
 		$parti = array();
 		$tipo  = (string) get_post_mime_type( $documento );
 
@@ -887,7 +887,7 @@ final class VistaPubblica {
 	 * @param array<string, string> $dati Dati per etichetta, non sfuggiti.
 	 * @return string
 	 */
-	private static function dati( array $dati ): string {
+	public static function dati( array $dati ): string {
 		$html = '<dl class="albo-pretorio__dati">';
 
 		foreach ( $dati as $etichetta => $valore ) {
@@ -972,7 +972,7 @@ final class VistaPubblica {
 	 * @param string $data Data.
 	 * @return string
 	 */
-	private static function data( string $data ): string {
+	public static function data( string $data ): string {
 		$letta = \DateTimeImmutable::createFromFormat( '!Y-m-d', $data, wp_timezone() );
 
 		return false === $letta ? $data : $letta->format( 'd/m/Y' );
