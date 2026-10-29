@@ -940,8 +940,8 @@ class CopieStoricoTest extends \WP_UnitTestCase {
 	/**
 	 * A-268: i dati dell'atto che non si rileggono non diventano un atto 0/0.
 	 *
-	 * La prima lettura del numero, al controllo dell'atto, risponde; la
-	 * seconda, quando si fissano i dati della copia, no. La copia non entra e
+	 * Le letture del numero nei due controlli dell'atto rispondono; quella
+	 * che fissa i dati della copia, no. La copia non entra e
 	 * il registro non ha voci.
 	 */
 	public function test_a268_numero_che_non_si_rilegge(): void {
@@ -956,7 +956,7 @@ class CopieStoricoTest extends \WP_UnitTestCase {
 			if ( 0 === strpos( ltrim( (string) $istruzione ), 'SELECT anno, numero FROM' ) ) {
 				++$letture;
 
-				if ( $letture > 1 ) {
+				if ( $letture > 2 ) {
 					return 'SELECT * FROM tabella_che_non_esiste';
 				}
 			}
@@ -974,7 +974,7 @@ class CopieStoricoTest extends \WP_UnitTestCase {
 			$wpdb->suppress_errors( $zitto );
 		}
 
-		$this->assertGreaterThan( 1, $letture, 'Il numero si e\' letto due volte.' );
+		$this->assertGreaterThan( 2, $letture, 'Il numero si e\' letto nei due controlli e poi per i dati.' );
 		$this->assertWPError( $esito );
 		$this->assertSame( 'albo_copia_lettura', $esito->get_error_code() );
 		$this->assertSame( array(), $this->copie_scritte(), 'Nessuna copia.' );
@@ -1047,5 +1047,145 @@ class CopieStoricoTest extends \WP_UnitTestCase {
 		$this->assertSame( 'albo_copia_spento', $illeggibile->get_error_code() );
 		$this->assertSame( array(), $this->copie_scritte(), 'Illeggibile: nessuna copia.' );
 		$this->assertSame( array(), $this->voci( CopieStorico::AZIONE_INGRESSO ), 'Illeggibile: nessuna voce.' );
+	}
+
+	/**
+	 * Un cambio dell'atto fatto da un'altra richiesta durante l'ingresso.
+	 *
+	 * `prima`: quando l'ingresso chiede il blocco dell'atto, dopo i primi
+	 * controlli. `durante`: quando la copia si rende pubblica, prima del
+	 * registro.
+	 *
+	 * @param int      $atto     Atto.
+	 * @param string   $momento  `prima` oppure `durante`.
+	 * @param callable $cambio   Il cambio.
+	 * @return int|\WP_Error
+	 */
+	private function metti_mentre( int $atto, string $momento, callable $cambio ) {
+		$fatto  = false;
+		$blocco = CopieStorico::nome_blocco_atto( $atto );
+		$query  = static function ( $istruzione ) use ( $blocco, $cambio, &$fatto ) {
+			if ( ! $fatto && false !== strpos( (string) $istruzione, 'GET_LOCK' ) && false !== strpos( (string) $istruzione, $blocco ) ) {
+				$fatto = true;
+				$cambio();
+			}
+
+			return $istruzione;
+		};
+		$stato  = static function ( $nuovo, $vecchio, $contenuto ) use ( $cambio, &$fatto ): void {
+			if ( ! $fatto && 'publish' === $nuovo && $contenuto instanceof \WP_Post && TIPO_STORICO === $contenuto->post_type ) {
+				$fatto = true;
+				$cambio();
+			}
+		};
+
+		if ( 'prima' === $momento ) {
+			add_filter( 'query', $query );
+		} else {
+			add_action( 'transition_post_status', $stato, 10, 3 );
+		}
+
+		try {
+			$esito = $this->metti( $atto, $this->custode );
+		} finally {
+			remove_filter( 'query', $query );
+			remove_action( 'transition_post_status', $stato, 10 );
+		}
+
+		$this->assertTrue( $fatto, 'Il cambio e\' arrivato durante l\'ingresso.' );
+
+		return $esito;
+	}
+
+	/**
+	 * L'atto annullato da un'altra richiesta durante l'ingresso.
+	 *
+	 * @param int $atto Atto.
+	 * @return callable
+	 */
+	private function annullamento( int $atto ): callable {
+		return function () use ( $atto ): void {
+			$esito = $this->come(
+				$this->pubblicatore,
+				static function () use ( $atto ) {
+					return albo_pretorio_annulla( $atto, 'Errore materiale nell\'oggetto.' );
+				}
+			);
+
+			$this->assertIsInt( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+		};
+	}
+
+	/**
+	 * La proroga disposta da un'altra richiesta durante l'ingresso: l'atto torna consultabile.
+	 *
+	 * @return callable
+	 */
+	private function proroga_dell_albo(): callable {
+		return function (): void {
+			$esito = $this->come(
+				$this->pubblicatore,
+				static function () {
+					return albo_pretorio_proroga(
+						array(
+							'giorni'       => array( '2041-10-16' ),
+							'attestazione' => 'Attestazione',
+						)
+					);
+				}
+			);
+
+			$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+		};
+	}
+
+	/**
+	 * Dopo un cambio dell'atto durante l'ingresso: nessuna copia, nessuna voce.
+	 *
+	 * @param mixed  $esito  Esito dell'ingresso.
+	 * @param string $codice Codice atteso.
+	 */
+	private function nessun_ingresso( $esito, string $codice ): void {
+		$this->assertWPError( $esito );
+		$this->assertSame( $codice, $esito->get_error_code(), $esito->get_error_message() );
+		$this->assertSame( array(), CopieStorico::presenti(), 'Nessuna copia nello storico.' );
+		$this->assertSame( array(), $this->voci( CopieStorico::AZIONE_INGRESSO ), 'Nessuna voce.' );
+	}
+
+	/**
+	 * A-268: l'atto annullato mentre la copia entra, prima e durante.
+	 */
+	public function test_a268_annullato_durante_ingresso(): void {
+		$primo   = $this->pubblicato();
+		$secondo = $this->pubblicato( 'Concessione a Anna Bianchi' );
+
+		$this->fissa_orologi( self::DOPO_LA_FINE );
+
+		$this->nessun_ingresso( $this->metti_mentre( $primo, 'prima', $this->annullamento( $primo ) ), 'albo_copia_non_regolare' );
+		$this->nessun_ingresso( $this->metti_mentre( $secondo, 'durante', $this->annullamento( $secondo ) ), 'albo_copia_non_regolare' );
+	}
+
+	/**
+	 * A-268: l'atto prorogato quando l'ingresso chiede il blocco.
+	 */
+	public function test_a268_prorogato_prima_della_copia(): void {
+		$atto = $this->pubblicato();
+
+		$this->fissa_orologi( self::DOPO_LA_FINE );
+
+		$this->nessun_ingresso( $this->metti_mentre( $atto, 'prima', $this->proroga_dell_albo() ), 'albo_copia_in_corso' );
+		$this->assertFalse( conformita_core_scaduto( $atto ), 'Precondizione: l\'atto e\' di nuovo consultabile.' );
+	}
+
+	/**
+	 * A-268: l'atto prorogato mentre la copia si rende pubblica.
+	 */
+	public function test_a268_prorogato_durante_ingresso(): void {
+		$atto = $this->pubblicato();
+
+		$this->fissa_orologi( self::DOPO_LA_FINE );
+
+		$this->nessun_ingresso( $this->metti_mentre( $atto, 'durante', $this->proroga_dell_albo() ), 'albo_copia_in_corso' );
+		$this->assertFalse( conformita_core_scaduto( $atto ), 'Precondizione: l\'atto e\' di nuovo consultabile.' );
 	}
 }

@@ -139,6 +139,21 @@ final class CopieStorico {
 	}
 
 	/**
+	 * Il controllo dell'atto rifatto sulla banca dati, senza la memoria.
+	 *
+	 * Un'altra richiesta puo' aver annullato o prorogato l'atto dopo il primo
+	 * controllo: la memoria di questa richiesta non lo sa.
+	 *
+	 * @param int $atto Atto.
+	 * @return true|\WP_Error
+	 */
+	private static function ancora_ammissibile( int $atto ) {
+		clean_post_cache( $atto );
+
+		return self::ammissibile( $atto );
+	}
+
+	/**
 	 * Mette nello storico la copia di un atto, tutto o niente.
 	 *
 	 * @param int                  $atto     Atto.
@@ -180,6 +195,12 @@ final class CopieStorico {
 	 * @return int|\WP_Error
 	 */
 	private static function metti_in_fila( int $atto, array $file, $oggetto, $conferma, string $origine ) {
+		$ammesso = self::ancora_ammissibile( $atto );
+
+		if ( is_wp_error( $ammesso ) ) {
+			return $ammesso;
+		}
+
 		$presenti = self::presenti_di( $atto );
 
 		if ( null === $presenti ) {
@@ -298,6 +319,17 @@ final class CopieStorico {
 
 		if ( null === $dopo || array( $copia ) !== array_slice( $dopo, 0, 1 ) ) {
 			return $fallita( 'albo_copia_gia_presente', __( 'Copia non creata: nello stesso momento e\' entrata un\'altra copia dello stesso atto.', 'albo-pretorio-pa' ), $documento );
+		}
+
+		/*
+		 * L'annullamento e la proroga non passano dal blocco dell'atto: se uno
+		 * dei due e' arrivato durante l'ingresso, l'atto non e' piu' quello
+		 * controllato, e la copia si ritira prima del registro.
+		 */
+		$ammesso = self::ancora_ammissibile( $atto );
+
+		if ( is_wp_error( $ammesso ) ) {
+			return $fallita( $ammesso->get_error_code(), $ammesso->get_error_message() . ' ' . __( 'L\'atto e\' cambiato mentre la copia entrava, e la copia e\' stata ritirata.', 'albo-pretorio-pa' ), $documento );
 		}
 
 		$voce = conformita_core_registra_voce(
