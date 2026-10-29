@@ -3,7 +3,7 @@
 Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro finito con
 com'è andata davvero.
 
-**Stato: primo e secondo passo uniti, terzo passo in revisione.** Requisito ALBO-36, righe di
+**Stato: i tre passi uniti; la ricerca dello storico in revisione.** Requisito ALBO-36, righe di
 collaudo A-261..A-265 per il primo passo. Nessuna versione nuova del meccanismo comune.
 
 ## In tre paragrafi
@@ -291,7 +291,7 @@ togliere la pagina dello storico dalle risposte con il divieto fa fallire A-276.
 
 ### 8. Che cosa non fa (in questo passo)
 
-Non ha ancora la ricerca: arriva in una richiesta di unione a sé, subito dopo. Non mostra mai
+La ricerca, per parole dell'oggetto della copia o per numero di registro, è arrivata in una richiesta di unione a sé (A-278, A-279); non cerca mai nell'oggetto originale, che la copia non porta con sé. Ha un tetto dichiarato, dieci parole e duecento caratteri, perché la pagina è aperta a chiunque e ogni parola si confronta con ogni copia; e usa i dati della lettura in blocco dell'elenco, senza rileggerli. Non mostra mai
 l'oggetto originale, il documento originale, il richiedente o i dati del procedimento.
 
 ### 9. Come si prova su un sito vero

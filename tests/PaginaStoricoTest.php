@@ -597,4 +597,184 @@ class PaginaStoricoTest extends \WP_UnitTestCase {
 			$this->assertStringContainsString( 'Vai alla prima pagina', $html, $valore . ': e porta alla prima.' );
 		}
 	}
+
+	/**
+	 * A-278: la ricerca per parole dell'oggetto della copia e per numero di registro.
+	 */
+	public function test_a278_ricerca(): void {
+		$this->pagina_storico();
+
+		$primo   = $this->pubblicato( 'Concessione a Mario Rossi', '2041-10-01 09:30:00' );
+		$secondo = $this->pubblicato( 'Contributo ad Anna Bianchi', '2041-10-01 10:30:00' );
+		$terzo   = $this->pubblicato( 'Rimborso a Carlo Verdi', '2041-10-01 11:30:00' );
+
+		$concessione = $this->copia( $primo, 'Concessione di un contributo per lo sport' );
+		$contributo  = $this->copia( $secondo, 'Contributo per attivita\' culturali' );
+		$rimborso    = $this->copia( $terzo, 'Rimborso di spese di viaggio' );
+		$numero      = \AlboPretorioPa\Repertorio::di( $secondo );
+
+		$this->fissa_orologi( self::DURANTE );
+		wp_set_current_user( 0 );
+
+		$tutte = (string) $this->pagina_disegnata( $this->indirizzo() );
+		$this->assertSame( array( $rimborso, $contributo, $concessione ), $this->copie_elencate( $tutte ), 'Controllo positivo: senza ricerca, tutte.' );
+		$this->assertStringNotContainsString( 'Risultati della ricerca', $tutte );
+		$this->assertStringContainsString( 'Cerca nelle copie', $tutte, 'Il modulo c\'e\'.' );
+
+		foreach ( array(
+			'una parola'            => array( 'contributo', array( $contributo, $concessione ) ),
+			'maiuscole'             => array( 'CONTRIBUTO', array( $contributo, $concessione ) ),
+			'due parole, tutte'     => array( 'contributo sport', array( $concessione ) ),
+			'numero di registro'    => array( $numero['numero'] . '/' . $numero['anno'], array( $contributo ) ),
+			'numero con gli spazi'  => array( $numero['numero'] . ' / ' . $numero['anno'], array( $contributo ) ),
+			'numero mai dato'       => array( '999/' . $numero['anno'], array() ),
+			'oggetto originale'     => array( 'Rossi', array() ),
+			'parola che non c\'e\'' => array( 'urbanistica', array() ),
+			'vuota'                 => array( '', array( $rimborso, $contributo, $concessione ) ),
+		) as $quale => list( $testo, $attese ) ) {
+			$html = (string) $this->pagina_disegnata( $this->indirizzo( array( VistaStorico::CAMPO_TESTO => $testo ) ) );
+
+			$this->assertSame( $attese, $this->copie_elencate( $html ), $quale . ': le copie trovate.' );
+
+			if ( '' === $testo ) {
+				$this->assertStringNotContainsString( 'Risultati della ricerca', $html, $quale . ': non e\' una ricerca.' );
+				continue;
+			}
+
+			$this->assertStringContainsString( 'Risultati della ricerca', $html, $quale . ': il titolo dice che e\' una ricerca.' );
+			$this->assertStringContainsString( 'Mostra tutte le copie', $html, $quale . ': si torna all\'elenco intero.' );
+
+			if ( array() === $attese ) {
+				$this->assertStringContainsString( 'Nessuna copia risponde alla ricerca.', $html, $quale . ': lo dice.' );
+			}
+		}
+	}
+
+	/**
+	 * A-278: la ricerca per numero usa i dati gia' letti per l'elenco, e non li rilegge.
+	 *
+	 * Dopo la lettura in blocco, ogni lettura dei dati di una copia attraverso
+	 * i metadati di WordPress risponde vuota: la copia si trova lo stesso.
+	 */
+	public function test_a278_ricerca_senza_seconda_lettura(): void {
+		$this->pagina_storico();
+
+		$atto   = $this->pubblicato();
+		$copia  = $this->copia( $atto );
+		$numero = \AlboPretorioPa\Repertorio::di( $atto );
+
+		$this->fissa_orologi( self::DURANTE );
+		wp_set_current_user( 0 );
+
+		$vuota = static function ( $valore, $contenuto, $chiave ) {
+			return CopieStorico::META_DATI === $chiave ? array( '' ) : $valore;
+		};
+
+		add_filter( 'get_post_metadata', $vuota, 10, 3 );
+
+		try {
+			$this->assertNull( CopieStorico::dati( $copia ), 'Precondizione: la lettura dei dati della copia risponde vuota.' );
+			$html = (string) $this->pagina_disegnata( $this->indirizzo( array( VistaStorico::CAMPO_TESTO => $numero['numero'] . '/' . $numero['anno'] ) ) );
+		} finally {
+			remove_filter( 'get_post_metadata', $vuota, 10 );
+		}
+
+		$this->assertSame( array( $copia ), $this->copie_elencate( $html ), 'La copia si trova con i dati della lettura in blocco.' );
+		$this->assertStringContainsString( '</span>' . $numero['numero'] . '/' . $numero['anno'] . '</td>', $html, 'E la riga mostra il numero letto in blocco.' );
+		$this->assertStringNotContainsString( 'Nessuna copia risponde alla ricerca.', $html );
+	}
+
+	/**
+	 * A-278: le pagine dell'elenco conservano la ricerca.
+	 */
+	public function test_a278_ricerca_e_pagine(): void {
+		$this->pagina_storico();
+
+		for ( $i = 0; $i < 21; $i++ ) {
+			$this->copia( $this->pubblicato( 'Atto di prova ' . $i, sprintf( '2041-10-01 09:%02d:00', $i ) ), 'Contributo numero ' . $i );
+		}
+
+		$altra = $this->copia( $this->pubblicato( 'Altro atto', '2041-10-01 10:30:00' ), 'Rimborso di spese' );
+
+		$this->fissa_orologi( self::DURANTE );
+		wp_set_current_user( 0 );
+
+		$prima = (string) $this->pagina_disegnata( $this->indirizzo( array( VistaStorico::CAMPO_TESTO => 'contributo' ) ) );
+
+		$this->assertCount( 20, $this->copie_elencate( $prima ), 'Venti nella prima pagina.' );
+		$this->assertNotContains( $altra, $this->copie_elencate( $prima ), 'La copia che non risponde non c\'e\'.' );
+		$this->assertStringContainsString( '21 copie', $prima, 'Il conteggio e\' quello della ricerca.' );
+		$this->assertStringContainsString(
+			esc_url(
+				$this->indirizzo(
+					array(
+						VistaStorico::CAMPO_TESTO  => 'contributo',
+						VistaStorico::CAMPO_PAGINA => 2,
+					)
+				)
+			),
+			$prima,
+			'Il collegamento alla seconda pagina conserva la ricerca.'
+		);
+
+		$seconda = (string) $this->pagina_disegnata(
+			$this->indirizzo(
+				array(
+					VistaStorico::CAMPO_TESTO  => 'contributo',
+					VistaStorico::CAMPO_PAGINA => 2,
+				)
+			)
+		);
+		$this->assertCount( 1, $this->copie_elencate( $seconda ), 'Una nella seconda.' );
+	}
+
+	/**
+	 * A-279: la ricerca scritta male non mostra l'elenco intero, e il modulo e' accessibile.
+	 */
+	public function test_a279_ricerca_scritta_male(): void {
+		$this->pagina_storico();
+
+		$copia = $this->copia( $this->pubblicato() );
+
+		$this->fissa_orologi( self::DURANTE );
+		wp_set_current_user( 0 );
+
+		$controllo = (string) $this->pagina_disegnata( $this->indirizzo() );
+		$this->assertSame( array( $copia ), $this->copie_elencate( $controllo ), 'Controllo positivo: la copia e\' nell\'elenco.' );
+		$this->assertStringContainsString( '<label for="' . VistaStorico::CAMPO_TESTO . '">', $controllo, 'Il campo ha l\'etichetta.' );
+		$this->assertStringContainsString( 'aria-describedby="' . VistaStorico::CAMPO_TESTO . '-aiuto"', $controllo, 'Il campo e\' collegato al suo aiuto.' );
+		$this->assertStringContainsString( 'id="' . VistaStorico::CAMPO_TESTO . '-aiuto"', $controllo, 'L\'aiuto c\'e\'.' );
+		$this->assertStringNotContainsString( 'aria-invalid', $controllo, 'Senza errore, il campo non e\' segnato.' );
+
+		foreach ( array(
+			'solo segni'    => '<b></b>',
+			'numero zero'   => '0/2041',
+			'numero oltre'  => '9999999999/2041',
+			'anno zero'     => '1/0000',
+			'troppe parole' => trim( str_repeat( 'contributo ', VistaStorico::PAROLE_MASSIME + 1 ) ),
+			'troppo lunga'  => str_repeat( 'c', VistaStorico::LUNGHEZZA_MASSIMA + 1 ),
+		) as $quale => $testo ) {
+			$html = (string) $this->pagina_disegnata( $this->indirizzo( array( VistaStorico::CAMPO_TESTO => $testo ) ) );
+
+			$this->assertSame( array(), $this->copie_elencate( $html ), $quale . ': nessuna riga, e non l\'elenco intero.' );
+			$this->assertStringContainsString( 'La ricerca non e&#039; stata fatta', $html, $quale . ': lo dice.' );
+			$this->assertStringContainsString( 'role="alert"', $html, $quale . ': ad alta voce.' );
+			$this->assertStringContainsString( 'aria-invalid="true"', $html, $quale . ': il campo e\' segnato.' );
+			$this->assertStringContainsString( 'aria-describedby="' . VistaStorico::CAMPO_TESTO . '-aiuto ' . VistaStorico::ID_ERRORE . '"', $html, $quale . ': e collegato all\'errore.' );
+		}
+
+		// Al limite, la ricerca si fa: dieci parole che la copia ha tutte, e un testo lungo duecento caratteri.
+		$dieci = trim( str_repeat( 'contributo ', VistaStorico::PAROLE_MASSIME ) );
+		$this->assertSame( array( $copia ), $this->copie_elencate( (string) $this->pagina_disegnata( $this->indirizzo( array( VistaStorico::CAMPO_TESTO => $dieci ) ) ) ), 'Al limite delle parole: la ricerca si fa.' );
+		$lunga = 'contributo' . str_repeat( ' ', VistaStorico::LUNGHEZZA_MASSIMA - 20 ) . 'contributo';
+		$this->assertSame( VistaStorico::LUNGHEZZA_MASSIMA, mb_strlen( $lunga ), 'Precondizione: il testo e\' lungo quanto il limite.' );
+		$this->assertSame( array( $copia ), $this->copie_elencate( (string) $this->pagina_disegnata( $this->indirizzo( array( VistaStorico::CAMPO_TESTO => $lunga ) ) ) ), 'Al limite dei caratteri: la ricerca si fa.' );
+
+		$html = (string) $this->pagina_disegnata( add_query_arg( VistaStorico::CAMPO_TESTO . '[]', 'contributo', $this->indirizzo() ) );
+		$this->assertSame( array(), $this->copie_elencate( $html ), 'Come elenco: nessuna riga.' );
+		$this->assertStringContainsString( 'La ricerca non e&#039; stata fatta', $html, 'Come elenco: lo dice.' );
+
+		$html = (string) $this->pagina_disegnata( $this->indirizzo( array( VistaStorico::CAMPO_TESTO => '"><script>contributo</script>' ) ) );
+		$this->assertStringNotContainsString( '<script>', $html, 'Il testo scritto non diventa codice.' );
+	}
 }
