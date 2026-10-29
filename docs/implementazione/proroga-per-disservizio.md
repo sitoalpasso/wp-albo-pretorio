@@ -68,8 +68,9 @@ mostrati, non i campi del modulo. Se nel frattempo il risultato è cambiato, nie
 scrive e si rifà l'anteprima. Sotto, l'elenco delle proroghe già disposte, con giorni,
 attestazione, chi e quando.
 
-Una proroga non si annulla. Un errore si corregge con una defissione anticipata (ALBO-22),
-quando ci sarà.
+Una proroga non si annulla e non si corregge: la schermata dice di controllare giorni e atti
+nell'anteprima prima di confermare (A-281). La defissione anticipata non serve a correggerla,
+perché si fa solo per una delle cause del suo elenco.
 
 ### 4. Dati letti e scritti
 
