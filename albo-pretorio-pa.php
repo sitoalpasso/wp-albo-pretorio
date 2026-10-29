@@ -348,6 +348,7 @@ add_action( 'before_delete_post', array( DocumentiAtto::class, 'da_before_delete
 add_action( 'add_meta_boxes_' . TIPO, array( RiquadroPassaggi::class, 'riquadro' ) );
 add_action( 'admin_action_editpost', array( RiquadroPassaggi::class, 'da_editpost' ) );
 add_action( 'admin_notices', array( RiquadroPassaggi::class, 'mostra_esito' ) );
+add_action( 'post_submitbox_misc_actions', array( RiquadroPassaggi::class, 'avviso_invio' ) );
 
 /*
  * Lo sbarramento si aggancia al caricamento e non all'avvio riuscito: deve

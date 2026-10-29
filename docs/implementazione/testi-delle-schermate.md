@@ -3,7 +3,7 @@
 Correzioni di frasi e di etichette che dicevano una cosa non vera o lasciavano l'addetto
 senza sapere cosa fare. Sono emerse rileggendo le schermate dal punto di vista di chi le
 usa, una per una. Nessuna cambia un comportamento: cambiano solo le parole. Righe di
-collaudo A-280..A-283.
+collaudo A-280..A-285.
 
 ## 1. Cosa cambia e perché
 
@@ -31,18 +31,39 @@ nuovo, e WordPress mostrava quella degli articoli ("Aggiungi nuovo articolo"). S
 le etichette che compaiono nel menu e nell'elenco degli atti: "Nuovo atto", "Tutti gli
 atti", "Vedi atto", "Nessun atto nel cestino.".
 
+**Avviso nel riquadro di invio di WordPress (A-284, A-285).** Il riquadro di invio di
+WordPress, in alto a destra nella schermata dell'atto, mostra a chi pubblica il pulsante
+"Pubblica", che l'albo rifiuta: l'atto si pubblica dal riquadro Pubblicazione quando è in
+verifica. E chi manda un atto in verifica cambiando nello stesso invio anche un dato se lo
+vede rifiutare, giustamente, e lo scopre solo dal messaggio. Nella bozza dell'atto, sotto
+la riga dello stato, compare ora un avviso fisso:
+
+- a chi redige soltanto: prima si salva la bozza con dati e documenti, poi si preme
+  "Invia per la revisione";
+- a chi pubblica: prima si salva la bozza, poi si sceglie "In attesa di revisione" nel
+  menu Stato e si salva di nuovo; e il pulsante "Pubblica" del riquadro non pubblica
+  l'atto, che si pubblica con "Pubblica l'atto" del riquadro Pubblicazione.
+
+L'avviso non compare in un atto in verifica o pubblicato, in un contenuto di altro tipo,
+né a chi non può modificare l'atto. I nomi dei pulsanti di WordPress sono quelli della
+traduzione italiana, da confermare sulla copia di prova. Il pulsante di WordPress resta
+dov'è: nasconderlo o rinominarlo toccherebbe una schermata di WordPress, e l'avviso basta
+a togliere il tentativo a vuoto.
+
 ## 2. File toccati
 
 `includes/class-passaggi.php` e `includes/class-riquadro-passaggi.php` (dati eccedenti),
 `includes/class-schermata-proroga.php` (proroga), `includes/class-scheda-documenti.php`
-(allegati), `includes/class-tipo-atto.php` (etichette). Nei test: `DefissioneTest`,
-`ProrogaTest`, `DocumentiAttoTest`, `TipoAttoTest`.
+(allegati), `includes/class-tipo-atto.php` (etichette). Per l'avviso,
+`RiquadroPassaggi::avviso_invio()` agganciato a `post_submitbox_misc_actions` in
+`albo-pretorio-pa.php`. Nei test: `DefissioneTest`, `ProrogaTest`, `DocumentiAttoTest`,
+`TipoAttoTest`, `AvvisoInvioTest`.
 
 ## 3. Cosa non fa
 
 Non costruisce la sostituzione per oscuramento (ALBO-12) né la scelta di più file insieme.
-Non tocca il riquadro standard di WordPress con il pulsante "Pubblica" e il passaggio in
-verifica: è un'unità a parte.
+Non nasconde né rinomina il pulsante "Pubblica" di WordPress e non aggiunge un pulsante
+"Manda in verifica" al riquadro dell'albo.
 
 ## 4. Come si prova su un'installazione reale
 
@@ -50,4 +71,6 @@ Su un atto pubblicato e non scaduto, aprire il riquadro "Togli dall'albo prima d
 scadenza" e leggere la frase sui dati eccedenti; scegliere la causa dei dati eccedenti da
 codice e leggere il rifiuto. Aprire la schermata della proroga e leggere la seconda frase.
 In una bozza, leggere la frase sotto il campo dell'allegato. Nel menu dell'albo, leggere le
-voci "Tutti gli atti" e "Nuovo atto".
+voci "Tutti gli atti" e "Nuovo atto". In una bozza, una volta come utente che redige
+soltanto e una volta come responsabile, leggere l'avviso sotto lo stato nel riquadro di
+invio e confrontare i nomi dei pulsanti con quelli della schermata.
