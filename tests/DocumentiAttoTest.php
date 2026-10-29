@@ -768,4 +768,20 @@ class DocumentiAttoTest extends \WP_UnitTestCase {
 
 		$this->assertSame( '', $this->riquadro( $atto ), 'Senza permesso il riquadro non stampa niente.' );
 	}
+
+	/**
+	 * A-282: sotto il campo dell'allegato la bozza dice come se ne aggiungono
+	 * piu' d'uno: uno alla volta, salvando la bozza fra l'uno e l'altro.
+	 */
+	public function test_a282_un_allegato_alla_volta_detto_bene(): void {
+		wp_set_current_user( $this->redattore );
+
+		$html = $this->riquadro( $this->atto() );
+
+		$this->assertStringContainsString( 'Aggiungi un allegato ulteriore', $html, 'Precondizione: il campo c\'e\'.' );
+		$this->assertStringNotContainsString( 'Un file per salvataggio', $html, 'Non la frase di prima, troppo corta.' );
+		$this->assertStringContainsString( 'un allegato alla volta', $html );
+		$this->assertStringContainsString( 'si salva la bozza', $html );
+		$this->assertStringContainsString( 'il prossimo', $html, 'Dopo il salvataggio il campo serve per il prossimo.' );
+	}
 }

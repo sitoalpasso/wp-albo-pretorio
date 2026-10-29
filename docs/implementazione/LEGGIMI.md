@@ -89,3 +89,5 @@ Schede presenti:
   finché l'amministrazione non lo accende con gli anni di ogni copia, con il permesso apposito,
   la copia oscurata come contenuto distinto e il piano in tre passi. Righe di collaudo
   A-261..A-265 per il primo passo.
+- [`testi-delle-schermate.md`](testi-delle-schermate.md): frasi ed etichette corrette perché
+  dicessero il vero e dicessero all'addetto cosa fare. Righe di collaudo A-280..A-283.

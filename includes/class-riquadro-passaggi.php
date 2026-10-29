@@ -392,7 +392,7 @@ final class RiquadroPassaggi {
 
 		printf(
 			'<p>%s</p>',
-			esc_html__( 'Si toglie un atto solo se la sua pubblicazione non doveva esserci in quella forma. Il termine di pubblicazione di un atto regolare non si accorcia (art. 124 del d.lgs. 267/2000). I dati eccedenti non si tolgono con l\'atto: si oscurano sostituendo il documento. L\'atto sparisce subito dalla vista pubblica e la fine pianificata resta nel registro.', 'albo-pretorio-pa' )
+			esc_html__( 'Si toglie un atto solo se la sua pubblicazione non doveva esserci in quella forma. Il termine di pubblicazione di un atto regolare non si accorcia (art. 124 del d.lgs. 267/2000). I dati eccedenti non si tolgono con l\'atto: si oscurano nel documento. La sostituzione del documento di un atto pubblicato non e\' ancora disponibile: il caso si segnala subito all\'amministratore del sito. L\'atto sparisce subito dalla vista pubblica e la fine pianificata resta nel registro.', 'albo-pretorio-pa' )
 		);
 
 		printf( '<fieldset><legend>%s</legend>', esc_html__( 'Causa', 'albo-pretorio-pa' ) );

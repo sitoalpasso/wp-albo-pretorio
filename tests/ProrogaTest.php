@@ -1842,4 +1842,28 @@ class ProrogaTest extends \WP_UnitTestCase {
 
 		$this->assertSame( array( '2041-10-18', '2041-10-19' ), array( conformita_core_fine_pubblicazione( $primo ), conformita_core_fine_pubblicazione( $secondo ) ), 'Tutti e due prorogati due volte, con la fine.' );
 	}
+
+	/**
+	 * A-281: la schermata della proroga non rinvia alla defissione per gli
+	 * errori, perche' una proroga sbagliata non e' fra le cause della defissione.
+	 *
+	 * Dice che la proroga non si annulla e non si corregge, e che per questo i
+	 * giorni e gli atti si controllano nell'anteprima prima di confermare.
+	 */
+	public function test_a281_la_proroga_non_rinvia_alla_defissione(): void {
+		$schermata = $this->come(
+			$this->pubblicatore,
+			static function () {
+				ob_start();
+				SchermataProroga::mostra();
+
+				return (string) ob_get_clean();
+			}
+		);
+
+		$this->assertStringContainsString( 'Proroga per disservizio', $schermata, 'Precondizione: la schermata si disegna.' );
+		$this->assertStringNotContainsString( 'defissione', $schermata, 'Nessun rinvio alla defissione.' );
+		$this->assertStringContainsString( 'non si annulla e non si corregge', $schermata );
+		$this->assertStringContainsString( 'prima di confermare', $schermata, 'Il controllo si fa nell\'anteprima, prima.' );
+	}
 }

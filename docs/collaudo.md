@@ -907,6 +907,19 @@ pagina pubblica dello storico (A-272..A-277) e la sua ricerca (A-278, A-279).
 | A-278 | fatto | **La ricerca**: tre copie con oggetti propri, gli atti con oggetti che nominano persone; ricerca per una parola, in maiuscolo, per due parole, per numero di registro con e senza spazi, per un numero mai dato, per una parola dell'oggetto originale, per una parola che non c'è, vuota; poi la ricerca per numero con i metadati della copia che rispondono vuoti dopo la lettura dell'elenco; poi 22 copie e una ricerca che ne trova 21 | trovate le copie che hanno tutte le parole nell'oggetto della copia, o il numero di registro dell'atto; la parola dell'oggetto originale non trova niente; la ricerca vuota è l'elenco intero senza il titolo dei risultati; ogni ricerca ha il titolo dei risultati e il collegamento all'elenco intero, e senza risultati lo dice; con i metadati vuoti la copia si trova lo stesso, con il numero letto per l'elenco; venti nella prima pagina, il conteggio della ricerca, il collegamento alla seconda pagina che conserva la ricerca, una nella seconda |
 | A-279 | fatto | **Ricerca scritta male e modulo accessibile**: solo segni, numero zero, numero oltre il massimo, anno zero, undici parole, duecentouno caratteri, poi dieci parole e duecento caratteri, il campo come elenco, un testo con un marcatore di codice | nessuna riga e mai l'elenco intero; il messaggio che la ricerca non è stata fatta, ad alta voce; il campo segnato come sbagliato e collegato al suo aiuto e all'errore; al limite di dieci parole e duecento caratteri la ricerca si fa; senza errore il campo ha etichetta e aiuto e non è segnato; il testo scritto non diventa codice |
 
+## Testi delle schermate
+
+Stesso prefisso `A-`. Righe della scheda
+[`testi-delle-schermate.md`](implementazione/testi-delle-schermate.md): frasi ed etichette che
+dicevano una cosa non vera o non dicevano all'addetto cosa fare.
+
+| Riga | Stato | Prova | Atteso |
+|---|---|---|---|
+| A-280 | fatto | **Dati eccedenti in un atto pubblicato**: il rifiuto della defissione per dati eccedenti e il riquadro "Togli dall'albo prima della scadenza" | nessuno dei due promette la sostituzione del documento; tutti e due dicono che i dati si oscurano, che la sostituzione per un atto pubblicato non è ancora disponibile e che il caso si segnala all'amministratore del sito |
+| A-281 | fatto | **La schermata della proroga** | non rinvia alla defissione; dice che la proroga non si annulla e non si corregge, e che si controlla nell'anteprima prima di confermare |
+| A-282 | fatto | **Il campo dell'allegato in una bozza** | dice che si aggiunge un allegato alla volta, salvando la bozza, e che il campo torna libero per il prossimo |
+| A-283 | fatto | **Le etichette del tipo atto** | la voce per l'atto nuovo è "Nuovo atto" e non quella degli articoli; l'elenco è "Tutti gli atti"; dichiarate anche "Vedi atto" e "Nessun atto nel cestino." |
+
 ## Collaudo congiunto con la trasparenza
 
 Con entrambi i plugin attivi sullo stesso sito: le pagine dell'albo hanno noindex e sono

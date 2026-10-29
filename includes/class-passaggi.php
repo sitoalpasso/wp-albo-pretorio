@@ -104,7 +104,7 @@ final class Passaggi {
 	const AZIONE_DEFISSIONE = 'defissione_anticipata';
 
 	/**
-	 * La causa che non e' una rimozione: i dati eccedenti si oscurano sostituendo il file (ALBO-12).
+	 * La causa che non e' una rimozione: i dati eccedenti si oscurano nel documento (ALBO-12).
 	 *
 	 * @var string
 	 */
@@ -1315,7 +1315,7 @@ final class Passaggi {
 		if ( self::CAUSA_DATI_ECCEDENTI === $causa ) {
 			return new \WP_Error(
 				'albo_causa_oscuramento',
-				__( 'L\'atto resta pubblicato: i dati eccedenti, non pertinenti o non necessari non si tolgono con l\'atto, si oscurano sostituendo il documento con la versione oscurata, e la pubblicazione continua.', 'albo-pretorio-pa' )
+				__( 'L\'atto resta pubblicato: i dati eccedenti, non pertinenti o non necessari non si tolgono con l\'atto, si oscurano nel documento e la pubblicazione continua. La sostituzione del documento di un atto pubblicato con la sua versione oscurata non e\' ancora disponibile: il caso si segnala subito all\'amministratore del sito.', 'albo-pretorio-pa' )
 			);
 		}
 

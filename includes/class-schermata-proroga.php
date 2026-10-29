@@ -144,7 +144,7 @@ final class SchermataProroga {
 		printf(
 			'<p>%s</p><p>%s</p>',
 			esc_html__( 'Le linee guida AgID sulla pubblicita\' legale contano un giorno di pubblicazione solo se l\'albo e\' rimasto consultabile per almeno dodici ore in quel giorno. Per ogni giorno sotto questa soglia gli atti che erano in pubblicazione restano esposti un giorno in piu\', sulla base di un\'attestazione del responsabile della pubblicazione o di un suo delegato.', 'albo-pretorio-pa' ),
-			esc_html__( 'Indicare i giorni gia\' trascorsi e gli estremi dell\'attestazione. Numero e data di inizio degli atti non cambiano; il giorno della proroga non conta, come il giorno di pubblicazione. La proroga non si annulla: un errore si corregge con una defissione anticipata.', 'albo-pretorio-pa' )
+			esc_html__( 'Indicare i giorni gia\' trascorsi e gli estremi dell\'attestazione. Numero e data di inizio degli atti non cambiano; il giorno della proroga non conta, come il giorno di pubblicazione. La proroga non si annulla e non si corregge: i giorni e gli atti si controllano nell\'anteprima prima di confermare.', 'albo-pretorio-pa' )
 		);
 
 		$valori = array(

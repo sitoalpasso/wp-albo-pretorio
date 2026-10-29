@@ -174,7 +174,7 @@ final class SchedaDocumenti {
 
 		if ( $in_bozza ) {
 			self::campo_file( self::CAMPO_ULTERIORE, __( 'Aggiungi un allegato ulteriore', 'albo-pretorio-pa' ) );
-			printf( '<p class="description">%s</p>', esc_html__( 'Un file per salvataggio. I documenti si caricano e si tolgono salvando la bozza.', 'albo-pretorio-pa' ) );
+			printf( '<p class="description">%s</p>', esc_html__( 'Si aggiunge un allegato alla volta: scelto il file, si salva la bozza, e il campo torna libero per il prossimo. Anche per togliere un documento si salva la bozza.', 'albo-pretorio-pa' ) );
 		} else {
 			printf( '<p class="description">%s</p>', esc_html__( 'I documenti si cambiano solo mentre l\'atto e\' in bozza.', 'albo-pretorio-pa' ) );
 		}
