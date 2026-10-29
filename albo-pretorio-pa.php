@@ -240,6 +240,8 @@ require_once __DIR__ . '/includes/class-importazione.php';
 require_once __DIR__ . '/includes/class-schermata-importazione.php';
 require_once __DIR__ . '/includes/class-pagina-pubblica.php';
 require_once __DIR__ . '/includes/class-vista-pubblica.php';
+require_once __DIR__ . '/includes/class-pagina-storico.php';
+require_once __DIR__ . '/includes/class-vista-storico.php';
 require_once __DIR__ . '/includes/funzioni-api.php';
 
 /*
@@ -360,3 +362,4 @@ ChiusuraPubblicazione::aggancia();
  * niente e il tipo non esiste, quindi nessuna regola ha qualcosa da fare.
  */
 PaginaPubblica::aggancia();
+PaginaStorico::aggancia();

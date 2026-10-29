@@ -103,6 +103,11 @@ produrre un rifiuto rumoroso, mai un permesso silenzioso.
   meccanismo comune e l'albo li nega a sua volta, con lo stesso rifiuto di un atto
   scaduto. Nell'amministrazione si aprono a chi gestisce gli atti, non a chi ha il
   solo permesso di consultare gli scaduti.
+- La copia nello storico pubblico si consegna al pubblico soltanto con lo storico acceso,
+  la pagina dello storico presente e la copia in vista, e soltanto il documento registrato
+  nella copia: un altro file appeso alla copia, o il documento originale chiesto con il numero
+  della copia, non esce (A-275). Il tipo della copia resta chiuso agli indirizzi di WordPress e
+  all'interfaccia per programmi.
 - Un atto tolto dall'albo prima della scadenza è irraggiungibile dall'istante dopo, per la
   data di fine riportata al giorno prima e non per lo stato: riscritto lo stato a pubblicato
   nella banca dati, resta irraggiungibile (A-236). Limite noto, comune all'annullato

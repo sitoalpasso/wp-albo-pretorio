@@ -3,7 +3,7 @@
 Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro finito con
 com'è andata davvero.
 
-**Stato: primo passo costruito, in attesa di revisione.** Requisito ALBO-36, righe di
+**Stato: primo e secondo passo uniti, terzo passo in revisione.** Requisito ALBO-36, righe di
 collaudo A-261..A-265 per il primo passo. Nessuna versione nuova del meccanismo comune.
 
 ## In tre paragrafi
@@ -233,6 +233,74 @@ Accendere lo storico con tre anni. Dalla consultazione degli scaduti scegliere u
 scaduto, caricare un PDF oscurato, correggere l'oggetto, confermare. La copia è nell'elenco
 dello storico con la fine a tre anni, e il registro ha la voce. Toglierla con la causa e il
 motivo: sparisce dall'elenco, e il registro ha la voce dell'uscita.
+
+## I nove punti, per il terzo passo
+
+### 1. File che si creano o si modificano
+
+| File | Che cosa |
+|---|---|
+| `includes/class-pagina-storico.php` | il codice breve `[albo_pretorio_storico]`, le pagine che lo contengono, quando una copia si mostra, la "non trovata", la porta del punto di consegna |
+| `includes/class-vista-storico.php` | elenco in tabella, pagine dell'elenco, scheda della copia con l'avviso e il documento |
+| `includes/class-pagina-pubblica.php` | la pagina dello storico riceve le regole della risposta dell'albo: divieto ai motori e alle memorie, fuori dalla mappa del sito, foglio di stile |
+| `includes/class-vista-pubblica.php` | quattro pezzi del disegno resi usabili dallo storico, senza cambiarli |
+| `tests/PaginaStoricoTest.php` | righe A-272..A-277 |
+
+### 2. Requisito servito
+
+ALBO-36, la pagina pubblica dello storico.
+
+### 3. Percorso di chi usa il sito
+
+L'amministrazione scrive `[albo_pretorio_storico]` in una pagina diversa da quella dell'albo.
+Il visitatore vede un avviso che dice che sono copie con i dati personali oscurati e come
+chiedere l'originale, poi l'elenco: numero di registro, tipo, oggetto della copia, periodo
+all'albo, fino a quando la copia resta consultabile. Dalla scheda scarica la copia oscurata
+del documento. Spento lo storico, la pagina resta ma il codice breve non disegna niente.
+
+### 4. Dati letti e scritti
+
+Soltanto letture: la copia, i suoi dati fissati all'ingresso, il suo documento, la sua fine,
+l'impostazione dello storico. Nessuna scrittura.
+
+### 5. Permessi
+
+Nessuno: è una pagina pubblica, in sola lettura. Il tipo della copia resta chiuso agli
+indirizzi di WordPress e all'interfaccia per programmi; si dichiara consultabile soltanto per il
+punto di consegna, con lo storico acceso e la pagina presente.
+
+### 6. Modi di guasto previsti
+
+- Storico spento, copia tolta o finita, copia mai esistita, numero scritto male: la scheda
+  risponde "non trovata" con le stesse intestazioni della "non trovata" dell'albo, e il
+  documento non esce.
+- Un altro file appeso alla copia, o il documento originale chiesto con il numero della copia:
+  non esce, perché si consegna soltanto il documento registrato nella copia.
+- Una pagina con il codice dell'albo e quello dello storico insieme: è la pagina dell'albo, e
+  lo storico non vi si disegna.
+- Elenco delle copie, o dati e documento delle copie, che non si leggono: la pagina lo dice,
+  invece di mostrare un elenco vuoto o più corto. Dati e documento di tutte le copie si leggono
+  in una volta, con una lettura che distingue l'assenza dalla risposta mancata.
+- Una pagina dell'elenco che non esiste o scritta male: la pagina lo dice e porta alla prima.
+
+### 7. Test aggiunti
+
+Righe A-272..A-277 di `collaudo.md`, in `tests/PaginaStoricoTest.php`. Mutazioni provate:
+togliere il controllo che il documento chiesto sia quello della copia fa fallire A-275;
+togliere la pagina dello storico dalle risposte con il divieto fa fallire A-276.
+
+### 8. Che cosa non fa (in questo passo)
+
+Non ha ancora la ricerca: arriva in una richiesta di unione a sé, subito dopo. Non mostra mai
+l'oggetto originale, il documento originale, il richiedente o i dati del procedimento.
+
+### 9. Come si prova su un sito vero
+
+Con una copia già nello storico, creare una pagina con `[albo_pretorio_storico]`. Da un
+browser senza accesso: la copia è nell'elenco, la scheda ha l'avviso e il documento oscurato
+si scarica; l'indirizzo della scheda dell'atto sulla pagina dell'albo resta "non trovata".
+Nel sorgente della pagina c'è `noindex`. Spegnere lo storico: la pagina è vuota, la scheda
+"non trovata", il documento non si scarica. Riaccenderlo: tutto torna.
 
 ## Decisioni prese
 

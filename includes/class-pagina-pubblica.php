@@ -374,7 +374,9 @@ final class PaginaPubblica {
 
 	/**
 	 * La risposta in corso e' della pagina dell'albo: la pagina, oppure una sua
-	 * scheda trasformata in "non trovata".
+	 * scheda trasformata in "non trovata". Vale anche per la pagina dello
+	 * storico pubblico (ALBO-36), che ha le stesse regole: e' la stessa
+	 * politica, dichiarata a core per la sua sezione.
 	 *
 	 * Sono le risposte che portano il divieto ai motori e alle memorie. La
 	 * "non trovata" di una scheda li porta come la pagina: e' l'indirizzo
@@ -385,7 +387,7 @@ final class PaginaPubblica {
 	 * @return bool
 	 */
 	public static function risposta_dell_albo(): bool {
-		return self::$scheda_negata || self::richiesta_dell_albo();
+		return self::$scheda_negata || self::richiesta_dell_albo() || PaginaStorico::richiesta_dello_storico();
 	}
 
 	/**
@@ -821,9 +823,12 @@ final class PaginaPubblica {
 	/**
 	 * La risposta "non trovata" della pagina dell'albo, uguale per ogni atto che non si mostra.
 	 *
+	 * La usa anche la pagina dello storico per una copia che non si mostra: la
+	 * risposta, con divieto ai motori e alle memorie, e' la stessa.
+	 *
 	 * @param \WP_Query $interrogazione Interrogazione principale.
 	 */
-	private static function nega( \WP_Query $interrogazione ): void {
+	public static function nega( \WP_Query $interrogazione ): void {
 		self::$scheda_negata = true;
 
 		$interrogazione->set_404();
@@ -1090,13 +1095,13 @@ final class PaginaPubblica {
 	public static function da_wp_sitemaps_posts_query_args( $argomenti, $tipo = '' ) {
 		unset( $tipo );
 
-		if ( ! is_array( $argomenti ) || array() === self::pagine() ) {
+		if ( ! is_array( $argomenti ) || array() === array_merge( self::pagine(), PaginaStorico::pagine() ) ) {
 			return $argomenti;
 		}
 
 		$esclusi = isset( $argomenti['post__not_in'] ) && is_array( $argomenti['post__not_in'] ) ? $argomenti['post__not_in'] : array();
 
-		$argomenti['post__not_in'] = array_values( array_unique( array_merge( array_map( 'intval', $esclusi ), self::pagine() ) ) );
+		$argomenti['post__not_in'] = array_values( array_unique( array_merge( array_map( 'intval', $esclusi ), self::pagine(), PaginaStorico::pagine() ) ) );
 
 		return $argomenti;
 	}
@@ -1218,7 +1223,7 @@ final class PaginaPubblica {
 	 * Il foglio di stile dell'albo, solo sulla sua pagina.
 	 */
 	public static function da_wp_enqueue_scripts(): void {
-		if ( ! self::richiesta_dell_albo() ) {
+		if ( ! self::richiesta_dell_albo() && ! PaginaStorico::richiesta_dello_storico() ) {
 			return;
 		}
 
