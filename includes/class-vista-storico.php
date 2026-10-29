@@ -52,6 +52,26 @@ final class VistaStorico {
 	const ID_ERRORE = 'albo-pretorio-errore-ricerca';
 
 	/**
+	 * I caratteri piu' lunghi di una ricerca, prima della ripulitura.
+	 *
+	 * La pagina e' aperta a chiunque e la ricerca confronta ogni parola con
+	 * l'oggetto di ogni copia: senza un tetto, un indirizzo di qualche migliaio
+	 * di parole, ripetuto, farebbe lavorare il server a costo zero per chi lo
+	 * manda. Duecento caratteri bastano per qualunque oggetto che si cerca
+	 * davvero; oltre, la ricerca e' scritta male.
+	 *
+	 * @var int
+	 */
+	const LUNGHEZZA_MASSIMA = 200;
+
+	/**
+	 * Le parole piu' numerose di una ricerca, per la stessa ragione.
+	 *
+	 * @var int
+	 */
+	const PAROLE_MASSIME = 10;
+
+	/**
 	 * La pagina, per la richiesta indicata.
 	 *
 	 * @param array<string, mixed> $richiesta Parametri della richiesta.
@@ -77,6 +97,21 @@ final class VistaStorico {
 	 * @return array<int, int>|null
 	 */
 	public static function copie(): ?array {
+		$copie = self::copie_con_dati();
+
+		return null === $copie ? null : array_keys( $copie );
+	}
+
+	/**
+	 * Le copie in vista con i loro dati, nell'ordine dell'elenco.
+	 *
+	 * I dati sono quelli della lettura in blocco: la ricerca li usa senza
+	 * rileggerli, cosi' una seconda lettura che fallisce non fa sparire una
+	 * copia in silenzio.
+	 *
+	 * @return array<int, array<string, mixed>>|null
+	 */
+	private static function copie_con_dati(): ?array {
 		$presenti = CopieStorico::presenti();
 		$letture  = null === $presenti ? null : CopieStorico::letture( $presenti );
 
@@ -90,18 +125,18 @@ final class VistaStorico {
 			$letto = $letture[ $copia ] ?? null;
 
 			if ( null !== $letto && PaginaStorico::mostrabile( $copia, $letto ) ) {
-				$copie[ $copia ] = array( (int) $letto['dati']['anno'], (int) $letto['dati']['numero'], $copia );
+				$copie[ $copia ] = $letto['dati'];
 			}
 		}
 
-		uasort(
+		uksort(
 			$copie,
-			static function ( array $prima, array $dopo ): int {
-				return $dopo <=> $prima;
+			static function ( int $prima, int $dopo ) use ( $copie ): int {
+				return array( (int) $copie[ $dopo ]['anno'], (int) $copie[ $dopo ]['numero'], $dopo ) <=> array( (int) $copie[ $prima ]['anno'], (int) $copie[ $prima ]['numero'], $prima );
 			}
 		);
 
-		return array_keys( $copie );
+		return $copie;
 	}
 
 	/**
@@ -120,16 +155,23 @@ final class VistaStorico {
 		$html .= '<h2 id="albo-pretorio-titolo-elenco" class="albo-pretorio__titolo">' . esc_html( $titolo ) . '</h2>';
 
 		if ( $ricerca['errore'] ) {
-			return $html . '<p id="' . esc_attr( self::ID_ERRORE ) . '" class="albo-pretorio__avviso" role="alert">' . esc_html__( 'La ricerca non e\' stata fatta: scrivere una o piu\' parole dell\'oggetto, oppure il numero di registro con l\'anno, per esempio 71/2026.', 'albo-pretorio-pa' ) . '</p></section>';
+			return $html . '<p id="' . esc_attr( self::ID_ERRORE ) . '" class="albo-pretorio__avviso" role="alert">' . esc_html(
+				sprintf(
+					/* translators: 1: parole al massimo, 2: caratteri al massimo. */
+					__( 'La ricerca non e\' stata fatta: scrivere una o piu\' parole dell\'oggetto, al massimo %1$d parole e %2$d caratteri, oppure il numero di registro con l\'anno, per esempio 71/2026.', 'albo-pretorio-pa' ),
+					self::PAROLE_MASSIME,
+					self::LUNGHEZZA_MASSIMA
+				)
+			) . '</p></section>';
 		}
 
-		$copie = self::copie();
+		$letti = self::copie_con_dati();
 
-		if ( null === $copie ) {
+		if ( null === $letti ) {
 			return $html . '<p class="albo-pretorio__avviso" role="alert">' . esc_html__( 'Le copie non si leggono in questo momento. Riprovare piu\' tardi.', 'albo-pretorio-pa' ) . '</p></section>';
 		}
 
-		$copie = self::trovate( $copie, $ricerca );
+		$copie = self::trovate( $letti, $ricerca );
 
 		if ( array() === $copie ) {
 			$vuoto = $ricerca['attiva'] ? __( 'Nessuna copia risponde alla ricerca.', 'albo-pretorio-pa' ) : __( 'In questo momento non ci sono copie da consultare.', 'albo-pretorio-pa' );
@@ -157,7 +199,7 @@ final class VistaStorico {
 			)
 		) . '</p>';
 
-		$html .= self::tabella( array_slice( $copie, ( $pagina - 1 ) * self::PER_PAGINA, self::PER_PAGINA ) );
+		$html .= self::tabella( array_slice( $copie, ( $pagina - 1 ) * self::PER_PAGINA, self::PER_PAGINA ), $letti );
 
 		return $html . self::pagine( $quante, $pagina, $parametri ) . '</section>';
 	}
@@ -203,6 +245,13 @@ final class VistaStorico {
 			return $ricerca;
 		}
 
+		// Oltre il limite la ricerca non si fa: vedi `LUNGHEZZA_MASSIMA`.
+		if ( mb_strlen( $grezzo ) > self::LUNGHEZZA_MASSIMA ) {
+			$ricerca['errore'] = true;
+
+			return $ricerca;
+		}
+
 		$testo = trim( sanitize_text_field( $grezzo ) );
 
 		$ricerca['testo'] = $testo;
@@ -224,7 +273,7 @@ final class VistaStorico {
 		$parole = preg_split( '/\s+/u', mb_strtolower( $testo ), -1, PREG_SPLIT_NO_EMPTY );
 
 		$ricerca['parole'] = false === $parole ? array() : $parole;
-		$ricerca['errore'] = array() === $ricerca['parole'];
+		$ricerca['errore'] = array() === $ricerca['parole'] || count( $ricerca['parole'] ) > self::PAROLE_MASSIME;
 
 		return $ricerca;
 	}
@@ -236,23 +285,21 @@ final class VistaStorico {
 	 * nell'oggetto della copia. Mai nell'oggetto originale dell'atto, che la
 	 * copia non porta con se'.
 	 *
-	 * @param array<int, int>      $copie   Copie in vista.
-	 * @param array<string, mixed> $ricerca Ricerca ripulita.
+	 * @param array<int, array<string, mixed>> $copie   Copie in vista con i loro dati gia' letti.
+	 * @param array<string, mixed>             $ricerca Ricerca ripulita.
 	 * @return array<int, int>
 	 */
 	private static function trovate( array $copie, array $ricerca ): array {
 		if ( ! $ricerca['attiva'] ) {
-			return $copie;
+			return array_keys( $copie );
 		}
 
-		return array_values(
+		return array_keys(
 			array_filter(
 				$copie,
-				static function ( int $copia ) use ( $ricerca ): bool {
+				static function ( array $dati, int $copia ) use ( $ricerca ): bool {
 					if ( null !== $ricerca['numero'] ) {
-						$dati = CopieStorico::dati( $copia );
-
-						return null !== $dati && (int) $dati['numero'] === $ricerca['numero'] && (int) $dati['anno'] === $ricerca['anno'];
+						return (int) $dati['numero'] === $ricerca['numero'] && (int) $dati['anno'] === $ricerca['anno'];
 					}
 
 					$oggetto = mb_strtolower( (string) get_post_field( 'post_title', $copia, 'raw' ) );
@@ -264,7 +311,8 @@ final class VistaStorico {
 					}
 
 					return true;
-				}
+				},
+				ARRAY_FILTER_USE_BOTH
 			)
 		);
 	}
@@ -300,7 +348,7 @@ final class VistaStorico {
 		$html .= '<div class="albo-pretorio__campi"><div class="albo-pretorio__campo albo-pretorio__campo--largo">';
 		$html .= '<label for="' . esc_attr( self::CAMPO_TESTO ) . '">' . esc_html__( 'Oggetto o numero di registro', 'albo-pretorio-pa' ) . '</label>';
 		$html .= '<input type="text" id="' . esc_attr( self::CAMPO_TESTO ) . '" name="' . esc_attr( self::CAMPO_TESTO ) . '" value="' . esc_attr( $ricerca['testo'] ) . '" aria-describedby="' . esc_attr( $descritto ) . '"' . ( $ricerca['errore'] ? ' aria-invalid="true"' : '' ) . ' />';
-		$html .= '<p id="' . esc_attr( self::CAMPO_TESTO ) . '-aiuto" class="albo-pretorio__aiuto">' . esc_html__( 'Una o più parole dell\'oggetto della copia, oppure il numero di registro con l\'anno, per esempio 71/2026.', 'albo-pretorio-pa' ) . '</p>';
+		$html .= '<p id="' . esc_attr( self::CAMPO_TESTO ) . '-aiuto" class="albo-pretorio__aiuto">' . esc_html__( 'Una o piu\' parole dell\'oggetto della copia, oppure il numero di registro con l\'anno, per esempio 71/2026.', 'albo-pretorio-pa' ) . '</p>';
 		$html .= '</div></div>';
 		$html .= '<div class="albo-pretorio__pulsanti"><button type="submit" class="albo-pretorio__pulsante">' . esc_html__( 'Cerca', 'albo-pretorio-pa' ) . '</button>';
 
@@ -356,10 +404,11 @@ final class VistaStorico {
 	/**
 	 * La tabella delle copie, con i ruoli dichiarati come quella dell'albo.
 	 *
-	 * @param array<int, int> $copie Copie, nell'ordine.
+	 * @param array<int, int>                  $copie Copie, nell'ordine.
+	 * @param array<int, array<string, mixed>> $letti Dati delle copie, dalla lettura in blocco.
 	 * @return string
 	 */
-	private static function tabella( array $copie ): string {
+	private static function tabella( array $copie, array $letti ): string {
 		$colonne = self::colonne();
 		$html    = '<table class="albo-pretorio__tabella" role="table" aria-labelledby="albo-pretorio-titolo-elenco">';
 		$html   .= '<thead class="albo-pretorio__testata" role="rowgroup"><tr role="row">';
@@ -371,7 +420,7 @@ final class VistaStorico {
 		$html .= '</tr></thead><tbody role="rowgroup">';
 
 		foreach ( $copie as $copia ) {
-			$dati = (array) CopieStorico::dati( $copia );
+			$dati = $letti[ $copia ];
 			$fine = conformita_core_fine_pubblicazione( $copia );
 
 			$oggetto = '<a class="albo-pretorio__collegamento" href="' . esc_url( (string) PaginaStorico::indirizzo_scheda( $copia ) ) . '">' . esc_html( get_the_title( $copia ) ) . '</a>';

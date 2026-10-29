@@ -651,6 +651,40 @@ class PaginaStoricoTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-278: la ricerca per numero usa i dati gia' letti per l'elenco, e non li rilegge.
+	 *
+	 * Dopo la lettura in blocco, ogni lettura dei dati di una copia attraverso
+	 * i metadati di WordPress risponde vuota: la copia si trova lo stesso.
+	 */
+	public function test_a278_ricerca_senza_seconda_lettura(): void {
+		$this->pagina_storico();
+
+		$atto   = $this->pubblicato();
+		$copia  = $this->copia( $atto );
+		$numero = \AlboPretorioPa\Repertorio::di( $atto );
+
+		$this->fissa_orologi( self::DURANTE );
+		wp_set_current_user( 0 );
+
+		$vuota = static function ( $valore, $contenuto, $chiave ) {
+			return CopieStorico::META_DATI === $chiave ? array( '' ) : $valore;
+		};
+
+		add_filter( 'get_post_metadata', $vuota, 10, 3 );
+
+		try {
+			$this->assertNull( CopieStorico::dati( $copia ), 'Precondizione: la lettura dei dati della copia risponde vuota.' );
+			$html = (string) $this->pagina_disegnata( $this->indirizzo( array( VistaStorico::CAMPO_TESTO => $numero['numero'] . '/' . $numero['anno'] ) ) );
+		} finally {
+			remove_filter( 'get_post_metadata', $vuota, 10 );
+		}
+
+		$this->assertSame( array( $copia ), $this->copie_elencate( $html ), 'La copia si trova con i dati della lettura in blocco.' );
+		$this->assertStringContainsString( '</span>' . $numero['numero'] . '/' . $numero['anno'] . '</td>', $html, 'E la riga mostra il numero letto in blocco.' );
+		$this->assertStringNotContainsString( 'Nessuna copia risponde alla ricerca.', $html );
+	}
+
+	/**
 	 * A-278: le pagine dell'elenco conservano la ricerca.
 	 */
 	public function test_a278_ricerca_e_pagine(): void {
@@ -713,10 +747,12 @@ class PaginaStoricoTest extends \WP_UnitTestCase {
 		$this->assertStringNotContainsString( 'aria-invalid', $controllo, 'Senza errore, il campo non e\' segnato.' );
 
 		foreach ( array(
-			'solo segni'   => '<b></b>',
-			'numero zero'  => '0/2041',
-			'numero oltre' => '9999999999/2041',
-			'anno zero'    => '1/0000',
+			'solo segni'    => '<b></b>',
+			'numero zero'   => '0/2041',
+			'numero oltre'  => '9999999999/2041',
+			'anno zero'     => '1/0000',
+			'troppe parole' => trim( str_repeat( 'contributo ', VistaStorico::PAROLE_MASSIME + 1 ) ),
+			'troppo lunga'  => str_repeat( 'c', VistaStorico::LUNGHEZZA_MASSIMA + 1 ),
 		) as $quale => $testo ) {
 			$html = (string) $this->pagina_disegnata( $this->indirizzo( array( VistaStorico::CAMPO_TESTO => $testo ) ) );
 
@@ -726,6 +762,13 @@ class PaginaStoricoTest extends \WP_UnitTestCase {
 			$this->assertStringContainsString( 'aria-invalid="true"', $html, $quale . ': il campo e\' segnato.' );
 			$this->assertStringContainsString( 'aria-describedby="' . VistaStorico::CAMPO_TESTO . '-aiuto ' . VistaStorico::ID_ERRORE . '"', $html, $quale . ': e collegato all\'errore.' );
 		}
+
+		// Al limite, la ricerca si fa: dieci parole che la copia ha tutte, e un testo lungo duecento caratteri.
+		$dieci = trim( str_repeat( 'contributo ', VistaStorico::PAROLE_MASSIME ) );
+		$this->assertSame( array( $copia ), $this->copie_elencate( (string) $this->pagina_disegnata( $this->indirizzo( array( VistaStorico::CAMPO_TESTO => $dieci ) ) ) ), 'Al limite delle parole: la ricerca si fa.' );
+		$lunga = 'contributo' . str_repeat( ' ', VistaStorico::LUNGHEZZA_MASSIMA - 20 ) . 'contributo';
+		$this->assertSame( VistaStorico::LUNGHEZZA_MASSIMA, mb_strlen( $lunga ), 'Precondizione: il testo e\' lungo quanto il limite.' );
+		$this->assertSame( array( $copia ), $this->copie_elencate( (string) $this->pagina_disegnata( $this->indirizzo( array( VistaStorico::CAMPO_TESTO => $lunga ) ) ) ), 'Al limite dei caratteri: la ricerca si fa.' );
 
 		$html = (string) $this->pagina_disegnata( add_query_arg( VistaStorico::CAMPO_TESTO . '[]', 'contributo', $this->indirizzo() ) );
 		$this->assertSame( array(), $this->copie_elencate( $html ), 'Come elenco: nessuna riga.' );
