@@ -3,7 +3,7 @@
  * Plugin Name:       Albo Pretorio
  * Plugin URI:        https://github.com/sitoalpasso/wp-albo-pretorio
  * Description:       Pubblicazione con effetto di pubblicità legale. Attua requisiti derivati dalla normativa applicabile ai soggetti dell'art. 2-bis del d.lgs. 33/2013.
- * Version:           0.6.0-alpha
+ * Version:           0.7.0-alpha
  * Requires at least: 6.5
  * Requires PHP:      8.1
  * Requires Plugins:  conformita-core
@@ -26,7 +26,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Versione del plugin.
  */
-const VERSIONE = '0.6.0-alpha';
+const VERSIONE = '0.7.0-alpha';
 
 /**
  * Versione minima di WordPress dichiarata.
@@ -100,6 +100,20 @@ const SCADENZA = 'irraggiungibile';
  * qui: viene dal parametro di riscrittura, che resta libero.
  */
 const TIPO = 'atto_albo';
+
+/**
+ * Identificativo della sezione dello storico pubblico (ALBO-36).
+ *
+ * Una sezione a se', con la stessa politica dell'albo, perche' lo storico non
+ * riapre l'atto scaduto: mette a disposizione una copia oscurata, che e' un
+ * contenuto distinto con una fine propria.
+ */
+const SEZIONE_STORICO = 'albo_pretorio_storico';
+
+/**
+ * Identificativo del tipo di contenuto della copia nello storico.
+ */
+const TIPO_STORICO = 'albo_storico';
 
 /**
  * Elenco di voci dei tipi di atto.
@@ -216,6 +230,8 @@ require_once __DIR__ . '/includes/class-schermata-proroga.php';
 require_once __DIR__ . '/includes/class-festivi.php';
 require_once __DIR__ . '/includes/class-schermata-festivi.php';
 require_once __DIR__ . '/includes/class-schermata-scaduti.php';
+require_once __DIR__ . '/includes/class-storico.php';
+require_once __DIR__ . '/includes/class-schermata-storico.php';
 require_once __DIR__ . '/includes/class-lettore-backup.php';
 require_once __DIR__ . '/includes/class-analisi-importazione.php';
 require_once __DIR__ . '/includes/class-importazione.php';
@@ -239,6 +255,7 @@ add_action( 'plugins_loaded', array( Avvio::class, 'da_plugins_loaded' ) );
  * esistere.
  */
 add_action( 'init', array( TipoAtto::class, 'da_init' ) );
+add_action( 'init', array( Storico::class, 'da_init' ) );
 add_action( 'init', array( Durate::class, 'da_init' ), 11 );
 add_action( 'init', array( DatiAtto::class, 'da_init' ), 11 );
 add_action( 'init', array( DocumentiAtto::class, 'da_init' ), 11 );
@@ -280,6 +297,14 @@ add_action( 'admin_post_' . SchermataDatiProcedimento::AZIONE, array( SchermataD
 add_action( 'admin_notices', array( SchermataDatiProcedimento::class, 'avviso' ) );
 add_action( 'admin_menu', array( SchermataAmministrazioniOspitate::class, 'menu' ) );
 add_action( 'admin_post_' . SchermataAmministrazioniOspitate::AZIONE, array( SchermataAmministrazioniOspitate::class, 'da_invio' ) );
+
+/*
+ * Lo storico pubblico ha una schermata sua, dove l'amministrazione lo accende
+ * e dichiara gli anni; finche' non sceglie, lo storico e' spento.
+ */
+add_action( 'admin_menu', array( SchermataStorico::class, 'menu' ) );
+add_action( 'admin_post_' . SchermataStorico::AZIONE, array( SchermataStorico::class, 'da_invio' ) );
+add_action( 'admin_notices', array( Storico::class, 'mostra_avviso' ) );
 
 /*
  * I dati dell'atto si compilano nel riquadro della schermata dell'atto. Una

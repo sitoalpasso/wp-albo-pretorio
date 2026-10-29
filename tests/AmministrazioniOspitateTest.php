@@ -1616,14 +1616,17 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 				return null === $tabella ? 'SELECT guasto_forzato FROM tabella_che_non_esiste' : str_replace( 't.TABLE_NAME IN (', "t.TABLE_NAME <> '{$tabella}' AND t.TABLE_NAME IN (", (string) $istruzione );
 			};
 			$scritture = 0;
-			$conta     = static function () use ( &$scritture ): void {
-				++$scritture;
+			// Conta soltanto la scelta di questo atto: `edit_post()` riscrive anche il segno di chi ha l'atto aperto, che cambia con l'orologio.
+			$conta = static function ( $meta, $contenuto, $chiave ) use ( &$scritture, $id ): void {
+				if ( $id === (int) $contenuto && AmministrazioniOspitate::META === $chiave ) {
+					++$scritture;
+				}
 			};
 
 			add_filter( 'query', $motore );
-			add_action( 'updated_post_meta', $conta );
-			add_action( 'added_post_meta', $conta );
-			add_action( 'deleted_post_meta', $conta );
+			add_action( 'updated_post_meta', $conta, 10, 3 );
+			add_action( 'added_post_meta', $conta, 10, 3 );
+			add_action( 'deleted_post_meta', $conta, 10, 3 );
 			$zitto = $wpdb->suppress_errors( true );
 
 			try {
@@ -1695,14 +1698,17 @@ class AmministrazioniOspitateTest extends \WP_UnitTestCase {
 				return $istruzione;
 			};
 			$scritture = 0;
-			$conta     = static function () use ( &$scritture ): void {
-				++$scritture;
+			// Conta soltanto la scelta di questo atto: `edit_post()` riscrive anche il segno di chi ha l'atto aperto, che cambia con l'orologio.
+			$conta = static function ( $meta, $contenuto, $chiave ) use ( &$scritture, $id ): void {
+				if ( $id === (int) $contenuto && AmministrazioniOspitate::META === $chiave ) {
+					++$scritture;
+				}
 			};
 
 			add_filter( 'query', $guasto );
-			add_action( 'updated_post_meta', $conta );
-			add_action( 'added_post_meta', $conta );
-			add_action( 'deleted_post_meta', $conta );
+			add_action( 'updated_post_meta', $conta, 10, 3 );
+			add_action( 'added_post_meta', $conta, 10, 3 );
+			add_action( 'deleted_post_meta', $conta, 10, 3 );
 			$zitto = $wpdb->suppress_errors( true );
 
 			try {

@@ -32,6 +32,7 @@ use AlboPretorioPa\DocumentiAtto;
 use const AlboPretorioPa\INDICIZZAZIONE;
 use const AlboPretorioPa\SCADENZA;
 use const AlboPretorioPa\SEZIONE;
+use const AlboPretorioPa\SEZIONE_STORICO;
 use const AlboPretorioPa\TIPO;
 
 /**
@@ -967,8 +968,9 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 	 * A-178: nessuna impostazione rende visibili gli scaduti.
 	 *
 	 * Tre controlli, dal piu' forte al piu' debole. La politica letta dal
-	 * meccanismo comune e' `irraggiungibile`. La registrazione della sezione e'
-	 * **una sola, e la sua chiamata e' esattamente quella**: le due costanti
+	 * meccanismo comune e' `irraggiungibile`. Le registrazioni di sezione sono
+	 * **due, l'albo e lo storico pubblico (ALBO-36), e ciascuna chiamata e'
+	 * esattamente quella**: le due costanti
 	 * passate dritte, senza condizioni, operatori o filtri in mezzo; e le due
 	 * costanti sono definite una volta, con quel valore. Infine una sentinella
 	 * lessicale: nei sorgenti, compresi quelli nelle sottocartelle, nessuna
@@ -983,7 +985,10 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 	 * simili, anche per nome o toccando l'elenco degli agganci): quando ne
 	 * servira' una, si aggiunge qui, una per una, con la sua ragione.
 	 * L'archivio riservato, quando arrivera', sara' una schermata
-	 * dell'amministrazione, non una scelta sul sito pubblico.
+	 * dell'amministrazione, non una scelta sul sito pubblico. Lo storico
+	 * pubblico non e' un'impostazione sugli scaduti: e' un contenuto distinto,
+	 * la copia oscurata, con la stessa politica e una fine propria, e i suoi
+	 * nomi sono autorizzati qui uno per uno.
 	 */
 	public function test_a178_nessuna_impostazione_per_gli_scaduti(): void {
 		$politica = conformita_core_politica_sezione( SEZIONE );
@@ -1069,10 +1074,16 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 		}
 
 		$this->assertSame(
-			array( "includes/class-avvio.php: conformita_core_registra_sezione(SEZIONE,array('indicizzazione'=>INDICIZZAZIONE,'scadenza'=>SCADENZA,))" ),
+			array(
+				"includes/class-avvio.php: conformita_core_registra_sezione(SEZIONE,array('indicizzazione'=>INDICIZZAZIONE,'scadenza'=>SCADENZA,))",
+				// La sezione dello storico pubblico (ALBO-36): la stessa politica, con le stesse due costanti.
+				"includes/class-storico.php: conformita_core_registra_sezione(SEZIONE_STORICO,array('indicizzazione'=>INDICIZZAZIONE,'scadenza'=>SCADENZA,))",
+			),
 			$chiamate,
-			'Una sola registrazione della sezione, con le due costanti passate dritte.'
+			'Due registrazioni di sezione, l\'albo e lo storico, ciascuna con le due costanti passate dritte.'
 		);
+		$this->assertSame( 'irraggiungibile', conformita_core_politica_sezione( SEZIONE_STORICO )->scadenza(), 'La politica di scadenza dello storico letta dal meccanismo comune.' );
+		$this->assertSame( 'vietata', conformita_core_politica_sezione( SEZIONE_STORICO )->indicizzazione(), 'La politica di indicizzazione dello storico letta dal meccanismo comune.' );
 		$this->assertSame(
 			array(
 				"albo-pretorio-pa.php: constINDICIZZAZIONE='vietata';",
@@ -1083,6 +1094,9 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 		);
 		$this->assertSame(
 			array(
+				// La sezione e il tipo della copia nello storico pubblico (ALBO-36): un contenuto distinto, con la politica dell'albo.
+				'albo-pretorio-pa.php: albo_pretorio_storico',
+				'albo-pretorio-pa.php: albo_storico',
 				// Il nome di una colonna del backup di Albo Pretorio On line (ALBO-35): l'importazione a secco la riconosce e la scarta.
 				'includes/class-analisi-importazione.php: DataOblio',
 				'includes/class-avvio.php: scadenza',
@@ -1090,7 +1104,19 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 				'includes/class-passaggi.php: albo_atto_gia_scaduto',
 				// Il permesso della consultazione riservata (ALBO-34): una schermata dell'amministrazione, non una scelta sul sito pubblico.
 				'includes/class-permessi.php: consultare_scaduti',
+				// Il permesso dello storico pubblico (ALBO-36): mette e toglie copie oscurate, non riapre gli atti scaduti.
+				'includes/class-permessi.php: storico_pubblico',
+				'includes/class-permessi.php: albo_pretorio_storico_atto_albo',
 				'includes/class-permessi.php: conformita_core_capacita_consultazione_scaduti',
+				// La pagina e l'azione della schermata dello storico (ALBO-36).
+				'includes/class-schermata-storico.php: albo-pretorio-storico',
+				'includes/class-schermata-storico.php: albo_pretorio_storico',
+				// L'opzione dello storico (ALBO-36): accende le copie oscurate, non tocca la politica degli atti.
+				'includes/class-storico.php: albo_pretorio_storico_pubblico',
+				// L'azione della voce di registro che scrive ogni salvataggio di quell'opzione.
+				'includes/class-storico.php: impostazione_storico',
+				'includes/class-storico.php: scadenza',
+				'includes/class-storico.php: has_archive',
 				'includes/class-tipo-atto.php: has_archive',
 			),
 			$nomi,

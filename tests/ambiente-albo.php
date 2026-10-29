@@ -35,6 +35,7 @@ trait AmbienteAlbo {
 		\Conformita_Core_Sezioni::azzera();
 		\AlboPretorioPa\Avvio::azzera();
 		\AlboPretorioPa\TipoAtto::azzera();
+		\AlboPretorioPa\Storico::azzera();
 		\AlboPretorioPa\Durate::azzera();
 		\AlboPretorioPa\DatiAtto::azzera();
 		\AlboPretorioPa\DocumentiAtto::azzera();
@@ -48,8 +49,10 @@ trait AmbienteAlbo {
 			}
 		}
 
-		if ( post_type_exists( \AlboPretorioPa\TIPO ) ) {
-			unregister_post_type( \AlboPretorioPa\TIPO );
+		foreach ( array( \AlboPretorioPa\TIPO, \AlboPretorioPa\TIPO_STORICO ) as $tipo ) {
+			if ( post_type_exists( $tipo ) ) {
+				unregister_post_type( $tipo );
+			}
 		}
 
 		$GLOBALS['wp_roles'] = new \WP_Roles();
@@ -76,6 +79,7 @@ trait AmbienteAlbo {
 		delete_option( \AlboPretorioPa\Festivi::OPZIONE );
 		delete_option( \AlboPretorioPa\DatiProcedimento::OPZIONE );
 		delete_option( \AlboPretorioPa\AmministrazioniOspitate::OPZIONE );
+		delete_option( \AlboPretorioPa\Storico::OPZIONE );
 	}
 
 	/**

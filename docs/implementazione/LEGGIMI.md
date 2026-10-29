@@ -85,3 +85,7 @@ Schede presenti:
 - [`nome-del-file-e-memorie.md`](nome-del-file-e-memorie.md): il nome del file scaricato, con
   numero di registro e date di pubblicazione e senza oggetto né nome originale, e la prova che
   nessuna memoria di pagina conserva una risposta dell'albo. Righe di collaudo A-257..A-259.
+- [`storico-pubblico.md`](storico-pubblico.md): lo storico pubblico separato dall'albo, spento
+  finché l'amministrazione non lo accende con gli anni di ogni copia, con il permesso apposito,
+  la copia oscurata come contenuto distinto e il piano in tre passi. Righe di collaudo
+  A-261..A-265 per il primo passo.
