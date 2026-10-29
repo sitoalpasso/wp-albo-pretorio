@@ -173,6 +173,35 @@ final class RiquadroPassaggi {
 	}
 
 	/**
+	 * Aggancio a `post_submitbox_misc_actions`: l'avviso nella bozza dell'atto.
+	 *
+	 * Il riquadro di invio di WordPress offre a chi pubblica un pulsante di
+	 * pubblicazione che l'albo rifiuta, e manda in verifica solo se i dati
+	 * sono gia' salvati. L'avviso lo dice prima del tentativo.
+	 *
+	 * @param \WP_Post|null $atto Contenuto della schermata.
+	 */
+	public static function avviso_invio( $atto = null ): void {
+		if ( ! $atto instanceof \WP_Post || TIPO !== $atto->post_type || ! in_array( $atto->post_status, array( 'draft', 'auto-draft' ), true ) || ! current_user_can( 'edit_post', $atto->ID ) ) {
+			return;
+		}
+
+		if ( ! current_user_can( 'publish_post', $atto->ID ) ) {
+			printf(
+				'<div class="misc-pub-section"><p>%s</p></div>',
+				esc_html__( 'Per mandare l\'atto in verifica: prima salvare la bozza con i dati e i documenti, poi premere "Invia per la revisione". Se nello stesso invio si cambia anche un dato, l\'atto resta in bozza.', 'albo-pretorio-pa' )
+			);
+			return;
+		}
+
+		printf(
+			'<div class="misc-pub-section"><p>%s</p><p>%s</p></div>',
+			esc_html__( 'Per mandare l\'atto in verifica: prima salvare la bozza con i dati e i documenti, poi scegliere "In attesa di revisione" nel menu Stato e salvare di nuovo. Se nello stesso invio si cambia anche un dato, l\'atto resta in bozza.', 'albo-pretorio-pa' ),
+			esc_html__( 'Il pulsante "Pubblica" di questo riquadro non pubblica l\'atto. L\'atto si pubblica quando e\' in verifica, con il pulsante "Pubblica l\'atto" del riquadro Pubblicazione.', 'albo-pretorio-pa' )
+		);
+	}
+
+	/**
 	 * Il contenuto del riquadro.
 	 *
 	 * @param \WP_Post $atto Atto.

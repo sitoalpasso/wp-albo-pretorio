@@ -919,6 +919,8 @@ dicevano una cosa non vera o non dicevano all'addetto cosa fare.
 | A-281 | fatto | **La schermata della proroga** | non rinvia alla defissione; dice che la proroga non si annulla e non si corregge, e che si controlla nell'anteprima prima di confermare |
 | A-282 | fatto | **Il campo dell'allegato in una bozza** | dice che si aggiunge un allegato alla volta, salvando la bozza, e che il campo torna libero per il prossimo |
 | A-283 | fatto | **Le etichette del tipo atto** | la voce per l'atto nuovo è "Nuovo atto" e non quella degli articoli; l'elenco è "Tutti gli atti"; dichiarate anche "Vedi atto" e "Nessun atto nel cestino." |
+| A-284 | fatto | **L'avviso nel riquadro di invio, nella bozza**: come chi redige soltanto e come chi pubblica | a tutti e due dice di salvare prima la bozza; a chi redige di premere "Invia per la revisione", senza il menu Stato; a chi pubblica di scegliere "In attesa di revisione" nel menu Stato, che il pulsante "Pubblica" di WordPress non pubblica l'atto e che si pubblica con "Pubblica l'atto" |
+| A-285 | fatto | **L'avviso solo dove serve**: un atto in verifica, un articolo in bozza, la bozza vista da chi non può modificarla | nessun avviso in nessuno dei tre |
 
 ## Collaudo congiunto con la trasparenza
 
