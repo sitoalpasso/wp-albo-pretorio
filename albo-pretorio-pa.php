@@ -231,7 +231,9 @@ require_once __DIR__ . '/includes/class-festivi.php';
 require_once __DIR__ . '/includes/class-schermata-festivi.php';
 require_once __DIR__ . '/includes/class-schermata-scaduti.php';
 require_once __DIR__ . '/includes/class-storico.php';
+require_once __DIR__ . '/includes/class-copie-storico.php';
 require_once __DIR__ . '/includes/class-schermata-storico.php';
+require_once __DIR__ . '/includes/class-schermata-copie.php';
 require_once __DIR__ . '/includes/class-lettore-backup.php';
 require_once __DIR__ . '/includes/class-analisi-importazione.php';
 require_once __DIR__ . '/includes/class-importazione.php';
@@ -304,6 +306,8 @@ add_action( 'admin_post_' . SchermataAmministrazioniOspitate::AZIONE, array( Sch
  */
 add_action( 'admin_menu', array( SchermataStorico::class, 'menu' ) );
 add_action( 'admin_post_' . SchermataStorico::AZIONE, array( SchermataStorico::class, 'da_invio' ) );
+add_action( 'admin_post_' . SchermataCopie::AZIONE_METTI, array( SchermataCopie::class, 'da_metti' ) );
+add_action( 'admin_post_' . SchermataCopie::AZIONE_TOGLI, array( SchermataCopie::class, 'da_togli' ) );
 add_action( 'admin_notices', array( Storico::class, 'mostra_avviso' ) );
 
 /*

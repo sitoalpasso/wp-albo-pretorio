@@ -565,6 +565,8 @@ final class SchermataScaduti {
 			echo '</ul>';
 		}
 
+		SchermataCopie::collegamento( $atto );
+
 		echo '</td></tr>';
 	}
 

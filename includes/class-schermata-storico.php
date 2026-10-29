@@ -136,13 +136,19 @@ final class SchermataStorico {
 
 		$fotografia   = Storico::fotografia();
 		$impostazione = $fotografia['impostazione'];
-		$motivo       = self::preleva_rifiuto();
+		$ricordo      = self::preleva();
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- sceglie soltanto quale atto mostrare nel modulo; mettere la copia chiede il gettone.
+		$atto = isset( $_GET[ SchermataCopie::CAMPO_ATTO ] ) && is_string( $_GET[ SchermataCopie::CAMPO_ATTO ] ) ? absint( wp_unslash( $_GET[ SchermataCopie::CAMPO_ATTO ] ) ) : 0;
 
 		echo '<div class="wrap">';
 		printf( '<h1>%s</h1>', esc_html__( 'Storico pubblico degli atti', 'albo-pretorio-pa' ) );
 
-		if ( null !== $motivo ) {
-			printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html( $motivo ) );
+		if ( null !== $ricordo ) {
+			printf( '<div class="notice %1$s"><p>%2$s</p></div>', $ricordo['fatto'] ? 'notice-success' : 'notice-error', esc_html( $ricordo['testo'] ) );
+		}
+
+		if ( $atto > 0 ) {
+			SchermataCopie::modulo_ingresso( $atto );
 		}
 
 		if ( null === $impostazione ) {
@@ -181,6 +187,8 @@ final class SchermataStorico {
 				)
 			);
 		}
+
+		SchermataCopie::elenco();
 
 		echo '</div>';
 	}
@@ -319,9 +327,9 @@ final class SchermataStorico {
 		$esito = self::salva();
 
 		if ( is_wp_error( $esito ) ) {
-			set_transient( self::chiave_rifiuto(), $esito->get_error_message(), 5 * MINUTE_IN_SECONDS );
+			self::ricorda( $esito->get_error_message(), false );
 		} else {
-			delete_transient( self::chiave_rifiuto() );
+			delete_transient( self::chiave_ricordo() );
 		}
 
 		return $esito;
@@ -363,28 +371,52 @@ final class SchermataStorico {
 	}
 
 	/**
-	 * Chiave del motivo di rifiuto, per utente.
+	 * Lascia alla schermata l'esito di un invio, per chi l'ha fatto.
+	 *
+	 * @param string $testo Messaggio.
+	 * @param bool   $fatto Vero se l'invio e' riuscito, falso se e' stato rifiutato.
+	 */
+	public static function ricorda( string $testo, bool $fatto ): void {
+		set_transient(
+			self::chiave_ricordo(),
+			array(
+				'testo' => $testo,
+				'fatto' => $fatto,
+			),
+			5 * MINUTE_IN_SECONDS
+		);
+	}
+
+	/**
+	 * Chiave dell'esito lasciato, per utente.
 	 *
 	 * @return string
 	 */
-	private static function chiave_rifiuto(): string {
+	private static function chiave_ricordo(): string {
 		return self::AZIONE . '_rifiuto_' . get_current_user_id();
 	}
 
 	/**
-	 * Preleva il motivo dell'ultimo rifiuto, e lo consuma.
+	 * Preleva l'esito dell'ultimo invio, e lo consuma.
 	 *
-	 * @return string|null
+	 * @return array{testo: string, fatto: bool}|null
 	 */
-	private static function preleva_rifiuto(): ?string {
-		$motivo = get_transient( self::chiave_rifiuto() );
+	private static function preleva(): ?array {
+		$ricordo = get_transient( self::chiave_ricordo() );
 
-		if ( false === $motivo ) {
+		if ( false === $ricordo ) {
 			return null;
 		}
 
-		delete_transient( self::chiave_rifiuto() );
+		delete_transient( self::chiave_ricordo() );
 
-		return (string) $motivo;
+		if ( ! is_array( $ricordo ) || ! isset( $ricordo['testo'], $ricordo['fatto'] ) ) {
+			return null;
+		}
+
+		return array(
+			'testo' => (string) $ricordo['testo'],
+			'fatto' => true === $ricordo['fatto'],
+		);
 	}
 }

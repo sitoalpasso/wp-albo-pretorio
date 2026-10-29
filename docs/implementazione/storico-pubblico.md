@@ -46,7 +46,7 @@ Ogni passo è una richiesta di unione a sé, corta, leggibile dal telefono.
    con la norma, le due scelte senza preselezione e gli anni; il salvataggio nel registro; il
    permesso apposito; la seconda sezione e il tipo dello storico, chiuso a tutti. Nessuna
    copia si crea ancora e niente compare sul sito pubblico.
-2. **Ingresso e uscita** (righe da A-266). Dalla consultazione riservata, su un atto
+2. **Ingresso e uscita** (righe A-266..A-271). Dalla consultazione riservata, su un atto
    arrivato regolarmente alla fine, il pulsante "Metti nello storico": caricamento della
    copia oscurata, oggetto proprio della copia precompilato e modificabile, conferma
    obbligatoria, fine calcolata con gli anni in vigore, voce nel registro con l'impronta del
@@ -150,6 +150,70 @@ Entrare come amministratore: la voce "Storico pubblico" è nel menu degli atti, 
 l'impostazione si legge sotto il modulo, e il registro delle modifiche ha la voce. Entrare con
 un redattore: la voce non c'è.
 
+## I nove punti, per il secondo passo
+
+### 1. File che si creano o si modificano
+
+| File | Che cosa |
+|---|---|
+| `includes/class-copie-storico.php` | quali atti entrano, l'ingresso tutto o niente, l'uscita, la lettura delle copie |
+| `includes/class-schermata-copie.php` | il collegamento nella consultazione degli scaduti, il modulo dell'ingresso, l'elenco con il modulo dell'uscita, i due invii |
+| `includes/class-schermata-storico.php`, `includes/class-schermata-scaduti.php` | ospitano le parti nuove; l'esito di ogni invio torna sulla schermata |
+| `tests/CopieStoricoTest.php` | righe A-266..A-271 |
+
+### 2. Requisito servito
+
+ALBO-36, ingresso e uscita delle copie.
+
+### 3. Percorso di chi usa il sito
+
+Chi ha il permesso dello storico apre la consultazione degli atti scaduti, trova l'atto e
+sceglie "Metti nello storico una copia oscurata". Il modulo mostra numero e date, i documenti
+originali da cui preparare la copia, chiede il documento oscurato, propone l'oggetto dell'atto
+da rileggere e chiede la conferma. Nella schermata dello storico l'elenco delle copie ha, per
+ciascuna, la causa e il motivo per toglierla. Il visitatore, in questo passo, non vede ancora
+niente: la pagina pubblica è il terzo passo.
+
+### 4. Dati letti e scritti
+
+La copia è un contenuto del tipo dello storico con i dati elencati in `dati.md`; l'atto non si
+tocca. Voci di registro `ingresso_copia` e `uscita_copia`.
+
+### 5. Permessi
+
+Il permesso dello storico per mettere e togliere, verificato su chi fa la richiesta, che è
+anche chi il registro scrive. I moduli hanno un gettone per atto e per copia.
+
+### 6. Modi di guasto previsti
+
+- Registro, deposito o pubblicazione della copia che non riescono: la copia, il suo documento
+  e il file si tolgono, e l'atto resta senza copia.
+- Due ingressi insieme sullo stesso atto: resta la copia più vecchia, l'altra si ritira prima
+  del registro.
+- Registro che non scrive l'uscita: la copia resta fuori, e il messaggio chiede di annotare a
+  parte chi l'ha tolta e perché. Fra una copia tolta senza voce e una copia rimessa in rete
+  contro chi la toglie, si sceglie la prima.
+- Un percorso del server mandato al posto del caricamento: l'origine dichiarata è sempre il
+  caricamento, e il meccanismo comune lo rifiuta.
+
+### 7. Test aggiunti
+
+Righe A-266..A-271 di `collaudo.md`, in `tests/CopieStoricoTest.php`.
+
+### 8. Che cosa non fa (in questo passo)
+
+Non mostra niente sul sito pubblico. Nell'elenco delle copie non c'è il collegamento al
+documento della copia: la consegna amministrativa pretende i permessi del tipo dello storico,
+che non ha nessuno; il documento si aprirà dalla pagina pubblica. Non sostituisce una copia:
+per rifarla la si toglie e se ne mette una nuova.
+
+### 9. Come si prova su un sito vero
+
+Accendere lo storico con tre anni. Dalla consultazione degli scaduti scegliere un atto
+scaduto, caricare un PDF oscurato, correggere l'oggetto, confermare. La copia è nell'elenco
+dello storico con la fine a tre anni, e il registro ha la voce. Toglierla con la causa e il
+motivo: sparisce dall'elenco, e il registro ha la voce dell'uscita.
+
 ## Decisioni prese
 
 1. **Si costruisce**, con le quattro regole proposte dal coordinatore (29 ottobre 2026):
@@ -162,6 +226,9 @@ un redattore: la voce non c'è.
    in anticipo; la copia ha un oggetto proprio, coperto dalla conferma; il richiedente non
    compare mai; pagina propria, avviso "copia per consultazione", divieto ai motori; spento
    vuol dire niente sul sito, con le copie conservate.
+4. **Chi agisce è chi fa la richiesta** (29 ottobre 2026): ingresso e uscita non ricevono
+   l'utente come parametro, perché il registro scrive sempre l'utente della richiesta e i due
+   devono coincidere.
 
 ## Com'è andata davvero
 
