@@ -223,4 +223,25 @@ class TipoAttoTest extends WP_UnitTestCase {
 			);
 		}
 	}
+
+	/**
+	 * A-283: le voci del menu dell'albo parlano di atti, non di articoli.
+	 *
+	 * Le etichette non dichiarate WordPress le prende da quelle degli articoli
+	 * ("Aggiungi nuovo articolo"): quelle che compaiono nel menu e nell'elenco
+	 * degli atti si dichiarano una per una.
+	 */
+	public function test_a283_voci_del_menu_degli_atti(): void {
+		$this->assertTrue( Avvio::esegui() );
+		$this->assertTrue( TipoAtto::registra() );
+
+		$etichette = get_post_type_object( \AlboPretorioPa\TIPO )->labels;
+
+		$this->assertSame( 'Nuovo atto', $etichette->add_new, 'La voce del menu per l\'atto nuovo.' );
+		$this->assertSame( 'Nuovo atto', $etichette->add_new_item );
+		$this->assertSame( 'Nuovo atto', $etichette->new_item );
+		$this->assertSame( 'Tutti gli atti', $etichette->all_items, 'La voce del menu per l\'elenco.' );
+		$this->assertSame( 'Vedi atto', $etichette->view_item );
+		$this->assertSame( 'Nessun atto nel cestino.', $etichette->not_found_in_trash );
+	}
 }

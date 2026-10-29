@@ -608,13 +608,18 @@ final class TipoAtto {
 	 */
 	private static function etichette_tipo(): array {
 		return array(
-			'name'          => __( 'Atti', 'albo-pretorio-pa' ),
-			'singular_name' => __( 'Atto', 'albo-pretorio-pa' ),
-			'menu_name'     => __( 'Albo pretorio', 'albo-pretorio-pa' ),
-			'add_new_item'  => __( 'Nuovo atto', 'albo-pretorio-pa' ),
-			'edit_item'     => __( 'Modifica atto', 'albo-pretorio-pa' ),
-			'search_items'  => __( 'Cerca atti', 'albo-pretorio-pa' ),
-			'not_found'     => __( 'Nessun atto.', 'albo-pretorio-pa' ),
+			'name'               => __( 'Atti', 'albo-pretorio-pa' ),
+			'singular_name'      => __( 'Atto', 'albo-pretorio-pa' ),
+			'menu_name'          => __( 'Albo pretorio', 'albo-pretorio-pa' ),
+			'add_new'            => __( 'Nuovo atto', 'albo-pretorio-pa' ),
+			'add_new_item'       => __( 'Nuovo atto', 'albo-pretorio-pa' ),
+			'new_item'           => __( 'Nuovo atto', 'albo-pretorio-pa' ),
+			'all_items'          => __( 'Tutti gli atti', 'albo-pretorio-pa' ),
+			'view_item'          => __( 'Vedi atto', 'albo-pretorio-pa' ),
+			'edit_item'          => __( 'Modifica atto', 'albo-pretorio-pa' ),
+			'search_items'       => __( 'Cerca atti', 'albo-pretorio-pa' ),
+			'not_found'          => __( 'Nessun atto.', 'albo-pretorio-pa' ),
+			'not_found_in_trash' => __( 'Nessun atto nel cestino.', 'albo-pretorio-pa' ),
 		);
 	}
 
