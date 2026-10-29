@@ -104,6 +104,39 @@ final class Permessi {
 	const DEFISSIONE_DAL = '0.6.0-alpha';
 
 	/**
+	 * Il nome generico del permesso dello storico pubblico (ALBO-36).
+	 *
+	 * E' dell'albo e non del meccanismo comune. Apre la schermata dello
+	 * storico, dove si accende e si spegne, e le operazioni che mettono e
+	 * tolgono le copie. **Non fa parte degli insiemi di chi redige o
+	 * pubblica**: lo ricevono soltanto i ruoli di `assegnazioni()`, una volta
+	 * sola (`STORICO_DAL`); agli altri lo da' l'amministrazione.
+	 *
+	 * @var string
+	 */
+	const CHIAVE_STORICO = 'storico_pubblico';
+
+	/**
+	 * Il permesso dello storico pubblico, come lo vede WordPress.
+	 *
+	 * Porta il nome del tipo atto, come quello dell'annullamento.
+	 *
+	 * @var string
+	 */
+	const PERMESSO_STORICO = 'albo_pretorio_storico_atto_albo';
+
+	/**
+	 * La versione del componente che ha portato il permesso dello storico.
+	 *
+	 * Si assegna all'installazione e all'aggiornamento da una versione
+	 * precedente, e non piu' dopo: un'amministrazione che lo toglie a un ruolo
+	 * non se lo ritrova al prossimo aggiornamento.
+	 *
+	 * @var string
+	 */
+	const STORICO_DAL = '0.7.0-alpha';
+
+	/**
 	 * Chi pubblica: tutto quello che fa chi redige, piu' l'esposizione, piu'
 	 * la lettura del registro, dove trova i motivi dei rimandi in bozza, piu'
 	 * l'annullamento.
@@ -141,7 +174,7 @@ final class Permessi {
 	 * @return array<string, array<int, string>>
 	 */
 	public static function assegnazioni(): array {
-		$con_consultazione = array_merge( self::CHIAVI_PUBBLICAZIONE, array( self::CHIAVE_CONSULTAZIONE ) );
+		$con_consultazione = array_merge( self::CHIAVI_PUBBLICAZIONE, array( self::CHIAVE_CONSULTAZIONE, self::CHIAVE_STORICO ) );
 
 		return array(
 			'administrator' => $con_consultazione,
@@ -152,7 +185,7 @@ final class Permessi {
 	/**
 	 * La corrispondenza fra nomi generici e permessi derivati dal tipo, piu'
 	 * quello del registro delle modifiche, quello della consultazione degli
-	 * scaduti e quello dell'annullamento.
+	 * scaduti, quello dell'annullamento e quello dello storico pubblico.
 	 *
 	 * @return array<string, string>|\WP_Error
 	 */
@@ -179,6 +212,7 @@ final class Permessi {
 		$mappa[ self::CHIAVE_REGISTRO ]      = (string) conformita_core_capacita_registro();
 		$mappa[ self::CHIAVE_CONSULTAZIONE ] = (string) $consultazione;
 		$mappa[ self::CHIAVE_DEFISSIONE ]    = self::PERMESSO_DEFISSIONE;
+		$mappa[ self::CHIAVE_STORICO ]       = self::PERMESSO_STORICO;
 
 		return $mappa;
 	}

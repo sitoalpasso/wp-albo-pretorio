@@ -1,0 +1,158 @@
+# Storico pubblico degli atti
+
+Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro finito con
+com'è andata davvero.
+
+**Stato: primo passo costruito, in attesa di revisione.** Requisito ALBO-36, righe di
+collaudo A-261..A-265 per il primo passo. Nessuna versione nuova del meccanismo comune.
+
+## In tre paragrafi
+
+**Cosa costruiamo.** Una sezione pubblica separata dall'albo, lo "storico", dove
+l'amministrazione mette a disposizione di chiunque una **copia oscurata** di atti la cui
+pubblicazione è finita, così che chi cerca un atto vecchio lo trovi senza dover chiedere
+all'ufficio. L'albo non cambia: l'atto scaduto resta "pagina non trovata" per tutti (ALBO-05),
+e il suo documento originale si apre soltanto dalla consultazione riservata (ALBO-34). Lo
+storico è spento finché l'amministrazione non lo accende, e quando lo accende dichiara per
+quanti anni ogni copia resta consultabile: nessun numero è proposto. Un atto entra nello
+storico solo perché una persona con il permesso apposito lo sceglie, carica la copia oscurata
+e conferma di aver controllato documento e oggetto; da lì si toglie in ogni momento, anche su
+richiesta di chi vi è nominato. Ogni passaggio finisce nel registro.
+
+**Come la costruiamo.** La copia nello storico è un **contenuto distinto** dall'atto, di un
+tipo proprio (`albo_storico`) registrato dal meccanismo comune in una seconda sezione
+(`albo_pretorio_storico`), con la stessa politica dell'albo: indicizzazione vietata e
+scadenza `irraggiungibile`. Così lo storico non riapre l'atto scaduto, che resta governato
+dalla sua sezione come oggi, e la copia ha una data di fine propria, calcolata all'ingresso
+con gli anni dichiarati: alla fine sparisce da sola, per la data letta, su ogni strada che il
+meccanismo comune già sorveglia, documento compreso. Il documento della copia si deposita
+con il meccanismo comune e si scarica dal suo punto di consegna, mai dalla cartella dei
+caricamenti. I permessi del tipo dello storico che il meccanismo comune crea non vanno a
+nessun ruolo: la copia si crea e si toglie soltanto dalle schermate dell'albo, con il
+permesso apposito `albo_pretorio_storico_atto_albo`, che l'albo dà all'amministratore e al
+proprio ruolo una volta sola e che l'amministrazione può togliere o dare ad altri.
+
+**Come si prova che funziona, e come si prova che il test è vero.** Ogni riga del collaudo
+ha accanto la sua presenza di controllo: lo storico spento accanto allo storico acceso, chi
+ha il permesso accanto a chi non l'ha, la copia prima della sua fine accanto alla stessa
+copia dopo, l'atto scaduto che resta "non trovato" nello stesso istante in cui la sua copia
+si apre. Le mutazioni provate sono elencate sotto, in "Com'è andata davvero".
+
+## Il piano, in tre passi
+
+Ogni passo è una richiesta di unione a sé, corta, leggibile dal telefono.
+
+1. **Interruttore, permesso, tipo** (righe A-261..A-265). La schermata "Storico pubblico"
+   con la norma, le due scelte senza preselezione e gli anni; il salvataggio nel registro; il
+   permesso apposito; la seconda sezione e il tipo dello storico, chiuso a tutti. Nessuna
+   copia si crea ancora e niente compare sul sito pubblico.
+2. **Ingresso e uscita** (righe da A-266). Dalla consultazione riservata, su un atto
+   arrivato regolarmente alla fine, il pulsante "Metti nello storico": caricamento della
+   copia oscurata, oggetto proprio della copia precompilato e modificabile, conferma
+   obbligatoria, fine calcolata con gli anni in vigore, voce nel registro con l'impronta del
+   file. La rimozione con il motivo, fra cui la richiesta dell'interessato (GDPR art. 17),
+   anch'essa nel registro.
+3. **Pagina pubblica dello storico** (righe successive). Il codice breve
+   `[albo_pretorio_storico]`, su una pagina diversa da quella dell'albo: elenco, ricerca,
+   scheda della copia con l'avviso "copia per consultazione: la pubblicazione all'albo è
+   terminata il ...", documento dal punto di consegna, divieto ai motori. Spento lo
+   storico, la pagina non mostra niente e i documenti non si scaricano; le copie restano.
+
+## Che cosa dice la norma, e che cosa è scelta di prodotto
+
+- **Norma.** Finito il periodo di pubblicazione, l'ente non può continuare a diffondere i
+  dati personali contenuti negli atti dell'albo (Garante, linee guida approvate con provv. 15
+  maggio 2014 n. 243, parte seconda, par. 3.a). Se li mantiene in rete, scaduti i termini i
+  documenti vanno privati degli elementi che identificano gli interessati, e il testo
+  integrale resta accessibile con l'accesso agli atti della l. 241/1990 (par. 2.b). I dati
+  vanno sottratti ai motori di ricerca esterni (par. 2.a). Il periodo di cinque anni dell'art.
+  8, comma 3, del d.lgs. 33/2013 riguarda gli obblighi di trasparenza e non le pubblicazioni
+  all'albo (par. 3.a). Dati genetici, biometrici e relativi alla salute non si diffondono mai
+  (d.lgs. 196/2003, art. 2-septies, comma 8).
+- **Prodotto.** Che lo storico esista, che sia separato dall'albo, che sia spento finché
+  l'amministrazione non lo accende, che ogni copia abbia una fine dichiarata in anni e che
+  l'ingresso sia una scelta di una persona con un permesso apposito: sono scelte di questo
+  componente (decisione del 29 ottobre 2026). La norma non fissa un termine per le copie
+  prive di dati personali: per questo gli anni li dichiara l'amministrazione, senza valore
+  proposto, e una copia non resta in rete senza una fine.
+- **Non è la "data di oblio" di altri sistemi d'albo**, che richiama l'art. 8 del d.lgs.
+  33/2013 per gli atti originali: qui gli anni valgono soltanto per le copie oscurate, e la
+  schermata lo dice.
+
+## I nove punti, per il primo passo
+
+### 1. File che si creano o si modificano
+
+| File | Cosa contiene |
+|---|---|
+| `includes/class-storico.php` | la registrazione della seconda sezione e del tipo, l'impostazione con la sua lettura e il salvataggio con la voce di registro |
+| `includes/class-schermata-storico.php` | la schermata "Storico pubblico": norma, scelte, anni, invio con gettone e permesso, avviso di rifiuto |
+| `includes/class-permessi.php`, `includes/class-installazione.php` | il permesso apposito, a amministratore e ruolo dell'albo, una volta sola dalla versione 0.7.0-alpha |
+| `albo-pretorio-pa.php` | le costanti della sezione e del tipo, la versione 0.7.0-alpha, gli agganci |
+| `tests/StoricoTest.php` | le righe A-261..A-265 |
+| `tests/ScadutiInvisibiliTest.php` | A-178 rivista: due registrazioni di sezione, ciascuna con le due costanti dritte; i nomi dello storico autorizzati uno per uno |
+| `tests/ambiente-albo.php` | l'azzeramento del tipo e dell'impostazione dello storico |
+| `docs/requisiti.md`, `docs/collaudo.md`, questa scheda, l'indice delle schede |  |
+
+### 2. Requisito servito
+
+ALBO-36, nuovo. Tocca ALBO-05 e ALBO-34 senza cambiarli: l'atto scaduto resta irraggiungibile
+e la consultazione riservata resta l'unico posto dell'originale.
+
+### 3. Percorso di chi usa il sito
+
+Chi ha il permesso apre "Storico pubblico" nel menu degli atti (in cima al menu, se non
+gestisce gli atti). Legge che cosa dice la norma, sceglie fra "Acceso" e "Spento", e se
+accende scrive gli anni. Salva. Il visitatore, in questo passo, non vede niente di nuovo.
+
+### 4. Dati letti e scritti
+
+L'opzione `albo_pretorio_storico_pubblico`, con scelta, anni, utente e istante. Una voce del
+registro per ogni salvataggio, nella sezione dello storico, con scelta e anni.
+
+### 5. Permessi
+
+`albo_pretorio_storico_atto_albo`: lo ricevono amministratore e ruolo dell'albo
+all'installazione e all'aggiornamento da una versione precedente alla 0.7.0-alpha, non più
+dopo, così che una revoca dell'amministrazione resti. Non lo riceve da sé un altro ruolo che
+pubblica. I permessi del tipo dello storico che crea il meccanismo comune non vanno a nessuno.
+
+### 6. Modi di guasto previsti
+
+- Seconda sezione rifiutata dal meccanismo comune: lo storico resta fermo con un avviso,
+  l'albo lavora come prima.
+- Impostazione salvata ma illeggibile: lo storico vale spento, e la schermata lo dice.
+- Registro che non scrive: l'impostazione torna com'era e il salvataggio si rifiuta.
+
+### 7. Test aggiunti
+
+Righe A-261..A-265 di `collaudo.md`, in `tests/StoricoTest.php`; A-178 rivista.
+
+### 8. Che cosa non fa (in questo passo)
+
+Non crea copie, non le mostra, non le toglie: sono il secondo e il terzo passo. Non porta
+nello storico niente in automatico, né in questo passo né dopo. Non tocca gli atti.
+
+### 9. Come si prova su un sito vero
+
+Entrare come amministratore: la voce "Storico pubblico" è nel menu degli atti, nessuna scelta
+è segnata. Salvare "Acceso" senza anni: rifiuto con il motivo. Salvare "Acceso" con 5 anni:
+l'impostazione si legge sotto il modulo, e il registro delle modifiche ha la voce. Entrare con
+un redattore: la voce non c'è.
+
+## Decisioni prese
+
+1. **Si costruisce**, con le quattro regole proposte dal coordinatore (29 ottobre 2026):
+   spento finché l'ente non lo accende, niente in automatico, mai l'originale, tutto nel
+   registro.
+2. **Anni scelti dall'amministrazione** (29 ottobre 2026): ogni copia ha una fine, il
+   meccanismo comune resta com'è.
+3. **Scelte del costruttore, annunciate senza obiezioni** (29 ottobre 2026): entrano solo
+   gli atti arrivati regolarmente alla fine, importati compresi, non gli annullati né i tolti
+   in anticipo; la copia ha un oggetto proprio, coperto dalla conferma; il richiedente non
+   compare mai; pagina propria, avviso "copia per consultazione", divieto ai motori; spento
+   vuol dire niente sul sito, con le copie conservate.
+
+## Com'è andata davvero
+
+(da scrivere a lavoro finito)

@@ -1,7 +1,7 @@
 # Requisiti: cosa deve fare l'albo pretorio
 
 Questo documento spiega in linguaggio semplice cosa il plugin deve fare e perché. Ogni
-requisito ha un identificativo (ALBO-01 fino ad ALBO-35): è lo stesso usato nei test, nei
+requisito ha un identificativo (ALBO-01 fino ad ALBO-36): è lo stesso usato nei test, nei
 commit e nelle discussioni, così si può sempre risalire dal codice al motivo per cui
 esiste. In fondo c'è il **catalogo corrente dei requisiti**, con le fonti normative e le
 decisioni aperte marcate esplicitamente. Non è una specifica completa e non lo sarà finché
@@ -86,7 +86,9 @@ consultabile fra gli "storici", e la regola vale anche per gli atti portati da u
 precedente, che entrano con le loro date e, se la fine è passata, non sono mai visibili. Chi
 apre l'indirizzo di un atto scaduto trova la pagina "non trovata" del sito, la stessa di un
 indirizzo mai esistito, e non un avviso "non più in pubblicazione", che confermerebbe che
-l'atto c'è stato (decisione del 17 ottobre 2026). Gli scaduti si consultano da una schermata
+l'atto c'è stato (decisione del 17 ottobre 2026). Lo storico pubblico di ALBO-36 non cambia questa regola:
+non riapre l'atto scaduto, mette a disposizione una sua copia oscurata, che è un altro
+contenuto con un'altra fine. Gli scaduti si consultano da una schermata
 dell'amministrazione, "Atti scaduti", aperta da un **permesso apposito** che il meccanismo
 comune crea per il tipo e l'albo dà all'amministratore e al proprio ruolo; agli altri ruoli lo
 dà l'amministrazione. Chi lo ha soltanto consulta: elenco, dati del registro, documenti, senza
@@ -368,6 +370,31 @@ atto annullato porta, fino alla scadenza, alla scheda con l'avviso dell'annullam
 (sotto-decisione 1 di ALBO-22).
 Nessuna impostazione nuova. La scheda è `implementazione/vecchi-indirizzi.md`.
 
+### Lo storico pubblico (ALBO-36)
+
+Chi cerca un atto la cui pubblicazione è finita oggi lo chiede all'ufficio. Un'amministrazione
+può volerlo mettere a disposizione di chiunque, e la norma lo permette a una condizione: finito
+il periodo, l'albo non diffonde più i dati personali contenuti negli atti, e se gli atti
+restano in rete vanno privati degli elementi che identificano le persone, con il testo
+integrale disponibile su richiesta di accesso (Garante, linee guida approvate con provv. n. 243
+del 2014, parte seconda, par. 3.a e 2.b). I cinque anni dell'art. 8 c. 3 del d.lgs. 33/2013
+valgono per la trasparenza e non per l'albo (stesso par. 3.a).
+
+Per questo **lo storico è una sezione pubblica separata dall'albo** (decisione del 29 ottobre
+2026), con quattro regole. È **spento** finché l'amministrazione non lo accende, nella sua
+schermata, che spiega norma, scelte ed effetti senza preselezione. **Niente vi entra da sé**: una
+persona con il permesso apposito sceglie un atto arrivato regolarmente alla fine. **Mai
+l'originale**: nello storico va una copia caricata a parte, da cui sono stati tolti i dati
+personali, con un oggetto proprio, e chi la mette conferma di aver controllato documento e
+oggetto; dati genetici, biometrici e relativi alla salute non vi entrano mai (d.lgs. 196/2003,
+art. 2-septies c. 8). L'originale resta nella consultazione riservata (ALBO-34). **Tutto nel
+registro**: chi ha messo che cosa e quando, e chi l'ha tolto e perché, anche su richiesta di
+chi vi è nominato. Ogni copia ha una **fine**, calcolata all'ingresso con gli anni che
+l'amministrazione ha dichiarato accendendo lo storico, senza un numero proposto: la norma non
+fissa un termine per le copie oscurate, e una copia non resta in rete senza una fine. Come
+l'albo, lo storico chiede ai motori di non indicizzare le sue pagine. La scheda è
+`implementazione/storico-pubblico.md`.
+
 ## Cosa resta all'ente
 
 Il plugin rende possibile e automatico il rispetto dei termini; **non decide cosa si
@@ -428,6 +455,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-32 | fatto | Slittamento della fine al primo giorno non festivo, acceso o spento dall'amministrazione senza preselezione, con l'elenco dei festivi in configurazione | **norma** c.c. art. 2963 c. 3, c.p.c. art. 155 c. 4, la cui applicazione al periodo di affissione è interpretativa. **Prodotto** la scelta lasciata all'amministrazione, decisa il 2026-10-08 |
 | ALBO-34 | in corso | Consultazione riservata degli atti scaduti: una schermata dell'amministrazione, in sola lettura, per chi ha il permesso apposito, con ricerca e documenti; non riapre niente sul sito pubblico | **prodotto**, deciso il 2026-10-17: la conservazione degli atti per gli uffici è prassi, la norma chiede solo che lo scaduto non sia più pubblico. Il certificato di pubblicazione (ALBO-07) resta fuori finché non se ne conferma il contenuto |
 | ALBO-35 | in corso | Importazione dal plugin "Albo Pretorio On line": lettura del backup e rapporto di cosa si porterebbe, atto per atto, con conflitti e dubbi, senza scrivere niente; poi, con una conferma esplicita, scrittura degli atti portabili con numero, date e documenti di Albo Pretorio On line, senza doppioni e senza toccare la numerazione dell'anno; dopo il passaggio il vecchio codice breve e i vecchi indirizzi portano alla pagina nuova, solo per gli atti in pubblicazione | **prodotto**, deciso il 2026-09-30 e confermato il 2026-10-08: il passaggio da un albo precedente senza ripartire da zero. Le regole che il rapporto applica sono quelle degli altri requisiti (ALBO-05, ALBO-08, ALBO-11, ALBO-33) |
+| ALBO-36 | in corso | Storico pubblico separato dall'albo: spento finché l'amministrazione non lo accende dichiarando gli anni di ogni copia; vi entra solo una copia oscurata, scelta da chi ha il permesso apposito con conferma del controllo; ogni ingresso e uscita nel registro; la copia sparisce alla sua fine e si toglie in ogni momento; l'atto scaduto resta irraggiungibile | **norma** finito il periodo l'albo non diffonde più dati personali, gli atti mantenuti in rete vanno resi anonimi, fuori dai motori (Garante, provv. 243/2014 parte seconda par. 2.a, 2.b, 3.a); d.lgs. 196/2003 art. 2-septies c. 8. **Prodotto** l'esistenza dello storico, la separazione, gli anni dichiarati, il permesso e la conferma, decisi il 2026-10-29 |
 | ALBO-33 | fatto | Responsabile del procedimento, ufficio e richiedente: mostrarli e chiederli sugli atti nuovi lo sceglie l'amministrazione, dato per dato; sugli atti migrati si conservano sempre | **prodotto**, deciso il 2026-10-08; l. 241/1990 art. 8 come contesto, non come obbligo di pubblicazione |
 | ALBO-23 | fatto | All'attivazione l'insieme minimo di permessi sul tipo atto arriva all'amministratore | **prodotto** |
 | ALBO-24 | fatto | A ogni aggiornamento i permessi nuovi arrivano ai ruoli che avevano già gli altri | **prodotto** |

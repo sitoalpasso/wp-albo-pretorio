@@ -50,13 +50,29 @@ final class Installazione {
 	 * nessuna versione memorizzata, e a chi aggiorna da una versione che non lo
 	 * aveva. Da `Permessi::DEFISSIONE_DAL` in poi una revoca
 	 * dell'amministrazione resta, e chi pubblica senza quel permesso non lo
-	 * riceve di nuovo.
+	 * riceve di nuovo. Lo stesso per il permesso dello storico pubblico, da
+	 * `Permessi::STORICO_DAL`.
 	 *
 	 * @param string $installata Versione memorizzata, stringa vuota se non c'e'.
 	 * @return array<int, string>
 	 */
 	public static function chiavi_escluse( string $installata ): array {
-		return '' !== $installata && version_compare( $installata, Permessi::DEFISSIONE_DAL, '>=' ) ? array( Permessi::CHIAVE_DEFISSIONE ) : array();
+		$escluse = array();
+
+		if ( '' === $installata ) {
+			return $escluse;
+		}
+
+		foreach ( array(
+			Permessi::CHIAVE_DEFISSIONE => Permessi::DEFISSIONE_DAL,
+			Permessi::CHIAVE_STORICO    => Permessi::STORICO_DAL,
+		) as $chiave => $dal ) {
+			if ( version_compare( $installata, $dal, '>=' ) ) {
+				$escluse[] = $chiave;
+			}
+		}
+
+		return $escluse;
 	}
 
 	/**

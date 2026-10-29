@@ -26,6 +26,7 @@ use AlboPretorioPa\Passaggi;
 use AlboPretorioPa\Permessi;
 use AlboPretorioPa\Repertorio;
 use AlboPretorioPa\RiquadroPassaggi;
+use AlboPretorioPa\Storico;
 use AlboPretorioPa\TipoAtto;
 
 use const AlboPretorioPa\META_DATA_ADOZIONE;
@@ -99,6 +100,7 @@ trait FlussoDiProva {
 
 		$this->assertTrue( Avvio::esegui() );
 		$this->assertTrue( TipoAtto::registra() );
+		$this->assertTrue( Storico::registra() );
 		$this->assertTrue( Durate::registra() );
 		$this->assertTrue( DatiAtto::registra() );
 		$this->assertTrue( DocumentiAtto::registra() );
