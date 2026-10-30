@@ -137,6 +137,25 @@ final class Permessi {
 	const STORICO_DAL = '0.7.0-alpha';
 
 	/**
+	 * Il nome generico con cui si esclude la nascita del ruolo del redattore.
+	 *
+	 * Non e' un permesso: e' la chiave che `Installazione::chiavi_escluse()`
+	 * restituisce quando il ruolo e' gia' nato una volta. Il redattore nasce
+	 * all'installazione e all'aggiornamento da una versione che non lo aveva,
+	 * e non piu' dopo: un'amministrazione che lo toglie non se lo ritrova.
+	 *
+	 * @var string
+	 */
+	const CHIAVE_RUOLO_REDATTORE = 'ruolo_redattore';
+
+	/**
+	 * La versione del componente che ha portato il ruolo del redattore.
+	 *
+	 * @var string
+	 */
+	const REDATTORE_DAL = '0.8.0-alpha';
+
+	/**
 	 * Chi pubblica: tutto quello che fa chi redige, piu' l'esposizione, piu'
 	 * la lettura del registro, dove trova i motivi dei rimandi in bozza, piu'
 	 * l'annullamento.
@@ -169,7 +188,38 @@ final class Permessi {
 	}
 
 	/**
+	 * Nome visibile del ruolo di chi prepara gli atti senza pubblicarli.
+	 *
+	 * @return string
+	 */
+	public static function nome_redattore(): string {
+		return __( 'Redattore dell\'albo', 'albo-pretorio-pa' );
+	}
+
+	/**
+	 * I ruoli propri del componente, con il nome visibile.
+	 *
+	 * Il redattore manca quando la sua nascita e' esclusa: e' gia' nato una
+	 * volta, e se oggi non c'e' l'ha tolto l'amministrazione.
+	 *
+	 * @param array<int, string> $escluse Chiavi escluse in questo giro.
+	 * @return array<string, string>
+	 */
+	private static function ruoli_propri( array $escluse ): array {
+		$ruoli = array( RUOLO => self::nome_ruolo() );
+
+		if ( ! in_array( self::CHIAVE_RUOLO_REDATTORE, $escluse, true ) ) {
+			$ruoli[ RUOLO_REDATTORE ] = self::nome_redattore();
+		}
+
+		return $ruoli;
+	}
+
+	/**
 	 * I ruoli a cui il componente assegna i permessi di propria iniziativa.
+	 *
+	 * Il redattore riceve l'insieme di chi redige e nient'altro: e' il ruolo
+	 * che separa chi prepara gli atti da chi li pubblica (ALBO-22).
 	 *
 	 * @return array<string, array<int, string>>
 	 */
@@ -179,6 +229,7 @@ final class Permessi {
 		return array(
 			'administrator' => $con_consultazione,
 			RUOLO           => $con_consultazione,
+			RUOLO_REDATTORE => self::CHIAVI_REDAZIONE,
 		);
 	}
 
@@ -248,7 +299,16 @@ final class Permessi {
 
 		$assegnazioni = null === $assegnazioni ? self::assegnazioni() : $assegnazioni;
 
-		$proprio = self::prepara_ruolo_proprio();
+		/*
+		 * Un redattore la cui nascita e' esclusa non si cerca fra i ruoli
+		 * dichiarati: se c'e' ancora lo completa il giro sugli altri ruoli, come
+		 * ogni ruolo che redige; se non c'e', l'ha tolto l'amministrazione.
+		 */
+		if ( in_array( self::CHIAVE_RUOLO_REDATTORE, $escluse, true ) ) {
+			unset( $assegnazioni[ RUOLO_REDATTORE ] );
+		}
+
+		$proprio = self::prepara_ruoli_propri( $escluse );
 
 		if ( is_wp_error( $proprio ) ) {
 			return $proprio;
@@ -312,9 +372,13 @@ final class Permessi {
 	}
 
 	/**
-	 * Crea il ruolo proprio, oppure riconosce quello che c'e' gia'.
+	 * Crea i ruoli propri, oppure riconosce quelli che ci sono gia'.
 	 *
-	 * Tre situazioni, e la terza e' quella per cui questa funzione esiste. Il
+	 * **Prima si guardano tutti, poi si crea.** Un ruolo omonimo di altri
+	 * trovato dopo averne creato un altro lascerebbe il sito a meta': un ruolo
+	 * nostro nato e nessun permesso assegnato.
+	 *
+	 * Per ciascuno, tre situazioni, e la terza e' quella per cui questa funzione esiste. Il
 	 * ruolo non c'e': si crea, con il marcatore. Il ruolo c'e' e ha il
 	 * marcatore: e' nostro, lasciato da una versione precedente, e si aggiorna.
 	 * Il ruolo c'e' e il marcatore non c'e': **e' di qualcun altro**, e
@@ -323,34 +387,57 @@ final class Permessi {
 	 * un sito in cui un identificativo che ci serve e' di un altro componente e'
 	 * un sito da sistemare a mano, non da servire a meta'.
 	 *
+	 * @param array<int, string> $escluse Chiavi escluse in questo giro.
 	 * @return true|\WP_Error
 	 */
-	private static function prepara_ruolo_proprio() {
-		$ruolo = get_role( RUOLO );
+	private static function prepara_ruoli_propri( array $escluse ) {
+		$ruoli = self::ruoli_propri( $escluse );
 
-		if ( null === $ruolo ) {
+		foreach ( array_keys( $ruoli ) as $id ) {
+			$ruolo = get_role( $id );
+
+			if ( null !== $ruolo && ! $ruolo->has_cap( RUOLO_MARCATORE ) ) {
+				return self::in_conflitto( $id );
+			}
+		}
+
+		foreach ( $ruoli as $id => $nome ) {
+			if ( null !== get_role( $id ) ) {
+				continue;
+			}
+
 			add_role(
-				RUOLO,
-				self::nome_ruolo(),
+				$id,
+				$nome,
 				array(
 					'read'          => true,
 					RUOLO_MARCATORE => true,
 				)
 			);
 
-			return self::verifica_marcatore();
+			$verifica = self::verifica_marcatore( $id );
+
+			if ( is_wp_error( $verifica ) ) {
+				return $verifica;
+			}
 		}
 
-		if ( $ruolo->has_cap( RUOLO_MARCATORE ) ) {
-			return true;
-		}
+		return true;
+	}
 
+	/**
+	 * L'errore del ruolo omonimo di altri, con l'avviso che lo accompagna.
+	 *
+	 * @param string $ruolo Identificativo del ruolo in conflitto.
+	 * @return \WP_Error
+	 */
+	private static function in_conflitto( string $ruolo ) {
 		self::avvisa(
 			sprintf(
 				/* translators: 1: nome del componente, 2: identificativo del ruolo in conflitto. */
 				__( '%1$s resta attivo e inerte: esiste gia\' un ruolo chiamato %2$s che non e\' stato creato da questo componente, e assegnargli i permessi dell\'albo li darebbe a chiunque lo possieda. Rinominare quel ruolo, oppure rimuoverlo se non serve piu\'.', 'albo-pretorio-pa' ),
 				NOME,
-				RUOLO
+				$ruolo
 			)
 		);
 
@@ -359,9 +446,9 @@ final class Permessi {
 			sprintf(
 				/* translators: %s: identificativo del ruolo in conflitto. */
 				__( 'Ruolo %s gia\' esistente e non creato da questo componente.', 'albo-pretorio-pa' ),
-				RUOLO
+				$ruolo
 			),
-			array( 'ruolo' => RUOLO )
+			array( 'ruolo' => $ruolo )
 		);
 	}
 
@@ -376,20 +463,21 @@ final class Permessi {
 	 * riesce, l'avviso dice qual e' il ruolo da togliere a mano, perche' una
 	 * collisione permanente silenziosa e' il peggiore dei due esiti.
 	 *
+	 * @param string $ruolo Identificativo del ruolo appena creato.
 	 * @return true|\WP_Error
 	 */
-	private static function verifica_marcatore() {
+	private static function verifica_marcatore( string $ruolo ) {
 		$riletti = new \WP_Roles();
-		$scritto = $riletti->get_role( RUOLO );
+		$scritto = $riletti->get_role( $ruolo );
 
 		if ( null !== $scritto && $scritto->has_cap( RUOLO_MARCATORE ) ) {
 			return true;
 		}
 
-		remove_role( RUOLO );
+		remove_role( $ruolo );
 
 		$verifica = new \WP_Roles();
-		$rimosso  = null === $verifica->get_role( RUOLO );
+		$rimosso  = null === $verifica->get_role( $ruolo );
 
 		self::avvisa(
 			$rimosso
@@ -397,13 +485,13 @@ final class Permessi {
 					/* translators: 1: nome del componente, 2: identificativo del ruolo. */
 					__( '%1$s resta attivo e inerte: il ruolo %2$s non e\' stato scritto per intero ed e\' stato rimosso. Il componente riprovera\' alla richiesta successiva.', 'albo-pretorio-pa' ),
 					NOME,
-					RUOLO
+					$ruolo
 				)
 				: sprintf(
 					/* translators: 1: nome del componente, 2: identificativo del ruolo. */
 					__( '%1$s resta attivo e inerte: il ruolo %2$s non e\' stato scritto per intero e non e\' stato possibile rimuoverlo. Va rimosso a mano, altrimenti il componente lo scambiera\' per un ruolo di un altro.', 'albo-pretorio-pa' ),
 					NOME,
-					RUOLO
+					$ruolo
 				)
 		);
 
@@ -412,10 +500,10 @@ final class Permessi {
 			sprintf(
 				/* translators: %s: identificativo del ruolo. */
 				__( 'Il ruolo %s non risulta scritto con il proprio marcatore.', 'albo-pretorio-pa' ),
-				RUOLO
+				$ruolo
 			),
 			array(
-				'ruolo'   => RUOLO,
+				'ruolo'   => $ruolo,
 				'rimosso' => $rimosso,
 			)
 		);
@@ -610,10 +698,12 @@ final class Permessi {
 			}
 		}
 
-		$ruolo = get_role( RUOLO );
+		foreach ( array( RUOLO, RUOLO_REDATTORE ) as $id ) {
+			$ruolo = get_role( $id );
 
-		if ( null !== $ruolo && $ruolo->has_cap( RUOLO_MARCATORE ) ) {
-			remove_role( RUOLO );
+			if ( null !== $ruolo && $ruolo->has_cap( RUOLO_MARCATORE ) ) {
+				remove_role( $id );
+			}
 		}
 
 		self::$avvisi = array();

@@ -102,6 +102,7 @@ una prova statica che cerca i nomi derivati nei sorgenti e pretende di non trova
 |---|---|
 | Amministratore | l'insieme completo. Pubblicare gli è concesso come permesso e resta impossibile in pratica, perché lo sbarramento vale per tutti |
 | Responsabile della pubblicazione all'albo | lo stesso insieme |
+| Redattore dell'albo (dalla 0.8.0-alpha, [`ruolo-del-redattore.md`](ruolo-del-redattore.md)) | l'insieme di chi redige e nient'altro |
 | Un ruolo che possedeva già il permesso di redigere atti | riceve tutto l'insieme di chi redige, e **non** quello di chi pubblica |
 | Redattore, Autore, Collaboratore di WordPress | niente |
 | Visitatore anonimo | niente: il tipo non è interrogabile dal pubblico |

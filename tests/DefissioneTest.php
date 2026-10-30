@@ -594,7 +594,7 @@ class DefissioneTest extends \WP_UnitTestCase {
 		foreach ( array( $this->redattore, $this->pubblicatore, $this->amministratore ) as $utente ) {
 			$this->come(
 				$utente,
-				function () use ( $id ) {
+				function () use ( $id, $utente ) {
 					foreach ( array( 'publish', 'draft', 'pending', 'auto-draft', 'private', 'future', 'trash', ChiusuraPubblicazione::DEFISSO ) as $stato ) {
 						wp_update_post(
 							array(
@@ -655,7 +655,12 @@ class DefissioneTest extends \WP_UnitTestCase {
 						$_POST = array();
 					}
 
-					$this->assertArrayHasKey( 'albo_atto_defisso', Rifiuti::preleva_per_utente( $id ), 'Il rifiuto della schermata dice che l\'atto e\' tolto dall\'albo.' );
+					if ( $this->redattore === $utente ) {
+						// Per chi redige soltanto l'atto tolto dall'albo e' scaduto, e non si apre (A-290).
+						$this->assertFalse( current_user_can( 'edit_post', $id ), 'Chi redige soltanto non apre l\'atto tolto dall\'albo.' );
+					} else {
+						$this->assertArrayHasKey( 'albo_atto_defisso', Rifiuti::preleva_per_utente( $id ), 'Il rifiuto della schermata dice che l\'atto e\' tolto dall\'albo.' );
+					}
 				}
 			);
 

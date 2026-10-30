@@ -172,7 +172,11 @@ l'insieme di chi pubblica, chi possiede solo quello per redigere riceve l'insiem
 redige, così completare i permessi mancanti non promuove nessuno.
 
 Il componente crea inoltre un **ruolo proprio**, Responsabile della pubblicazione all'albo,
-che riceve l'insieme di chi pubblica e nessuno dei permessi degli articoli.
+che riceve l'insieme di chi pubblica e nessuno dei permessi degli articoli. Dalla versione
+0.8.0-alpha crea anche il **Redattore dell'albo**, che riceve l'insieme di chi redige e
+nient'altro; nasce una volta sola, all'installazione e all'aggiornamento da una versione che
+non lo aveva, così un'amministrazione che lo toglie non se lo ritrova
+([`ruolo-del-redattore.md`](implementazione/ruolo-del-redattore.md)).
 
 **Attenzione a cosa questi permessi non governano**, perché è la parte che si tende a dare
 per compresa: governano la gestione del contenuto, non la sua consultazione pubblica. Un

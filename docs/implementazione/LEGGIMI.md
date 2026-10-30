@@ -92,3 +92,5 @@ Schede presenti:
 - [`testi-delle-schermate.md`](testi-delle-schermate.md): frasi ed etichette corrette perché
   dicessero il vero e dicessero all'addetto cosa fare, e l'avviso nel riquadro di invio di WordPress. Righe di
   collaudo A-280..A-285.
+- [`ruolo-del-redattore.md`](ruolo-del-redattore.md): il secondo ruolo proprio, per chi
+  prepara gli atti senza pubblicarli, che nasce una volta sola. Righe di collaudo A-286..A-289.

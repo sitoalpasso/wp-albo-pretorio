@@ -3,7 +3,7 @@
  * Plugin Name:       Albo Pretorio
  * Plugin URI:        https://github.com/sitoalpasso/wp-albo-pretorio
  * Description:       Pubblicazione con effetto di pubblicità legale. Attua requisiti derivati dalla normativa applicabile ai soggetti dell'art. 2-bis del d.lgs. 33/2013.
- * Version:           0.7.0-alpha
+ * Version:           0.8.0-alpha
  * Requires at least: 6.5
  * Requires PHP:      8.1
  * Requires Plugins:  conformita-core
@@ -26,7 +26,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Versione del plugin.
  */
-const VERSIONE = '0.7.0-alpha';
+const VERSIONE = '0.8.0-alpha';
 
 /**
  * Versione minima di WordPress dichiarata.
@@ -45,7 +45,7 @@ const PHP_MINIMA = '8.1';
  * comune e non la sua versione, perché accetta slug e non vincoli di versione:
  * il vincolo di versione vive qui e si verifica a ogni avvio.
  */
-const CORE_API_RICHIESTA = '1.8.0';
+const CORE_API_RICHIESTA = '1.11.0';
 
 /**
  * Nome visibile del componente, come compare negli avvisi in amministrazione.
@@ -175,6 +175,11 @@ const TABELLA_REPERTORIO = 'albo_pretorio_repertorio';
 const RUOLO = 'albo_responsabile_pubblicazione';
 
 /**
+ * Secondo ruolo proprio del componente, per chi prepara gli atti senza pubblicarli.
+ */
+const RUOLO_REDATTORE = 'albo_redattore_atti';
+
+/**
  * Permesso marcatore che rende riconoscibile il ruolo creato da questo componente.
  *
  * Serve a distinguere due situazioni che si assomigliano e non lo sono: un
@@ -215,6 +220,7 @@ require_once __DIR__ . '/includes/class-amministrazioni-ospitate.php';
 require_once __DIR__ . '/includes/class-schermata-amministrazioni-ospitate.php';
 require_once __DIR__ . '/includes/class-scheda-atto.php';
 require_once __DIR__ . '/includes/class-documenti-atto.php';
+require_once __DIR__ . '/includes/class-scaduti-riservati.php';
 require_once __DIR__ . '/includes/class-scheda-documenti.php';
 require_once __DIR__ . '/includes/class-nome-scaricato.php';
 require_once __DIR__ . '/includes/class-repertorio.php';
@@ -339,6 +345,13 @@ add_filter( 'ajax_query_attachments_args', array( DocumentiAtto::class, 'da_ajax
 add_action( 'pre_get_posts', array( DocumentiAtto::class, 'da_pre_get_posts' ) );
 add_filter( 'posts_where', array( DocumentiAtto::class, 'da_posts_where' ), 10, 2 );
 add_action( 'before_delete_post', array( DocumentiAtto::class, 'da_before_delete_post' ), 10, 2 );
+
+/*
+ * Un atto scaduto si consulta con il permesso apposito: chi redige soltanto
+ * non lo apre e non lo trova nell'elenco degli atti (ALBO-34).
+ */
+add_filter( 'map_meta_cap', array( ScadutiRiservati::class, 'da_map_meta_cap' ), 10, 4 );
+add_filter( 'posts_where', array( ScadutiRiservati::class, 'da_posts_where' ), 10, 2 );
 
 /*
  * I due passaggi che partono dalla verifica hanno un riquadro nella schermata
