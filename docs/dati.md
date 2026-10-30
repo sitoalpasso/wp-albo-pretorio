@@ -249,7 +249,7 @@ Questa è la mappa delle azioni:
 ## L'archivio dell'esportazione (ALBO-17)
 
 Non si salva: si costruisce nella cartella temporanea del server, si consegna e si
-cancella. Resta solo la voce di registro `esportazione` (anno, numero di atti e di documenti,
+cancella; se la richiesta finisce prima della consegna, lo cancella la sua chiusura. Resta solo la voce di registro `esportazione` (anno, numero di atti e di documenti,
 impronta `sha256:` dell'archivio). Dentro l'archivio:
 
 - `atti.json`, UTF-8: `formato` (`albo-pretorio-esportazione`), `versione` (1), `anno`,

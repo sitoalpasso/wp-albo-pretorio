@@ -1,6 +1,6 @@
 <?php
 /**
- * L'esportazione di un anno del registro per la conservazione: righe A-308..A-311 (ALBO-17, ALBO-29).
+ * L'esportazione di un anno del registro per la conservazione: righe A-308..A-312 (ALBO-17, ALBO-29).
  *
  * Gli atti si portano a pubblicato, si tolgono, si annullano e si oscurano
  * con i passaggi veri, con l'orologio fissato. L'archivio si apre con
@@ -781,5 +781,92 @@ class EsportazioneTest extends \WP_UnitTestCase {
 		$this->assertSame( array( 'Atto proprio', 'Atto ospitato' ), array_column( $dati['atti'], 'oggetto' ) );
 		$this->assertNull( $dati['atti'][0]['amministrazione'], 'L\'atto di questa amministrazione non ne porta un\'altra.' );
 		$this->assertSame( 'Unione dei comuni', $dati['atti'][1]['amministrazione'], 'L\'ospitato porta il nome fissato alla pubblicazione, non quello di adesso.' );
+	}
+
+	/**
+	 * A-312: un numero perso si salta, un atto che non si legge o in uno stato inatteso ferma l'esportazione; l'archivio rimasto si cancella alla chiusura della richiesta.
+	 */
+	public function test_a312_atti_numerati_e_archivio_rimasto(): void {
+		global $wpdb;
+
+		$atto         = $this->pubblicato_il( '2041-10-01 09:30:00', 'Atto in corso' );
+		$consultatore = $this->consultatore();
+		$istante      = new \DateTimeImmutable( '2041-10-02 10:00:00', wp_timezone() );
+		$persi        = array();
+
+		// Tre numeri presi e poi persi: la bozza rimasta, la pubblicazione fallita in verifica, la bozza cancellata.
+		foreach ( array( 'draft', 'pending', 'cancellata' ) as $caso ) {
+			$id = self::factory()->post->create(
+				array(
+					'post_type'   => TIPO,
+					'post_status' => 'draft',
+					'post_title'  => 'Numero perso: ' . $caso,
+				)
+			);
+			$this->assertIsArray( Repertorio::assegna( $id, $istante ) );
+			$persi[ $caso ] = $id;
+		}
+
+		$this->scavalca_barriera(
+			static function () use ( $wpdb, $persi ) {
+				return $wpdb->update( $wpdb->posts, array( 'post_status' => 'pending' ), array( 'ID' => $persi['pending'] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: lo stato scritto senza i passaggi dell'albo.
+			}
+		);
+		$this->scavalca_barriera(
+			static function () use ( $wpdb, $persi ) {
+				return $wpdb->delete( $wpdb->posts, array( 'ID' => $persi['cancellata'] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: lo stato scritto senza i passaggi dell'albo.
+			}
+		);
+		clean_post_cache( $persi['pending'] );
+		clean_post_cache( $persi['cancellata'] );
+
+		$esito = $this->esporta( 2041, $consultatore );
+		$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+		$this->assertSame( 1, $esito['atti'], 'I numeri persi non portano niente nell\'archivio.' );
+		$this->assertSame( array( 'Atto in corso' ), array_column( json_decode( $this->apri( $esito['percorso'] )['atti.json'], true )['atti'], 'oggetto' ) );
+
+		// L'archivio che la richiesta non ha consegnato si cancella alla sua chiusura.
+		$this->assertFileExists( $esito['percorso'] );
+		Esportazione::cancella_esportazioni_rimaste();
+		$this->assertFileDoesNotExist( $esito['percorso'], 'La chiusura della richiesta cancella l\'archivio rimasto.' );
+
+		// Un contenuto numerato in uno stato che non e' dell'albo.
+		$this->scavalca_barriera(
+			static function () use ( $wpdb, $persi ) {
+				return $wpdb->update( $wpdb->posts, array( 'post_status' => 'private' ), array( 'ID' => $persi['draft'] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: lo stato scritto senza i passaggi dell'albo.
+			}
+		);
+		clean_post_cache( $persi['draft'] );
+		$this->assertSame( array( 'albo_esportazione_stato' ), $this->codici( $this->esporta( 2041, $consultatore ) ), 'Uno stato inatteso ferma l\'esportazione.' );
+		$this->scavalca_barriera(
+			static function () use ( $wpdb, $persi ) {
+				return $wpdb->update( $wpdb->posts, array( 'post_status' => 'draft' ), array( 'ID' => $persi['draft'] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: lo stato scritto senza i passaggi dell'albo.
+			}
+		);
+		clean_post_cache( $persi['draft'] );
+
+		$wpdb->suppress_errors( true );
+
+		// La lettura degli atti numerati che non risponde.
+		$tabella      = Repertorio::tabella_assegnazioni();
+		$this->guasto = static function ( string $istruzione ) use ( $tabella ): bool {
+			return false !== strpos( $istruzione, $tabella ) && false !== strpos( $istruzione, 'LEFT JOIN' );
+		};
+		$guasto       = $this->esporta( 2041, $consultatore );
+		$this->guasto = null;
+		$this->assertSame( array( 'albo_esportazione_lettura' ), $this->codici( $guasto ), 'Gli atti numerati che non si leggono.' );
+
+		// Un atto che c'e' ma non si legge non e' un numero perso.
+		$posts        = $wpdb->posts;
+		$this->guasto = static function ( string $istruzione ) use ( $posts, $atto ): bool {
+			return 1 === preg_match( '/\ASELECT \* FROM ' . preg_quote( $posts, '/' ) . ' WHERE ID = ' . $atto . ' LIMIT 1\z/', trim( $istruzione ) );
+		};
+		clean_post_cache( $atto );
+		$guasto       = $this->esporta( 2041, $consultatore );
+		$this->guasto = null;
+		$wpdb->suppress_errors( false );
+
+		$this->assertSame( array( 'albo_esportazione_lettura' ), $this->codici( $guasto ), 'Un atto che non si legge ferma l\'esportazione.' );
+		$this->assertCount( 1, $this->voci_esportazione(), 'Nessuna voce per le esportazioni fermate.' );
 	}
 }

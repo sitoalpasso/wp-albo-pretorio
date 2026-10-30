@@ -77,6 +77,20 @@ final class Esportazione {
 	);
 
 	/**
+	 * Gli stati di un atto che ha preso un numero e poi l'ha perso: non c'e' niente da esportare.
+	 *
+	 * @var array<int, string>
+	 */
+	const STATI_SENZA_ATTO = array( 'draft', 'auto-draft', 'trash', ChiusuraPubblicazione::IN_VERIFICA );
+
+	/**
+	 * Gli archivi costruiti in questa richiesta, da cancellare alla sua chiusura.
+	 *
+	 * @var array<int, string>
+	 */
+	private static $da_cancellare = array();
+
+	/**
 	 * Le colonne dell'indice.
 	 *
 	 * @var array<int, string>
@@ -107,7 +121,17 @@ final class Esportazione {
 	 * @return array{dati: array<string, mixed>, file: array<string, string>}|\WP_Error I dati e, per ogni percorso nell'archivio, il file sul disco.
 	 */
 	public static function raccogli( int $anno ) {
-		$atti = Repertorio::atti_numerati( $anno );
+		global $wpdb;
+
+		if ( ! Repertorio::tabelle_presenti() ) {
+			return self::errore_lettura( __( 'il registro dei numeri', 'albo-pretorio-pa' ) );
+		}
+
+		// Tipo e stato di ogni atto numerato in una sola lettura: un atto che manca va distinto da una lettura che non ha risposto.
+		$atti = Lettura::righe(
+			$wpdb->prepare( 'SELECT a.atto_id, p.post_type, p.post_status FROM %i a LEFT JOIN %i p ON p.ID = a.atto_id WHERE a.anno = %d', Repertorio::tabella_assegnazioni(), $wpdb->posts, $anno ),
+			array( 'atto_id', 'post_type', 'post_status' )
+		);
 
 		if ( null === $atti ) {
 			return self::errore_lettura( __( 'il registro dei numeri', 'albo-pretorio-pa' ) );
@@ -116,12 +140,31 @@ final class Esportazione {
 		$elenco = array();
 		$file   = array();
 
-		foreach ( $atti as $atto_id ) {
+		foreach ( $atti as $riga ) {
+			$atto_id = (int) $riga['atto_id'];
+
+			/*
+			 * Un numero preso e poi perso resta nel registro: la bozza cancellata
+			 * (nessuna riga), rimessa in bozza o nel cestino, o la pubblicazione
+			 * fallita dopo il numero, che lascia l'atto in verifica. Non c'e' niente
+			 * da conservare. Ogni altro stato che non sia dell'albo ferma tutto.
+			 */
+			if ( null === $riga['post_type'] || in_array( $riga['post_status'], self::STATI_SENZA_ATTO, true ) ) {
+				continue;
+			}
+
+			if ( TIPO !== $riga['post_type'] || ! isset( self::STATI[ $riga['post_status'] ] ) ) {
+				return new \WP_Error(
+					'albo_esportazione_stato',
+					/* translators: %d: identificativo dell'atto. */
+					sprintf( __( 'Niente e\' stato esportato: il contenuto %d ha un numero dell\'albo ma non e\' un atto pubblicato, tolto o annullato. Va controllato prima di esportare.', 'albo-pretorio-pa' ), $atto_id )
+				);
+			}
+
 			$atto = get_post( $atto_id );
 
-			// Un numero dato e poi perso con la sua bozza resta nel registro: senza atto non c'e' niente da conservare.
-			if ( ! $atto instanceof \WP_Post || TIPO !== $atto->post_type || ! isset( self::STATI[ $atto->post_status ] ) ) {
-				continue;
+			if ( ! $atto instanceof \WP_Post ) {
+				return self::errore_lettura( __( 'un atto dell\'anno', 'albo-pretorio-pa' ) );
 			}
 
 			$dati = self::atto( $atto );
@@ -190,6 +233,18 @@ final class Esportazione {
 		$percorso = wp_tempnam( 'albo-esportazione-' . $anno . '.zip' );
 		$archivio = new \ZipArchive();
 
+		/*
+		 * L'archivio contiene dati personali e non deve restare sul server. Chi
+		 * chiama lo cancella dopo la consegna, ma la richiesta puo' finire prima:
+		 * il browser che chiude la connessione, il tempo massimo del server. La
+		 * chiusura della richiesta lo cancella comunque.
+		 */
+		if ( array() === self::$da_cancellare ) {
+			register_shutdown_function( array( self::class, 'cancella_esportazioni_rimaste' ) );
+		}
+
+		self::$da_cancellare[] = $percorso;
+
 		if ( true !== $archivio->open( $percorso, \ZipArchive::OVERWRITE ) ) {
 			wp_delete_file( $percorso );
 
@@ -252,6 +307,21 @@ final class Esportazione {
 			'documenti' => $documenti,
 			'impronta'  => $impronta,
 		);
+	}
+
+	/**
+	 * Cancella gli archivi costruiti nella richiesta e rimasti sul disco.
+	 *
+	 * Si aggancia da se' alla chiusura della richiesta.
+	 */
+	public static function cancella_esportazioni_rimaste(): void {
+		foreach ( self::$da_cancellare as $percorso ) {
+			if ( file_exists( $percorso ) ) {
+				wp_delete_file( $percorso );
+			}
+		}
+
+		self::$da_cancellare = array();
 	}
 
 	/**

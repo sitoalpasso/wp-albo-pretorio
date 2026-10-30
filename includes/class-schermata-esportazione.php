@@ -194,6 +194,13 @@ final class SchermataEsportazione {
 			return;
 		}
 
+		// La consegna arriva in fondo anche se il browser chiude prima, cosi' che la cancellazione che la segue giri.
+		ignore_user_abort( true );
+
+		while ( ob_get_level() > 0 ) {
+			ob_end_clean();
+		}
+
 		nocache_headers();
 		header( 'Cache-Control: ' . PaginaPubblica::CACHE_CONTROL );
 		header( 'Content-Type: application/zip' );

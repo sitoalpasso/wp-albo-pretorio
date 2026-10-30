@@ -3,7 +3,7 @@
 Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro finito con
 com'è andata davvero.
 
-**Stato: costruita, in attesa di revisione.** Requisito ALBO-17, righe di collaudo A-308..A-311.
+**Stato: costruita, in attesa di revisione.** Requisito ALBO-17, righe di collaudo A-308..A-312.
 
 ## In tre paragrafi
 
@@ -85,7 +85,7 @@ Il permesso di consultare gli scaduti, più il gettone della schermata.
 
 ### 7. Test aggiunti
 
-A-308..A-311, in `tests/EsportazioneTest.php`.
+A-308..A-312, in `tests/EsportazioneTest.php`.
 
 ### 8. Cosa non implementa
 
@@ -124,6 +124,22 @@ stato cancellato, il nome resta vuoto e il numero c'è.
 alterato, e dà gli stessi dati che la prova legge da sé. Ricaricare gli atti in un altro sito
 non è costruito.
 
+**Un numero perso non è un atto che non si legge** (dalla rilettura). Il registro dei numeri
+tiene anche i numeri presi e poi persi: la bozza cancellata, rimessa in bozza o nel cestino, e
+la pubblicazione fallita dopo il numero, che lascia l'atto in verifica. Questi si saltano. La
+prima versione saltava anche l'atto che la banca dati in quel momento non restituiva: l'archivio
+usciva senza un atto e la voce del registro dichiarava un conteggio sbagliato. Ora tipo e stato
+di tutti gli atti numerati si leggono in una sola interrogazione che distingue la riga assente
+dalla risposta mancata; una risposta mancata, un atto che c'è ma non si legge, o uno stato che
+non è dell'albo fermano l'esportazione.
+
+**L'archivio non resta sul server** (dalla rilettura). Chi consegna lo cancella subito dopo, ma
+una richiesta può finire prima: il browser che chiude la connessione, il tempo massimo del
+server su un anno grosso. E se la cartella temporanea del sistema non è scrivibile, WordPress
+ripiega su una cartella del sito. Per questo l'archivio, appena creato, si segna per la
+cancellazione alla chiusura della richiesta, che gira anche in quei casi; e la consegna prosegue
+anche se il browser chiude, con le memorie di uscita svuotate prima di mandare il file.
+
 **L'ordine degli atti** è per numero. Il registro dei numeri li restituisce già in quell'ordine,
 quindi togliere l'ordinamento non fa fallire nessuna prova: resta come garanzia, perché
 quell'ordine della banca dati non è promesso.
@@ -148,3 +164,9 @@ quell'ordine della banca dati non è promesso.
 | nome dell'amministrazione ospitata di adesso invece di quello fissato | A-311 |
 | amministrazione ospitata non esportata | A-311 |
 | ordinamento per numero tolto | nessuna (vedi sopra) |
+| atto in verifica con il numero non saltato | A-312 |
+| riga assente non saltata | A-312 |
+| atto che non si legge saltato | A-312 |
+| stato inatteso saltato | A-312 |
+| archivio non segnato per la cancellazione | A-312 |
+| chiusura della richiesta che non cancella | A-312 |
