@@ -381,6 +381,11 @@ class FestiviTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'Pasqua+1 | Luned', $stampato, 'Proposta delle feste nazionali.' );
 		$this->assertStringContainsString( '04/10 | San Francesco', $stampato );
 		$this->assertStringContainsString( '(l. 260/1949 art. 2, come modificato dalla l. 8 ottobre 2025, n. 151, art. 1 c. 2)', $stampato, 'Il 4 ottobre porta gli estremi della legge che lo ha reso festa nazionale.' );
+		$this->assertStringContainsString( '02/06 | Festa della Repubblica (l. 260/1949 art. 1)', $stampato, 'Il 2 giugno sta nell\'art. 1, non nell\'art. 2.' );
+		$this->assertStringContainsString( '(l. 54/1977 art. 1)', $stampato, 'I giorni che l\'art. 2 elenca ancora ma non sono festivi agli effetti civili sono spiegati con la loro norma.' );
+
+		$proposta = Festivi::leggi_elenco( Festivi::proposta() );
+		$this->assertIsArray( $proposta, is_wp_error( $proposta ) ? $proposta->get_error_message() : 'La proposta si salva cosi\' com\'e\'.' );
 		$this->assertStringContainsString( 'santo patrono', $stampato );
 
 		// Dopo il salvataggio: segnata quella salvata, elenco salvato, chi e quando.

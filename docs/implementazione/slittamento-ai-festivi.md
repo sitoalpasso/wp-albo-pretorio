@@ -72,6 +72,13 @@ della release si verificano.
   nell'elenco dell'art. 2 la legge 8 ottobre 2025, n. 151, "Istituzione della festa
   nazionale di San Francesco d'Assisi", art. 1 c. 2, in vigore dal 1 gennaio 2026. Estremi
   verificati sul testo vigente in Normattiva il 2026-10-30.
+- Legge 260/1949 art. 1: il 2 giugno è festa nazionale. Sta nell'art. 1, non nell'elenco
+  dell'art. 2.
+- Legge 54/1977 art. 1: S. Giuseppe, Ascensione, Corpus Domini, SS. Pietro e Paolo e il 4
+  novembre non sono festivi agli effetti civili, anche se il testo dell'art. 2 della l.
+  260/1949 li elenca ancora. La stessa legge toglieva Epifania e 2 giugno, tornati festivi
+  per norme successive i cui estremi non sono ancora riportati qui. Testi verificati in
+  Normattiva il 2026-10-30.
 
 ### 3. Il flusso per chi usa il sito
 
