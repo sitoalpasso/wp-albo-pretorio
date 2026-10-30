@@ -176,7 +176,7 @@ final class SchedaDocumenti {
 			self::campo_file( self::CAMPO_ULTERIORE, __( 'Aggiungi un allegato ulteriore', 'albo-pretorio-pa' ) );
 			printf( '<p class="description">%s</p>', esc_html__( 'Si aggiunge un allegato alla volta: scelto il file, si salva la bozza, e il campo torna libero per il prossimo. Anche per togliere un documento si salva la bozza.', 'albo-pretorio-pa' ) );
 		} else {
-			printf( '<p class="description">%s</p>', esc_html__( 'I documenti si cambiano solo mentre l\'atto e\' in bozza.', 'albo-pretorio-pa' ) );
+			printf( '<p class="description">%s</p>', esc_html__( 'I documenti si cambiano solo mentre l\'atto e\' in bozza. Dopo la pubblicazione un documento con dati personali in piu\' si sostituisce soltanto con la sua versione oscurata, dal riquadro Pubblicazione.', 'albo-pretorio-pa' ) );
 		}
 	}
 
@@ -347,7 +347,7 @@ final class SchedaDocumenti {
 	 * @param string $nome Nome del campo.
 	 * @return array<string, mixed>|\WP_Error|null Nullo se il campo e' assente o vuoto.
 	 */
-	private static function file( string $nome ) {
+	public static function file( string $nome ) {
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- il gettone e' verificato da chi chiama.
 		if ( ! isset( $_FILES[ $nome ] ) || ! is_array( $_FILES[ $nome ] ) ) {
 			return null;

@@ -467,7 +467,7 @@ class DefissioneTest extends \WP_UnitTestCase {
 		}
 
 		$this->assertSame( array( 'albo_causa_oscuramento' ), $this->codici( $this->defiggi( $id, $this->pubblicatore, Passaggi::CAUSA_DATI_ECCEDENTI ) ), 'I dati eccedenti si oscurano, non si tolgono.' );
-		$this->assertStringContainsString( 'amministratore del sito', $this->messaggi( $this->defiggi( $id, $this->pubblicatore, Passaggi::CAUSA_DATI_ECCEDENTI ) ), 'Il rifiuto dice a chi segnalare il caso (A-280).' );
+		$this->assertStringContainsString( 'Oscura i dati in piu\' di un documento', $this->messaggi( $this->defiggi( $id, $this->pubblicatore, Passaggi::CAUSA_DATI_ECCEDENTI ) ), 'Il rifiuto dice dove si carica la versione oscurata (A-280).' );
 
 		// Dal riquadro, la sola volonta' dell'amministrazione.
 		$this->invia_riquadro(
@@ -1150,28 +1150,30 @@ class DefissioneTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * A-280: per i dati eccedenti il riquadro e il rifiuto non promettono una
-	 * sostituzione del documento che la schermata non sa ancora fare.
+	 * A-280: per i dati eccedenti il riquadro e il rifiuto rinviano alla sostituzione con la versione oscurata.
 	 *
-	 * Dicono che i dati si oscurano nel documento, che la sostituzione per un
-	 * atto pubblicato non e' ancora disponibile e a chi si segnala il caso.
+	 * Dicono che i dati si oscurano nel documento e dove si fa: la parte
+	 * "Oscura i dati in piu' di un documento" dello stesso riquadro (ALBO-12).
+	 * Non dicono piu' che la sostituzione manca, e non mandano il caso
+	 * all'amministratore del sito.
 	 */
-	public function test_a280_dati_eccedenti_senza_promessa(): void {
+	public function test_a280_dati_eccedenti_rinviano_all_oscuramento(): void {
 		$id = $this->pubblicato_il();
 
 		$rifiuto  = $this->messaggi( $this->defiggi( $id, $this->pubblicatore, Passaggi::CAUSA_DATI_ECCEDENTI ) );
 		$riquadro = $this->riquadro( $id, $this->pubblicatore );
 
 		$this->assertStringContainsString( 'Togli dall&#039;albo prima della scadenza', $riquadro, 'Precondizione: la parte della defissione c\'e\'.' );
+		$this->assertStringContainsString( 'Oscura i dati in pi', $riquadro, 'La parte dell\'oscuramento c\'e\', nello stesso riquadro.' );
 
 		foreach ( array(
 			'rifiuto'  => $rifiuto,
 			'riquadro' => $riquadro,
 		) as $dove => $testo ) {
-			$this->assertStringNotContainsString( 'sostituendo il documento', $testo, $dove . ': nessuna promessa di sostituzione.' );
 			$this->assertStringContainsString( 'si oscurano', $testo, $dove . ': i dati eccedenti si oscurano.' );
-			$this->assertMatchesRegularExpression( '/non e(\'|&#039;) ancora disponibile/', $testo, $dove . ': la sostituzione non c\'e\' ancora.' );
-			$this->assertStringContainsString( 'amministratore del sito', $testo, $dove . ': a chi si segnala.' );
+			$this->assertMatchesRegularExpression( '/Oscura i dati in pi(u\'|u&#039;|ù)/', $testo, $dove . ': rinvia alla parte dell\'oscuramento.' );
+			$this->assertDoesNotMatchRegularExpression( '/ancora disponibile/', $testo, $dove . ': non dice piu\' che manca.' );
+			$this->assertStringNotContainsString( 'amministratore del sito', $testo, $dove . ': non manda il caso altrove.' );
 		}
 	}
 }

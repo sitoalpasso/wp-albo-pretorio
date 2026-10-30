@@ -915,7 +915,7 @@ dicevano una cosa non vera o non dicevano all'addetto cosa fare.
 
 | Riga | Stato | Prova | Atteso |
 |---|---|---|---|
-| A-280 | fatto | **Dati eccedenti in un atto pubblicato**: il rifiuto della defissione per dati eccedenti e il riquadro "Togli dall'albo prima della scadenza" | nessuno dei due promette la sostituzione del documento; tutti e due dicono che i dati si oscurano, che la sostituzione per un atto pubblicato non è ancora disponibile e che il caso si segnala all'amministratore del sito |
+| A-280 | fatto | **Dati eccedenti in un atto pubblicato**: il rifiuto della defissione per dati eccedenti e il riquadro "Togli dall'albo prima della scadenza" | tutti e due dicono che i dati si oscurano e rinviano alla parte "Oscura i dati in più di un documento" del riquadro Pubblicazione; nessuno dei due dice più che la sostituzione non è disponibile né rinvia all'amministratore del sito. Il rifiuto resta: i dati eccedenti non sono una causa di rimozione |
 | A-281 | fatto | **La schermata della proroga** | non rinvia alla defissione; dice che la proroga non si annulla e non si corregge, e che si controlla nell'anteprima prima di confermare |
 | A-282 | fatto | **Il campo dell'allegato in una bozza** | dice che si aggiunge un allegato alla volta, salvando la bozza, e che il campo torna libero per il prossimo |
 | A-283 | fatto | **Le etichette del tipo atto** | la voce per l'atto nuovo è "Nuovo atto" e non quella degli articoli; l'elenco è "Tutti gli atti"; dichiarate anche "Vedi atto" e "Nessun atto nel cestino." |
@@ -945,7 +945,7 @@ Stesso prefisso `A-`. Righe di ALBO-12 (la sostituzione di un documento di un at
 pubblicato e non scaduto con la sua versione oscurata), con ALBO-08 e ALBO-27 sui dati
 estranei, ALBO-09 sull'unica eccezione all'immodificabilità e ALBO-10 sulle impronte nel
 registro. Scheda [`sostituzione-per-oscuramento.md`](implementazione/sostituzione-per-oscuramento.md).
-Provate in `tests/OscuramentoTest.php` (A-293..A-301). Atto del 1 ottobre 2041 alle 9:30, fine il 16
+Provate in `tests/OscuramentoTest.php` (A-293..A-301 da codice, A-302..A-304 dal riquadro). Atto del 1 ottobre 2041 alle 9:30, fine il 16
 ottobre, sostituzione il 5 ottobre alle 10:00.
 
 | Riga | Stato | Prova | Atteso |
@@ -959,6 +959,9 @@ ottobre, sostituzione il 5 ottobre alle 10:00.
 | A-299 | fatto | **Tutto o niente**: senza conferma, senza motivo, documento di un altro atto, nessun documento; poi un guasto sul dato del documento, sul segno dell'uscente, sulla voce del registro | i primi rifiutati prima del deposito, con niente cambiato; dopo ogni guasto atto, documenti e disco come prima, e nel registro solo il file entrante aggiunto e tolto. **Controllo positivo**: senza guasti riesce, e l'atto ha due documenti |
 | A-300 | fatto | **Nessun'altra scrittura**: durante la scrittura del documento un altro componente cambia la data di adozione o rimette l'uscente, prima con le funzioni di WordPress, poi con un'istruzione diretta | con WordPress la scrittura è rifiutata e la sostituzione riesce cambiando solo il documento; con l'istruzione diretta il controllo finale la trova e annulla tutto |
 | A-301 | fatto | **Letture dalla banca dati**: la memoria di WordPress ricorda il principale di prima della sostituzione; poi la lettura dei dati dell'atto fallisce | con la memoria di prima, il pubblico e chi redige soltanto ricevono "non trovato" per l'uscente; con la lettura fallita nemmeno l'entrante esce, al pubblico e a chi redige soltanto. **Controllo positivo**: senza guasto l'entrante esce a tutti e due |
+| A-302 | fatto | **Chi vede la parte dell'oscuramento nel riquadro**: chi pubblica su un atto pubblicato con un allegato; chi redige soltanto; lo stesso atto con la fine passata e il compito pianificato fermo, e l'ultimo giorno; un atto tolto; un atto annullato | chi pubblica vede la parte con un'opzione per documento (principale e allegato con la sua posizione), nessuna già scelta, il campo del file, il motivo, la conferma legata a quell'atto e il pulsante. Non la vedono chi redige soltanto, nessuno dopo la fine, nessuno su un atto tolto o annullato. **Controllo positivo**: l'ultimo giorno la parte c'è |
+| A-303 | fatto | **Rifiuti dal riquadro**: nessun documento scelto, un documento che non è un numero, nessun file, il campo del file vuoto, un file arrivato a metà, senza conferma, la conferma di un altro atto, senza motivo, il documento di un altro atto, chi redige soltanto, il modulo di un altro atto | ciascuno rifiutato con il suo motivo mostrato nel riquadro, e l'atto identico, registro compreso. **Controllo positivo**: con tutti i campi giusti l'unico rifiuto è quello del meccanismo comune sul file che non viene da un caricamento HTTP, che arriva al deposito, cioè dopo ogni altro controllo; un caricamento vero non si può simulare nelle prove |
+| A-304 | fatto | **Elenco delle sostituzioni**: prima e dopo una sostituzione, per chi pubblica e per chi redige soltanto; poi l'atto tolto; poi il registro che non risponde | prima l'elenco non c'è; dopo, tutti e due vedono chi, il posto e il motivo; il collegamento "Apri la versione di prima" lo vede solo chi pubblica, porta al documento uscente e si apre. L'elenco resta sull'atto tolto. Con il registro guasto il riquadro dice che le sostituzioni non si leggono |
 
 ## Collaudo congiunto con la trasparenza
 

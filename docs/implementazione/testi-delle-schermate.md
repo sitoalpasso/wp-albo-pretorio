@@ -11,8 +11,8 @@ collaudo A-280..A-285.
 scadenza" e il rifiuto della defissione per dati eccedenti dicevano che i dati "si oscurano
 sostituendo il documento". La sostituzione per oscuramento di un atto pubblicato (ALBO-12)
 non è ancora costruita: l'addetto cercava un pulsante che non c'è. Ora le due frasi dicono
-che i dati si oscurano nel documento, che la sostituzione per un atto pubblicato non è
-ancora disponibile e che il caso si segnala subito all'amministratore del sito. Il rifiuto
+che i dati si oscurano nel documento e rinviano alla parte "Oscura i dati in più di un
+documento" dello stesso riquadro, arrivata con la sostituzione per oscuramento. Il rifiuto
 resta quello di prima: i dati eccedenti non sono una causa di rimozione.
 
 **Proroga per disservizio (A-281).** La schermata diceva che un errore nella proroga "si

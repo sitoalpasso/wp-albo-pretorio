@@ -1,6 +1,6 @@
 <?php
 /**
- * La sostituzione di un documento con la sua versione oscurata: righe A-293..A-301 (ALBO-12, ALBO-08, ALBO-09, ALBO-10, ALBO-27).
+ * La sostituzione di un documento con la sua versione oscurata: righe A-293..A-301 e, dal riquadro, A-302..A-304 (ALBO-12, ALBO-08, ALBO-09, ALBO-10, ALBO-27).
  *
  * Gli atti si portano a pubblicato con il passaggio vero, l'orologio avanza
  * di qualche giorno e la sostituzione si fa con il passaggio vero, da
@@ -25,6 +25,8 @@ use AlboPretorioPa\Durate;
 use AlboPretorioPa\Passaggi;
 use AlboPretorioPa\Permessi;
 use AlboPretorioPa\Repertorio;
+use AlboPretorioPa\Rifiuti;
+use AlboPretorioPa\RiquadroPassaggi;
 
 use const AlboPretorioPa\META_ALLEGATI_ULTERIORI;
 use const AlboPretorioPa\META_DATA_ADOZIONE;
@@ -858,6 +860,271 @@ class OscuramentoTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 200, $this->scarica( $esito['documento'] )['stato'], 'Controllo positivo: senza guasto il pubblico scarica l\'entrante.' );
 		$this->assertSame( 200, $this->apri_in_amministrazione( $this->redattore, $esito['documento'] ), 'Controllo positivo: e chi redige lo apre.' );
+	}
+
+	/**
+	 * Quello che il riquadro disegna per l'utente indicato.
+	 *
+	 * @param int $atto_id Atto.
+	 * @param int $utente  Utente.
+	 * @return string
+	 */
+	private function riquadro( int $atto_id, int $utente ): string {
+		return $this->come(
+			$utente,
+			static function () use ( $atto_id ) {
+				clean_post_cache( $atto_id );
+
+				ob_start();
+				RiquadroPassaggi::mostra( get_post( $atto_id ) );
+
+				return (string) ob_get_clean();
+			}
+		);
+	}
+
+	/**
+	 * I rifiuti che il riquadro mostra all'utente indicato, prelevati.
+	 *
+	 * @param int $atto_id Atto.
+	 * @param int $utente  Utente.
+	 * @return array<string, string>
+	 */
+	private function rifiuti_del_riquadro( int $atto_id, int $utente ): array {
+		return $this->come(
+			$utente,
+			static function () use ( $atto_id ) {
+				return Rifiuti::preleva_per_utente( $atto_id );
+			}
+		);
+	}
+
+	/**
+	 * Invia il modulo dell'oscuramento dal riquadro, con il file indicato.
+	 *
+	 * @param int                       $atto_id Atto.
+	 * @param int                       $utente  Utente.
+	 * @param array<string, mixed>      $campi   Campi del modulo.
+	 * @param array<string, mixed>|null $file    Voce di `$_FILES`, o nulla.
+	 * @return string L'indirizzo a cui il riquadro torna.
+	 */
+	private function oscura_dal_riquadro( int $atto_id, int $utente, array $campi, ?array $file ): string {
+		$_FILES = null === $file ? array() : array( RiquadroPassaggi::CAMPO_FILE_OSCURATO => $file );
+
+		try {
+			return $this->invia_riquadro( $atto_id, $utente, array_merge( array( RiquadroPassaggi::CAMPO_PASSAGGIO => 'oscura' ), $campi ) );
+		} finally {
+			$_FILES = array();
+		}
+	}
+
+	/**
+	 * I campi completi del modulo, con le modifiche indicate (nullo toglie il campo).
+	 *
+	 * @param int                  $atto_id   Atto.
+	 * @param int                  $documento Documento scelto.
+	 * @param array<string, mixed> $altro     Modifiche.
+	 * @return array<string, mixed>
+	 */
+	private function campi_oscuramento( int $atto_id, int $documento, array $altro = array() ): array {
+		$campi = array_merge(
+			array(
+				RiquadroPassaggi::CAMPO_DOCUMENTO_OSCURATO => (string) $documento,
+				RiquadroPassaggi::CAMPO_MOTIVO_OSCURAMENTO => self::MOTIVO,
+				RiquadroPassaggi::CAMPO_CONFERMA_OSCURAMENTO => (string) $atto_id,
+			),
+			$altro
+		);
+
+		return array_filter(
+			$campi,
+			static function ( $valore ): bool {
+				return null !== $valore;
+			}
+		);
+	}
+
+	/**
+	 * A-302: la parte dell'oscuramento compare solo a chi pubblica, su un atto pubblicato non ancora scaduto, senza scelte gia' fatte (ALBO-12).
+	 *
+	 * Si prova sul testo disegnato: la parte, un'opzione per documento con
+	 * il suo posto, nessuna gia' scelta, il campo del file, il motivo, la
+	 * conferma legata all'atto, il pulsante. Poi i casi in cui non deve
+	 * comparire: chi redige soltanto, la fine passata con il compito
+	 * pianificato fermo (lo stato resta pubblicato), un atto tolto, un atto
+	 * annullato.
+	 */
+	public function test_a302_chi_vede_la_parte_dell_oscuramento(): void {
+		$id         = $this->pubblicato( 'normativo', array( $this->pdf( 'allegato' ) ) );
+		$principale = DocumentiAtto::principale( $id );
+		$allegato   = DocumentiAtto::ulteriori( $id )[0];
+		$html       = $this->riquadro( $id, $this->pubblicatore );
+
+		$this->assertStringContainsString( 'Oscura i dati in piu&#039; di un documento', $html, 'Chi pubblica vede la parte.' );
+		$this->assertStringContainsString( 'Documento principale: ' . get_the_title( $principale ), $html, 'Il principale, con il suo posto.' );
+		$this->assertStringContainsString( 'Allegato 1: ' . get_the_title( $allegato ), $html, 'L\'allegato, con il suo posto.' );
+		$this->assertSame( 2, substr_count( $html, 'name="' . RiquadroPassaggi::CAMPO_DOCUMENTO_OSCURATO . '"' ), 'Un\'opzione per documento.' );
+		$this->assertStringContainsString( 'value="' . $principale . '"', $html );
+		$this->assertStringContainsString( 'value="' . $allegato . '"', $html );
+		$this->assertStringNotContainsString( 'checked', $html, 'Nessun documento e nessuna conferma gia\' scelti.' );
+		$this->assertStringContainsString( 'type="file" id="' . RiquadroPassaggi::CAMPO_FILE_OSCURATO . '"', $html, 'Il campo del file.' );
+		$this->assertStringContainsString( 'name="' . RiquadroPassaggi::CAMPO_MOTIVO_OSCURAMENTO . '"', $html, 'Il motivo.' );
+		$this->assertStringContainsString( 'name="' . RiquadroPassaggi::CAMPO_CONFERMA_OSCURAMENTO . '" value="' . $id . '"', $html, 'La conferma vale per questo atto.' );
+		$this->assertStringContainsString( 'value="oscura">Sostituisci con la versione oscurata', $html, 'Il pulsante.' );
+
+		$this->assertStringNotContainsString( 'name="' . RiquadroPassaggi::CAMPO_DOCUMENTO_OSCURATO . '"', $this->riquadro( $id, $this->redattore ), 'Chi redige soltanto non la vede.' );
+
+		// Il 17 ottobre la fine (16 ottobre) e' passata; il compito pianificato non e' girato.
+		$this->fissa_orologi( '2041-10-17 08:00:00' );
+		$this->assertSame( 'publish', get_post_status( $id ), 'Precondizione: lo stato e\' ancora pubblicato.' );
+		$this->assertStringNotContainsString( 'name="' . RiquadroPassaggi::CAMPO_DOCUMENTO_OSCURATO . '"', $this->riquadro( $id, $this->pubblicatore ), 'Fine passata: la parte non c\'e\'.' );
+		$this->fissa_orologi( '2041-10-16 23:00:00' );
+		$this->assertStringContainsString( 'name="' . RiquadroPassaggi::CAMPO_DOCUMENTO_OSCURATO . '"', $this->riquadro( $id, $this->pubblicatore ), 'Controllo positivo: l\'ultimo giorno la parte c\'e\'.' );
+		$this->fissa_orologi( self::ISTANTE_OSCURAMENTO );
+
+		$tolto = $this->pubblicato();
+		$this->assertIsInt(
+			$this->come(
+				$this->pubblicatore,
+				static function () use ( $tolto ) {
+					return Passaggi::defiggi_atto( $tolto, 'dati_salute', 'Il documento riporta una diagnosi.' );
+				}
+			)
+		);
+		$this->assertStringNotContainsString( 'name="' . RiquadroPassaggi::CAMPO_DOCUMENTO_OSCURATO . '"', $this->riquadro( $tolto, $this->pubblicatore ), 'Atto tolto: la parte non c\'e\'.' );
+
+		$annullato = $this->pubblicato();
+		$this->assertIsInt(
+			$this->come(
+				$this->pubblicatore,
+				static function () use ( $annullato ) {
+					return Passaggi::annulla_atto( $annullato, 'Atto pubblicato per errore.' );
+				}
+			)
+		);
+		$this->assertStringNotContainsString( 'name="' . RiquadroPassaggi::CAMPO_DOCUMENTO_OSCURATO . '"', $this->riquadro( $annullato, $this->pubblicatore ), 'Atto annullato: la parte non c\'e\'.' );
+	}
+
+	/**
+	 * A-303: dal riquadro ogni campo mancante o sbagliato ha il suo rifiuto, e l'atto resta identico (ALBO-12).
+	 *
+	 * Un caricamento vero non si puo' simulare nelle prove: il meccanismo
+	 * comune accetta da un modulo solo un file arrivato con una richiesta
+	 * HTTP. Il controllo positivo e' quindi il caso con tutti i campi giusti
+	 * e un file del disco al posto del caricamento: l'unico rifiuto e' quello
+	 * del meccanismo comune sull'origine del file, che arriva al deposito,
+	 * cioe' dopo tutti gli altri controlli.
+	 */
+	public function test_a303_rifiuti_dal_riquadro(): void {
+		$id         = $this->pubblicato();
+		$principale = (int) DocumentiAtto::principale( $id );
+		$altro      = $this->pubblicato();
+		$estraneo   = (int) DocumentiAtto::principale( $altro );
+		$prima      = $this->fotografia( $id );
+		$file       = function (): array {
+			return $this->file_temporaneo( 'oscurato.pdf', $this->pdf( 'oscurato' ) );
+		};
+
+		foreach ( array(
+			'nessun documento scelto'    => array( $this->pubblicatore, array( RiquadroPassaggi::CAMPO_DOCUMENTO_OSCURATO => null ), $file(), 'albo_documento_non_scelto' ),
+			'documento non valido'       => array( $this->pubblicatore, array( RiquadroPassaggi::CAMPO_DOCUMENTO_OSCURATO => 'principale' ), $file(), 'albo_documento_non_scelto' ),
+			'nessun file'                => array( $this->pubblicatore, array(), null, 'albo_versione_oscurata_mancante' ),
+			'file vuoto nel modulo'      => array(
+				$this->pubblicatore,
+				array(),
+				array(
+					'name'     => '',
+					'tmp_name' => '',
+					'type'     => '',
+					'size'     => 0,
+					'error'    => UPLOAD_ERR_NO_FILE,
+				),
+				'albo_versione_oscurata_mancante',
+			),
+			'file arrivato a meta\''     => array( $this->pubblicatore, array(), array_merge( $file(), array( 'error' => UPLOAD_ERR_PARTIAL ) ), 'albo_caricamento_non_riuscito' ),
+			'senza conferma'             => array( $this->pubblicatore, array( RiquadroPassaggi::CAMPO_CONFERMA_OSCURAMENTO => null ), $file(), 'albo_conferma_mancante' ),
+			'conferma di un altro atto'  => array( $this->pubblicatore, array( RiquadroPassaggi::CAMPO_CONFERMA_OSCURAMENTO => (string) $altro ), $file(), 'albo_conferma_mancante' ),
+			'senza motivo'               => array( $this->pubblicatore, array( RiquadroPassaggi::CAMPO_MOTIVO_OSCURAMENTO => '  ' ), $file(), 'albo_motivo_mancante' ),
+			'documento di un altro atto' => array( $this->pubblicatore, array( RiquadroPassaggi::CAMPO_DOCUMENTO_OSCURATO => (string) $estraneo ), $file(), 'albo_documento_non_dell_atto' ),
+			'chi redige soltanto'        => array( $this->redattore, array(), $file(), 'albo_oscuramento_non_permesso' ),
+			'gettone di un altro atto'   => array( $this->pubblicatore, array( RiquadroPassaggi::CAMPO_GETTONE => wp_create_nonce( RiquadroPassaggi::azione( $altro ) ) ), $file(), 'albo_modulo_non_riconosciuto' ),
+		) as $caso => $dati ) {
+			list( $utente, $modifiche, $voce, $codice ) = $dati;
+
+			$url = $this->oscura_dal_riquadro( $id, $utente, $this->campi_oscuramento( $id, $principale, $modifiche ), $voce );
+
+			$this->assertStringNotContainsString( RiquadroPassaggi::ESITO . '=oscurato', $url, $caso . ': nessun esito di riuscita.' );
+			$this->assertArrayHasKey( $codice, $this->rifiuti_del_riquadro( $id, $utente ), $caso . ': il riquadro spiega il rifiuto.' );
+			$this->assertSame( $prima, $this->fotografia( $id ), $caso . ': l\'atto resta identico, registro compreso.' );
+		}
+
+		$url     = $this->oscura_dal_riquadro( $id, $this->pubblicatore, $this->campi_oscuramento( $id, $principale ), $file() );
+		$rifiuti = $this->rifiuti_del_riquadro( $id, $this->pubblicatore );
+
+		$this->assertStringNotContainsString( RiquadroPassaggi::ESITO . '=oscurato', $url );
+		$this->assertArrayHasKey( 'conformita_core_origine_incoerente', $rifiuti, 'Tutti i campi giusti: resta solo il rifiuto del file che non viene da un caricamento.' );
+		$this->assertStringContainsString( 'caricamento HTTP', implode( ' ', $rifiuti ) );
+		$this->assertSame( $principale, DocumentiAtto::principale( $id ), 'Il documento resta quello di prima.' );
+		$this->assertSame( $this->senza_registro( $prima ), $this->senza_registro( $this->fotografia( $id ) ), 'L\'atto resta identico fuori dal registro.' );
+	}
+
+	/**
+	 * A-304: il riquadro elenca le sostituzioni fatte, e il collegamento al documento di prima compare solo a chi lo puo' aprire (ALBO-12, ALBO-27).
+	 *
+	 * Dopo una sostituzione da codice, chi pubblica e chi redige soltanto
+	 * vedono la riga con chi, il posto e il motivo; il collegamento
+	 * "Apri la versione di prima" lo vede solo chi pubblica, e porta proprio
+	 * al documento uscente. Lo stesso elenco resta su un atto poi tolto. Con il
+	 * registro guasto il riquadro lo dice, invece di tacere.
+	 */
+	public function test_a304_elenco_delle_sostituzioni(): void {
+		$id      = $this->pubblicato();
+		$uscente = (int) DocumentiAtto::principale( $id );
+
+		$this->assertStringNotContainsString( 'Documenti sostituiti con la versione oscurata', $this->riquadro( $id, $this->pubblicatore ), 'Prima della sostituzione l\'elenco non c\'e\'.' );
+
+		$this->assertIsArray( $this->oscura( $id, $this->pubblicatore, $uscente, $this->pdf( 'oscurato' ), $this->richiesta() ) );
+
+		$autore    = get_userdata( $this->pubblicatore )->display_name;
+		$pubblica  = $this->riquadro( $id, $this->pubblicatore );
+		$redige    = $this->riquadro( $id, $this->redattore );
+		$indirizzo = esc_url(
+			(string) $this->come(
+				$this->pubblicatore,
+				static function () use ( $uscente ) {
+					return conformita_core_indirizzo_consegna_amministrativa( $uscente );
+				}
+			)
+		);
+
+		foreach ( array(
+			'chi pubblica'        => $pubblica,
+			'chi redige soltanto' => $redige,
+		) as $chi => $html ) {
+			$this->assertStringContainsString( 'Documenti sostituiti con la versione oscurata', $html, $chi . ': l\'elenco.' );
+			$this->assertStringContainsString( esc_html( $autore ) . ', documento principale: ' . esc_html( self::MOTIVO ), $html, $chi . ': chi, il posto e il motivo.' );
+		}
+
+		$this->assertStringContainsString( 'href="' . $indirizzo . '"', $pubblica, 'Chi pubblica ha il collegamento al documento di prima.' );
+		$this->assertStringContainsString( 'Apri la versione di prima', $pubblica );
+		$this->assertStringNotContainsString( 'Apri la versione di prima', $redige, 'Chi redige soltanto non ha il collegamento.' );
+		$this->assertSame( 200, $this->apri_in_amministrazione( $this->pubblicatore, $uscente ), 'E il collegamento si apre per chi lo vede.' );
+
+		$this->assertIsInt(
+			$this->come(
+				$this->pubblicatore,
+				static function () use ( $id ) {
+					return Passaggi::defiggi_atto( $id, 'dati_salute', 'Il documento riporta una diagnosi.' );
+				}
+			)
+		);
+		$this->assertStringContainsString( esc_html( self::MOTIVO ), $this->riquadro( $id, $this->pubblicatore ), 'Sull\'atto tolto l\'elenco resta.' );
+
+		$this->guasta_istruzioni( array( 'SELECT', 'conformita_core_registro' ) );
+		$guasto = $this->riquadro( $id, $this->pubblicatore );
+		$this->ripara();
+
+		$this->assertStringContainsString( 'le sostituzioni per oscuramento non si leggono in questo momento', $guasto, 'Registro guasto: il riquadro lo dice.' );
 	}
 
 	/**

@@ -1349,7 +1349,7 @@ final class Passaggi {
 		if ( self::CAUSA_DATI_ECCEDENTI === $causa ) {
 			return new \WP_Error(
 				'albo_causa_oscuramento',
-				__( 'L\'atto resta pubblicato: i dati eccedenti, non pertinenti o non necessari non si tolgono con l\'atto, si oscurano nel documento e la pubblicazione continua. La sostituzione del documento di un atto pubblicato con la sua versione oscurata non e\' ancora disponibile: il caso si segnala subito all\'amministratore del sito.', 'albo-pretorio-pa' )
+				__( 'L\'atto resta pubblicato: i dati eccedenti, non pertinenti o non necessari non si tolgono con l\'atto, si oscurano nel documento e la pubblicazione continua. La versione oscurata del documento si carica dalla parte "Oscura i dati in piu\' di un documento" del riquadro Pubblicazione.', 'albo-pretorio-pa' )
 			);
 		}
 
