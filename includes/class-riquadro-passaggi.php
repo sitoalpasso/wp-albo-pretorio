@@ -98,6 +98,34 @@ final class RiquadroPassaggi {
 	const CAMPO_MOTIVO_DEFISSIONE = 'albo_pretorio_motivo_defissione';
 
 	/**
+	 * Nome del gruppo di scelte del documento da sostituire con la versione oscurata.
+	 *
+	 * @var string
+	 */
+	const CAMPO_DOCUMENTO_OSCURATO = 'albo_pretorio_documento_da_oscurare';
+
+	/**
+	 * Nome del campo del file della versione oscurata.
+	 *
+	 * @var string
+	 */
+	const CAMPO_FILE_OSCURATO = 'albo_pretorio_versione_oscurata';
+
+	/**
+	 * Nome del campo del motivo della sostituzione per oscuramento.
+	 *
+	 * @var string
+	 */
+	const CAMPO_MOTIVO_OSCURAMENTO = 'albo_pretorio_motivo_oscuramento';
+
+	/**
+	 * Nome della casella di conferma della versione oscurata: il valore e' l'atto a cui si riferisce.
+	 *
+	 * @var string
+	 */
+	const CAMPO_CONFERMA_OSCURAMENTO = 'albo_pretorio_conferma_oscuramento';
+
+	/**
 	 * Nome del gruppo di scelte dell'effetto della rimozione sul periodo.
 	 *
 	 * @var string
@@ -215,6 +243,8 @@ final class RiquadroPassaggi {
 
 		if ( ChiusuraPubblicazione::PUBBLICATO === $atto->post_status ) {
 			self::pubblicato( $atto );
+			self::sostituzioni( $atto );
+			self::oscuramento( $atto );
 			self::annullamento( $atto );
 			self::defissione( $atto );
 			return;
@@ -222,6 +252,7 @@ final class RiquadroPassaggi {
 
 		if ( ChiusuraPubblicazione::DEFISSO === $atto->post_status ) {
 			self::pubblicato( $atto );
+			self::sostituzioni( $atto );
 			self::defisso( $atto );
 			self::effetto( $atto );
 			self::annullamento( $atto );
@@ -230,6 +261,7 @@ final class RiquadroPassaggi {
 
 		if ( ChiusuraPubblicazione::ANNULLATO === $atto->post_status ) {
 			self::pubblicato( $atto );
+			self::sostituzioni( $atto );
 			self::annullato( $atto );
 			self::effetto( $atto );
 			return;
@@ -358,6 +390,160 @@ final class RiquadroPassaggi {
 	}
 
 	/**
+	 * La sostituzione di un documento con la sua versione oscurata (ALBO-12), per chi pubblica.
+	 *
+	 * Solo su un atto pubblicato la cui fine non e' passata, letta dalla
+	 * data: dopo, non c'e' piu' niente da oscurare al pubblico. Nessun
+	 * documento e' gia' scelto, come per la causa della defissione: la scelta
+	 * e' di chi sostituisce.
+	 *
+	 * @param \WP_Post $atto Atto.
+	 */
+	private static function oscuramento( \WP_Post $atto ): void {
+		$atto_id = (int) $atto->ID;
+
+		if ( ! current_user_can( 'publish_post', $atto_id ) ) {
+			return;
+		}
+
+		$fine = conformita_core_fine_pubblicazione( $atto_id );
+
+		if ( ! is_string( $fine ) || null === DatiAtto::data_da_ingresso( $fine ) || $fine < Passaggi::ora()->setTimezone( wp_timezone() )->format( 'Y-m-d' ) ) {
+			return;
+		}
+
+		$principale = DocumentiAtto::principale( $atto_id );
+		$documenti  = array();
+
+		if ( null !== $principale ) {
+			/* translators: %s: nome del documento. */
+			$documenti[ $principale ] = sprintf( __( 'Documento principale: %s', 'albo-pretorio-pa' ), get_the_title( $principale ) );
+		}
+
+		foreach ( array_values( DocumentiAtto::ulteriori( $atto_id ) ) as $posizione => $ulteriore ) {
+			/* translators: 1: posizione dell'allegato nell'elenco, 2: nome del documento. */
+			$documenti[ $ulteriore ] = sprintf( __( 'Allegato %1$d: %2$s', 'albo-pretorio-pa' ), $posizione + 1, get_the_title( $ulteriore ) );
+		}
+
+		if ( array() === $documenti ) {
+			return;
+		}
+
+		self::gettone( $atto_id );
+
+		printf( '<fieldset class="albo-pretorio-passaggio"><legend><strong>%s</strong></legend>', esc_html__( 'Oscura i dati in piu\' di un documento', 'albo-pretorio-pa' ) );
+
+		printf(
+			'<p>%s</p>',
+			esc_html__( 'Se un documento contiene dati personali eccedenti, non pertinenti o non necessari, si carica la sua versione oscurata al posto di quella pubblicata. Numero, date e stato non cambiano, e la pubblicazione continua. Il documento di prima resta conservato fuori dalla vista pubblica: lo aprono solo chi pubblica e chi consulta gli scaduti. La sostituzione non si annulla; lo stesso documento si puo\' oscurare di nuovo. Un errore nel contenuto non si corregge cosi\': si rettifica con un nuovo atto che rinvia a questo.', 'albo-pretorio-pa' )
+		);
+
+		printf( '<fieldset><legend>%s</legend>', esc_html__( 'Documento da oscurare', 'albo-pretorio-pa' ) );
+
+		foreach ( $documenti as $documento => $etichetta ) {
+			printf(
+				'<p><input type="radio" id="%1$s-%2$d" name="%1$s" value="%2$d" /> <label for="%1$s-%2$d">%3$s</label></p>',
+				esc_attr( self::CAMPO_DOCUMENTO_OSCURATO ),
+				(int) $documento,
+				esc_html( $etichetta )
+			);
+		}
+
+		echo '</fieldset>';
+
+		printf(
+			'<p><label for="%1$s">%2$s</label><br /><input type="file" id="%1$s" name="%1$s" /></p>',
+			esc_attr( self::CAMPO_FILE_OSCURATO ),
+			esc_html__( 'Versione oscurata del documento', 'albo-pretorio-pa' )
+		);
+
+		printf(
+			'<p><label for="%1$s">%2$s</label><br /><textarea id="%1$s" name="%1$s" rows="3" class="large-text" aria-describedby="%1$s-descrizione"></textarea></p>',
+			esc_attr( self::CAMPO_MOTIVO_OSCURAMENTO ),
+			esc_html__( 'Motivo dell\'oscuramento', 'albo-pretorio-pa' )
+		);
+
+		printf(
+			'<p class="description" id="%1$s-descrizione">%2$s</p>',
+			esc_attr( self::CAMPO_MOTIVO_OSCURAMENTO ),
+			esc_html__( 'Obbligatorio: quali dati si oscurano e perche\'. Il motivo finisce nel registro delle modifiche con chi, quando e le impronte delle due versioni.', 'albo-pretorio-pa' )
+		);
+
+		printf(
+			'<p><input type="checkbox" id="%1$s" name="%1$s" value="%2$d" /> <label for="%1$s">%3$s</label></p>',
+			esc_attr( self::CAMPO_CONFERMA_OSCURAMENTO ),
+			(int) $atto_id,
+			esc_html__( 'Confermo che il file caricato e\' lo stesso documento, con i soli dati in piu\' oscurati.', 'albo-pretorio-pa' )
+		);
+
+		printf(
+			'<p><button type="submit" class="button" name="%1$s" value="oscura">%2$s</button></p></fieldset>',
+			esc_attr( self::CAMPO_PASSAGGIO ),
+			esc_html__( 'Sostituisci con la versione oscurata', 'albo-pretorio-pa' )
+		);
+	}
+
+	/**
+	 * Le sostituzioni per oscuramento gia\' fatte, in sola lettura, dal registro.
+	 *
+	 * Il collegamento al documento di prima compare solo a chi lo puo\' aprire:
+	 * per gli altri la consegna risponde "non trovato".
+	 *
+	 * @param \WP_Post $atto Atto.
+	 */
+	private static function sostituzioni( \WP_Post $atto ): void {
+		global $wpdb;
+
+		$voci = conformita_core_voci_registro(
+			array(
+				'sezione'   => SEZIONE,
+				'contenuto' => (int) $atto->ID,
+				'azione'    => Passaggi::AZIONE_OSCURAMENTO,
+			)
+		);
+
+		// Il meccanismo comune risponde con un elenco vuoto anche a una lettura fallita: l'errore si legge dalla connessione.
+		if ( ! is_array( $voci ) || '' !== (string) $wpdb->last_error ) {
+			printf( '<p>%s</p>', esc_html__( 'Il registro delle modifiche non risponde: le sostituzioni per oscuramento non si leggono in questo momento.', 'albo-pretorio-pa' ) );
+			return;
+		}
+
+		if ( array() === $voci ) {
+			return;
+		}
+
+		$vede = ScadutiRiservati::li_vede( get_current_user_id() );
+
+		printf( '<p><strong>%s</strong></p><ul class="albo-pretorio-sostituzioni">', esc_html__( 'Documenti sostituiti con la versione oscurata', 'albo-pretorio-pa' ) );
+
+		foreach ( $voci as $voce ) {
+			$dettagli = is_array( $voce['dettagli'] ?? null ) ? $voce['dettagli'] : array();
+			$autore   = get_userdata( (int) ( $voce['utente'] ?? 0 ) );
+			$istante  = $voce['istante'] instanceof \DateTimeInterface ? wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $voce['istante']->getTimestamp() ) : '';
+			$posto    = DocumentiAtto::PRINCIPALE === ( $dettagli['posto'] ?? '' ) ? __( 'documento principale', 'albo-pretorio-pa' ) : __( 'allegato', 'albo-pretorio-pa' );
+
+			printf(
+				'<li>%1$s, %2$s, %3$s: %4$s',
+				esc_html( $istante ),
+				esc_html( $autore instanceof \WP_User ? $autore->display_name : __( 'utente non piu\' presente', 'albo-pretorio-pa' ) ),
+				esc_html( $posto ),
+				nl2br( esc_html( (string) ( $voce['motivazione'] ?? '' ) ) )
+			);
+
+			$uscente   = isset( $dettagli['uscente'] ) && is_int( $dettagli['uscente'] ) ? $dettagli['uscente'] : 0;
+			$indirizzo = $vede && $uscente > 0 ? conformita_core_indirizzo_consegna_amministrativa( $uscente ) : null;
+
+			if ( is_string( $indirizzo ) ) {
+				printf( ' <a href="%1$s" target="_blank" rel="noopener">%2$s</a>', esc_url( $indirizzo ), esc_html__( 'Apri la versione di prima', 'albo-pretorio-pa' ) );
+			}
+
+			echo '</li>';
+		}
+
+		echo '</ul>';
+	}
+
+	/**
 	 * L'annullamento di un atto pubblicato, per chi ha il permesso.
 	 *
 	 * @param \WP_Post $atto Atto.
@@ -421,7 +607,7 @@ final class RiquadroPassaggi {
 
 		printf(
 			'<p>%s</p>',
-			esc_html__( 'Si toglie un atto solo se la sua pubblicazione non doveva esserci in quella forma. Il termine di pubblicazione di un atto regolare non si accorcia (art. 124 del d.lgs. 267/2000). I dati eccedenti non si tolgono con l\'atto: si oscurano nel documento. La sostituzione del documento di un atto pubblicato non e\' ancora disponibile: il caso si segnala subito all\'amministratore del sito. L\'atto sparisce subito dalla vista pubblica e la fine pianificata resta nel registro.', 'albo-pretorio-pa' )
+			esc_html__( 'Si toglie un atto solo se la sua pubblicazione non doveva esserci in quella forma. Il termine di pubblicazione di un atto regolare non si accorcia (art. 124 del d.lgs. 267/2000). I dati eccedenti non si tolgono con l\'atto: si oscurano nel documento, con la parte "Oscura i dati in piu\' di un documento" qui sopra. L\'atto sparisce subito dalla vista pubblica e la fine pianificata resta nel registro.', 'albo-pretorio-pa' )
 		);
 
 		printf( '<fieldset><legend>%s</legend>', esc_html__( 'Causa', 'albo-pretorio-pa' ) );
@@ -682,6 +868,9 @@ final class RiquadroPassaggi {
 		} elseif ( 'dichiara' === $passaggio ) {
 			$esito = Passaggi::dichiara_effetto( $atto_id, self::effetto_dalla_schermata() );
 			$fatto = 'dichiarato';
+		} elseif ( 'oscura' === $passaggio ) {
+			$esito = self::oscura_dalla_schermata( $atto_id );
+			$fatto = 'oscurato';
 		} elseif ( 'annulla' === $passaggio ) {
 			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- lo ripulisce Passaggi, con la regola dei testi su piu' righe.
 			$motivo = isset( $_POST[ self::CAMPO_MOTIVO_ANNULLAMENTO ] ) ? wp_unslash( $_POST[ self::CAMPO_MOTIVO_ANNULLAMENTO ] ) : '';
@@ -697,6 +886,51 @@ final class RiquadroPassaggi {
 		}
 
 		return add_query_arg( self::ESITO, $fatto, $indirizzo );
+	}
+
+	/**
+	 * La sostituzione per oscuramento chiesta dal modulo.
+	 *
+	 * Il file e' sempre un caricamento: un percorso del server arrivato al
+	 * posto del file lo rifiuta il meccanismo comune. La causa la dice il
+	 * pulsante, che serve solo all'oscuramento.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return array{voce: int, documento: int}|\WP_Error
+	 */
+	private static function oscura_dalla_schermata( int $atto_id ) {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- il gettone e' gia' stato verificato da chi chiama.
+		$documento = isset( $_POST[ self::CAMPO_DOCUMENTO_OSCURATO ] ) && is_string( $_POST[ self::CAMPO_DOCUMENTO_OSCURATO ] ) ? absint( wp_unslash( $_POST[ self::CAMPO_DOCUMENTO_OSCURATO ] ) ) : 0;
+		$conferma  = isset( $_POST[ self::CAMPO_CONFERMA_OSCURAMENTO ] ) && is_string( $_POST[ self::CAMPO_CONFERMA_OSCURAMENTO ] ) && absint( wp_unslash( $_POST[ self::CAMPO_CONFERMA_OSCURAMENTO ] ) ) === $atto_id;
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- lo ripulisce Passaggi, con la regola dei testi su piu' righe.
+		$motivo = isset( $_POST[ self::CAMPO_MOTIVO_OSCURAMENTO ] ) ? wp_unslash( $_POST[ self::CAMPO_MOTIVO_OSCURAMENTO ] ) : '';
+		// phpcs:enable
+
+		if ( 0 === $documento ) {
+			return new \WP_Error( 'albo_documento_non_scelto', __( 'Il documento resta quello di prima: va scelto quale documento sostituire con la versione oscurata.', 'albo-pretorio-pa' ) );
+		}
+
+		$file = SchedaDocumenti::file( self::CAMPO_FILE_OSCURATO );
+
+		if ( null === $file ) {
+			return new \WP_Error( 'albo_versione_oscurata_mancante', __( 'Il documento resta quello di prima: manca il file della versione oscurata.', 'albo-pretorio-pa' ) );
+		}
+
+		if ( is_wp_error( $file ) ) {
+			return $file;
+		}
+
+		return Passaggi::oscura_documento(
+			$atto_id,
+			$documento,
+			$file,
+			'caricamento',
+			array(
+				'conferma' => $conferma,
+				'causa'    => Passaggi::CAUSA_DATI_ECCEDENTI,
+				'motivo'   => $motivo,
+			)
+		);
 	}
 
 	/**
@@ -783,6 +1017,7 @@ final class RiquadroPassaggi {
 			'annullato'  => __( 'Atto annullato: il motivo e\' nel registro delle modifiche e, fino alla data di fine, nell\'avviso al pubblico.', 'albo-pretorio-pa' ),
 			'defisso'    => __( 'Atto tolto dall\'albo: non e\' piu\' nella vista pubblica, e causa, motivo e fine pianificata sono nel registro delle modifiche.', 'albo-pretorio-pa' ),
 			'dichiarato' => __( 'Effetto della rimozione dichiarato: e\' nel registro delle modifiche, e non si cambia.', 'albo-pretorio-pa' ),
+			'oscurato'   => __( 'Documento sostituito con la versione oscurata: da adesso il pubblico scarica quella, e il registro delle modifiche conserva le impronte di tutte e due.', 'albo-pretorio-pa' ),
 		);
 
 		if ( ! isset( $messaggi[ $esito ] ) ) {
