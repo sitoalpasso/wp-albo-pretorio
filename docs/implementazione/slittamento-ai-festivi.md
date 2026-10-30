@@ -68,9 +68,10 @@ della release si verificano.
   scade in un giorno festivo è prorogato di diritto al primo giorno seguente non festivo.
   Sono regole generali sul computo dei termini; che valgano per l'affissione è una lettura.
 - Legge 260/1949 art. 2, con le modifiche successive: l'elenco delle feste nazionali e delle
-  domeniche come giorni festivi. Il 4 ottobre è tornato festa nazionale dal 2026 con una
-  legge del 2025 che modifica quell'articolo: **gli estremi esatti vanno verificati sul
-  testo ufficiale** prima della release.
+  domeniche come giorni festivi. Il 4 ottobre è festa nazionale dal 2026: lo ha inserito
+  nell'elenco dell'art. 2 la legge 8 ottobre 2025, n. 151, "Istituzione della festa
+  nazionale di San Francesco d'Assisi", art. 1 c. 2, in vigore dal 1 gennaio 2026. Estremi
+  verificati sul testo vigente in Normattiva il 2026-10-30.
 
 ### 3. Il flusso per chi usa il sito
 

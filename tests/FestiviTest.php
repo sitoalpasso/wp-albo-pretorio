@@ -380,6 +380,7 @@ class FestiviTest extends \WP_UnitTestCase {
 		$this->assertStringNotContainsString( 'checked', $stampato );
 		$this->assertStringContainsString( 'Pasqua+1 | Luned', $stampato, 'Proposta delle feste nazionali.' );
 		$this->assertStringContainsString( '04/10 | San Francesco', $stampato );
+		$this->assertStringContainsString( '(l. 260/1949 art. 2, come modificato dalla l. 8 ottobre 2025, n. 151, art. 1 c. 2)', $stampato, 'Il 4 ottobre porta gli estremi della legge che lo ha reso festa nazionale.' );
 		$this->assertStringContainsString( 'santo patrono', $stampato );
 
 		// Dopo il salvataggio: segnata quella salvata, elenco salvato, chi e quando.
