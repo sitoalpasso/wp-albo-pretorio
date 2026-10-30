@@ -3,7 +3,7 @@
  * La pagina pubblica dell'albo: righe A-195..A-209 (ALBO-06, ALBO-16, ALBO-28),
  * il codice breve e gli indirizzi di "Albo Pretorio On line", A-220..A-223 (ALBO-35),
  * l'avviso dell'atto annullato, A-227 e A-228, e l'atto tolto dall'albo prima
- * della scadenza, A-235 e A-241 (ALBO-22), e le memorie di pagina, A-259 (ALBO-20).
+ * della scadenza, A-235 e A-241 (ALBO-22), e le memorie di pagina, A-259 e A-305 (ALBO-20).
  *
  * Le prove fanno richieste vere alla pagina che contiene il codice breve, con
  * gli atti portati a pubblicato dal passaggio vero e l'orologio fissato. Il
@@ -2797,6 +2797,117 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			),
 			'Il vecchio indirizzo non rinvia piu\'.'
 		);
+	}
+
+	/**
+	 * A-305: dopo una sostituzione per oscuramento a pubblicazione attiva, nessuna memoria ripresenta il documento uscente (ALBO-20, ALBO-12).
+	 *
+	 * La sostituzione lascia stato e date come stavano: una memoria svuotata
+	 * solo quando l'atto lascia l'albo continuerebbe a consegnare la versione
+	 * di prima. La memoria simulata e' quella di A-259. Si riempie con le
+	 * strade dell'atto in corso e con il documento uscente; poi si sostituisce
+	 * il documento e si guarda che cosa la memoria avrebbe da consegnare:
+	 * niente, mentre la risposta viva porta alla versione oscurata.
+	 */
+	public function test_a305_nessuna_memoria_ripresenta_il_documento_oscurato(): void {
+		$this->pagina_con( '[Albo stato="1"]' );
+
+		$atto    = $this->pubblicato_il( '2041-10-01 09:30:00', 'Atto che si oscurera\'' );
+		$uscente = (int) DocumentiAtto::principale( $atto );
+		$memoria = array();
+
+		$conserva = static function ( array &$memoria, string $chiave, array $intestazioni ): void {
+			foreach ( $intestazioni as $nome => $valore ) {
+				if ( 0 === strcasecmp( (string) $nome, 'Cache-Control' ) && false !== stripos( (string) $valore, 'no-store' ) ) {
+					return;
+				}
+			}
+
+			$memoria[ $chiave ] = $intestazioni;
+		};
+
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+		wp_set_current_user( 0 );
+
+		// Il visitatore anonimo come lo tratta WordPress dalla 6.3: niente no-store.
+		add_filter(
+			'nocache_headers',
+			static function ( $intestazioni ) {
+				$intestazioni['Cache-Control'] = 'no-cache, must-revalidate, max-age=0';
+
+				return $intestazioni;
+			}
+		);
+
+		// Controllo positivo: la memoria simulata conserva una pagina ordinaria.
+		$ordinaria = self::factory()->post->create(
+			array(
+				'post_type'   => 'page',
+				'post_status' => 'publish',
+				'post_title'  => 'Pagina ordinaria',
+			)
+		);
+		$controllo = array();
+		$this->risposta( (string) get_permalink( $ordinaria ) );
+		$conserva( $controllo, 'ordinaria', $this->mandate );
+		$this->assertArrayHasKey( 'ordinaria', $controllo, 'Controllo positivo: una pagina ordinaria si conserva.' );
+
+		$strade = array(
+			'scheda'  => $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $atto ) ),
+			'elenco'  => $this->indirizzo(),
+			'ricerca' => $this->indirizzo( array( VistaPubblica::CAMPO_TESTO => 'oscurera' ) ),
+		);
+
+		foreach ( $strade as $quale => $dove ) {
+			$risposta = $this->risposta( $dove );
+
+			$this->assertStringContainsString( 'data-atto="' . $atto . '"', $risposta['corpo'], $quale . ': precondizione, l\'atto e\' nella pagina.' );
+			$this->assertArrayHasKey( 'Content-Type', $this->mandate, $quale . ': precondizione, le intestazioni mandate sono osservate.' );
+			$conserva( $memoria, $quale, $this->mandate );
+		}
+
+		$this->assertStringContainsString( esc_url( (string) conformita_core_indirizzo_consegna( $uscente ) ), $this->risposta( $strade['scheda'] )['corpo'], 'Precondizione: la scheda porta al documento uscente.' );
+
+		$consegne = $this->consegna( $uscente );
+		$this->assertTrue( $this->consegnato( $consegne ), 'Precondizione: il documento uscente si scarica.' );
+		$conserva( $memoria, 'documento', $consegne[0]['intestazioni'] );
+
+		$this->assertSame( array(), $memoria, 'Nessuna risposta dell\'albo e\' stata conservata.' );
+
+		// La sostituzione, a pubblicazione attiva.
+		$contenuto = "%PDF-1.4\n% versione oscurata\n%%EOF\n";
+		$file      = $this->file_temporaneo( 'oscurato.pdf', $contenuto );
+		$esito     = $this->come(
+			$this->pubblicatore,
+			static function () use ( $atto, $uscente, $file ) {
+				return albo_pretorio_oscura(
+					$atto,
+					$uscente,
+					$file,
+					'percorso_locale',
+					array(
+						'conferma' => true,
+						'causa'    => Passaggi::CAUSA_DATI_ECCEDENTI,
+						'motivo'   => 'Il documento riporta l\'indirizzo di casa del destinatario.',
+					)
+				);
+			}
+		);
+
+		$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+		$this->assertSame( 'publish', get_post_status( $atto ), 'Precondizione: l\'atto resta pubblicato.' );
+		wp_set_current_user( 0 );
+
+		$scheda = $this->risposta( $strade['scheda'] );
+
+		$this->assertFalse( $scheda['non trovata'], 'La scheda si apre ancora.' );
+		$this->assertStringContainsString( esc_url( (string) conformita_core_indirizzo_consegna( $esito['documento'] ) ), $scheda['corpo'], 'La scheda porta alla versione oscurata.' );
+		$this->assertStringNotContainsString( esc_url( (string) conformita_core_indirizzo_consegna( $uscente ) ), $scheda['corpo'], 'E non piu\' all\'uscente.' );
+		$this->assertFalse( $this->consegnato( $this->consegna( $uscente ) ), 'Il documento uscente non si scarica piu\'.' );
+
+		$consegne = $this->consegna( $esito['documento'] );
+		$this->assertTrue( $this->consegnato( $consegne ), 'La versione oscurata si scarica.' );
+		$this->assertSame( hash( 'sha256', $contenuto ), hash_file( 'sha256', (string) $consegne[0]['percorso'] ), 'Ed e\' proprio quella caricata.' );
 	}
 
 	/**

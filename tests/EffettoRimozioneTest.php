@@ -1,6 +1,6 @@
 <?php
 /**
- * L'effetto della rimozione anticipata sul periodo: righe A-243..A-248 (ALBO-22, ALBO-10).
+ * L'effetto della rimozione anticipata sul periodo: righe A-243..A-248 e A-307 (ALBO-22, ALBO-10, ALBO-12).
  *
  * Gli atti si portano a pubblicato e si tolgono dall'albo con i passaggi veri,
  * con l'orologio fissato. Prima e dopo ogni dichiarazione la fotografia
@@ -19,6 +19,7 @@ declare( strict_types = 1 );
 namespace AlboPretorioPa\Tests;
 
 use AlboPretorioPa\ChiusuraPubblicazione;
+use AlboPretorioPa\DocumentiAtto;
 use AlboPretorioPa\Passaggi;
 use AlboPretorioPa\Permessi;
 use AlboPretorioPa\Repertorio;
@@ -634,6 +635,60 @@ class EffettoRimozioneTest extends \WP_UnitTestCase {
 		$this->assertIsInt( $this->dichiara( $id, $solo_defiggere, 'va_rifatta' ), 'Chi ha il permesso di defiggere dichiara.' );
 		$this->solo_una_voce( $prima, $id, 'Controllo positivo' );
 		$this->assertSame( $atti, $this->conta_atti(), '"Va rifatta" dichiarata dopo non crea nessun atto.' );
+	}
+
+	/**
+	 * A-307: su un atto soltanto oscurato non c'e' niente da dichiarare; dopo una defissione si' (ALBO-22, ALBO-12).
+	 *
+	 * L'oscuramento non ferma il conteggio: un'implementazione che legasse la
+	 * dichiarazione a ogni voce del registro, o a un documento sostituito,
+	 * accetterebbe la dichiarazione qui. Il controllo positivo esclude
+	 * l'opposto, un divieto permanente su ogni atto oscurato.
+	 */
+	public function test_a307_atto_oscurato(): void {
+		$id             = $this->pubblicato_il( '2041-10-01 09:30:00', 'Atto che si oscurera\'' );
+		$uscente        = (int) DocumentiAtto::principale( $id );
+		$solo_defiggere = $this->utente_con( array( Permessi::CHIAVE_DEFISSIONE ) );
+		$file           = $this->file_temporaneo( 'oscurato.pdf' );
+		$esito          = $this->come(
+			$this->pubblicatore,
+			static function () use ( $id, $uscente, $file ) {
+				return albo_pretorio_oscura(
+					$id,
+					$uscente,
+					$file,
+					'percorso_locale',
+					array(
+						'conferma' => true,
+						'causa'    => Passaggi::CAUSA_DATI_ECCEDENTI,
+						'motivo'   => 'Il documento riporta l\'indirizzo di casa del destinatario.',
+					)
+				);
+			}
+		);
+
+		$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+		$this->assertSame( 'publish', get_post_status( $id ), 'Precondizione: l\'atto resta pubblicato.' );
+		$this->assertCount( 1, $this->voci_di( $id, array( 'azione' => Passaggi::AZIONE_OSCURAMENTO ) ), 'Precondizione: la sostituzione e\' registrata.' );
+
+		$prima = $this->fotografia( $id );
+
+		foreach ( array(
+			'chi ha il permesso di defiggere' => $solo_defiggere,
+			'chi pubblica'                    => $this->pubblicatore,
+		) as $chi => $utente ) {
+			$this->assertSame( array( 'albo_effetto_senza_defissione' ), $this->codici( $this->dichiara( $id, $utente, 'va_rifatta' ) ), $chi . ': rifiutato.' );
+		}
+
+		$this->assertSame( array(), $this->effetti( $id ), 'Nessuna voce di dichiarazione.' );
+		$this->assertSame( $prima, $this->fotografia( $id ), 'L\'atto resta identico, registro compreso.' );
+		$this->assertStringNotContainsString( 'value="dichiara"', $this->riquadro( $id, $this->pubblicatore ), 'Il riquadro non offre la dichiarazione da sola: l\'effetto si dichiara solo insieme a una defissione.' );
+
+		// Controllo positivo: lo stesso atto, tolto dall'albo, ha qualcosa da dichiarare.
+		$this->assertIsInt( $this->defiggi( $id, $this->pubblicatore ) );
+		$prima = $this->fotografia( $id );
+		$this->assertIsInt( $this->dichiara( $id, $solo_defiggere, 'va_rifatta' ), 'Dopo la defissione la dichiarazione riesce.' );
+		$this->solo_una_voce( $prima, $id, 'Controllo positivo' );
 	}
 
 	/**

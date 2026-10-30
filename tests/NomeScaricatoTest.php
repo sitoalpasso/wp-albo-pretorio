@@ -1,6 +1,6 @@
 <?php
 /**
- * Il nome del file scaricato: righe A-257 e A-258 (ALBO-30).
+ * Il nome del file scaricato: righe A-257, A-258 e A-306 (ALBO-30).
  *
  * Le prove scaricano dal punto pubblico di consegna del meccanismo comune,
  * come farebbe un visitatore dalla scheda dell'atto, e leggono il nome dalla
@@ -237,5 +237,83 @@ class NomeScaricatoTest extends \WP_UnitTestCase {
 			}
 		);
 		$this->assertSame( 'albo-2041-12346-dal-31-12.pdf', NomeScaricato::nome( (int) DocumentiAtto::principale( $sera ), $sera ), 'Data di fine che non si rilegge uguale.' );
+	}
+
+	/**
+	 * A-306: dopo una sostituzione per oscuramento il nome proposto resta identico, e il contenuto e' quello oscurato (ALBO-30, ALBO-12).
+	 *
+	 * La sostituzione avviene il 5 ottobre, quattro giorni dopo la
+	 * pubblicazione: un nome calcolato sull'istante della sostituzione
+	 * direbbe "dal 05-10" e farebbe sembrare ripartita la pubblicazione. Si
+	 * sostituiscono il principale e il secondo allegato; il primo resta com'era.
+	 */
+	public function test_a306_nome_dopo_l_oscuramento(): void {
+		$atto = $this->pubblicato_il(
+			'2041-10-01 09:30:00',
+			'Atto che si oscurera\'',
+			array(
+				'primo.pdf'   => "%PDF-1.4\n% primo allegato\n%%EOF\n",
+				'secondo.pdf' => "%PDF-1.4\n% secondo allegato\n%%EOF\n",
+			)
+		);
+
+		$attesi    = array(
+			'principale' => 'albo-2041-0001-dal-01-10-al-16-10.pdf',
+			'primo'      => 'albo-2041-0001-dal-01-10-al-16-10-allegato-1.pdf',
+			'secondo'    => 'albo-2041-0001-dal-01-10-al-16-10-allegato-2.pdf',
+		);
+		$documenti = array(
+			'principale' => (int) DocumentiAtto::principale( $atto ),
+			'primo'      => DocumentiAtto::ulteriori( $atto )[0],
+			'secondo'    => DocumentiAtto::ulteriori( $atto )[1],
+		);
+
+		foreach ( $documenti as $quale => $documento ) {
+			$this->assertSame( $attesi[ $quale ], $this->scarica( $documento )['nome'], $quale . ': precondizione, il nome prima.' );
+		}
+
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+
+		$oscurati = array();
+
+		foreach ( array( 'principale', 'secondo' ) as $quale ) {
+			$contenuto = "%PDF-1.4\n% " . $quale . " oscurato\n%%EOF\n";
+			$file      = $this->file_temporaneo( 'Mario-Rossi-oscurato.pdf', $contenuto );
+			$uscente   = $documenti[ $quale ];
+			$esito     = $this->come(
+				$this->pubblicatore,
+				static function () use ( $atto, $uscente, $file ) {
+					return albo_pretorio_oscura(
+						$atto,
+						$uscente,
+						$file,
+						'percorso_locale',
+						array(
+							'conferma' => true,
+							'causa'    => Passaggi::CAUSA_DATI_ECCEDENTI,
+							'motivo'   => 'Il documento riporta l\'indirizzo di casa del destinatario.',
+						)
+					);
+				}
+			);
+
+			$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+
+			$documenti[ $quale ] = $esito['documento'];
+			$oscurati[ $quale ]  = hash( 'sha256', $contenuto );
+		}
+
+		$this->assertSame( array( $documenti['primo'], $documenti['secondo'] ), DocumentiAtto::ulteriori( $atto ), 'Precondizione: l\'entrante ha preso il posto del secondo allegato.' );
+
+		foreach ( $documenti as $quale => $documento ) {
+			$scaricato = $this->scarica( $documento );
+
+			$this->assertSame( $attesi[ $quale ], $scaricato['nome'], $quale . ': il nome resta quello di prima.' );
+			$this->assertStringNotContainsStringIgnoringCase( 'rossi', $scaricato['nome'], $quale . ': niente del nome caricato.' );
+
+			if ( isset( $oscurati[ $quale ] ) ) {
+				$this->assertSame( $oscurati[ $quale ], hash_file( 'sha256', $scaricato['percorso'] ), $quale . ': il contenuto e\' la versione oscurata.' );
+			}
+		}
 	}
 }

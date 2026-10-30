@@ -58,11 +58,12 @@ vedere quale prova li vede si elencano a lavoro finito.
 2. **Il riquadro**: nel riquadro Pubblicazione dell'atto pubblicato e non scaduto, per ogni
    documento, "Sostituisci con la versione oscurata", con il campo del file, il motivo e la
    conferma; l'elenco delle sostituzioni già fatte. Le frasi di A-280 cambiano e rinviano
-   qui; il thread dei manuali aggiorna il capitolo.
-3. **Il resto delle righe**: la versione oscurata già prima della pubblicazione (la prima
-   riga di ALBO-12), la memoria di pagina dopo la sostituzione (ALBO-20), il nome del file
+   qui.
+3. **Il resto delle righe**: la memoria di pagina dopo la sostituzione (ALBO-20), il nome del file
    scaricato prima e dopo (ALBO-30), la dichiarazione dell'effetto rifiutata su un atto
    soltanto oscurato e accettata dopo una defissione (ALBO-22).
+4. **La versione oscurata già alla pubblicazione** (la prima riga di ALBO-12): una bozza
+   con l'originale e la sua versione oscurata, di cui il pubblico vede solo la seconda.
 
 ## I nove punti
 
@@ -249,3 +250,32 @@ soltanto con la sua versione oscurata, dal riquadro Pubblicazione.
 | elenco assente sull'atto tolto | A-304 |
 | registro guasto taciuto | A-304 |
 | lettura fallita del registro scambiata per nessuna sostituzione | A-304 |
+
+## Com'è andato il passo 3
+
+**Tre righe che aspettavano la sostituzione, provate senza toccare il codice.** Le strade
+erano già giuste: le prove mancavano perché la sostituzione non esisteva.
+
+- **Memorie di pagina (ALBO-20, A-305).** Nessuna risposta dell'albo si lascia conservare
+  (A-259), quindi dopo una sostituzione a pubblicazione attiva non c'è nessuna copia della
+  versione uscente da svuotare: la scheda porta alla versione oscurata e l'uscente non si
+  scarica più.
+- **Nome del file (ALBO-30, A-306).** Il nome si calcola da numero, inizio e fine dell'atto,
+  che la sostituzione non cambia, e dalla posizione del documento, che l'entrante prende
+  dall'uscente: il nome scaricato resta identico a prima.
+- **Dichiarazione dell'effetto (ALBO-22, A-307).** Su un atto soltanto oscurato non c'è
+  niente da dichiarare, perché il conteggio non si è fermato; dopo una defissione la
+  dichiarazione riesce.
+
+**La prima riga di ALBO-12 diventa un passo a sé.** Pubblicare un atto già con la versione
+oscurata, tenendo l'originale integro fuori dalla vista pubblica, non è una prova di quello
+che c'è: è una funzione nuova della bozza (caricare insieme originale e versione oscurata).
+Ha la sua unità, dopo questa.
+
+**Guasti introdotti per vedere quale prova li vede**, ciascuno tolto subito dopo:
+
+| Guasto | Visto da |
+|---|---|
+| risposte dell'albo senza il divieto di conservarle | A-305 |
+| posizione dell'allegato contata sui file dell'atto invece che sui dati dell'atto | A-306 |
+| dichiarazione ammessa su un atto con una sostituzione registrata, senza guardare lo stato | A-307 |
