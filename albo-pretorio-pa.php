@@ -154,6 +154,12 @@ const META_DOCUMENTO_PRINCIPALE = '_albo_pretorio_documento_principale';
 const META_ALLEGATI_ULTERIORI = '_albo_pretorio_allegati_ulteriori';
 
 /**
+ * Sul documento sostituito con la versione oscurata: il documento che ne ha
+ * preso il posto (ALBO-12).
+ */
+const META_SOSTITUITO_DA = '_albo_pretorio_sostituito_da';
+
+/**
  * Nome del dato con l'identificativo che l'atto importato aveva nel vecchio
  * albo: e' cio' che fa riconoscere un atto gia' importato a un rilancio.
  */
@@ -345,6 +351,7 @@ add_filter( 'ajax_query_attachments_args', array( DocumentiAtto::class, 'da_ajax
 add_action( 'pre_get_posts', array( DocumentiAtto::class, 'da_pre_get_posts' ) );
 add_filter( 'posts_where', array( DocumentiAtto::class, 'da_posts_where' ), 10, 2 );
 add_action( 'before_delete_post', array( DocumentiAtto::class, 'da_before_delete_post' ), 10, 2 );
+add_action( 'admin_post_conformita_core_allegato', array( DocumentiAtto::class, 'da_admin_post_allegato' ), 1 );
 
 /*
  * Un atto scaduto si consulta con il permesso apposito: chi redige soltanto

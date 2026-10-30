@@ -1104,6 +1104,8 @@ class ScadutiInvisibiliTest extends \WP_UnitTestCase {
 				'includes/class-pagina-storico.php: albo_pretorio_storico',
 				// Il codice del rifiuto della defissione anticipata di un atto gia' scaduto (ALBO-22): un errore, non una scelta.
 				'includes/class-passaggi.php: albo_atto_gia_scaduto',
+				// Lo stesso codice per la sostituzione per oscuramento di un atto gia' scaduto (ALBO-12).
+				'includes/class-passaggi.php: albo_atto_gia_scaduto',
 				// Il permesso della consultazione riservata (ALBO-34): una schermata dell'amministrazione, non una scelta sul sito pubblico.
 				'includes/class-permessi.php: consultare_scaduti',
 				// Il permesso dello storico pubblico (ALBO-36): mette e toglie copie oscurate, non riapre gli atti scaduti.

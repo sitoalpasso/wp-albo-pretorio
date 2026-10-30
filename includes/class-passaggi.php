@@ -118,6 +118,24 @@ final class Passaggi {
 	const AZIONE_EFFETTO = 'effetto_rimozione';
 
 	/**
+	 * Azione della voce di registro della sostituzione di un documento con la sua versione oscurata (ALBO-12).
+	 *
+	 * @var string
+	 */
+	const AZIONE_OSCURAMENTO = 'oscuramento';
+
+	/**
+	 * Le chiavi che una richiesta di sostituzione per oscuramento puo' portare.
+	 *
+	 * Qualunque altra chiave, una data, un numero o un dato della scheda,
+	 * rifiuta la richiesta per intero: su un atto pubblicato l'oscuramento e'
+	 * l'unica cosa che passa (ALBO-08, ALBO-27).
+	 *
+	 * @var array<int, string>
+	 */
+	const CHIAVI_OSCURAMENTO = array( 'conferma', 'causa', 'motivo' );
+
+	/**
 	 * Le chiavi che una richiesta di pubblicazione puo' portare.
 	 *
 	 * Le due date sono ammesse come chiavi solo per poter essere rifiutate o
@@ -296,10 +314,11 @@ final class Passaggi {
 	 */
 	private static function revoca_concessioni(): void {
 		foreach ( array_keys( self::$in_corso ) as $atto_id ) {
-			self::$in_corso[ $atto_id ]['fine']     = null;
-			self::$in_corso[ $atto_id ]['campi']    = array();
-			self::$in_corso[ $atto_id ]['usato']    = true;
-			self::$in_corso[ $atto_id ]['revocata'] = true;
+			self::$in_corso[ $atto_id ]['fine']      = null;
+			self::$in_corso[ $atto_id ]['documento'] = null;
+			self::$in_corso[ $atto_id ]['campi']     = array();
+			self::$in_corso[ $atto_id ]['usato']     = true;
+			self::$in_corso[ $atto_id ]['revocata']  = true;
 		}
 	}
 
@@ -368,6 +387,21 @@ final class Passaggi {
 			'fine'    => $fine,
 			'rifiuto' => false,
 		);
+	}
+
+	/**
+	 * Il dato del documento che la sostituzione per oscuramento in corso scrive, o nullo.
+	 *
+	 * E' l'unica scrittura che il guardiano concede su un atto pubblicato oltre
+	 * alla data di fine dei passaggi che la cambiano: la chiave del dato, che
+	 * indica il documento principale o l'elenco degli ulteriori, e il valore
+	 * esatto che il passaggio ha calcolato.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return array{chiave: string, valore: mixed}|null
+	 */
+	public static function documento_atteso( int $atto_id ): ?array {
+		return self::$in_corso[ $atto_id ]['documento'] ?? null;
 	}
 
 	/**
@@ -2064,6 +2098,399 @@ final class Passaggi {
 	}
 
 	/**
+	 * Sostituisce un documento di un atto pubblicato con la sua versione oscurata (ALBO-12).
+	 *
+	 * E' l'unica eccezione all'immodificabilita' di un atto pubblicato
+	 * (ALBO-09): dati eccedenti, non pertinenti o non necessari si oscurano
+	 * nel documento e la pubblicazione continua. Numero, date, stato e dati
+	 * della scheda non cambiano, quindi il termine continua a correre.
+	 *
+	 * Il file entrante si deposita con il meccanismo comune prima della
+	 * transazione, perche' il deposito puo' chiedere al server di provare la
+	 * cartella protetta; poi, sotto il blocco e nella transazione, una sola
+	 * scrittura dell'atto: il dato che indica il documento passa all'entrante,
+	 * nello stesso posto. L'uscente resta figlio dell'atto e sul disco, segnato
+	 * come sostituito: il pubblico non lo scarica piu' perche' la consegna
+	 * pubblica serve soltanto i documenti indicati dai dati dell'atto
+	 * (`DocumentiAtto::consegnabile()`), e in amministrazione lo apre chi
+	 * consulta o pubblica. Se un pezzo fallisce si torna come prima e il file
+	 * entrante si toglie.
+	 *
+	 * @param int                  $atto_id      Atto.
+	 * @param int                  $documento_id Documento da sostituire: il principale o un ulteriore dell'atto.
+	 * @param array<string, mixed> $file         File entrante, nella forma di `$_FILES`.
+	 * @param string               $origine      `caricamento` oppure `percorso_locale`, come per il meccanismo comune.
+	 * @param array<string, mixed> $richiesta    `conferma`, vera; `causa`, quella dei dati eccedenti; `motivo`, testo non vuoto. Ogni altra chiave rifiuta.
+	 * @return array{voce: int, documento: int}|\WP_Error La voce di registro e il documento entrante, oppure errore.
+	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
+	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento delle scritture non e' riuscito, o se un altro componente solleva un'eccezione dopo la conferma; con l'eccezione come causa.
+	 */
+	public static function oscura_documento( int $atto_id, int $documento_id, array $file, string $origine, array $richiesta ) {
+		if ( self::occupato() ) {
+			return self::errore_annidato();
+		}
+
+		$sconosciute = array_diff( array_map( 'strval', array_keys( $richiesta ) ), self::CHIAVI_OSCURAMENTO );
+
+		if ( array() !== $sconosciute ) {
+			return new \WP_Error(
+				'albo_richiesta_non_valida',
+				sprintf(
+					/* translators: %s: elenco delle chiavi non ammesse. */
+					__( 'Il documento resta quello di prima: la richiesta porta dati che la sostituzione per oscuramento non accetta (%s). Di un atto pubblicato non cambiano numero, date, stato e dati della scheda.', 'albo-pretorio-pa' ),
+					implode( ', ', $sconosciute )
+				)
+			);
+		}
+
+		self::svuota_memoria( $atto_id );
+
+		$atto = get_post( $atto_id );
+
+		if ( ! TipoAtto::tipo_nostro() || ! $atto instanceof \WP_Post || TIPO !== $atto->post_type ) {
+			return new \WP_Error(
+				'albo_non_un_atto',
+				__( 'Il contenuto indicato non e\' un atto dell\'albo.', 'albo-pretorio-pa' )
+			);
+		}
+
+		if ( ChiusuraPubblicazione::PUBBLICATO !== $atto->post_status ) {
+			return new \WP_Error(
+				'albo_atto_non_pubblicato',
+				__( 'Il documento resta quello di prima: si sostituisce con la versione oscurata soltanto il documento di un atto pubblicato. Una bozza si corregge; un atto annullato o tolto dall\'albo non e\' piu\' in pubblicazione.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$numero = Repertorio::di( $atto_id );
+
+		if ( null === $numero ) {
+			return new \WP_Error(
+				'albo_atto_senza_numero',
+				__( 'Il documento resta quello di prima: non risulta un numero di registro, quindi l\'atto non e\' stato pubblicato dal passaggio dell\'albo, oppure la numerazione non risponde in questo momento.', 'albo-pretorio-pa' )
+			);
+		}
+
+		if ( ! current_user_can( 'publish_post', $atto_id ) ) {
+			return new \WP_Error(
+				'albo_oscuramento_non_permesso',
+				__( 'Il documento resta quello di prima: per sostituirlo con la versione oscurata serve il permesso di pubblicare gli atti, e non si possiede.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$fine     = conformita_core_fine_pubblicazione( $atto_id );
+		$giorno   = self::giorno_dal_testo( is_string( $fine ) ? $fine : null );
+		$oggi     = self::ora()->setTimezone( wp_timezone() )->format( 'Y-m-d' );
+		$scadenza = null === $giorno ? null : $giorno->format( 'Y-m-d' );
+
+		if ( null === $scadenza ) {
+			return new \WP_Error(
+				'albo_fine_non_leggibile',
+				__( 'Il documento resta quello di prima: la data di fine dell\'atto non si legge, e senza quella non si sa se e\' ancora in pubblicazione. Un atto con la data di fine non leggibile e\' gia\' fuori dalla vista pubblica.', 'albo-pretorio-pa' )
+			);
+		}
+
+		// Si guarda la data e non lo stato: con il compito pianificato fermo uno scaduto risulta ancora pubblicato.
+		if ( $scadenza < $oggi ) {
+			return new \WP_Error(
+				'albo_atto_gia_scaduto',
+				__( 'Il documento resta quello di prima: la pubblicazione dell\'atto e\' gia\' finita, quindi non c\'e\' piu\' niente da oscurare al pubblico.', 'albo-pretorio-pa' )
+			);
+		}
+
+		if ( ! isset( $richiesta['causa'] ) || self::CAUSA_DATI_ECCEDENTI !== $richiesta['causa'] ) {
+			return new \WP_Error(
+				'albo_causa_non_oscuramento',
+				__( 'Il documento resta quello di prima: il documento di un atto pubblicato si sostituisce soltanto per oscurare dati eccedenti, non pertinenti o non necessari. Un errore nel contenuto si rettifica con un nuovo atto che rinvia a questo.', 'albo-pretorio-pa' )
+			);
+		}
+
+		if ( ! isset( $richiesta['conferma'] ) || true !== $richiesta['conferma'] ) {
+			return new \WP_Error(
+				'albo_conferma_mancante',
+				__( 'Il documento resta quello di prima: manca la conferma che il file nuovo e\' lo stesso documento, con i soli dati in piu\' oscurati.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$motivo = isset( $richiesta['motivo'] ) && is_string( $richiesta['motivo'] ) ? trim( sanitize_textarea_field( $richiesta['motivo'] ) ) : '';
+
+		if ( '' === $motivo ) {
+			return new \WP_Error(
+				'albo_motivo_mancante',
+				__( 'Il documento resta quello di prima: serve il motivo, che finisce nel registro delle modifiche insieme alle impronte delle due versioni.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$posto = self::posto_del_documento( $atto_id, $documento_id );
+
+		if ( null === $posto ) {
+			return new \WP_Error(
+				'albo_documento_non_dell_atto',
+				__( 'Il documento resta quello di prima: quello indicato non e\' un documento di questo atto.', 'albo-pretorio-pa' )
+			);
+		}
+
+		$impronta_uscente = conformita_core_impronta_allegato( $documento_id );
+
+		if ( is_wp_error( $impronta_uscente ) ) {
+			return self::errore_oscuramento( $impronta_uscente );
+		}
+
+		$tabelle = self::tabelle_senza_transazioni();
+
+		if ( array() !== $tabelle ) {
+			return self::errore_oscuramento( self::errore_tabelle( $tabelle ) );
+		}
+
+		$entrante = conformita_core_deposita_allegato( $atto_id, $file, array( 'origine' => $origine ) );
+
+		if ( is_wp_error( $entrante ) ) {
+			return self::errore_oscuramento( $entrante );
+		}
+
+		$entrante = (int) $entrante;
+		$esito    = null;
+
+		/*
+		 * **Da qui ogni uscita senza successo toglie il file entrante**, anche
+		 * un'eccezione: depositato prima della transazione, l'annullamento non
+		 * lo porterebbe via, e resterebbe sul disco un file che nessun dato
+		 * indica.
+		 */
+		try {
+			$esito = self::oscura_partendo( $atto_id, $documento_id, $entrante, $posto, (string) $fine, $numero, $impronta_uscente, $motivo );
+		} finally {
+			if ( ! is_array( $esito ) ) {
+				$tolto = wp_delete_attachment( $entrante, true );
+
+				if ( $esito instanceof \WP_Error && ! $tolto ) {
+					$esito->add(
+						'albo_file_entrante_rimasto',
+						__( 'Il file caricato non e\' stato tolto dal disco: e\' un allegato dell\'atto che nessun dato indica, e va tolto da chi gestisce il sito.', 'albo-pretorio-pa' )
+					);
+				}
+			}
+		}
+
+		return self::dopo_la_chiusura( $atto_id, $esito );
+	}
+
+	/**
+	 * La sostituzione dopo il deposito: fotografia, passaggio e scritture.
+	 *
+	 * @param int                  $atto_id          Atto.
+	 * @param int                  $uscente          Documento uscente.
+	 * @param int                  $entrante         Documento entrante, gia' depositato.
+	 * @param string               $posto            `principale` oppure `ulteriore`.
+	 * @param string               $fine             Data di fine letta dai controlli.
+	 * @param array<string, mixed> $numero           Anno e numero di registro.
+	 * @param array<string, mixed> $impronta_uscente Impronta dell'uscente.
+	 * @param string               $motivo           Motivo.
+	 * @return array{voce: int, documento: int}|\WP_Error
+	 */
+	private static function oscura_partendo( int $atto_id, int $uscente, int $entrante, string $posto, string $fine, array $numero, array $impronta_uscente, string $motivo ) {
+		$impronta_entrante = conformita_core_impronta_allegato( $entrante );
+
+		if ( is_wp_error( $impronta_entrante ) ) {
+			return self::errore_oscuramento( $impronta_entrante );
+		}
+
+		// L'atto come i controlli lo leggono, con l'entrante gia' fra i figli: sotto il blocco dovra' essere ancora questo.
+		$partenza = self::fotografia( $atto_id );
+
+		if ( null === $partenza ) {
+			return self::errore_oscuramento( self::errore_lettura() );
+		}
+
+		if ( ! is_array( $partenza['riga'] ) || ChiusuraPubblicazione::PUBBLICATO !== (string) $partenza['riga']['post_status'] || array( $fine ) !== self::righe_fine( $partenza ) ) {
+			return self::errore_oscuramento( self::errore_cambiato() );
+		}
+
+		$voce = array(
+			'sezione'     => SEZIONE,
+			'azione'      => self::AZIONE_OSCURAMENTO,
+			'contenuto'   => $atto_id,
+			'motivazione' => $motivo,
+			'dettagli'    => array(
+				'causa'             => self::CAUSA_DATI_ECCEDENTI,
+				'anno'              => (int) $numero['anno'],
+				'numero'            => (int) $numero['numero'],
+				'posto'             => $posto,
+				'uscente'           => $uscente,
+				'entrante'          => $entrante,
+				'impronta_uscente'  => $impronta_uscente['algoritmo'] . ':' . $impronta_uscente['valore'],
+				'impronta_entrante' => $impronta_entrante['algoritmo'] . ':' . $impronta_entrante['valore'],
+			),
+			'chiave'      => SEZIONE . ':' . self::AZIONE_OSCURAMENTO . ':' . $atto_id . ':' . $entrante,
+		);
+
+		self::inizia( $atto_id, array(), null, self::AZIONE_OSCURAMENTO );
+
+		try {
+			$esito = self::oscura_dentro( $atto_id, $uscente, $entrante, $posto, $voce, $partenza );
+		} finally {
+			unset( self::$in_corso[ $atto_id ] );
+		}
+
+		return is_wp_error( $esito ) ? self::errore_oscuramento( $esito ) : $esito;
+	}
+
+	/**
+	 * Le scritture della sostituzione, dentro la transazione.
+	 *
+	 * @param int                  $atto_id  Atto.
+	 * @param int                  $uscente  Documento uscente.
+	 * @param int                  $entrante Documento entrante.
+	 * @param string               $posto    `principale` oppure `ulteriore`.
+	 * @param array<string, mixed> $voce     Voce del registro.
+	 * @param array<string, mixed> $partenza Fotografia di partenza.
+	 * @return array{voce: int, documento: int}|\WP_Error
+	 * @throws \Throwable L'eccezione sollevata durante le scritture, dopo averle annullate.
+	 * @throws \RuntimeException Se dopo l'eccezione l'annullamento non e' riuscito, con l'eccezione come causa.
+	 */
+	private static function oscura_dentro( int $atto_id, int $uscente, int $entrante, string $posto, array $voce, array $partenza ) {
+		$apertura = self::apri();
+
+		if ( is_wp_error( $apertura ) ) {
+			return $apertura;
+		}
+
+		$atteso = null;
+
+		try {
+			$esito = self::blocca( $atto_id, $partenza );
+
+			// Sotto il blocco, dalla banca dati: il documento e' ancora in quel posto, e il dato nuovo si calcola da qui.
+			if ( ! is_wp_error( $esito ) ) {
+				$atteso = self::documento_sostituito( $atto_id, $uscente, $entrante, $posto );
+				$esito  = null === $atteso ? self::errore_cambiato() : $esito;
+			}
+
+			if ( ! is_wp_error( $esito ) ) {
+				self::$in_corso[ $atto_id ]['documento'] = $atteso;
+
+				$esito = false === update_post_meta( $atto_id, $atteso['chiave'], $atteso['valore'] )
+					? new \WP_Error( 'albo_documento_non_scritto', __( 'Il dato dell\'atto che indica il documento non e\' stato scritto.', 'albo-pretorio-pa' ) )
+					: $esito;
+			}
+
+			// L'uscente non e' un atto, e il guardiano non lo ferma: il segno lo lega all'entrante che lo ha sostituito.
+			if ( ! is_wp_error( $esito ) && ! update_post_meta( $uscente, META_SOSTITUITO_DA, $entrante ) ) {
+				$esito = new \WP_Error( 'albo_sostituzione_non_segnata', __( 'Il documento uscente non e\' stato segnato come sostituito.', 'albo-pretorio-pa' ) );
+			}
+
+			if ( ! is_wp_error( $esito ) ) {
+				$esito = self::scrivi_voce( $voce );
+			}
+
+			// Finite le scritture, prima del controllo e della conferma: niente piu' e' concesso.
+			self::revoca_concessioni();
+
+			if ( ! is_wp_error( $esito ) ) {
+				$controllo = self::controlla_invariato( $atto_id, $partenza, array(), null, $atteso );
+				$esito     = is_wp_error( $controllo ) ? $controllo : $esito;
+			}
+
+			if ( is_wp_error( $esito ) ) {
+				$annullato = self::annulla( $apertura, $atto_id );
+
+				return is_wp_error( $annullato ) ? $annullato : $esito;
+			}
+
+			$chiusura = self::chiudi( $apertura, $atto_id );
+
+			if ( is_wp_error( $chiusura ) ) {
+				return $chiusura;
+			}
+		} catch ( \Throwable $errore ) {
+			$annullato = self::annulla( $apertura, $atto_id );
+
+			if ( is_wp_error( $annullato ) ) {
+				throw new \RuntimeException( esc_html( $annullato->get_error_message() ), 0, $errore ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- gia' sfuggito.
+			}
+
+			throw $errore;
+		}
+
+		return array(
+			'voce'      => (int) $esito,
+			'documento' => $entrante,
+		);
+	}
+
+	/**
+	 * Il posto del documento nell'atto: principale, ulteriore, oppure nullo se non e' suo.
+	 *
+	 * @param int $atto_id      Atto.
+	 * @param int $documento_id Documento.
+	 * @return string|null
+	 */
+	private static function posto_del_documento( int $atto_id, int $documento_id ): ?string {
+		if ( $documento_id > 0 && DocumentiAtto::principale( $atto_id ) === $documento_id ) {
+			return DocumentiAtto::PRINCIPALE;
+		}
+
+		return $documento_id > 0 && in_array( $documento_id, DocumentiAtto::ulteriori( $atto_id ), true ) ? DocumentiAtto::ULTERIORE : null;
+	}
+
+	/**
+	 * Il dato dell'atto con l'entrante al posto dell'uscente, o nullo se l'uscente non e' piu' in quel posto.
+	 *
+	 * Un ulteriore resta nella sua posizione dell'elenco.
+	 *
+	 * @param int    $atto_id  Atto.
+	 * @param int    $uscente  Documento uscente.
+	 * @param int    $entrante Documento entrante.
+	 * @param string $posto    Posto letto dai controlli.
+	 * @return array{chiave: string, valore: mixed}|null
+	 */
+	private static function documento_sostituito( int $atto_id, int $uscente, int $entrante, string $posto ): ?array {
+		if ( self::posto_del_documento( $atto_id, $uscente ) !== $posto ) {
+			return null;
+		}
+
+		if ( DocumentiAtto::PRINCIPALE === $posto ) {
+			return array(
+				'chiave' => META_DOCUMENTO_PRINCIPALE,
+				'valore' => $entrante,
+			);
+		}
+
+		$ulteriori = DocumentiAtto::ulteriori( $atto_id );
+
+		$ulteriori[ (int) array_search( $uscente, $ulteriori, true ) ] = $entrante;
+
+		return array(
+			'chiave' => META_ALLEGATI_ULTERIORI,
+			'valore' => $ulteriori,
+		);
+	}
+
+	/**
+	 * Il rifiuto di una sostituzione per oscuramento non riuscita, con il motivo vero fra gli altri.
+	 *
+	 * @param \WP_Error $motivo Motivo.
+	 * @return \WP_Error
+	 */
+	private static function errore_oscuramento( \WP_Error $motivo ): \WP_Error {
+		if ( in_array( $motivo->get_error_code(), array( 'albo_annullamento_non_riuscito', 'albo_documento_non_sostituito' ), true ) ) {
+			return $motivo;
+		}
+
+		$errore = new \WP_Error(
+			'albo_documento_non_sostituito',
+			__( 'Il documento resta quello di prima: una delle scritture della sostituzione non e\' riuscita, e tutto e\' tornato come prima.', 'albo-pretorio-pa' )
+		);
+
+		foreach ( $motivo->get_error_codes() as $codice ) {
+			foreach ( $motivo->get_error_messages( $codice ) as $messaggio ) {
+				$errore->add( $codice, $messaggio );
+			}
+		}
+
+		return $errore;
+	}
+
+	/**
 	 * Le chiavi che una richiesta di proroga puo' portare.
 	 *
 	 * @var array<int, string>
@@ -3659,16 +4086,19 @@ final class Passaggi {
 	 * Nella riga cambiano lo stato, le date della pubblicazione, le due date di
 	 * modifica e, alla pubblicazione, il nome nell'indirizzo se non c'era. Nei
 	 * dati cambiano la data di fine della pubblicazione, che deve essere una
-	 * sola e quella calcolata, e i dati di servizio di WordPress. Voci e
-	 * contenuti figli non cambiano.
+	 * sola e quella calcolata, e i dati di servizio di WordPress; nella
+	 * sostituzione per oscuramento, il solo dato che indica il documento, che
+	 * deve essere uno e con il valore calcolato. Voci e contenuti figli non
+	 * cambiano.
 	 *
-	 * @param int                   $atto_id  Atto.
-	 * @param array<string, mixed>  $partenza Fotografia di partenza.
-	 * @param array<string, string> $campi    Campi concessi.
-	 * @param string|null           $fine     Data di fine, per la pubblicazione.
+	 * @param int                                       $atto_id   Atto.
+	 * @param array<string, mixed>                      $partenza  Fotografia di partenza.
+	 * @param array<string, string>                     $campi     Campi concessi.
+	 * @param string|null                               $fine      Data di fine, per la pubblicazione.
+	 * @param array{chiave: string, valore: mixed}|null $documento Dato del documento, per la sostituzione per oscuramento.
 	 * @return true|\WP_Error
 	 */
-	private static function controlla_invariato( int $atto_id, array $partenza, array $campi, ?string $fine ) {
+	private static function controlla_invariato( int $atto_id, array $partenza, array $campi, ?string $fine, ?array $documento = null ) {
 		if ( ! empty( self::$in_corso[ $atto_id ]['rifiuto'] ) ) {
 			return new \WP_Error(
 				'albo_scrittura_rifiutata_nel_passaggio',
@@ -3715,19 +4145,31 @@ final class Passaggi {
 			}
 		}
 
-		$chiave = conformita_core_chiave_fine_pubblicazione();
-		$dati   = static function ( array $fotografia ) use ( $chiave, $fine ): array {
+		$chiave    = conformita_core_chiave_fine_pubblicazione();
+		$scritto   = null === $documento ? null : $documento['chiave'];
+		$dati      = static function ( array $fotografia ) use ( $chiave, $fine, $scritto ): array {
 			return array_values(
 				array_filter(
 					(array) $fotografia['dati'],
-					static function ( $riga ) use ( $chiave, $fine ): bool {
-						return ! in_array( $riga['meta_key'], ChiusuraPubblicazione::CHIAVI_DI_SERVIZIO, true ) && ( null === $fine || $chiave !== $riga['meta_key'] );
+					static function ( $riga ) use ( $chiave, $fine, $scritto ): bool {
+						return ! in_array( $riga['meta_key'], ChiusuraPubblicazione::CHIAVI_DI_SERVIZIO, true ) && ( null === $fine || $chiave !== $riga['meta_key'] ) && $scritto !== $riga['meta_key'];
 					}
 				)
 			);
 		};
+		$documenti = array();
+
+		foreach ( null === $documento ? array() : (array) $arrivo['dati'] as $riga ) {
+			if ( $scritto === $riga['meta_key'] ) {
+				$documenti[] = (string) $riga['meta_value'];
+			}
+		}
 
 		if ( $dati( $partenza ) !== $dati( $arrivo ) || ( null !== $fine && array( $fine ) !== self::righe_fine( $arrivo ) ) ) {
+			return $errore;
+		}
+
+		if ( null !== $documento && array( (string) maybe_serialize( $documento['valore'] ) ) !== $documenti ) {
 			return $errore;
 		}
 
