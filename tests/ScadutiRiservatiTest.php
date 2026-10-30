@@ -1,6 +1,6 @@
 <?php
 /**
- * Gli atti scaduti in amministrazione: righe A-290 e A-291 (ALBO-34).
+ * Gli atti scaduti in amministrazione: righe A-290..A-292 (ALBO-34).
  *
  * Un atto la cui pubblicazione e' finita si consulta con il permesso apposito,
  * e chi redige soltanto non lo ha. In amministrazione l'atto scaduto non si
@@ -29,18 +29,35 @@ class ScadutiRiservatiTest extends \WP_UnitTestCase {
 	use FlussoDiProva;
 
 	/**
+	 * Le consegne emesse dal meccanismo comune.
+	 *
+	 * @var array<int, array<string, mixed>>
+	 */
+	private array $consegne = array();
+
+	/**
 	 * Assetto comune.
 	 */
 	public function set_up(): void {
 		parent::set_up();
 
 		$this->prepara_flusso();
+
+		\Conformita_Core_Consegna::fissa_emettitore(
+			function ( array $risposta ): void {
+				$this->consegne[] = $risposta;
+			}
+		);
 	}
 
 	/**
 	 * Ripulisce.
 	 */
 	public function tear_down(): void {
+		\Conformita_Core_Consegna::fissa_emettitore( null );
+		$_GET     = array();
+		$_REQUEST = array();
+
 		$this->smonta_flusso();
 
 		parent::tear_down();
@@ -222,5 +239,58 @@ class ScadutiRiservatiTest extends \WP_UnitTestCase {
 		);
 
 		$this->assertContains( $articolo, array_map( 'intval', $articoli->posts ), 'Le altre interrogazioni non cambiano.' );
+	}
+
+	/**
+	 * Chiede un documento alla consegna amministrativa, con il collegamento costruito per l'utente.
+	 *
+	 * @param int $utente    Utente.
+	 * @param int $documento Documento.
+	 * @return int Stato della risposta.
+	 */
+	private function consegna_come( int $utente, int $documento ): int {
+		return $this->come(
+			$utente,
+			function () use ( $documento ) {
+				$indirizzo = html_entity_decode( (string) conformita_core_indirizzo_consegna_amministrativa( $documento ) );
+				wp_parse_str( (string) wp_parse_url( $indirizzo, PHP_URL_QUERY ), $parametri );
+				$this->assertNotEmpty( $parametri['action'] ?? '', 'Precondizione: il collegamento della consegna amministrativa.' );
+
+				$this->consegne = array();
+				$_GET           = $parametri;
+				$_REQUEST       = $parametri;
+				do_action( 'admin_post_' . $parametri['action'] );
+
+				$this->assertCount( 1, $this->consegne );
+
+				return (int) $this->consegne[0]['stato'];
+			}
+		);
+	}
+
+	/**
+	 * A-292: la consegna amministrativa non da' il documento dello scaduto a chi redige soltanto.
+	 *
+	 * Il controllo sul singolo contenuto e' del meccanismo comune, dall'interfaccia
+	 * 1.11.0; qui si prova che, con quella, i permessi dell'albo arrivano fino al
+	 * file.
+	 */
+	public function test_a292_la_consegna_non_da_lo_scaduto_a_chi_redige(): void {
+		$scaduto = $this->pubblicato_il( '2041-09-01 09:30:00', 'Atto scaduto' );
+		$attuale = $this->pubblicato_il( '2041-10-01 09:30:00', 'Atto in corso' );
+
+		$this->fissa_orologi( '2041-10-10 10:00:00' );
+
+		$redattore = self::factory()->user->create( array( 'role' => RUOLO_REDATTORE ) );
+
+		foreach ( array(
+			'ruolo del redattore'           => $redattore,
+			'insieme di chi redige, a mano' => $this->redattore,
+		) as $chi => $utente ) {
+			$this->assertSame( 404, $this->consegna_come( $utente, (int) DocumentiAtto::principale( $scaduto ) ), $chi . ': il documento dello scaduto non si consegna.' );
+		}
+
+		$this->assertSame( 200, $this->consegna_come( $this->redattore, (int) DocumentiAtto::principale( $attuale ) ), 'Controllo positivo: il documento dell\'atto in corso del suo autore si consegna.' );
+		$this->assertSame( 200, $this->consegna_come( $this->pubblicatore, (int) DocumentiAtto::principale( $scaduto ) ), 'Chi pubblica riceve il documento dello scaduto.' );
 	}
 }

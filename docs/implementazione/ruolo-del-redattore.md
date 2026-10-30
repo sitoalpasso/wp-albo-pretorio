@@ -28,14 +28,16 @@ meccanismo comune, letta nell'istante: una data di fine scritta male, di un gior
 esiste o registrata due volte vale come passata. Chi pubblica conserva i passaggi che
 partono da un atto scaduto, come l'annullamento. Vale per il redattore e per ogni ruolo che
 ha soltanto l'insieme di chi redige. Righe A-290 e A-291. La consegna amministrativa dei
-documenti è del meccanismo comune, che dalla sua versione con il controllo sul singolo
-contenuto chiede gli stessi permessi.
+documenti è del meccanismo comune, che dall'interfaccia 1.11.0 controlla il permesso sul
+singolo contenuto e per uno scaduto pretende anche la consultazione: l'albo richiede quella
+versione, e A-292 prova che il documento dello scaduto non arriva a chi redige soltanto.
 
 ## File toccati
 
 | File | Perché |
 |---|---|
-| `albo-pretorio-pa.php` | la costante `RUOLO_REDATTORE` e la versione 0.8.0-alpha |
+| `albo-pretorio-pa.php` | la costante `RUOLO_REDATTORE`, la versione 0.8.0-alpha e l'interfaccia richiesta del meccanismo comune 1.11.0 |
+| `bin/installa-core.sh`, `.wp-env.json` | la revisione del meccanismo comune con l'interfaccia 1.11.0 |
 | `includes/class-permessi.php` | i ruoli propri diventano due; prima si controllano tutti per un omonimo di altri, poi si creano quelli mancanti, ciascuno con la verifica del marcatore; `azzera()` toglie anche il redattore |
 | `includes/class-installazione.php` | la nascita del redattore si esclude a chi aggiorna da 0.8.0-alpha in poi, come i permessi che arrivano una volta sola |
 | `includes/class-scaduti-riservati.php` | lo scaduto in amministrazione: `map_meta_cap` per l'atto e i suoi documenti, `posts_where` per l'elenco degli atti |
