@@ -94,3 +94,6 @@ Schede presenti:
   collaudo A-280..A-285.
 - [`ruolo-del-redattore.md`](ruolo-del-redattore.md): il secondo ruolo proprio, per chi
   prepara gli atti senza pubblicarli, che nasce una volta sola. Righe di collaudo A-286..A-289.
+- [`esportazione.md`](esportazione.md): l'archivio di un anno del registro per la
+  conservazione, con dati, documenti, versioni sostituite, storia e impronte, e la sua
+  rilettura. Righe di collaudo A-308..A-311.

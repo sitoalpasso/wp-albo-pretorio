@@ -64,6 +64,9 @@ vedere quale prova li vede si elencano a lavoro finito.
    soltanto oscurato e accettata dopo una defissione (ALBO-22).
 4. **La versione oscurata già alla pubblicazione** (la prima riga di ALBO-12): una bozza
    con l'originale e la sua versione oscurata, di cui il pubblico vede solo la seconda.
+   **Rinviato** (decisione del 2026-10-30): chi prepara l'atto carica già la sola versione
+   oscurata, e l'originale resta nel sistema documentale dell'amministrazione. Si costruisce
+   quando un'amministrazione chiede di conservarlo anche nell'albo.
 
 ## I nove punti
 

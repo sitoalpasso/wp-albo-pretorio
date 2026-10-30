@@ -441,7 +441,7 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-14 | da fare | Niente anti copia che rompa l'accessibilità | **norma** l'accessibilità non si comprime per ostacolare il prelievo (Garante, l. 4/2004) |
 | ALBO-15 | da fare | Separazione dall'amministrazione trasparente | **norma** finalità e durate diverse (d.lgs. 33/2013, Garante). **Prodotto** due esposizioni indipendenti con un file solo |
 | ALBO-16 | fatto | Ricerca e filtri accessibili | **prodotto**, con l'accessibilità come vincolo di norma |
-| ALBO-17 | da fare | Gli atti sono versabili in conservazione | **norma** il risultato (linee guida AgID doc. informatici). **Prodotto** l'export in formato aperto |
+| ALBO-17 | fatto | Gli atti sono versabili in conservazione | **norma** il risultato (linee guida AgID doc. informatici). **Prodotto** l'export in formato aperto |
 | ALBO-18 | in corso | L'atto scaduto non è pubblico su nessun percorso | **norma** il risultato (Garante, provv. marzo 2026). **Prodotto** il filtro in interrogazione sui percorsi di WordPress, il cui elenco dipende da WordPress e non dalla norma |
 | ALBO-19 | da fare | Battito di controllo con avviso | **prodotto**, motivato dal guasto silenzioso sanzionato nel provv. Garante marzo 2026 |
 | ALBO-20 | fatto | L'atto defisso non viene più servito a nessuno | **norma** il risultato (Garante). **Prodotto** esclusione dalla memoria di pagina oppure invalidazione immediata: due strade, la scelta è nostra. Scelta l'esclusione: nessuna risposta dell'albo si lascia conservare, nemmeno dal visitatore anonimo, e vale anche per la versione uscente di una sostituzione per oscuramento a pubblicazione attiva |

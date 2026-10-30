@@ -246,6 +246,30 @@ Questa è la mappa delle azioni:
   programmi. Si valida al salvataggio e **a ogni lettura**: una durata malformata scritta
   di lato vale come durata assente (righe A-48..A-57 di `collaudo.md`).
 
+## L'archivio dell'esportazione (ALBO-17)
+
+Non si salva: si costruisce nella cartella temporanea del server, si consegna e si
+cancella. Resta solo la voce di registro `esportazione` (anno, numero di atti e di documenti,
+impronta `sha256:` dell'archivio). Dentro l'archivio:
+
+- `atti.json`, UTF-8: `formato` (`albo-pretorio-esportazione`), `versione` (1), `anno`,
+  `generato` e `fuso`, e `atti`, uno per numero dell'anno in ordine di numero. Per ogni atto:
+  `anno`, `numero`, `stato` (`pubblicato`, `defisso`, `annullato`: lo stato scritto),
+  `fine_passata` (letta dalla data), `oggetto`, `tipo`, `organo`, `data_adozione`,
+  `numero_proprio`, `amministrazione` (nulla per un atto di questa amministrazione, il nome
+  fissato alla pubblicazione per un ospitato, vuota se quel nome non si legge),
+  `procedimento` (i tre dati di ALBO-33), `inizio` (data e ora con il fuso), `fine`,
+  `origine_importazione`, `documenti` e `registro`. Ogni documento ha `posto` (`principale`,
+  `allegato`, `sostituito`), `posizione`, `file` (il percorso nell'archivio), `impronta` con
+  `algoritmo` e `valore` presi al deposito, `dimensione`, `tipo_mime`, `deposito`,
+  `sostituito_da` (per una versione sostituita, il file che l'ha sostituita). Ogni voce del
+  registro ha `istante`, `azione`, `utente` (il numero), `autore` (il nome mostrato di
+  quell'utente al momento dell'esportazione), `motivazione`, `dettagli`.
+- `atti.csv`: una riga per atto con le colonne semplici, per un foglio di calcolo.
+- `documenti/AAAA-NNNN/`: i documenti di ciascun atto con il nome di ALBO-30, e le versioni
+  sostituite come `versione-sostituita-N`.
+- `impronte.sha256`: l'impronta di ogni altro file, nella forma di `sha256sum`.
+
 ## Cosa NON viene salvato
 
 Nessun dato di visitatori anonimi: niente tracciamento degli accessi pubblici. Nessuna
