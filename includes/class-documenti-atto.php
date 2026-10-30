@@ -379,11 +379,16 @@ final class DocumentiAtto {
 	}
 
 	/**
-	 * Aggancio a `admin_post_conformita_core_allegato`, prima della consegna amministrativa: la versione sostituita e' riservata.
+	 * Aggancio a `admin_post_conformita_core_allegato`, prima della consegna amministrativa: un figlio non indicato e' riservato.
 	 *
 	 * Il documento uscente da un oscuramento contiene proprio i dati che
 	 * l'oscuramento toglie: lo apre chi consulta gli scaduti o pubblica, come
 	 * uno scaduto (`ScadutiRiservati::li_vede()`), e non chi redige soltanto.
+	 * **La regola e' quella del punto pubblico, non il segno della
+	 * sostituzione**: ogni figlio dell'atto che i dati dell'atto non indicano
+	 * e' riservato, con o senza segno. Un segno mancante, su due righe o
+	 * guasto, o una lettura dei dati dell'atto che non risponde, sbagliano
+	 * cosi' nella direzione che chiude.
 	 * Questo aggancio sa soltanto rifiutare: il resto dei controlli, il
 	 * gettone compreso, lo fa il meccanismo comune dopo. Il rifiuto e' quello
 	 * della consegna, "non trovato", che non dice se il file esiste.
@@ -397,7 +402,9 @@ final class DocumentiAtto {
 			return;
 		}
 
-		if ( null === self::sostituito_da( $allegato_id ) || ScadutiRiservati::li_vede( get_current_user_id() ) ) {
+		$atto_id = (int) $allegato->post_parent;
+
+		if ( self::principale( $atto_id ) === $allegato_id || in_array( $allegato_id, self::ulteriori( $atto_id ), true ) || ScadutiRiservati::li_vede( get_current_user_id() ) ) {
 			return;
 		}
 

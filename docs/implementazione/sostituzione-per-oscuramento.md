@@ -149,8 +149,11 @@ al meccanismo comune l'anello del tipo consultabile, che la condizione ripete id
 
 **La consegna amministrativa dava la versione uscente a chi redige.** Il meccanismo comune
 la apre a chi gestisce il tipo e legge l'atto, e un atto pubblicato lo legge chiunque. Un
-aggancio dell'albo prima della consegna rifiuta la versione sostituita a chi non consulta e
-non pubblica, con lo stesso "non trovato" della consegna (A-298).
+aggancio dell'albo prima della consegna rifiuta a chi non consulta e non pubblica ogni
+figlio dell'atto che i dati dell'atto non indicano, con lo stesso "non trovato" della
+consegna (A-298). La regola è la stessa del punto pubblico e non dipende dal segno della
+sostituzione, che serve al registro e alle schermate: un segno mancante, su due righe o
+guasto non riapre il file.
 
 **Il file entrante si deposita prima della transazione**, perché il deposito può chiedere
 al server di provare la cartella protetta, e una richiesta di rete non sta dentro un blocco
@@ -175,6 +178,7 @@ sarà la riga si rifà su quella.
 |---|---|
 | condizione del punto pubblico non dichiarata | A-294 |
 | rifiuto in amministrazione spento | A-298 |
+| rifiuto in amministrazione appoggiato al segno invece che ai dati dell'atto | A-298 |
 | causa non controllata | A-296 |
 | dati estranei ammessi | A-297 |
 | data di fine non guardata | A-295 |

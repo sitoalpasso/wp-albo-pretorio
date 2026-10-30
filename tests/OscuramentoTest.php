@@ -610,6 +610,9 @@ class OscuramentoTest extends \WP_UnitTestCase {
 	/**
 	 * A-298: la versione sostituita si apre in amministrazione solo a chi consulta o pubblica.
 	 *
+	 * Vale per ogni figlio dell'atto che i suoi dati non indicano, con o senza
+	 * il segno della sostituzione, anche se il segno e' su due righe o guasto.
+	 *
 	 * Contiene proprio i dati che l'oscuramento toglie: chi redige soltanto non
 	 * la apre, anche con un collegamento valido costruito per lui, e apre
 	 * invece la versione entrante, cosi' che il rifiuto venga dalla
@@ -632,6 +635,29 @@ class OscuramentoTest extends \WP_UnitTestCase {
 		$this->assertSame( 200, $this->apri_in_amministrazione( $this->pubblicatore, $uscente ), 'Chi pubblica apre la sostituita.' );
 		$this->assertSame( 200, $this->apri_in_amministrazione( $consultatore, $uscente ), 'Chi consulta apre la sostituita.' );
 		$this->assertSame( 200, $this->apri_in_amministrazione( $this->amministratore, $uscente ), 'L\'amministratore apre la sostituita.' );
+
+		// Il rifiuto non dipende dal segno: con due righe, con un valore guasto, o senza segno, un figlio non indicato resta riservato.
+		$secondo = $this->pubblicato();
+		$guasto  = (int) DocumentiAtto::principale( $secondo );
+		$this->assertIsArray( $this->oscura( $secondo, $this->pubblicatore, $guasto, $this->pdf( 'oscurato' ), $this->richiesta() ) );
+		add_post_meta( $uscente, META_SOSTITUITO_DA, $esito['documento'] );
+		update_post_meta( $guasto, META_SOSTITUITO_DA, 'non un numero' );
+
+		$terzo = $this->pubblicato();
+		$this->assertIsInt( $this->come( $this->pubblicatore, fn () => conformita_core_deposita_allegato( $terzo, $this->file_temporaneo( 'estraneo.pdf', $this->pdf( 'estraneo' ) ), array( 'origine' => 'percorso_locale' ) ) ) );
+		$senza_segno = (int) max( $this->figli( $terzo ) );
+
+		$this->assertNotContains( $senza_segno, array_merge( array( DocumentiAtto::principale( $terzo ) ), DocumentiAtto::ulteriori( $terzo ) ), 'Precondizione: il figlio non e\' indicato dai dati dell\'atto.' );
+		$this->assertNull( DocumentiAtto::sostituito_da( $senza_segno ), 'Precondizione: e non ha il segno.' );
+
+		foreach ( array(
+			'segno su due righe' => $uscente,
+			'segno guasto'       => $guasto,
+			'figlio senza segno' => $senza_segno,
+		) as $quale => $documento ) {
+			$this->assertSame( 404, $this->apri_in_amministrazione( $this->redattore, $documento ), $quale . ': chi redige soltanto non lo apre.' );
+			$this->assertSame( 200, $this->apri_in_amministrazione( $this->pubblicatore, $documento ), $quale . ': chi pubblica lo apre.' );
+		}
 	}
 
 	/**
