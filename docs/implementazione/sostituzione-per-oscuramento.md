@@ -20,8 +20,8 @@ correre. La versione uscente non si cancella: è parte dell'atto adottato e rest
 vista pubblica, consultabile solo da chi ha il permesso di consultare o di pubblicare. Il
 registro delle modifiche conserva le impronte di tutte e due le versioni, chi ha disposto la
 sostituzione, quando e il motivo. La sostituzione non si annulla; un documento già oscurato
-si può oscurare di nuovo, e ogni passaggio resta registrato. Le frasi che oggi dicono "non
-ancora disponibile" (A-280) rinviano a questa operazione.
+si può oscurare di nuovo, e ogni passaggio resta registrato. Le frasi che dicevano "non
+ancora disponibile" (A-280) ora rinviano a questa operazione.
 
 **Come la costruiamo.** È un passaggio in `Passaggi`, come la defissione: permesso di
 pubblicare, atto nello stato pubblicato e con la data di fine non passata letta
@@ -200,3 +200,52 @@ sarà la riga si rifà su quella.
 | impronta dell'entrante registrata al posto di quella dell'uscente | A-294 |
 | allegato ulteriore entrante messo in fondo all'elenco | A-294 |
 | documento non più nel suo posto sotto il blocco, non controllato | nessuna: il blocco confronta già la fotografia intera, quindi il controllo è una difesa in più che nessuna prova raggiunge |
+
+## Com'è andato il passo 2
+
+**Una parte sola, non un pulsante per documento.** Il piano diceva "per ogni documento". Il
+riquadro ha invece una parte "Oscura i dati in più di un documento" con un'opzione per
+documento (il principale e ogni allegato con la sua posizione), un solo campo del file, il
+motivo, la conferma e il pulsante "Sostituisci con la versione oscurata". Un pulsante per
+documento avrebbe ripetuto file, motivo e conferma tante volte quanti sono gli allegati.
+Nessuna opzione è già scelta, come per la causa della defissione: la scelta è di chi
+sostituisce, e un invio senza scelta è rifiutato.
+
+**Chi la vede.** Solo chi pubblica, solo su un atto pubblicato con la fine non passata,
+letta dalla data e non dallo stato: con il compito pianificato fermo, il giorno dopo la
+fine la parte non c'è anche se lo stato è ancora "pubblicato". Il passaggio da codice fa
+comunque tutti i controlli: la schermata non è una protezione.
+
+**Il file arriva sempre come caricamento.** Il riquadro consegna il file al meccanismo
+comune dichiarandolo caricamento, e il meccanismo comune accetta solo un file arrivato con
+la richiesta HTTP. Per questo un caricamento vero non si prova nelle prove automatiche: il
+controllo positivo di A-303 è un invio con tutti i campi giusti e un file del disco, che
+passa ogni controllo dell'albo e si ferma soltanto al deposito.
+
+**L'elenco delle sostituzioni** sta nel riquadro dell'atto pubblicato, tolto o annullato,
+in sola lettura dal registro: quando, chi, il posto e il motivo. Il collegamento alla
+versione di prima lo vede solo chi la può aprire; per gli altri la consegna risponderebbe
+"non trovato". Se il registro non risponde il riquadro lo dice (A-304). Il meccanismo comune
+risponde con un elenco vuoto anche a una lettura fallita, quindi l'errore si legge dalla
+connessione, come per l'effetto della rimozione.
+
+**I testi.** Le frasi di A-280 rinviano ora a questa parte. La scheda dei documenti, su un
+atto non più in bozza, aggiunge che un documento con dati personali in più si sostituisce
+soltanto con la sua versione oscurata, dal riquadro Pubblicazione.
+
+**Guasti introdotti per vedere quale prova li vede**, ciascuno tolto subito dopo:
+
+| Guasto | Visto da |
+|---|---|
+| parte mostrata senza il permesso di pubblicare | A-302 |
+| parte nascosta già l'ultimo giorno | A-302 |
+| parte mostrata dopo la fine | A-302 |
+| conferma accettata per qualunque atto | A-303 |
+| file dichiarato percorso del server invece che caricamento | A-303 |
+| invio senza documento scelto non fermato dal riquadro | A-303 |
+| file mancante non fermato dal riquadro | A-303 |
+| file arrivato male non fermato dal riquadro | A-303 |
+| collegamento alla versione di prima mostrato a tutti | A-304 |
+| elenco assente sull'atto tolto | A-304 |
+| registro guasto taciuto | A-304 |
+| lettura fallita del registro scambiata per nessuna sostituzione | A-304 |
