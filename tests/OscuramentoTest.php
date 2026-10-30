@@ -1,6 +1,6 @@
 <?php
 /**
- * La sostituzione di un documento con la sua versione oscurata: righe A-293..A-300 (ALBO-12, ALBO-08, ALBO-09, ALBO-10, ALBO-27).
+ * La sostituzione di un documento con la sua versione oscurata: righe A-293..A-301 (ALBO-12, ALBO-08, ALBO-09, ALBO-10, ALBO-27).
  *
  * Gli atti si portano a pubblicato con il passaggio vero, l'orologio avanza
  * di qualche giorno e la sostituzione si fa con il passaggio vero, da
@@ -807,6 +807,57 @@ class OscuramentoTest extends \WP_UnitTestCase {
 			$this->assertSame( $this->senza_sostituzione( $prima, META_DOCUMENTO_PRINCIPALE ), $this->senza_sostituzione( $this->fotografia( $id ), META_DOCUMENTO_PRINCIPALE ), $quale . ': cambia solo il documento.' );
 			$this->assertSame( $esito['documento'], DocumentiAtto::principale( $id ), $quale . ': ed e\' l\'entrante.' );
 		}
+	}
+
+	/**
+	 * A-301: le due autorizzazioni leggono i dati dell'atto dalla banca dati, e una lettura fallita vale no (ALBO-12).
+	 *
+	 * Una richiesta che avesse in memoria i dati dell'atto di prima della
+	 * sostituzione, chiusa nel frattempo da un'altra richiesta, non apre la
+	 * versione uscente: ne' al pubblico ne' a chi redige soltanto. Se la
+	 * lettura dei dati dell'atto non risponde, nemmeno l'entrante esce. Il
+	 * controllo positivo e' la stessa richiesta senza guasto.
+	 */
+	public function test_a301_letture_dalla_banca_dati(): void {
+		$id      = $this->pubblicato();
+		$uscente = (int) DocumentiAtto::principale( $id );
+		$esito   = $this->oscura( $id, $this->pubblicatore, $uscente, $this->pdf( 'oscurato' ), $this->richiesta() );
+
+		$this->assertIsArray( $esito );
+
+		set_current_screen( 'dashboard' );
+
+		$avvelena = function () use ( $id, $uscente ): void {
+			$dati = wp_cache_get( $id, 'post_meta' );
+
+			if ( ! is_array( $dati ) ) {
+				get_post_meta( $id );
+				$dati = wp_cache_get( $id, 'post_meta' );
+			}
+
+			$this->assertIsArray( $dati, 'Precondizione: i dati dell\'atto sono in memoria.' );
+			$dati[ META_DOCUMENTO_PRINCIPALE ] = array( (string) $uscente );
+			wp_cache_set( $id, $dati, 'post_meta' );
+			$this->assertSame( $uscente, DocumentiAtto::principale( $id ), 'Precondizione: la memoria ricorda il principale di prima.' );
+		};
+
+		$avvelena();
+		$this->assertSame( 404, $this->scarica( $uscente )['stato'], 'Memoria di prima: il pubblico non scarica l\'uscente.' );
+		$avvelena();
+		$this->assertSame( 404, $this->apri_in_amministrazione( $this->redattore, $uscente ), 'Memoria di prima: chi redige soltanto non apre l\'uscente.' );
+
+		wp_cache_delete( $id, 'post_meta' );
+
+		$this->guasta_istruzioni( array( 'SELECT meta_key, meta_value', META_ALLEGATI_ULTERIORI ) );
+		$pubblico = $this->scarica( $esito['documento'] )['stato'];
+		$redige   = $this->apri_in_amministrazione( $this->redattore, $esito['documento'] );
+		$this->ripara();
+
+		$this->assertSame( 404, $pubblico, 'Lettura fallita: il pubblico non scarica nemmeno l\'entrante.' );
+		$this->assertSame( 404, $redige, 'Lettura fallita: chi redige soltanto non apre nemmeno l\'entrante.' );
+
+		$this->assertSame( 200, $this->scarica( $esito['documento'] )['stato'], 'Controllo positivo: senza guasto il pubblico scarica l\'entrante.' );
+		$this->assertSame( 200, $this->apri_in_amministrazione( $this->redattore, $esito['documento'] ), 'Controllo positivo: e chi redige lo apre.' );
 	}
 
 	/**

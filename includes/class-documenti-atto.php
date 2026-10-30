@@ -363,7 +363,73 @@ final class DocumentiAtto {
 			return false;
 		}
 
-		return self::principale( (int) $atto->ID ) === $allegato_id || in_array( $allegato_id, self::ulteriori( (int) $atto->ID ), true );
+		$indicati = self::indicati( (int) $atto->ID );
+
+		return null !== $indicati && in_array( $allegato_id, $indicati, true );
+	}
+
+	/**
+	 * I documenti indicati dai dati dell'atto, letti dalla banca dati, o nullo se la lettura non risponde.
+	 *
+	 * E' la lettura delle due autorizzazioni, il punto pubblico e la consegna
+	 * amministrativa, e per questo **non passa dalla memoria di WordPress**:
+	 * una richiesta che avesse gia' in memoria i dati dell'atto prima che una
+	 * sostituzione per oscuramento si chiuda in un'altra richiesta
+	 * autorizzerebbe ancora la versione uscente. La validazione e' quella di
+	 * `principale()` e `ulteriori()`: una riga sola per dato, documenti validi
+	 * di questo atto, ciascuno una volta, il principale per primo.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return array<int, int>|null
+	 */
+	public static function indicati( int $atto_id ): ?array {
+		global $wpdb;
+
+		$righe = Lettura::righe(
+			$wpdb->prepare(
+				'SELECT meta_key, meta_value FROM %i WHERE post_id = %d AND meta_key IN ( %s, %s ) ORDER BY meta_id',
+				$wpdb->postmeta,
+				$atto_id,
+				META_DOCUMENTO_PRINCIPALE,
+				META_ALLEGATI_ULTERIORI
+			),
+			array( 'meta_key', 'meta_value' )
+		);
+
+		if ( null === $righe ) {
+			return null;
+		}
+
+		$valori = array(
+			META_DOCUMENTO_PRINCIPALE => array(),
+			META_ALLEGATI_ULTERIORI   => array(),
+		);
+
+		foreach ( $righe as $riga ) {
+			$valori[ (string) $riga['meta_key'] ][] = (string) $riga['meta_value'];
+		}
+
+		$indicati = array();
+
+		if ( 1 === count( $valori[ META_DOCUMENTO_PRINCIPALE ] ) ) {
+			$id = self::identificativo( $valori[ META_DOCUMENTO_PRINCIPALE ][0] );
+
+			if ( null !== $id && self::valido( $atto_id, $id ) ) {
+				$indicati[] = $id;
+			}
+		}
+
+		$elenco = 1 === count( $valori[ META_ALLEGATI_ULTERIORI ] ) ? maybe_unserialize( $valori[ META_ALLEGATI_ULTERIORI ][0] ) : null;
+
+		foreach ( is_array( $elenco ) ? $elenco : array() as $voce ) {
+			$id = self::identificativo( $voce );
+
+			if ( null !== $id && ! in_array( $id, $indicati, true ) && self::valido( $atto_id, $id ) ) {
+				$indicati[] = $id;
+			}
+		}
+
+		return $indicati;
 	}
 
 	/**
@@ -388,7 +454,8 @@ final class DocumentiAtto {
 	 * sostituzione**: ogni figlio dell'atto che i dati dell'atto non indicano
 	 * e' riservato, con o senza segno. Un segno mancante, su due righe o
 	 * guasto, o una lettura dei dati dell'atto che non risponde, sbagliano
-	 * cosi' nella direzione che chiude.
+	 * cosi' nella direzione che chiude. I dati si leggono dalla banca dati,
+	 * come per il punto pubblico (`indicati()`).
 	 * Questo aggancio sa soltanto rifiutare: il resto dei controlli, il
 	 * gettone compreso, lo fa il meccanismo comune dopo. Il rifiuto e' quello
 	 * della consegna, "non trovato", che non dice se il file esiste.
@@ -402,9 +469,9 @@ final class DocumentiAtto {
 			return;
 		}
 
-		$atto_id = (int) $allegato->post_parent;
+		$indicati = self::indicati( (int) $allegato->post_parent );
 
-		if ( self::principale( $atto_id ) === $allegato_id || in_array( $allegato_id, self::ulteriori( $atto_id ), true ) || ScadutiRiservati::li_vede( get_current_user_id() ) ) {
+		if ( ( null !== $indicati && in_array( $allegato_id, $indicati, true ) ) || ScadutiRiservati::li_vede( get_current_user_id() ) ) {
 			return;
 		}
 

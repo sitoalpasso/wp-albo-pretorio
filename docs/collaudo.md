@@ -945,7 +945,7 @@ Stesso prefisso `A-`. Righe di ALBO-12 (la sostituzione di un documento di un at
 pubblicato e non scaduto con la sua versione oscurata), con ALBO-08 e ALBO-27 sui dati
 estranei, ALBO-09 sull'unica eccezione all'immodificabilità e ALBO-10 sulle impronte nel
 registro. Scheda [`sostituzione-per-oscuramento.md`](implementazione/sostituzione-per-oscuramento.md).
-Provate in `tests/OscuramentoTest.php`. Atto del 1 ottobre 2041 alle 9:30, fine il 16
+Provate in `tests/OscuramentoTest.php` (A-293..A-301). Atto del 1 ottobre 2041 alle 9:30, fine il 16
 ottobre, sostituzione il 5 ottobre alle 10:00.
 
 | Riga | Stato | Prova | Atteso |
@@ -958,6 +958,7 @@ ottobre, sostituzione il 5 ottobre alle 10:00.
 | A-298 | fatto | **La versione sostituita in amministrazione**: chi redige soltanto, prima e dopo la sostituzione; poi chi pubblica, chi consulta, l'amministratore | prima chi redige apre il documento; dopo non apre la versione sostituita, con un collegamento valido per lui, e apre l'entrante; chi pubblica, chi consulta e l'amministratore aprono la sostituita. Lo stesso per un figlio dell'atto che i dati non indicano con il segno su due righe, con il segno guasto e senza segno: chi redige soltanto riceve "non trovato", chi pubblica lo apre |
 | A-299 | fatto | **Tutto o niente**: senza conferma, senza motivo, documento di un altro atto, nessun documento; poi un guasto sul dato del documento, sul segno dell'uscente, sulla voce del registro | i primi rifiutati prima del deposito, con niente cambiato; dopo ogni guasto atto, documenti e disco come prima, e nel registro solo il file entrante aggiunto e tolto. **Controllo positivo**: senza guasti riesce, e l'atto ha due documenti |
 | A-300 | fatto | **Nessun'altra scrittura**: durante la scrittura del documento un altro componente cambia la data di adozione o rimette l'uscente, prima con le funzioni di WordPress, poi con un'istruzione diretta | con WordPress la scrittura è rifiutata e la sostituzione riesce cambiando solo il documento; con l'istruzione diretta il controllo finale la trova e annulla tutto |
+| A-301 | fatto | **Letture dalla banca dati**: la memoria di WordPress ricorda il principale di prima della sostituzione; poi la lettura dei dati dell'atto fallisce | con la memoria di prima, il pubblico e chi redige soltanto ricevono "non trovato" per l'uscente; con la lettura fallita nemmeno l'entrante esce, al pubblico e a chi redige soltanto. **Controllo positivo**: senza guasto l'entrante esce a tutti e due |
 
 ## Collaudo congiunto con la trasparenza
 

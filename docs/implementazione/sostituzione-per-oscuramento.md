@@ -3,7 +3,7 @@
 Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro finito con
 com'è andata davvero.
 
-**Stato: passo 1 fatto (righe A-293..A-300), passi 2 e 3 da fare.** Requisito ALBO-12, con le righe che lo nominano come controllo positivo o
+**Stato: passo 1 fatto (righe A-293..A-301), passi 2 e 3 da fare.** Requisito ALBO-12, con le righe che lo nominano come controllo positivo o
 come caso: ALBO-08 (il repertorio che non cambia), ALBO-09 (l'unica eccezione
 all'immodificabilità), ALBO-10 (le due impronte nel registro), ALBO-20 (la memoria di
 pagina), ALBO-22 (la dichiarazione dell'effetto su un atto oscurato), ALBO-27 (le date che
@@ -155,6 +155,12 @@ consegna (A-298). La regola è la stessa del punto pubblico e non dipende dal se
 sostituzione, che serve al registro e alle schermate: un segno mancante, su due righe o
 guasto non riapre il file.
 
+**Le due autorizzazioni leggono dalla banca dati.** Il punto pubblico e la consegna
+amministrativa decidono con `DocumentiAtto::indicati()`, che legge i dati dell'atto
+direttamente e non dalla memoria di WordPress: una richiesta che li avesse in memoria da
+prima di una sostituzione chiusa nel frattempo non apre la versione uscente. Una lettura che
+non risponde vale no (A-301).
+
 **Il file entrante si deposita prima della transazione**, perché il deposito può chiedere
 al server di provare la cartella protetta, e una richiesta di rete non sta dentro un blocco
 della banca dati. La fotografia di partenza si prende dopo il deposito, con l'entrante già
@@ -179,6 +185,9 @@ sarà la riga si rifà su quella.
 | condizione del punto pubblico non dichiarata | A-294 |
 | rifiuto in amministrazione spento | A-298 |
 | rifiuto in amministrazione appoggiato al segno invece che ai dati dell'atto | A-298 |
+| punto pubblico che legge i dati dell'atto dalla memoria | A-301 |
+| consegna amministrativa che legge i dati dell'atto dalla memoria | A-301 |
+| lettura fallita che ripiega sulla memoria | A-301 |
 | causa non controllata | A-296 |
 | dati estranei ammessi | A-297 |
 | data di fine non guardata | A-295 |
