@@ -1,6 +1,6 @@
 <?php
 /**
- * L'esportazione di un anno del registro per la conservazione: righe A-308..A-314 (ALBO-17, ALBO-29).
+ * L'esportazione di un anno del registro per la conservazione: righe A-308..A-315 (ALBO-17, ALBO-29).
  *
  * Gli atti si portano a pubblicato, si tolgono, si annullano e si oscurano
  * con i passaggi veri, con l'orologio fissato. L'archivio si apre con
@@ -24,6 +24,7 @@ declare( strict_types = 1 );
 namespace AlboPretorioPa\Tests;
 
 use AlboPretorioPa\AmministrazioniOspitate;
+use AlboPretorioPa\DatiProcedimento;
 use AlboPretorioPa\DocumentiAtto;
 use AlboPretorioPa\Esportazione;
 use AlboPretorioPa\Passaggi;
@@ -33,6 +34,7 @@ use AlboPretorioPa\SchedaAtto;
 use AlboPretorioPa\SchermataEsportazione;
 
 use const AlboPretorioPa\META_DATA_ADOZIONE;
+use const AlboPretorioPa\META_NUMERO_PROPRIO;
 use const AlboPretorioPa\META_ORIGINE_IMPORTAZIONE;
 use const AlboPretorioPa\META_SOSTITUITO_DA;
 use const AlboPretorioPa\SEZIONE;
@@ -970,5 +972,95 @@ class EsportazioneTest extends \WP_UnitTestCase {
 		$this->assertSame( array( "'=1+1", "'@SOMMA(A1)", "'\tTabulato", "'-meno", "'+piu'", 'Oggetto normale' ), array_column( $righe, 4 ), 'Le formule escono come testo, l\'oggetto normale invariato.' );
 		$this->assertSame( array( '2041', '2041', '2041', '2041', '2041', '2041' ), array_column( $righe, 0 ), 'L\'anno non si tocca.' );
 		$this->assertSame( array( '1', '2', '3', '4', '5', '6' ), array_column( $righe, 1 ), 'Il numero non si tocca.' );
+	}
+
+	/**
+	 * A-315: ogni lettura dei dati dell'atto che non risponde ferma l'esportazione, invece di lasciare un campo vuoto in un archivio registrato come completo.
+	 */
+	public function test_a315_letture_dei_dati_dell_atto(): void {
+		global $wpdb;
+
+		$atto         = $this->pubblicato_il( '2041-10-01 09:30:00', 'Atto con tutti i dati' );
+		$consultatore = $this->consultatore();
+		$procedimento = array(
+			DatiProcedimento::RESPONSABILE => 'Responsabile di prova',
+			DatiProcedimento::UFFICIO      => 'Ufficio di prova',
+			DatiProcedimento::RICHIEDENTE  => 'Richiedente di prova',
+		);
+
+		$this->scavalca_barriera(
+			static function () use ( $atto, $procedimento ) {
+				update_post_meta( $atto, META_NUMERO_PROPRIO, '12/2041' );
+				update_post_meta( $atto, META_ORIGINE_IMPORTAZIONE, '77' );
+
+				foreach ( $procedimento as $dato => $valore ) {
+					update_post_meta( $atto, DatiProcedimento::meta( $dato ), $valore );
+				}
+			}
+		);
+
+		// Controllo positivo: con le letture che rispondono ogni campo e' pieno.
+		$esito = $this->esporta( 2041, $consultatore );
+		$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+
+		$dati = json_decode( $this->apri( $esito['percorso'] )['atti.json'], true )['atti'][0];
+		$this->assertSame( 'Deliberazione', $dati['tipo'] );
+		$this->assertSame( 'Giunta', $dati['organo'] );
+		$this->assertSame( '2041-09-10', $dati['data_adozione'] );
+		$this->assertSame( '12/2041', $dati['numero_proprio'] );
+		$this->assertSame( '77', $dati['origine_importazione'] );
+		$this->assertSame( $procedimento, $dati['procedimento'] );
+		$this->assertFalse( $dati['fine_passata'] );
+		$this->assertSame( 'application/pdf', $dati['documenti'][0]['tipo_mime'] );
+		$this->assertNotSame( '', $dati['registro'][0]['autore'], 'L\'autore della voce ha il suo nome.' );
+		$this->assertMatchesRegularExpression( '#\Adocumenti/2041-0001/albo-2041-0001-dal-01-10-al-[0-9]{2}-[0-9]{2}\.pdf\z#', $dati['documenti'][0]['file'] );
+
+		$meta    = preg_quote( $wpdb->postmeta, '/' );
+		$fine    = "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = {$atto} AND meta_key = '" . \Conformita_Core_Scadenza::CHIAVE . "'";
+		$conta   = 0;
+		$n_esima = static function ( int $quale ) use ( $fine, &$conta ): callable {
+			$conta = 0;
+
+			return static function ( string $istruzione ) use ( $fine, $quale, &$conta ): bool {
+				return 0 === strpos( trim( $istruzione ), $fine ) && ++$conta === $quale;
+			};
+		};
+		// Per ogni lettura, il motivo che l'esportazione deve dare.
+		$guasti = array(
+			'i dati di un atto'              => static function ( string $istruzione ) use ( $meta, $atto ): bool {
+				return 1 === preg_match( '/\ASELECT meta_key, meta_value FROM `?' . $meta . '`? WHERE post_id = ' . $atto . ' ORDER BY meta_id\z/', trim( $istruzione ) );
+			},
+			'il tipo e l\'organo di un atto' => static function ( string $istruzione ): bool {
+				return false !== strpos( $istruzione, 'tt.taxonomy, t.name' );
+			},
+			'gli autori delle modifiche'     => static function ( string $istruzione ): bool {
+				return 0 === strpos( trim( $istruzione ), 'SELECT ID, display_name FROM' );
+			},
+			'i documenti di un atto'         => static function ( string $istruzione ) use ( $meta, $atto ): bool {
+				return 1 === preg_match( '/\ASELECT post_id, meta_key, meta_value FROM ' . $meta . ' WHERE post_id IN \(' . $atto . '\)/', trim( $istruzione ) );
+			},
+			'i dati che compongono il nome di un documento' => $n_esima( 2 ),
+			'la fine di un atto'             => $n_esima( 3 ),
+		);
+
+		$temporanei = glob( get_temp_dir() . 'albo-esportazione-*' );
+		$voci       = count( $this->voci_esportazione() );
+
+		foreach ( $guasti as $caso => $guasto ) {
+			$conta = 0;
+			clean_post_cache( $atto );
+			wp_cache_flush();
+
+			$wpdb->suppress_errors( true );
+			$this->guasto = $guasto;
+			$fermata      = $this->esporta( 2041, $consultatore );
+			$this->guasto = null;
+			$wpdb->suppress_errors( false );
+
+			$this->assertSame( array( 'albo_esportazione_lettura' ), $this->codici( $fermata ), $caso . ': la lettura che non risponde ferma l\'esportazione.' );
+			$this->assertStringContainsString( $caso . ' non si legge', $fermata->get_error_message(), 'Si ferma proprio quella lettura.' );
+			$this->assertSame( $temporanei, glob( get_temp_dir() . 'albo-esportazione-*' ), $caso . ': nessun file lasciato.' );
+			$this->assertCount( $voci, $this->voci_esportazione(), $caso . ': nessuna voce.' );
+		}
 	}
 }

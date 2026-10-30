@@ -460,8 +460,16 @@ final class DatiProcedimento {
 			return '';
 		}
 
-		$righe = get_post_meta( $atto_id, self::meta( $dato ), false );
+		return self::valore_da_righe( get_post_meta( $atto_id, self::meta( $dato ), false ) );
+	}
 
+	/**
+	 * Il valore di un dato dalle righe lette, con la regola di `valore()`.
+	 *
+	 * @param array<int, mixed> $righe Valori delle righe, in ordine.
+	 * @return string
+	 */
+	public static function valore_da_righe( array $righe ): string {
 		if ( 1 !== count( $righe ) || ! is_string( $righe[0] ) || '' === $righe[0] ) {
 			return '';
 		}

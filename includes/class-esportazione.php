@@ -424,18 +424,70 @@ final class Esportazione {
 			return self::errore_lettura( __( 'il registro delle modifiche', 'albo-pretorio-pa' ) );
 		}
 
-		$documenti = self::documenti( $atto_id, $numero );
+		/*
+		 * Dati e voci dell'atto si leggono qui, con interrogazioni che
+		 * distinguono la riga assente dalla risposta mancata, e si
+		 * interpretano con le stesse regole della scheda. Le funzioni di
+		 * WordPress per i dati e le voci danno un elenco vuoto in tutti e due i
+		 * casi, e l'atto uscirebbe con un campo vuoto in un archivio registrato
+		 * come completo.
+		 */
+		$meta = self::dati_letti( $atto_id );
+
+		if ( null === $meta ) {
+			return self::errore_lettura( __( 'i dati di un atto', 'albo-pretorio-pa' ) );
+		}
+
+		$autori = self::autori( $voci );
+
+		if ( null === $autori ) {
+			return self::errore_lettura( __( 'gli autori delle modifiche', 'albo-pretorio-pa' ) );
+		}
+
+		$documenti = self::documenti( $atto, $numero, $meta, $fine );
 
 		if ( is_wp_error( $documenti ) ) {
 			return $documenti;
 		}
 
-		$tipo            = DatiAtto::tipo( $atto_id );
-		$organo          = DatiAtto::organo( $atto_id );
-		$ospitata        = AmministrazioniOspitate::di_atto( $atto_id );
+		$elenchi = self::voci_lette( $atto_id );
+
+		if ( null === $elenchi ) {
+			return self::errore_lettura( __( 'il tipo e l\'organo di un atto', 'albo-pretorio-pa' ) );
+		}
+
+		// La fine e' gia' letta; l'istante della scadenza si rilegge, e una risposta mancata non vale "scaduto".
+		$scadenza = conformita_core_istante_scadenza( $atto_id );
+
+		if ( ! $scadenza instanceof \DateTimeImmutable ) {
+			return self::errore_lettura( __( 'la fine di un atto', 'albo-pretorio-pa' ) );
+		}
+
+		$ospitata = AmministrazioniOspitate::di_atto_da(
+			AmministrazioniOspitate::classifica( $meta[ AmministrazioniOspitate::META ] ?? array() ),
+			$atto->post_status,
+			static function () use ( $voci ): array {
+				return array_values(
+					array_filter(
+						$voci,
+						static function ( array $voce ): bool {
+							return Passaggi::AZIONE_CONFERMA === $voce['azione'];
+						}
+					)
+				);
+			}
+		);
+
+		$procedimento = array();
+
+		foreach ( DatiProcedimento::DATI as $dato ) {
+			$procedimento[ $dato ] = DatiProcedimento::valore_da_righe( $meta[ DatiProcedimento::meta( $dato ) ] ?? array() );
+		}
+
+		// L'istante di inizio sta nell'atto gia' letto: nessuna lettura in piu'.
 		$inizio          = get_post_datetime( $atto, 'date', 'gmt' );
-		$origine         = (string) get_post_meta( $atto_id, META_ORIGINE_IMPORTAZIONE, true );
-		$procedimento    = DatiProcedimento::per_registro( $atto_id );
+		$origine         = isset( $meta[ META_ORIGINE_IMPORTAZIONE ][0] ) ? (string) $meta[ META_ORIGINE_IMPORTAZIONE ][0] : '';
+		$data_adozione   = DatiAtto::data_adozione_da_righe( $meta[ META_DATA_ADOZIONE ] ?? array() );
 		$amministrazione = null === $ospitata ? null : ( $ospitata['leggibile'] ? $ospitata['nome'] : '' );
 
 		return array(
@@ -443,22 +495,167 @@ final class Esportazione {
 				'anno'                 => $numero['anno'],
 				'numero'               => $numero['numero'],
 				'stato'                => self::STATI[ $atto->post_status ],
-				'fine_passata'         => (bool) conformita_core_scaduto( $atto_id ),
+				'fine_passata'         => Passaggi::ora() >= $scadenza,
 				'oggetto'              => $atto->post_title,
-				'tipo'                 => null === $tipo ? '' : $tipo->name,
-				'organo'               => null === $organo ? '' : $organo->name,
-				'data_adozione'        => (string) DatiAtto::data_adozione( $atto_id ),
-				'numero_proprio'       => DatiAtto::numero_proprio( $atto_id ),
+				'tipo'                 => $elenchi[ TASSONOMIA_TIPO_ATTO ],
+				'organo'               => $elenchi[ TASSONOMIA_ORGANO ],
+				'data_adozione'        => (string) $data_adozione,
+				'numero_proprio'       => DatiAtto::numero_proprio_da_righe( $meta[ META_NUMERO_PROPRIO ] ?? array() ),
 				'amministrazione'      => $amministrazione,
 				'procedimento'         => $procedimento,
 				'inizio'               => false === $inizio ? '' : $inizio->setTimezone( wp_timezone() )->format( 'c' ),
 				'fine'                 => $fine,
 				'origine_importazione' => '' === $origine ? null : $origine,
 				'documenti'            => $documenti['dati'],
-				'registro'             => array_map( array( self::class, 'voce' ), $voci ),
+				'registro'             => array_map(
+					static function ( array $voce ) use ( $autori ): array {
+						return self::voce( $voce, $autori );
+					},
+					$voci
+				),
 			),
 			'file' => $documenti['file'],
 		);
+	}
+
+	/**
+	 * Principale e allegati che i dati letti indicano, fra i figli letti nello stato dei documenti.
+	 *
+	 * @param array<string, array<int, mixed>> $meta Dati dell'atto letti.
+	 * @param array<int, string|null>          $tipi Figli letti: il tipo del file, nullo se non e' nello stato dei documenti.
+	 * @return array<int, int>
+	 */
+	private static function indicati_letti( array $meta, array $tipi ): array {
+		$numero     = static function ( $valore ): ?int {
+			return ( is_int( $valore ) && $valore > 0 ) || ( is_string( $valore ) && 1 === preg_match( '/\A[1-9][0-9]*\z/', $valore ) ) ? (int) $valore : null;
+		};
+		$documento  = static function ( ?int $id ) use ( $tipi ): bool {
+			return null !== $id && isset( $tipi[ $id ] );
+		};
+		$indicati   = array();
+		$principale = $meta[ META_DOCUMENTO_PRINCIPALE ] ?? array();
+		$ulteriori  = $meta[ META_ALLEGATI_ULTERIORI ] ?? array();
+
+		if ( 1 === count( $principale ) && $documento( $numero( $principale[0] ) ) ) {
+			$indicati[] = (int) $numero( $principale[0] );
+		}
+
+		foreach ( 1 === count( $ulteriori ) && is_array( $ulteriori[0] ) ? $ulteriori[0] : array() as $voce ) {
+			$id = $numero( $voce );
+
+			if ( $documento( $id ) && ! in_array( $id, $indicati, true ) ) {
+				$indicati[] = (int) $id;
+			}
+		}
+
+		return $indicati;
+	}
+
+	/**
+	 * Il nome che il documento deve avere, dai dati gia' letti (ALBO-30).
+	 *
+	 * @param \WP_Post                      $atto       Atto.
+	 * @param array{anno: int, numero: int} $numero     Numero di registro.
+	 * @param string                        $fine       Data di fine, AAAA-MM-GG.
+	 * @param int                           $posizione  Zero per il principale, il numero d'ordine per un allegato.
+	 * @param string                        $estensione Estensione del file.
+	 * @return string
+	 */
+	private static function nome_atteso( \WP_Post $atto, array $numero, string $fine, int $posizione, string $estensione ): string {
+		$al   = \DateTimeImmutable::createFromFormat( '!Y-m-d', $fine, wp_timezone() );
+		$nome = sprintf( 'albo-%d-%04d-dal-%s-al-%s', $numero['anno'], $numero['numero'], (string) get_post_time( 'd-m', false, $atto ), false === $al ? '' : $al->format( 'd-m' ) );
+		$nome = $posizione > 0 ? $nome . '-allegato-' . $posizione : $nome;
+
+		return '' === $estensione ? $nome : $nome . '.' . $estensione;
+	}
+
+	/**
+	 * Il nome mostrato di ogni utente delle voci, vuoto per un utente cancellato; nullo se la lettura non risponde.
+	 *
+	 * @param array<int, array<string, mixed>> $voci Voci del registro.
+	 * @return array<int, string>|null
+	 */
+	private static function autori( array $voci ): ?array {
+		global $wpdb;
+
+		$utenti = array_values( array_unique( array_filter( array_map( 'intval', array_column( $voci, 'utente' ) ) ) ) );
+
+		if ( array() === $utenti ) {
+			return array();
+		}
+
+		$segnaposto = implode( ', ', array_fill( 0, count( $utenti ), '%d' ) );
+		// phpcs:disable WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- i segnaposto degli utenti sono costruiti qui sopra, uno per utente.
+		$righe = Lettura::righe(
+			$wpdb->prepare( "SELECT ID, display_name FROM %i WHERE ID IN ( {$segnaposto} )", array_merge( array( $wpdb->users ), $utenti ) ),
+			array( 'ID', 'display_name' )
+		);
+		// phpcs:enable WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return null === $righe ? null : array_map( 'strval', array_column( $righe, 'display_name', 'ID' ) );
+	}
+
+	/**
+	 * Tutti i dati dell'atto per chiave, nell'ordine in cui sono stati scritti; nullo se la lettura non risponde.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return array<string, array<int, mixed>>|null
+	 */
+	private static function dati_letti( int $atto_id ): ?array {
+		global $wpdb;
+
+		$righe = Lettura::righe(
+			$wpdb->prepare( 'SELECT meta_key, meta_value FROM %i WHERE post_id = %d ORDER BY meta_id', $wpdb->postmeta, $atto_id ),
+			array( 'meta_key', 'meta_value' )
+		);
+
+		if ( null === $righe ) {
+			return null;
+		}
+
+		$dati = array();
+
+		foreach ( $righe as $riga ) {
+			$dati[ (string) $riga['meta_key'] ][] = maybe_unserialize( $riga['meta_value'] );
+		}
+
+		return $dati;
+	}
+
+	/**
+	 * Il nome del tipo e dell'organo dell'atto, vuoto se non ce n'e' uno e uno solo; nullo se la lettura non risponde.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return array<string, string>|null
+	 */
+	private static function voci_lette( int $atto_id ): ?array {
+		global $wpdb;
+
+		$righe = Lettura::righe(
+			$wpdb->prepare(
+				'SELECT tt.taxonomy, t.name FROM %i r JOIN %i tt ON tt.term_taxonomy_id = r.term_taxonomy_id JOIN %i t ON t.term_id = tt.term_id WHERE r.object_id = %d AND tt.taxonomy IN ( %s, %s )',
+				$wpdb->term_relationships,
+				$wpdb->term_taxonomy,
+				$wpdb->terms,
+				$atto_id,
+				TASSONOMIA_TIPO_ATTO,
+				TASSONOMIA_ORGANO
+			),
+			array( 'taxonomy', 'name' )
+		);
+
+		if ( null === $righe ) {
+			return null;
+		}
+
+		$nomi = array();
+
+		foreach ( array( TASSONOMIA_TIPO_ATTO, TASSONOMIA_ORGANO ) as $elenco ) {
+			$trovate         = array_values( wp_list_filter( $righe, array( 'taxonomy' => $elenco ) ) );
+			$nomi[ $elenco ] = 1 === count( $trovate ) ? (string) $trovate[0]['name'] : '';
+		}
+
+		return $nomi;
 	}
 
 	/**
@@ -467,11 +664,14 @@ final class Esportazione {
 	 * L'impronta e' quella calcolata al deposito: il file sul disco deve averla
 	 * ancora, altrimenti l'esportazione si ferma.
 	 *
-	 * @param int                           $atto_id Atto.
-	 * @param array{anno: int, numero: int} $numero  Numero di registro.
+	 * @param \WP_Post                         $atto   Atto.
+	 * @param array{anno: int, numero: int}    $numero Numero di registro.
+	 * @param array<string, array<int, mixed>> $meta   Dati dell'atto letti.
+	 * @param string                           $fine   Data di fine letta.
 	 * @return array{dati: array<int, array<string, mixed>>, file: array<string, string>}|\WP_Error
 	 */
-	private static function documenti( int $atto_id, array $numero ) {
+	private static function documenti( \WP_Post $atto, array $numero, array $meta, string $fine ) {
+		$atto_id  = (int) $atto->ID;
 		$indicati = DocumentiAtto::indicati( $atto_id );
 
 		if ( null === $indicati ) {
@@ -495,14 +695,14 @@ final class Esportazione {
 		// I figli e il loro segno di sostituzione in una sola lettura: una risposta mancata non e' "nessuna versione sostituita".
 		$figli = Lettura::righe(
 			$wpdb->prepare(
-				'SELECT p.ID, m.meta_value FROM %i p LEFT JOIN %i m ON m.post_id = p.ID AND m.meta_key = %s WHERE p.post_parent = %d AND p.post_type = %s ORDER BY p.ID, m.meta_id',
+				'SELECT p.ID, p.post_status, p.post_mime_type, m.meta_value FROM %i p LEFT JOIN %i m ON m.post_id = p.ID AND m.meta_key = %s WHERE p.post_parent = %d AND p.post_type = %s ORDER BY p.ID, m.meta_id',
 				$wpdb->posts,
 				$wpdb->postmeta,
 				META_SOSTITUITO_DA,
 				$atto_id,
 				'attachment'
 			),
-			array( 'ID', 'meta_value' )
+			array( 'ID', 'post_status', 'post_mime_type', 'meta_value' )
 		);
 
 		if ( null === $figli ) {
@@ -510,11 +710,25 @@ final class Esportazione {
 		}
 
 		$segni = array();
+		$tipi  = array();
 
 		foreach ( $figli as $figlio ) {
+			$tipi[ (int) $figlio['ID'] ] = 'inherit' === $figlio['post_status'] ? (string) $figlio['post_mime_type'] : null;
+
 			if ( null !== $figlio['meta_value'] ) {
 				$segni[ (int) $figlio['ID'] ][] = (string) $figlio['meta_value'];
 			}
+		}
+
+		/*
+		 * Principale e allegati vengono dalle funzioni della scheda, che leggono
+		 * dalla memoria di WordPress e tacciono una lettura fallita. Si
+		 * confrontano con quelli che le letture verificate indicano: se non
+		 * coincidono, qualcosa non si e' letto, e l'archivio non esce senza un
+		 * documento.
+		 */
+		if ( array_keys( $elenco ) !== self::indicati_letti( $meta, $tipi ) ) {
+			return self::errore_lettura( __( 'i documenti di un atto', 'albo-pretorio-pa' ) );
 		}
 
 		$sostituite = 0;
@@ -525,8 +739,9 @@ final class Esportazione {
 			}
 		}
 
-		$dati = array();
-		$file = array();
+		$dati     = array();
+		$file     = array();
+		$percorsi = array();
 
 		foreach ( $elenco as $documento => list( $posto, $posizione ) ) {
 			$sorgente = get_attached_file( $documento );
@@ -542,9 +757,15 @@ final class Esportazione {
 
 			$estensione = strtolower( (string) pathinfo( $sorgente, PATHINFO_EXTENSION ) );
 			$nome       = 'sostituito' === $posto ? 'versione-sostituita-' . $posizione : (string) NomeScaricato::nome( $documento, $atto_id );
-			$nome       = 'sostituito' === $posto && '' !== $estensione ? $nome . '.' . $estensione : $nome;
-			$segno      = $segni[ $documento ] ?? array();
-			$sostituto  = 'sostituito' === $posto && 1 === count( $segno ) && 1 === preg_match( '/\A[1-9][0-9]*\z/', $segno[0] ) ? (int) $segno[0] : null;
+
+			// Il nome si compone da letture che tacciono un guasto: deve essere quello che i dati gia' letti danno.
+			if ( 'sostituito' !== $posto && self::nome_atteso( $atto, $numero, $fine, $posizione, $estensione ) !== $nome ) {
+				return self::errore_lettura( __( 'i dati che compongono il nome di un documento', 'albo-pretorio-pa' ) );
+			}
+
+			$nome      = 'sostituito' === $posto && '' !== $estensione ? $nome . '.' . $estensione : $nome;
+			$segno     = $segni[ $documento ] ?? array();
+			$sostituto = 'sostituito' === $posto && 1 === count( $segno ) && 1 === preg_match( '/\A[1-9][0-9]*\z/', $segno[0] ) ? (int) $segno[0] : null;
 
 			$file[ $cartella . $nome ] = $sorgente;
 			$dati[]                    = array(
@@ -556,10 +777,16 @@ final class Esportazione {
 					'valore'    => (string) $impronta['valore'],
 				),
 				'dimensione'    => (int) filesize( $sorgente ),
-				'tipo_mime'     => (string) get_post_mime_type( $documento ),
+				'tipo_mime'     => (string) ( $tipi[ $documento ] ?? '' ),
 				'deposito'      => (string) $impronta['deposito'],
-				'sostituito_da' => null === $sostituto ? null : self::riferimento( $sostituto, $elenco, $cartella, $atto_id ),
+				'sostituito_da' => $sostituto,
 			);
+			$percorsi[ $documento ]    = $cartella . $nome;
+		}
+
+		// Il rimando al sostituto e' il suo file nell'archivio, con il nome gia' controllato.
+		foreach ( $dati as $indice => $documento ) {
+			$dati[ $indice ]['sostituito_da'] = null === $documento['sostituito_da'] ? null : ( $percorsi[ $documento['sostituito_da'] ] ?? null );
 		}
 
 		return array(
@@ -568,43 +795,21 @@ final class Esportazione {
 		);
 	}
 
-	/**
-	 * Il file nell'archivio del documento che ne ha sostituito un altro.
-	 *
-	 * @param int                                  $sostituto Documento entrante.
-	 * @param array<int, array{0: string, 1: int}> $elenco    Documenti dell'atto con il loro posto.
-	 * @param string                               $cartella  Cartella dell'atto nell'archivio.
-	 * @param int                                  $atto_id   Atto.
-	 * @return string|null
-	 */
-	private static function riferimento( int $sostituto, array $elenco, string $cartella, int $atto_id ): ?string {
-		if ( ! isset( $elenco[ $sostituto ] ) ) {
-			return null;
-		}
-
-		if ( 'sostituito' !== $elenco[ $sostituto ][0] ) {
-			return $cartella . NomeScaricato::nome( $sostituto, $atto_id );
-		}
-
-		$estensione = strtolower( (string) pathinfo( (string) get_attached_file( $sostituto ), PATHINFO_EXTENSION ) );
-
-		return $cartella . 'versione-sostituita-' . $elenco[ $sostituto ][1] . ( '' === $estensione ? '' : '.' . $estensione );
-	}
 
 	/**
 	 * Una voce del registro nella forma dei dati esportati.
 	 *
-	 * @param array<string, mixed> $voce Voce del meccanismo comune.
+	 * @param array<string, mixed> $voce   Voce del meccanismo comune.
+	 * @param array<int, string>   $autori Nome mostrato degli utenti, per numero.
 	 * @return array<string, mixed>
 	 */
-	private static function voce( array $voce ): array {
-		$autore = get_userdata( (int) $voce['utente'] );
+	private static function voce( array $voce, array $autori ): array {
 
 		return array(
 			'istante'     => $voce['istante'] instanceof \DateTimeInterface ? $voce['istante']->setTimezone( wp_timezone() )->format( 'c' ) : '',
 			'azione'      => (string) $voce['azione'],
 			'utente'      => (int) $voce['utente'],
-			'autore'      => $autore instanceof \WP_User ? $autore->display_name : '',
+			'autore'      => $autori[ (int) $voce['utente'] ] ?? '',
 			'motivazione' => null === $voce['motivazione'] ? null : (string) $voce['motivazione'],
 			'dettagli'    => $voce['dettagli'],
 		);

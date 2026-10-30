@@ -3,7 +3,7 @@
 Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro finito con
 com'è andata davvero.
 
-**Stato: costruita, in attesa di revisione.** Requisito ALBO-17, righe di collaudo A-308..A-314.
+**Stato: costruita, in attesa di revisione.** Requisito ALBO-17, righe di collaudo A-308..A-315.
 
 ## In tre paragrafi
 
@@ -85,7 +85,7 @@ Il permesso di consultare gli scaduti, più il gettone della schermata.
 
 ### 7. Test aggiunti
 
-A-308..A-314, in `tests/EsportazioneTest.php`.
+A-308..A-315, in `tests/EsportazioneTest.php`.
 
 ### 8. Cosa non implementa
 
@@ -154,6 +154,21 @@ tabulazione o un ritorno a capo. Nell'indice CSV questi testi escono con un apos
 `atti.json` resta identico. Anno, numero e conteggio dei documenti sono numeri e non si
 toccano.
 
+**Ogni dato dell'atto si legge sapendo se la lettura ha risposto** (dalla revisione
+automatica, secondo giro). Le funzioni che la scheda usa per tipo, organo, data di adozione,
+numero proprio, dati del procedimento, origine dell'importazione e amministrazione ospitata
+danno un campo vuoto sia quando il dato manca sia quando la banca dati non risponde: l'atto
+usciva con un campo vuoto in un archivio registrato come completo. Ora l'esportazione legge con
+interrogazioni proprie tutti i dati dell'atto, le sue voci di tipo e organo e i nomi degli
+autori delle modifiche, e li interpreta con le stesse regole della scheda, che per questo sono
+diventate funzioni a sé (`data_adozione_da_righe()`, `numero_proprio_da_righe()`,
+`valore_da_righe()`, `di_atto_da()`). La fine passata si calcola dall'istante di scadenza,
+letto con la risposta mancata distinta: la funzione "scaduto" del componente comune dà
+"scaduto" anche quando non legge, giusto per chi mostra, sbagliato per chi conserva. Due
+letture restano quelle della scheda, il principale con gli allegati e il nome del file, e si
+confrontano con quello che danno le letture già verificate: se non coincidono, l'esportazione si
+ferma. L'istante di inizio sta nell'atto già letto e non richiede letture.
+
 **L'ordine degli atti** è per numero. Il registro dei numeri li restituisce già in quell'ordine,
 quindi togliere l'ordinamento non fa fallire nessuna prova: resta come garanzia, perché
 quell'ordine della banca dati non è promesso.
@@ -188,4 +203,13 @@ quell'ordine della banca dati non è promesso.
 | apostrofo tolto dall'indice | A-314 |
 | tabulazione dimenticata fra i caratteri delle formule | A-314 |
 | rimando al sostituto perso | A-308, A-313 |
+| dati dell'atto non letti presi per nessun dato | A-315 |
+| tipo e organo non letti presi per nessuna voce | A-315 |
+| autori non letti presi per autori cancellati | A-315 |
+| principale e allegati non confrontati con le letture verificate | A-315 |
+| nome del file non confrontato | A-315 |
+| istante di scadenza non controllato | A-315 |
+| tipo del file perso | A-315 |
+| scelta dell'amministrazione ospitata ignorata | A-311 |
+| voci di conferma non filtrate | A-311 |
 | apostrofo anche sui numeri | nessuna: anno, numero e conteggio non sono mai negativi, la distinzione resta come garanzia |

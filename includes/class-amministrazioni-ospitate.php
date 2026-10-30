@@ -766,7 +766,7 @@ final class AmministrazioniOspitate {
 	 * @param mixed $righe Valori delle righe, in ordine.
 	 * @return array{esito: string, id: int|null}
 	 */
-	private static function classifica( $righe ): array {
+	public static function classifica( $righe ): array {
 		if ( ! is_array( $righe ) || array() === $righe ) {
 			return array(
 				'esito' => self::ASSENTE,
@@ -937,7 +937,33 @@ final class AmministrazioniOspitate {
 	 * @return array{nome: string, leggibile: bool, fissato: bool}|null
 	 */
 	public static function di_atto( int $atto_id ): ?array {
-		$letta  = self::scelta_letta( $atto_id );
+		return self::di_atto_da(
+			self::scelta_letta( $atto_id ),
+			(string) get_post_status( $atto_id ),
+			static function () use ( $atto_id ) {
+				return conformita_core_voci_registro(
+					array(
+						'sezione'   => SEZIONE,
+						'contenuto' => $atto_id,
+						'azione'    => Passaggi::AZIONE_CONFERMA,
+					)
+				);
+			}
+		);
+	}
+
+	/**
+	 * L'amministrazione da mostrare, dalle letture gia' fatte: la regola di `di_atto()`.
+	 *
+	 * Serve a chi legge l'atto con le sue interrogazioni, come l'esportazione,
+	 * e deve sapere se ciascuna ha risposto.
+	 *
+	 * @param array{esito: string, id: int|null} $letta    Scelta letta e classificata (`classifica()`).
+	 * @param string                             $stato    Stato dell'atto.
+	 * @param callable                           $conferme Restituisce le voci di conferma dell'atto; chiamata solo se servono.
+	 * @return array{nome: string, leggibile: bool, fissato: bool}|null
+	 */
+	public static function di_atto_da( array $letta, string $stato, callable $conferme ): ?array {
 		$scelta = $letta['id'];
 		$storta = self::ILLEGGIBILE === $letta['esito'];
 
@@ -946,7 +972,7 @@ final class AmministrazioniOspitate {
 			return null;
 		}
 
-		if ( in_array( get_post_status( $atto_id ), ChiusuraPubblicazione::STATI_BOZZA, true ) || ChiusuraPubblicazione::IN_VERIFICA === get_post_status( $atto_id ) ) {
+		if ( in_array( $stato, ChiusuraPubblicazione::STATI_BOZZA, true ) || ChiusuraPubblicazione::IN_VERIFICA === $stato ) {
 			$voci = self::voci();
 
 			return array(
@@ -956,14 +982,7 @@ final class AmministrazioniOspitate {
 			);
 		}
 
-		$voci = conformita_core_voci_registro(
-			array(
-				'sezione'   => SEZIONE,
-				'contenuto' => $atto_id,
-				'azione'    => Passaggi::AZIONE_CONFERMA,
-			)
-		);
-
+		$voci = $conferme();
 		$nome = '';
 
 		if ( is_array( $voci ) && 1 === count( $voci ) && isset( $voci[0]['dettagli'] ) && is_array( $voci[0]['dettagli'] ) ) {
@@ -982,6 +1001,7 @@ final class AmministrazioniOspitate {
 			'fissato'   => true,
 		);
 	}
+
 
 	/**
 	 * Il testo da mostrare al pubblico per un atto ospitato, oppure nullo.

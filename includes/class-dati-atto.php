@@ -115,8 +115,16 @@ final class DatiAtto {
 	 * @return string|null Data nel formato AAAA-MM-GG.
 	 */
 	public static function data_adozione( int $atto_id ): ?string {
-		$righe = get_post_meta( $atto_id, META_DATA_ADOZIONE, false );
+		return self::data_adozione_da_righe( get_post_meta( $atto_id, META_DATA_ADOZIONE, false ) );
+	}
 
+	/**
+	 * La data di adozione dalle righe lette, con la regola di `data_adozione()`.
+	 *
+	 * @param array<int, mixed> $righe Valori delle righe, in ordine.
+	 * @return string|null
+	 */
+	public static function data_adozione_da_righe( array $righe ): ?string {
 		if ( 1 !== count( $righe ) || ! is_string( $righe[0] ) ) {
 			return null;
 		}
@@ -134,8 +142,16 @@ final class DatiAtto {
 	 * @return string
 	 */
 	public static function numero_proprio( int $atto_id ): string {
-		$righe = get_post_meta( $atto_id, META_NUMERO_PROPRIO, false );
+		return self::numero_proprio_da_righe( get_post_meta( $atto_id, META_NUMERO_PROPRIO, false ) );
+	}
 
+	/**
+	 * Il numero proprio dalle righe lette, con la regola di `numero_proprio()`.
+	 *
+	 * @param array<int, mixed> $righe Valori delle righe, in ordine.
+	 * @return string
+	 */
+	public static function numero_proprio_da_righe( array $righe ): string {
 		if ( 1 !== count( $righe ) || ! is_string( $righe[0] ) ) {
 			return '';
 		}
