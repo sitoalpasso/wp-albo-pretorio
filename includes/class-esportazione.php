@@ -490,21 +490,37 @@ final class Esportazione {
 			$elenco = array( $principale => array( 'principale', 0 ) ) + $elenco;
 		}
 
-		$figli = get_children(
-			array(
-				'post_parent' => $atto_id,
-				'post_type'   => 'attachment',
-				'post_status' => 'any',
-				'fields'      => 'ids',
-				'orderby'     => 'ID',
-				'order'       => 'ASC',
-			)
+		global $wpdb;
+
+		// I figli e il loro segno di sostituzione in una sola lettura: una risposta mancata non e' "nessuna versione sostituita".
+		$figli = Lettura::righe(
+			$wpdb->prepare(
+				'SELECT p.ID, m.meta_value FROM %i p LEFT JOIN %i m ON m.post_id = p.ID AND m.meta_key = %s WHERE p.post_parent = %d AND p.post_type = %s ORDER BY p.ID, m.meta_id',
+				$wpdb->posts,
+				$wpdb->postmeta,
+				META_SOSTITUITO_DA,
+				$atto_id,
+				'attachment'
+			),
+			array( 'ID', 'meta_value' )
 		);
+
+		if ( null === $figli ) {
+			return self::errore_lettura( __( 'i documenti di un atto', 'albo-pretorio-pa' ) );
+		}
+
+		$segni = array();
+
+		foreach ( $figli as $figlio ) {
+			if ( null !== $figlio['meta_value'] ) {
+				$segni[ (int) $figlio['ID'] ][] = (string) $figlio['meta_value'];
+			}
+		}
 
 		$sostituite = 0;
 
-		foreach ( array_map( 'intval', $figli ) as $figlio ) {
-			if ( ! isset( $elenco[ $figlio ] ) && null !== DocumentiAtto::sostituito_da( $figlio ) ) {
+		foreach ( array_keys( $segni ) as $figlio ) {
+			if ( ! isset( $elenco[ $figlio ] ) ) {
 				$elenco[ $figlio ] = array( 'sostituito', ++$sostituite );
 			}
 		}
@@ -527,7 +543,8 @@ final class Esportazione {
 			$estensione = strtolower( (string) pathinfo( $sorgente, PATHINFO_EXTENSION ) );
 			$nome       = 'sostituito' === $posto ? 'versione-sostituita-' . $posizione : (string) NomeScaricato::nome( $documento, $atto_id );
 			$nome       = 'sostituito' === $posto && '' !== $estensione ? $nome . '.' . $estensione : $nome;
-			$sostituto  = 'sostituito' === $posto ? DocumentiAtto::sostituito_da( $documento ) : null;
+			$segno      = $segni[ $documento ] ?? array();
+			$sostituto  = 'sostituito' === $posto && 1 === count( $segno ) && 1 === preg_match( '/\A[1-9][0-9]*\z/', $segno[0] ) ? (int) $segno[0] : null;
 
 			$file[ $cartella . $nome ] = $sorgente;
 			$dati[]                    = array(
@@ -609,7 +626,7 @@ final class Esportazione {
 
 			foreach ( self::COLONNE_INDICE as $colonna ) {
 				$valore = 'documenti' === $colonna ? count( $atto['documenti'] ) : ( $atto[ $colonna ] ?? '' );
-				$riga[] = is_bool( $valore ) ? ( $valore ? 'si' : 'no' ) : (string) $valore;
+				$riga[] = is_bool( $valore ) ? ( $valore ? 'si' : 'no' ) : ( is_string( $valore ) ? self::testo_per_foglio( $valore ) : (string) $valore );
 			}
 
 			fputcsv( $flusso, $riga, ',', '"', '' );
@@ -620,6 +637,20 @@ final class Esportazione {
 		fclose( $flusso ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- come sopra.
 
 		return $testo;
+	}
+
+	/**
+	 * Un testo dell'indice che un foglio di calcolo non scambia per una formula.
+	 *
+	 * Chi redige scrive l'oggetto, e un foglio di calcolo esegue come formula
+	 * la cella che comincia con uno di questi caratteri. L'apostrofo davanti
+	 * la fa leggere come testo; i dati di `atti.json` restano come sono.
+	 *
+	 * @param string $valore Testo.
+	 * @return string
+	 */
+	private static function testo_per_foglio( string $valore ): string {
+		return '' !== $valore && false !== strpos( "=+-@\t\r", $valore[0] ) ? "'" . $valore : $valore;
 	}
 
 	/**

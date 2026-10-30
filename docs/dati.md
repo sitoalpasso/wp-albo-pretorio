@@ -265,7 +265,10 @@ impronta `sha256:` dell'archivio). Dentro l'archivio:
   `sostituito_da` (per una versione sostituita, il file che l'ha sostituita). Ogni voce del
   registro ha `istante`, `azione`, `utente` (il numero), `autore` (il nome mostrato di
   quell'utente al momento dell'esportazione), `motivazione`, `dettagli`.
-- `atti.csv`: una riga per atto con le colonne semplici, per un foglio di calcolo.
+- `atti.csv`: una riga per atto con le colonne semplici, per un foglio di calcolo. Un testo
+  che comincia con `=`, `+`, `-`, `@`, una tabulazione o un ritorno a capo esce con un
+  apostrofo davanti, perché il foglio di calcolo non lo esegua come formula; in `atti.json`
+  resta com'è.
 - `documenti/AAAA-NNNN/`: i documenti di ciascun atto con il nome di ALBO-30, e le versioni
   sostituite come `versione-sostituita-N`.
 - `impronte.sha256`: l'impronta di ogni altro file, nella forma di `sha256sum`.

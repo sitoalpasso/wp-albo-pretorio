@@ -1,6 +1,6 @@
 <?php
 /**
- * L'esportazione di un anno del registro per la conservazione: righe A-308..A-312 (ALBO-17, ALBO-29).
+ * L'esportazione di un anno del registro per la conservazione: righe A-308..A-314 (ALBO-17, ALBO-29).
  *
  * Gli atti si portano a pubblicato, si tolgono, si annullano e si oscurano
  * con i passaggi veri, con l'orologio fissato. L'archivio si apre con
@@ -34,6 +34,7 @@ use AlboPretorioPa\SchermataEsportazione;
 
 use const AlboPretorioPa\META_DATA_ADOZIONE;
 use const AlboPretorioPa\META_ORIGINE_IMPORTAZIONE;
+use const AlboPretorioPa\META_SOSTITUITO_DA;
 use const AlboPretorioPa\SEZIONE;
 use const AlboPretorioPa\TASSONOMIA_ORGANO;
 use const AlboPretorioPa\TASSONOMIA_TIPO_ATTO;
@@ -868,5 +869,106 @@ class EsportazioneTest extends \WP_UnitTestCase {
 
 		$this->assertSame( array( 'albo_esportazione_lettura' ), $this->codici( $guasto ), 'Un atto che non si legge ferma l\'esportazione.' );
 		$this->assertCount( 1, $this->voci_esportazione(), 'Nessuna voce per le esportazioni fermate.' );
+	}
+
+	/**
+	 * A-313: la lettura dei figli di un atto che non risponde ferma l'esportazione, invece di consegnarla senza le versioni sostituite.
+	 */
+	public function test_a313_figli_che_non_si_leggono(): void {
+		global $wpdb;
+
+		$atto         = $this->pubblicato_il( '2041-10-04 09:30:00', 'Atto che si oscurera\'', array( "%PDF-1.4\n% allegato con l'indirizzo\n%%EOF\n" ) );
+		$consultatore = $this->consultatore();
+		$uscente      = DocumentiAtto::ulteriori( $atto )[0];
+		$file         = $this->file_temporaneo( 'oscurato.pdf', "%PDF-1.4\n% allegato oscurato\n%%EOF\n" );
+
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+		$esito = $this->come(
+			$this->pubblicatore,
+			static function () use ( $atto, $uscente, $file ) {
+				return albo_pretorio_oscura(
+					$atto,
+					$uscente,
+					$file,
+					'percorso_locale',
+					array(
+						'conferma' => true,
+						'causa'    => Passaggi::CAUSA_DATI_ECCEDENTI,
+						'motivo'   => self::MOTIVO_OSCURAMENTO,
+					)
+				);
+			}
+		);
+		$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+
+		$temporanei = glob( get_temp_dir() . 'albo-esportazione-*' );
+		$wpdb->suppress_errors( true );
+		$this->guasto = static function ( string $istruzione ): bool {
+			return false !== strpos( $istruzione, 'post_parent' ) && false !== strpos( $istruzione, META_SOSTITUITO_DA );
+		};
+		$guasto       = $this->esporta( 2041, $consultatore );
+		$this->guasto = null;
+		$wpdb->suppress_errors( false );
+
+		$this->assertSame( array( 'albo_esportazione_lettura' ), $this->codici( $guasto ), 'I figli che non si leggono non sono "nessuna versione sostituita".' );
+		$this->assertSame( array(), $this->voci_esportazione(), 'Nessuna voce per l\'esportazione fermata.' );
+		$this->assertSame( $temporanei, glob( get_temp_dir() . 'albo-esportazione-*' ), 'E nessun file lasciato.' );
+
+		// Controllo positivo: senza guasto la versione sostituita c'e', con il suo sostituto.
+		$riuscita = $this->esporta( 2041, $consultatore );
+		$this->assertIsArray( $riuscita, is_wp_error( $riuscita ) ? $riuscita->get_error_message() : '' );
+
+		$documenti  = json_decode( $this->apri( $riuscita['percorso'] )['atti.json'], true )['atti'][0]['documenti'];
+		$sostituiti = array_values(
+			array_filter(
+				$documenti,
+				static function ( array $documento ): bool {
+					return 'sostituito' === $documento['posto'];
+				}
+			)
+		);
+
+		$this->assertCount( 1, $sostituiti );
+		$this->assertSame( $documenti[1]['file'], $sostituiti[0]['sostituito_da'], 'La versione sostituita rimanda al documento che l\'ha sostituita.' );
+	}
+
+	/**
+	 * A-314: nell'indice CSV un testo che un foglio di calcolo prenderebbe per una formula esce con l'apostrofo davanti; i dati JSON e i numeri restano come sono.
+	 */
+	public function test_a314_formule_nell_indice(): void {
+		$oggetti = array( '=1+1', '@SOMMA(A1)', "\tTabulato", '-meno', '+piu\'', 'Oggetto normale' );
+
+		foreach ( $oggetti as $indice => $oggetto ) {
+			$id = $this->pubblicato_il( sprintf( '2041-10-%02d 09:30:00', $indice + 1 ), $oggetto );
+
+			// WordPress toglie gli spazi in testa all'oggetto: la tabulazione si scrive di lato, come farebbe un'altra estensione.
+			if ( "\t" === $oggetto[0] ) {
+				$this->scavalca_barriera(
+					static function () use ( $id, $oggetto ) {
+						global $wpdb;
+
+						return $wpdb->update( $wpdb->posts, array( 'post_title' => $oggetto ), array( 'ID' => $id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: l'oggetto scritto senza i filtri di WordPress.
+					}
+				);
+				clean_post_cache( $id );
+			}
+		}
+
+		$esito = $this->esporta( 2041, $this->consultatore() );
+		$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+
+		$contenuto = $this->apri( $esito['percorso'] );
+		$this->assertSame( $oggetti, array_column( json_decode( $contenuto['atti.json'], true )['atti'], 'oggetto' ), 'I dati JSON restano identici.' );
+
+		$righe = array_map(
+			static function ( string $riga ): array {
+				return str_getcsv( $riga, ',', '"', '' );
+			},
+			array_slice( explode( "\n", trim( $contenuto['atti.csv'] ) ), 1 )
+		);
+
+		$this->assertSame( array( "'=1+1", "'@SOMMA(A1)", "'\tTabulato", "'-meno", "'+piu'", 'Oggetto normale' ), array_column( $righe, 4 ), 'Le formule escono come testo, l\'oggetto normale invariato.' );
+		$this->assertSame( array( '2041', '2041', '2041', '2041', '2041', '2041' ), array_column( $righe, 0 ), 'L\'anno non si tocca.' );
+		$this->assertSame( array( '1', '2', '3', '4', '5', '6' ), array_column( $righe, 1 ), 'Il numero non si tocca.' );
 	}
 }

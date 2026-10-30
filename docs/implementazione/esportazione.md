@@ -3,7 +3,7 @@
 Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro finito con
 com'è andata davvero.
 
-**Stato: costruita, in attesa di revisione.** Requisito ALBO-17, righe di collaudo A-308..A-312.
+**Stato: costruita, in attesa di revisione.** Requisito ALBO-17, righe di collaudo A-308..A-314.
 
 ## In tre paragrafi
 
@@ -85,7 +85,7 @@ Il permesso di consultare gli scaduti, più il gettone della schermata.
 
 ### 7. Test aggiunti
 
-A-308..A-312, in `tests/EsportazioneTest.php`.
+A-308..A-314, in `tests/EsportazioneTest.php`.
 
 ### 8. Cosa non implementa
 
@@ -140,6 +140,20 @@ ripiega su una cartella del sito. Per questo l'archivio, appena creato, si segna
 cancellazione alla chiusura della richiesta, che gira anche in quei casi; e la consegna prosegue
 anche se il browser chiude, con le memorie di uscita svuotate prima di mandare il file.
 
+**Le versioni sostituite si leggono come gli atti** (dalla revisione automatica). I figli
+dell'atto si leggevano con la funzione di WordPress, che dà un elenco vuoto anche quando la
+banca dati non risponde: l'archivio poteva uscire senza le versioni di prima ed essere
+registrato come completo. Ora figli e segni di sostituzione si leggono in una sola
+interrogazione che distingue le due cose. Un figlio che porta il segno ma guasto (su due righe
+o con un valore che non è un documento) entra lo stesso fra le versioni sostituite, senza il
+rimando al sostituto: per la conservazione è meglio un file in più che uno in meno.
+
+**Le formule nell'indice** (dalla revisione automatica). L'oggetto lo scrive chi redige, e un
+foglio di calcolo esegue come formula una cella che comincia con `=`, `+`, `-`, `@`, una
+tabulazione o un ritorno a capo. Nell'indice CSV questi testi escono con un apostrofo davanti;
+`atti.json` resta identico. Anno, numero e conteggio dei documenti sono numeri e non si
+toccano.
+
 **L'ordine degli atti** è per numero. Il registro dei numeri li restituisce già in quell'ordine,
 quindi togliere l'ordinamento non fa fallire nessuna prova: resta come garanzia, perché
 quell'ordine della banca dati non è promesso.
@@ -170,3 +184,8 @@ quell'ordine della banca dati non è promesso.
 | stato inatteso saltato | A-312 |
 | archivio non segnato per la cancellazione | A-312 |
 | chiusura della richiesta che non cancella | A-312 |
+| figli non letti presi per nessun figlio | A-313 |
+| apostrofo tolto dall'indice | A-314 |
+| tabulazione dimenticata fra i caratteri delle formule | A-314 |
+| rimando al sostituto perso | A-308, A-313 |
+| apostrofo anche sui numeri | nessuna: anno, numero e conteggio non sono mai negativi, la distinzione resta come garanzia |
