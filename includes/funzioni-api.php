@@ -170,3 +170,31 @@ if ( ! function_exists( 'albo_pretorio_vista_corrente' ) ) {
 		return \AlboPretorioPa\PaginaPubblica::vista();
 	}
 }
+
+if ( ! function_exists( 'albo_pretorio_esporta_anno' ) ) {
+	/**
+	 * Costruisce l'archivio di un anno del registro per la conservazione (ALBO-17), come l'utente corrente.
+	 *
+	 * Serve il permesso di consultare gli scaduti. L'archivio e' un file
+	 * temporaneo: chi chiama lo consegna e lo cancella. Ogni esportazione
+	 * lascia una voce nel registro delle modifiche.
+	 *
+	 * @param int $anno Anno del registro.
+	 * @return array{percorso: string, atti: int, documenti: int, impronta: string}|WP_Error
+	 */
+	function albo_pretorio_esporta_anno( $anno ) {
+		return \AlboPretorioPa\Esportazione::costruisci( (int) $anno );
+	}
+}
+
+if ( ! function_exists( 'albo_pretorio_leggi_esportazione' ) ) {
+	/**
+	 * Rilegge un archivio dell'esportazione: controlla ogni impronta e restituisce i dati (ALBO-17).
+	 *
+	 * @param string $percorso Archivio.
+	 * @return array<string, mixed>|WP_Error
+	 */
+	function albo_pretorio_leggi_esportazione( $percorso ) {
+		return \AlboPretorioPa\Esportazione::leggi( (string) $percorso );
+	}
+}

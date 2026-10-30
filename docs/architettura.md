@@ -238,7 +238,7 @@ termine di legge su un atto che nessuno vede.
 | `Referto` | Alla defissione congela la fotografia dell'esposizione (numero, date effettive, impronta del file, autore) e la rende ristampabile. Dopo una defissione anticipata riporta la dichiarazione dell'amministrazione sull'effetto della rimozione, o la sua assenza; resa dopo, la aggiunge come appendice senza riscrivere la fotografia. **Ipotesi da confermare**, unita' di lavoro bloccata dalla conferma | ALBO-07 | no |
 | `AvvisoPdf` | All'upload esamina il PDF e segnala gli indizi di inaccessibilità (scansione, assenza di struttura, titolo o lingua) | ALBO-13 | no |
 | `Ricerca` | Elenco pubblico, filtri per tipo, organo, date e testo, navigabili da tastiera | ALBO-14, ALBO-16 | no |
-| `Esportazione` | Export di atti e metadati di un periodo in formato aperto | ALBO-17 | no |
+| `Esportazione`, `SchermataEsportazione` | L'archivio ZIP di un anno del registro per la conservazione, dalla schermata **Esportazione** e dalla funzione `albo_pretorio_esporta_anno()`, per chi consulta gli scaduti: `atti.json` con dati, documenti e storia di ogni atto numerato, `atti.csv` come indice, i documenti con il nome di ALBO-30 e le versioni sostituite, `impronte.sha256`. Ogni lettura che non risponde e ogni documento che non ha più l'impronta del deposito ferma l'esportazione; ogni esportazione è una voce di registro. `albo_pretorio_leggi_esportazione()` la rilegge controllando le impronte. Non è un pacchetto di versamento e non reimporta | ALBO-17 | **sì** |
 
 ## Cosa arriva da conformita-core
 
