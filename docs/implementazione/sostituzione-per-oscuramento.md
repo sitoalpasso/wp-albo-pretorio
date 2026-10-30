@@ -3,7 +3,7 @@
 Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro finito con
 com'è andata davvero.
 
-**Stato: piano.** Requisito ALBO-12, con le righe che lo nominano come controllo positivo o
+**Stato: passo 1 fatto (righe A-293..A-300), passi 2 e 3 da fare.** Requisito ALBO-12, con le righe che lo nominano come controllo positivo o
 come caso: ALBO-08 (il repertorio che non cambia), ALBO-09 (l'unica eccezione
 all'immodificabilità), ALBO-10 (le due impronte nel registro), ALBO-20 (la memoria di
 pagina), ALBO-22 (la dichiarazione dell'effetto su un atto oscurato), ALBO-27 (le date che
@@ -72,9 +72,11 @@ vedere quale prova li vede si elencano a lavoro finito.
 |---|---|
 | `includes/class-passaggi.php` | il passaggio `oscura_documento()` e la sua azione nel registro |
 | `includes/class-chiusura-pubblicazione.php` | la concessione della sola scrittura del dato del documento, con il gettone del passaggio |
-| `includes/class-documenti-atto.php` | le versioni sostituite di un atto e la loro lettura, che non le conta fra i documenti pubblici |
+| `includes/class-documenti-atto.php` | la condizione del punto pubblico (solo i documenti indicati dai dati dell'atto), la lettura del segno della versione sostituita e il rifiuto in amministrazione a chi redige soltanto |
+| `includes/class-tipo-atto.php` | la condizione dichiarata al meccanismo comune con la chiave `allegati_seguono_la_sezione` |
+| `includes/funzioni-api.php` | la funzione pubblica `albo_pretorio_oscura()` |
 | `includes/class-riquadro-passaggi.php` | il riquadro del secondo passo |
-| `albo-pretorio-pa.php` | la funzione pubblica `albo_pretorio_oscura()` |
+| `albo-pretorio-pa.php` | il nome del segno sulla versione sostituita e l'aggancio della consegna amministrativa |
 | `tests/OscuramentoTest.php` | le righe da A-293 |
 
 ### 2. Requisito servito
@@ -134,3 +136,54 @@ Sulla copia di prova: pubblicare un atto con un PDF, aprirlo da una finestra ano
 scaricarlo; sostituirlo con un PDF diverso dal riquadro; riscaricarlo dalla finestra anonima
 e verificare che sia il nuovo, con lo stesso nome; verificare nel registro le due impronte e
 che numero e date siano rimasti quelli.
+
+## Com'è andato il passo 1
+
+**Il punto pubblico serviva ogni figlio dell'atto.** Il meccanismo comune consegna qualunque
+allegato depositato e figlio di un atto pubblicato e non scaduto, senza guardare i dati
+dell'atto. La versione uscente, rimasta figlia dell'atto, sarebbe uscita ancora a chi
+conosceva il suo indirizzo. L'albo ora dichiara al meccanismo comune la condizione
+`DocumentiAtto::consegnabile()` (interfaccia 1.10.0, chiave `allegati_seguono_la_sezione`
+con una funzione): serve solo i documenti indicati dai dati dell'atto. La dichiarazione toglie
+al meccanismo comune l'anello del tipo consultabile, che la condizione ripete identico.
+
+**La consegna amministrativa dava la versione uscente a chi redige.** Il meccanismo comune
+la apre a chi gestisce il tipo e legge l'atto, e un atto pubblicato lo legge chiunque. Un
+aggancio dell'albo prima della consegna rifiuta la versione sostituita a chi non consulta e
+non pubblica, con lo stesso "non trovato" della consegna (A-298).
+
+**Il file entrante si deposita prima della transazione**, perché il deposito può chiedere
+al server di provare la cartella protetta, e una richiesta di rete non sta dentro un blocco
+della banca dati. La fotografia di partenza si prende dopo il deposito, con l'entrante già
+fra i figli. Se la sostituzione non riesce il file entrante si toglie; il meccanismo comune
+registra da sé l'allegato aggiunto e tolto, e quelle due voci restano: sono il racconto
+vero di quello che è successo al disco (A-299).
+
+**Una scrittura rifiutata dal guardiano non annulla la sostituzione.** Come negli altri
+passaggi, una scrittura dei dati dell'atto fatta con le funzioni di WordPress durante la
+sostituzione è rifiutata e il passaggio prosegue con l'atto com'era; una scrittura diretta
+nella banca dati passa, e il controllo finale la trova e annulla tutto (A-300).
+
+**La durata propria del singolo atto non esiste ancora** (ALBO-04): la ripetizione della
+prima riga di ALBO-12 su un atto abbreviato si fa cambiando la durata del tipo dopo la
+pubblicazione, che smaschera lo stesso difetto, un ricalcolo della fine. Quando ALBO-04 ci
+sarà la riga si rifà su quella.
+
+**Guasti introdotti per vedere quale prova li vede**, ciascuno tolto subito dopo:
+
+| Guasto | Visto da |
+|---|---|
+| condizione del punto pubblico non dichiarata | A-294 |
+| rifiuto in amministrazione spento | A-298 |
+| causa non controllata | A-296 |
+| dati estranei ammessi | A-297 |
+| data di fine non guardata | A-295 |
+| permesso di pubblicare non guardato | A-295 |
+| stato non guardato | A-295 |
+| controllo finale del dato del documento spento | A-300 |
+| guardiano che concede ogni chiave durante la sostituzione | A-300 |
+| guardiano che concede la chiave giusta con qualunque valore | A-300 |
+| file entrante non tolto dopo un fallimento | A-299 |
+| impronta dell'entrante registrata al posto di quella dell'uscente | A-294 |
+| allegato ulteriore entrante messo in fondo all'elenco | A-294 |
+| documento non più nel suo posto sotto il blocco, non controllato | nessuna: il blocco confronta già la fotografia intera, quindi il controllo è una difesa in più che nessuna prova raggiunge |

@@ -341,6 +341,74 @@ final class DocumentiAtto {
 	}
 
 	/**
+	 * Il punto pubblico di consegna serve questo file: e' un documento indicato dai dati dell'atto.
+	 *
+	 * E' la condizione che l'albo dichiara al meccanismo comune, chiamata per
+	 * ultima e solo quando tutto il resto ammette (stato pubblicato, password,
+	 * scadenza). **Un figlio dell'atto non basta**: la versione sostituita da
+	 * un oscuramento resta figlia dell'atto e sul disco, e dal momento della
+	 * sostituzione non la indica piu' nessun dato, quindi non esce (ALBO-12).
+	 * L'anello del tipo consultabile, che la dichiarazione toglie al
+	 * meccanismo comune, si ripete qui identico (C-176).
+	 *
+	 * @param mixed $allegato_id Allegato richiesto.
+	 * @param mixed $atto_id     Atto dichiarato nell'indirizzo.
+	 * @return bool
+	 */
+	public static function consegnabile( $allegato_id, $atto_id ): bool {
+		$atto        = get_post( (int) $atto_id );
+		$allegato_id = (int) $allegato_id;
+
+		if ( ! $atto instanceof \WP_Post || TIPO !== $atto->post_type || ! is_post_publicly_viewable( $atto ) ) {
+			return false;
+		}
+
+		return self::principale( (int) $atto->ID ) === $allegato_id || in_array( $allegato_id, self::ulteriori( (int) $atto->ID ), true );
+	}
+
+	/**
+	 * Il documento che ha preso il posto di questo con la versione oscurata, o nullo.
+	 *
+	 * @param int $allegato_id Documento.
+	 * @return int|null
+	 */
+	public static function sostituito_da( int $allegato_id ): ?int {
+		$righe = get_post_meta( $allegato_id, META_SOSTITUITO_DA, false );
+
+		return is_array( $righe ) && 1 === count( $righe ) ? self::identificativo( $righe[0] ) : null;
+	}
+
+	/**
+	 * Aggancio a `admin_post_conformita_core_allegato`, prima della consegna amministrativa: la versione sostituita e' riservata.
+	 *
+	 * Il documento uscente da un oscuramento contiene proprio i dati che
+	 * l'oscuramento toglie: lo apre chi consulta gli scaduti o pubblica, come
+	 * uno scaduto (`ScadutiRiservati::li_vede()`), e non chi redige soltanto.
+	 * Questo aggancio sa soltanto rifiutare: il resto dei controlli, il
+	 * gettone compreso, lo fa il meccanismo comune dopo. Il rifiuto e' quello
+	 * della consegna, "non trovato", che non dice se il file esiste.
+	 */
+	public static function da_admin_post_allegato(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- si legge solo per rifiutare; il gettone lo verifica il meccanismo comune.
+		$allegato_id = isset( $_GET['allegato'] ) ? absint( wp_unslash( $_GET['allegato'] ) ) : 0;
+		$allegato    = $allegato_id > 0 ? get_post( $allegato_id ) : null;
+
+		if ( ! $allegato instanceof \WP_Post || 'attachment' !== $allegato->post_type || ! TipoAtto::tipo_nostro() || TIPO !== get_post_type( (int) $allegato->post_parent ) ) {
+			return;
+		}
+
+		if ( null === self::sostituito_da( $allegato_id ) || ScadutiRiservati::li_vede( get_current_user_id() ) ) {
+			return;
+		}
+
+		wp_die(
+			esc_html__( 'Non trovato.', 'albo-pretorio-pa' ),
+			esc_html__( 'Non trovato', 'albo-pretorio-pa' ),
+			array( 'response' => 404 )
+		);
+	}
+
+	/**
 	 * Aggancio a `map_meta_cap`: i documenti di un atto si governano con i permessi dell'atto.
 	 *
 	 * Senza, un allegato si governa con i permessi della libreria dei media, e

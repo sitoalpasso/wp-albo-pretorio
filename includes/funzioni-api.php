@@ -106,6 +106,35 @@ if ( ! function_exists( 'albo_pretorio_dichiara_effetto' ) ) {
 	}
 }
 
+if ( ! function_exists( 'albo_pretorio_oscura' ) ) {
+	/**
+	 * Sostituisce un documento di un atto pubblicato e non scaduto con la sua versione oscurata (ALBO-12), come l'utente corrente.
+	 *
+	 * Serve il permesso di pubblicare. Chiavi della richiesta: `conferma`,
+	 * vera, dichiara che il file nuovo e' lo stesso documento con i soli dati
+	 * eccedenti oscurati; `causa`, che vale `dati_eccedenti`; `motivo`, testo
+	 * non vuoto. Ogni altra chiave rifiuta la richiesta. Numero, date, stato e
+	 * dati della scheda non cambiano; la versione uscente resta, riservata, e
+	 * il registro conserva le impronte di tutte e due.
+	 *
+	 * @param int                  $atto_id      Atto.
+	 * @param int                  $documento_id Documento da sostituire, principale o ulteriore.
+	 * @param array<string, mixed> $file         File entrante, nella forma di `$_FILES`.
+	 * @param string               $origine      `caricamento` oppure `percorso_locale`: si dichiara sempre.
+	 * @param array<string, mixed> $richiesta    Richiesta.
+	 * @return array{voce: int, documento: int}|WP_Error
+	 */
+	function albo_pretorio_oscura( $atto_id, $documento_id, $file, $origine, $richiesta ) {
+		return \AlboPretorioPa\Passaggi::oscura_documento(
+			(int) $atto_id,
+			(int) $documento_id,
+			is_array( $file ) ? $file : array(),
+			is_string( $origine ) ? $origine : '',
+			is_array( $richiesta ) ? $richiesta : array( 'richiesta' => $richiesta )
+		);
+	}
+}
+
 if ( ! function_exists( 'albo_pretorio_proroga' ) ) {
 	/**
 	 * Dispone la proroga per disservizio (ALBO-31), come l'utente corrente.

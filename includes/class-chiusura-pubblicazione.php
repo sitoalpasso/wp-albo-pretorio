@@ -1509,7 +1509,8 @@ final class ChiusuraPubblicazione {
 	 *
 	 * Su un atto fermo passano solo i metadati di servizio. Durante una
 	 * pubblicazione passa anche la data di fine, e soltanto con il valore che
-	 * `Passaggi` ha calcolato.
+	 * `Passaggi` ha calcolato; durante una sostituzione per oscuramento il
+	 * dato che indica il documento, allo stesso modo.
 	 *
 	 * @param int    $atto_id       Contenuto.
 	 * @param string $chiave        Chiave.
@@ -1529,9 +1530,15 @@ final class ChiusuraPubblicazione {
 		}
 
 		if ( Passaggi::in_corso( $atto_id ) ) {
-			$fine = Passaggi::fine_attesa( $atto_id );
+			$fine      = Passaggi::fine_attesa( $atto_id );
+			$documento = Passaggi::documento_atteso( $atto_id );
 
-			return null !== $fine && conformita_core_chiave_fine_pubblicazione() === $chiave && ( $cancellazione || $fine === $valore );
+			if ( null !== $fine && conformita_core_chiave_fine_pubblicazione() === $chiave && ( $cancellazione || $fine === $valore ) ) {
+				return true;
+			}
+
+			// La sostituzione per oscuramento scrive il dato del documento, con il valore calcolato, e non lo toglie.
+			return null !== $documento && ! $cancellazione && $documento['chiave'] === $chiave && $documento['valore'] === $valore;
 		}
 
 		return ! in_array( $stato, self::STATI_FERMI, true );
