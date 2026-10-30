@@ -91,6 +91,20 @@ final class Esportazione {
 	private static $da_cancellare = array();
 
 	/**
+	 * La cancellazione e' gia' agganciata alla chiusura di questa richiesta.
+	 *
+	 * @var bool
+	 */
+	private static $chiusura_registrata = false;
+
+	/**
+	 * Chi aggancia la cancellazione alla chiusura della richiesta: sostituibile nelle prove; nullo vale `register_shutdown_function`.
+	 *
+	 * @var callable|null
+	 */
+	private static $chiusura = null;
+
+	/**
 	 * Le colonne dell'indice.
 	 *
 	 * @var array<int, string>
@@ -239,8 +253,9 @@ final class Esportazione {
 		 * il browser che chiude la connessione, il tempo massimo del server. La
 		 * chiusura della richiesta lo cancella comunque.
 		 */
-		if ( array() === self::$da_cancellare ) {
-			register_shutdown_function( array( self::class, 'cancella_esportazioni_rimaste' ) );
+		if ( ! self::$chiusura_registrata ) {
+			( self::$chiusura ?? 'register_shutdown_function' )( array( self::class, 'cancella_esportazioni_rimaste' ) );
+			self::$chiusura_registrata = true;
 		}
 
 		self::$da_cancellare[] = $percorso;
@@ -310,6 +325,18 @@ final class Esportazione {
 	}
 
 	/**
+	 * Sostituisce chi aggancia la cancellazione alla chiusura della richiesta, nelle prove.
+	 *
+	 * Riparte anche il conto: la prossima esportazione aggancia di nuovo.
+	 *
+	 * @param callable|null $chiusura Riceve la funzione da chiamare alla chiusura; nullo per tornare a `register_shutdown_function`.
+	 */
+	public static function fissa_chiusura( ?callable $chiusura ): void {
+		self::$chiusura            = $chiusura;
+		self::$chiusura_registrata = false;
+	}
+
+	/**
 	 * Cancella gli archivi costruiti nella richiesta e rimasti sul disco.
 	 *
 	 * Si aggancia da se' alla chiusura della richiesta.
@@ -342,6 +369,21 @@ final class Esportazione {
 		}
 
 		try {
+			$visti  = array();
+			$quanti = (int) $archivio->numFiles; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- proprieta' di ZipArchive.
+
+			// Un nome ripetuto: la lettura per nome controlla la prima voce, e chi estrae puo' prendere l'ultima, mai controllata.
+			for ( $i = 0; $i < $quanti; $i++ ) {
+				$nome = (string) $archivio->getNameIndex( $i );
+
+				if ( isset( $visti[ $nome ] ) ) {
+					/* translators: %s: nome del file nell'archivio. */
+					return self::errore_archivio( sprintf( __( 'il file %s compare piu\' di una volta.', 'albo-pretorio-pa' ), $nome ) );
+				}
+
+				$visti[ $nome ] = true;
+			}
+
 			$elenco = $archivio->getFromName( self::FILE_IMPRONTE );
 
 			if ( ! is_string( $elenco ) ) {

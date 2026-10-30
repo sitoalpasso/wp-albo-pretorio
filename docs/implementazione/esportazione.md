@@ -3,7 +3,7 @@
 Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro finito con
 com'è andata davvero.
 
-**Stato: costruita, in attesa di revisione.** Requisito ALBO-17, righe di collaudo A-308..A-315.
+**Stato: costruita, in attesa di revisione.** Requisito ALBO-17, righe di collaudo A-308..A-316.
 
 ## In tre paragrafi
 
@@ -85,7 +85,7 @@ Il permesso di consultare gli scaduti, più il gettone della schermata.
 
 ### 7. Test aggiunti
 
-A-308..A-315, in `tests/EsportazioneTest.php`.
+A-308..A-316, in `tests/EsportazioneTest.php`.
 
 ### 8. Cosa non implementa
 
@@ -138,7 +138,9 @@ una richiesta può finire prima: il browser che chiude la connessione, il tempo 
 server su un anno grosso. E se la cartella temporanea del sistema non è scrivibile, WordPress
 ripiega su una cartella del sito. Per questo l'archivio, appena creato, si segna per la
 cancellazione alla chiusura della richiesta, che gira anche in quei casi; e la consegna prosegue
-anche se il browser chiude, con le memorie di uscita svuotate prima di mandare il file.
+anche se il browser chiude, con le memorie di uscita svuotate prima di mandare il file. Chi aggancia
+la cancellazione alla chiusura si può sostituire, come chi consegna il file: la prova osserva
+che l'aggancio avvenga, una volta sola per richiesta, e poi lo esegue.
 
 **Le versioni sostituite si leggono come gli atti** (dalla revisione automatica). I figli
 dell'atto si leggevano con la funzione di WordPress, che dà un elenco vuoto anche quando la
@@ -169,6 +171,12 @@ letture restano quelle della scheda, il principale con gli allegati e il nome de
 confrontano con quello che danno le letture già verificate: se non coincidono, l'esportazione si
 ferma. L'istante di inizio sta nell'atto già letto e non richiede letture.
 
+**Un nome ripetuto rende l'archivio illeggibile** (dalla revisione automatica, terzo giro).
+Un archivio ZIP può contenere due voci con lo stesso nome: la rilettura per nome controlla la
+prima, e un programma che estrae può prendere l'ultima, che nessuna impronta ha controllato.
+La rilettura rifiuta ora ogni archivio in cui un nome compare due volte, prima di guardare le
+impronte.
+
 **L'ordine degli atti** è per numero. Il registro dei numeri li restituisce già in quell'ordine,
 quindi togliere l'ordinamento non fa fallire nessuna prova: resta come garanzia, perché
 quell'ordine della banca dati non è promesso.
@@ -198,6 +206,9 @@ quell'ordine della banca dati non è promesso.
 | atto che non si legge saltato | A-312 |
 | stato inatteso saltato | A-312 |
 | archivio non segnato per la cancellazione | A-312 |
+| cancellazione non agganciata alla chiusura della richiesta | A-312 |
+| cancellazione agganciata a ogni esportazione | A-312 |
+| nome ripetuto nell'archivio accettato | A-316 |
 | chiusura della richiesta che non cancella | A-312 |
 | figli non letti presi per nessun figlio | A-313 |
 | apostrofo tolto dall'indice | A-314 |

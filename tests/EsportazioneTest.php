@@ -1,6 +1,6 @@
 <?php
 /**
- * L'esportazione di un anno del registro per la conservazione: righe A-308..A-315 (ALBO-17, ALBO-29).
+ * L'esportazione di un anno del registro per la conservazione: righe A-308..A-316 (ALBO-17, ALBO-29).
  *
  * Gli atti si portano a pubblicato, si tolgono, si annullano e si oscurano
  * con i passaggi veri, con l'orologio fissato. L'archivio si apre con
@@ -69,6 +69,13 @@ class EsportazioneTest extends \WP_UnitTestCase {
 	private array $archivi = array();
 
 	/**
+	 * Le funzioni che l'esportazione ha agganciato alla chiusura della richiesta.
+	 *
+	 * @var array<int, callable>
+	 */
+	private array $chiusure = array();
+
+	/**
 	 * Il guasto attivo sulle istruzioni, o nullo.
 	 *
 	 * @var callable|null
@@ -93,6 +100,12 @@ class EsportazioneTest extends \WP_UnitTestCase {
 			}
 		);
 
+		Esportazione::fissa_chiusura(
+			function ( callable $funzione ): void {
+				$this->chiusure[] = $funzione;
+			}
+		);
+
 		add_filter( 'query', array( $this, 'guasta' ) );
 	}
 
@@ -107,6 +120,7 @@ class EsportazioneTest extends \WP_UnitTestCase {
 		$wpdb->suppress_errors( false );
 
 		SchermataEsportazione::fissa_emettitore( null );
+		Esportazione::fissa_chiusura( null );
 		$_POST = array();
 
 		foreach ( $this->archivi as $archivio ) {
@@ -828,10 +842,19 @@ class EsportazioneTest extends \WP_UnitTestCase {
 		$this->assertSame( 1, $esito['atti'], 'I numeri persi non portano niente nell\'archivio.' );
 		$this->assertSame( array( 'Atto in corso' ), array_column( json_decode( $this->apri( $esito['percorso'] )['atti.json'], true )['atti'], 'oggetto' ) );
 
-		// L'archivio che la richiesta non ha consegnato si cancella alla sua chiusura.
+		// L'archivio che la richiesta non ha consegnato si cancella alla sua chiusura, agganciata una volta sola.
+		$secondo = $this->esporta( 2041, $consultatore );
+		$this->assertIsArray( $secondo );
+		$this->assertSame( array( array( Esportazione::class, 'cancella_esportazioni_rimaste' ) ), $this->chiusure, 'Due esportazioni agganciano la cancellazione una volta.' );
 		$this->assertFileExists( $esito['percorso'] );
-		Esportazione::cancella_esportazioni_rimaste();
+		$this->assertFileExists( $secondo['percorso'] );
+
+		foreach ( $this->chiusure as $chiusura ) {
+			$chiusura();
+		}
+
 		$this->assertFileDoesNotExist( $esito['percorso'], 'La chiusura della richiesta cancella l\'archivio rimasto.' );
+		$this->assertFileDoesNotExist( $secondo['percorso'], 'Tutti e due.' );
 
 		// Un contenuto numerato in uno stato che non e' dell'albo.
 		$this->scavalca_barriera(
@@ -870,7 +893,7 @@ class EsportazioneTest extends \WP_UnitTestCase {
 		$wpdb->suppress_errors( false );
 
 		$this->assertSame( array( 'albo_esportazione_lettura' ), $this->codici( $guasto ), 'Un atto che non si legge ferma l\'esportazione.' );
-		$this->assertCount( 1, $this->voci_esportazione(), 'Nessuna voce per le esportazioni fermate.' );
+		$this->assertCount( 2, $this->voci_esportazione(), 'Le due esportazioni riuscite, nessuna voce per quelle fermate.' );
 	}
 
 	/**
@@ -1062,5 +1085,50 @@ class EsportazioneTest extends \WP_UnitTestCase {
 			$this->assertSame( $temporanei, glob( get_temp_dir() . 'albo-esportazione-*' ), $caso . ': nessun file lasciato.' );
 			$this->assertCount( $voci, $this->voci_esportazione(), $caso . ': nessuna voce.' );
 		}
+	}
+
+	/**
+	 * A-316: un archivio con due voci dallo stesso nome non si rilegge, anche se la prima corrisponde alla sua impronta.
+	 */
+	public function test_a316_nome_ripetuto_nell_archivio(): void {
+		$this->pubblicato_il( '2041-10-01 09:30:00', 'Atto in corso' );
+
+		$esito = $this->esporta( 2041, $this->consultatore() );
+		$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+
+		$file  = json_decode( $this->apri( $esito['percorso'] )['atti.json'], true )['atti'][0]['documenti'][0]['file'];
+		$copia = wp_tempnam( 'ripetuto.zip' );
+		copy( $esito['percorso'], $copia );
+		$this->archivi[] = $copia;
+
+		// Una voce in piu' con un nome lungo uguale, poi rinominata nei byte: ZipArchive non scrive due voci con lo stesso nome.
+		$segnaposto = str_repeat( 'x', strlen( $file ) );
+		$archivio   = new \ZipArchive();
+		$this->assertTrue( $archivio->open( $copia ) );
+		$archivio->addFromString( $segnaposto, '%PDF-1.4 documento mai controllato' );
+		$archivio->close();
+
+		$byte = (string) file_get_contents( $copia ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- prova: l'archivio sul disco.
+		$this->assertSame( 2, substr_count( $byte, $segnaposto ), 'Precondizione: il nome sta nell\'intestazione e nell\'indice.' );
+		file_put_contents( $copia, str_replace( $segnaposto, $file, $byte ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- prova: l'archivio alterato.
+
+		$archivio = new \ZipArchive();
+		$this->assertTrue( $archivio->open( $copia, \ZipArchive::RDONLY ) );
+		$nomi   = array();
+		$quanti = $archivio->count();
+
+		for ( $i = 0; $i < $quanti; $i++ ) {
+			$nomi[] = $archivio->getNameIndex( $i );
+		}
+
+		$archivio->close();
+		$this->assertSame( 2, count( array_keys( $nomi, $file, true ) ), 'Precondizione: due voci con lo stesso nome.' );
+
+		$rifiuto = albo_pretorio_leggi_esportazione( $copia );
+		$this->assertSame( array( 'albo_esportazione_non_integra' ), $this->codici( $rifiuto ) );
+		$this->assertStringContainsString( 'compare piu\' di una volta', $rifiuto->get_error_message() );
+
+		// Controllo positivo: l'archivio di partenza si rilegge.
+		$this->assertIsArray( albo_pretorio_leggi_esportazione( $esito['percorso'] ) );
 	}
 }
