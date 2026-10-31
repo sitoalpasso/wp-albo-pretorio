@@ -101,3 +101,6 @@ Schede presenti:
   tolto o annullato non si cancellano, non si staccano dall'atto e non cambiano file, nemmeno
   dalla libreria dei media; titolo e descrizione restano modificabili. Righe di collaudo
   A-317..A-325.
+- [`memoria-dei-dati.md`](memoria-dei-dati.md): dopo un oscuramento la scheda pubblica, il
+  conteggio dell'elenco e il nome del file leggono i documenti dalla banca dati e non da una
+  memoria rimasta ai dati di prima. Righe di collaudo A-326..A-327.
