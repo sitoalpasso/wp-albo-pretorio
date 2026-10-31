@@ -3,7 +3,7 @@
 Scheda di lavorazione. Scritta prima del codice come piano; aggiornata a lavoro finito con
 com'è andata davvero.
 
-**Stato: fatto.** Requisito ALBO-13. Righe di collaudo A-331..A-335.
+**Stato: fatto.** Requisito ALBO-13. Righe di collaudo A-331..A-336.
 
 ## In tre paragrafi
 
@@ -72,7 +72,7 @@ Nessuno nuovo. Il riquadro si mostra già solo a chi può modificare l'atto.
 
 ### 7. Test aggiunti
 
-A-331..A-335, in `tests/IndiziAccessibilitaTest.php`.
+A-331..A-336, in `tests/IndiziAccessibilitaTest.php`.
 
 ### 8. Cosa non implementa
 
@@ -115,6 +115,9 @@ annidano, e così ogni byte del file si scorre una volta sola. L'apertura si fer
 fa scartare un blocco buono. E la memoria scende: i pezzi si leggono dal file senza copiarlo, e i
 segni si cercano nel file e nei blocchi aperti separatamente, senza unirli.
 
+Nel terzo giro il titolo nei metadati si riconosce anche quando l'apertura porta attributi, come
+lo spazio dei nomi, che nei metadati è un uso valido (riga A-336).
+
 L'idea dei quattro segni da cercare viene dall'analisi del modulo di accessibilità di
 ItaliaWP3 (GPL-3.0-or-later). Il codice è scritto da capo, senza copiarne righe.
 
@@ -140,6 +143,9 @@ ItaliaWP3 (GPL-3.0-or-later). Il codice è scritto da capo, senza copiarne righe
 | I blocchi esaminati non si contano | A-335 |
 | L'apertura non si ferma alla fine dei dati | A-335 |
 | La ricerca non riprende dopo la fine del blocco esaminato | A-335 |
+| Il titolo nei metadati senza attributi soltanto | A-336 |
+| Il titolo nei metadati senza confine dopo il nome | A-336 |
+| Si guarda solo il primo titolo nei metadati | A-336 |
 | I segni non si cercano nei blocchi aperti | A-332, A-335 |
 | Il titolo non si cerca nei blocchi aperti | A-332, A-335 |
 
