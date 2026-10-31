@@ -111,7 +111,8 @@ final class Proroga {
 		$formato = '!Y-m-d';
 
 		foreach ( $giorni as $giorno ) {
-			$testo = is_string( $giorno ) ? trim( $giorno ) : '';
+			// Un carattere nullo non e' uno spazio da togliere: il giorno non e' valido, e le funzioni delle date non lo vedono.
+			$testo = is_string( $giorno ) && false === strpos( $giorno, "\0" ) ? trim( $giorno ) : '';
 			$data  = '' === $testo ? false : \DateTimeImmutable::createFromFormat( $formato, $testo, $fusi );
 
 			if ( false === $data || $data->format( 'Y-m-d' ) !== $testo ) {
@@ -120,7 +121,7 @@ final class Proroga {
 					sprintf(
 						/* translators: %s: valore indicato. */
 						__( 'Nessuna proroga disposta: "%s" non e\' una data nel formato AAAA-MM-GG.', 'albo-pretorio-pa' ),
-						is_scalar( $giorno ) ? (string) $giorno : ''
+						is_scalar( $giorno ) ? str_replace( "\0", '', (string) $giorno ) : ''
 					)
 				);
 			}
