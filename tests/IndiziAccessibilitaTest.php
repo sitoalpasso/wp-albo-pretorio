@@ -1,6 +1,6 @@
 <?php
 /**
- * Indizi di accessibilita' dei documenti PDF: righe A-331..A-334 (ALBO-13).
+ * Indizi di accessibilita' dei documenti PDF: righe A-331..A-335 (ALBO-13).
  *
  * I PDF di prova sono scritti per esteso qui, piccoli, ciascuno con un solo
  * difetto. Gli esiti attesi sono scritti per esteso: nessuno si calcola con
@@ -417,5 +417,104 @@ class IndiziAccessibilitaTest extends \WP_UnitTestCase {
 		$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
 		$this->assertSame( 'publish', get_post_status( $atto ) );
 		$this->assertStringContainsString( 'sembra una scansione', $this->riquadro( $atto ), 'Da pubblicato: gli indizi restano visibili.' );
+	}
+
+	/**
+	 * A-335: il lavoro sui blocchi compressi ha un tetto che vale per tutti i blocchi, e un numero massimo di blocchi esaminati (ALBO-13).
+	 *
+	 * Il controllo gira a ogni apertura del riquadro: il suo lavoro non deve
+	 * dipendere da come e' fatto il file oltre un limite fisso. E un blocco
+	 * che finisce esattamente alla fine di un pezzo di lettura vale come gli
+	 * altri.
+	 */
+	public function test_a335_limiti_di_lavoro(): void {
+		$piccolo = "16 0 obj << /Type /ObjStm /N 1 /First 4 /Filter /FlateDecode >> stream\n" . gzcompress( '/StructTreeRoot 5 0 R' ) . "\nendstream endobj\n";
+		$grande  = "14 0 obj << /Type /ObjStm /N 1 /First 4 /Filter /FlateDecode >> stream\n" . gzcompress( str_repeat( ' ', IndiziAccessibilita::TETTO + 1 ) ) . "\nendstream endobj\n";
+
+		// Controllo positivo: il blocco piccolo da solo porta il segno.
+		$this->assertSame(
+			array(),
+			$this->esito_di(
+				$this->pdf(
+					array(
+						'struttura' => false,
+						'extra'     => $piccolo,
+					)
+				)
+			)['indizi'],
+			'Il blocco piccolo da solo: il segno si trova.'
+		);
+
+		// Il blocco grande esaurisce il tetto anche se si scarta: il blocco dopo non si apre piu'.
+		$this->assertSame(
+			array( 'non_taggato' ),
+			$this->esito_di(
+				$this->pdf(
+					array(
+						'struttura' => false,
+						'extra'     => $grande . $piccolo,
+					)
+				)
+			)['indizi'],
+			'Dopo un blocco oltre il tetto: il tetto e\' esaurito.'
+		);
+
+		// Il numero di blocchi esaminati ha un massimo: il blocco oltre il massimo non si guarda.
+		$vuoto = "<< /Length 0 >> stream\n\nendstream\n";
+
+		$this->assertSame(
+			array(),
+			$this->esito_di(
+				$this->pdf(
+					array(
+						'struttura' => false,
+						'extra'     => str_repeat( $vuoto, IndiziAccessibilita::MASSIMO_BLOCCHI - 10 ) . $piccolo,
+					)
+				)
+			)['indizi'],
+			'Entro il massimo dei blocchi: il segno si trova.'
+		);
+		$this->assertSame(
+			array( 'non_taggato' ),
+			$this->esito_di(
+				$this->pdf(
+					array(
+						'struttura' => false,
+						'extra'     => str_repeat( $vuoto, IndiziAccessibilita::MASSIMO_BLOCCHI ) . $piccolo,
+					)
+				)
+			)['indizi'],
+			'Oltre il massimo dei blocchi: il blocco non si guarda.'
+		);
+
+		// Un blocco lungo esattamente un pezzo di lettura, con l'a capo di due caratteri prima della fine.
+		$xmp = '<x:xmpmeta><rdf:RDF><rdf:Description><dc:title><rdf:Alt><rdf:li xml:lang="x-default">Delibera di prova</rdf:li></rdf:Alt></dc:title></rdf:Description></rdf:RDF></x:xmpmeta>';
+
+		// Un riempimento poco comprimibile, allungato finche' i dati compressi fanno esattamente 1024 byte.
+		$casuale = implode( '', array_map( 'md5', array_map( 'strval', range( 0, 63 ) ) ) );
+		$dati    = '';
+
+		foreach ( range( 0, 2048 ) as $n ) {
+			$dati = gzcompress( $xmp . '<!--' . substr( $casuale, 0, $n ) . '-->' );
+
+			if ( 1024 === strlen( $dati ) ) {
+				break;
+			}
+		}
+
+		$this->assertSame( 1024, strlen( $dati ), 'Precondizione: un pezzo di lettura esatto.' );
+		$this->assertStringNotContainsString( '<dc:title>', $dati, 'Precondizione: il titolo non si legge senza aprire il blocco.' );
+		$this->assertSame(
+			array(),
+			$this->esito_di(
+				$this->pdf(
+					array(
+						'titolo' => null,
+						'extra'  => "15 0 obj << /Type /Metadata /Subtype /XML /Filter /FlateDecode >> stream\r\n" . $dati . "\r\nendstream endobj\n",
+					)
+				)
+			)['indizi'],
+			'Il titolo nel blocco lungo un pezzo esatto si trova.'
+		);
 	}
 }
