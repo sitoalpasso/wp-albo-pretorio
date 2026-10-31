@@ -175,7 +175,8 @@ final class IndiziAccessibilita {
 	 * valgono per il file intero: i blocchi si cercano uno alla volta, al piu'
 	 * MASSIMO_BLOCCHI; e i byte aperti, anche quelli di un blocco poi scartato,
 	 * si contano tutti contro il tetto. Esaurito un limite, ci si ferma e
-	 * conta quello che si e' trovato.
+	 * conta quello che si e' trovato. Dopo un blocco esaminato la ricerca
+	 * riprende dalla sua fine: i blocchi non si annidano.
 	 *
 	 * @param string $contenuto Contenuto del file.
 	 * @return string
@@ -210,7 +211,9 @@ final class IndiziAccessibilita {
 				break;
 			}
 
-			$aperto = self::apri( $contenuto, $inizio, $fine, $residuo );
+			// I blocchi non si annidano: la ricerca riprende dopo la fine di questo, e ogni byte si scorre una volta.
+			$posizione = $fine + strlen( 'endstream' );
+			$aperto    = self::apri( $contenuto, $inizio, $fine, $residuo );
 
 			if ( null !== $aperto ) {
 				$aperti .= $aperto . "\n";
