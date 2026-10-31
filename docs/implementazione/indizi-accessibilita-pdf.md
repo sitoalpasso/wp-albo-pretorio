@@ -3,7 +3,7 @@
 Scheda di lavorazione. Scritta prima del codice come piano; aggiornata a lavoro finito con
 com'è andata davvero.
 
-**Stato: fatto.** Requisito ALBO-13. Righe di collaudo A-331..A-334.
+**Stato: fatto.** Requisito ALBO-13. Righe di collaudo A-331..A-335.
 
 ## In tre paragrafi
 
@@ -66,11 +66,13 @@ Nessuno nuovo. Il riquadro si mostra già solo a chi può modificare l'atto.
 
 - File oltre il tetto, cifrato, illeggibile o non PDF: "non controllato", con il motivo.
 - Blocco compresso che non si apre: si cerca nel resto del file, e l'indizio resta un indizio.
-- Blocco compresso che si apre in qualcosa di enorme: la decompressione si ferma al tetto.
+- Blocco compresso che si apre in qualcosa di enorme: la decompressione si ferma al tetto, e il
+  tetto vale per tutti i blocchi insieme, contando anche quelli scartati.
+- File con moltissimi blocchi: se ne esaminano al più `MASSIMO_BLOCCHI`, cercandoli uno alla volta.
 
 ### 7. Test aggiunti
 
-A-331..A-334, in `tests/IndiziAccessibilitaTest.php`.
+A-331..A-335, in `tests/IndiziAccessibilitaTest.php`.
 
 ### 8. Cosa non implementa
 
@@ -104,6 +106,14 @@ un limite di lunghezza non si ferma al limite su blocchi grandi: il blocco si ap
 ferma appena supera il tetto. E un file che non è un PDF il meccanismo comune non lo deposita
 nemmeno: quel caso si prova sul contenuto.
 
+Dopo la rilettura, un secondo giro sui limiti di lavoro (riga A-335), con le prove scritte prima e
+rosse sul codice precedente. Il tetto ora vale per tutti i blocchi insieme: ogni byte aperto si
+conta, anche quello di un blocco poi scartato, e a tetto esaurito ci si ferma. I blocchi si
+cercano a passi, uno alla volta, al più `MASSIMO_BLOCCHI`, invece di raccogliere prima tutte le
+posizioni. L'apertura si ferma alla fine dei dati compressi, così l'a capo prima di `endstream` non
+fa scartare un blocco buono. E la memoria scende: i pezzi si leggono dal file senza copiarlo, e i
+segni si cercano nel file e nei blocchi aperti separatamente, senza unirli.
+
 L'idea dei quattro segni da cercare viene dall'analisi del modulo di accessibilità di
 ItaliaWP3 (GPL-3.0-or-later). Il codice è scritto da capo, senza copiarne righe.
 
@@ -124,6 +134,17 @@ ItaliaWP3 (GPL-3.0-or-later). Il codice è scritto da capo, senza copiarne righe
 | Nessun controllo dell'intestazione del PDF | A-333 |
 | Il riquadro non dice che la pubblicazione resta possibile | A-334 |
 | Il riquadro non mostra gli indizi | A-334 |
+| I byte aperti non si tolgono dal tetto | A-332, A-335 |
+| Nessun massimo ai blocchi esaminati | A-335 |
+| I blocchi esaminati non si contano | A-335 |
+| L'apertura non si ferma alla fine dei dati | A-335 |
+| I segni non si cercano nei blocchi aperti | A-332, A-335 |
+| Il titolo non si cerca nei blocchi aperti | A-332, A-335 |
 
 La lingua cercata come `/Lan` invece di `/Lang` non la vede nessuna prova: nessun'altra chiave
 dei PDF comincia così, quindi i due controlli si comportano allo stesso modo.
+
+Due guasti non li vede nessuna prova, e lo si dichiara. Togliere l'arresto a tetto esaurito non
+cambia l'esito, perché ogni blocco successivo si scarta al primo pezzo: costa solo lavoro, e
+l'arresto resta per quello. Togliere l'a capo che separa i blocchi aperti farebbe trovare un segno
+spezzato fra la fine di un blocco e l'inizio del successivo: un caso costruito, senza prova.
