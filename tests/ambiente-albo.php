@@ -177,31 +177,44 @@ trait AmbienteAlbo {
 	 * Serve alle prove che preparano un atto in una condizione che i passaggi
 	 * dell'albo non producono, come farebbe chi scrive nella banca dati con
 	 * uno strumento esterno al sito: la barriera guarda le istruzioni, i
-	 * metadati e le voci, e qui si stacca per la sola scrittura della prova.
+	 * metadati e le voci, e qui si stacca per la sola scrittura della prova,
+	 * insieme alla protezione dei documenti di un atto fermo.
 	 *
 	 * @param callable $scrittura Scrittura da eseguire.
 	 * @return mixed Quello che la scrittura restituisce.
 	 */
 	protected function scavalca_barriera( callable $scrittura ) {
-		$classe   = \AlboPretorioPa\ChiusuraPubblicazione::class;
-		$agganci  = array(
-			array( 'query', 'da_query', PHP_INT_MAX, 1 ),
-			array( 'add_post_metadata', 'da_add_post_metadata', PHP_INT_MAX, 4 ),
-			array( 'update_post_metadata', 'da_update_post_metadata', PHP_INT_MAX, 4 ),
-			array( 'delete_post_metadata', 'da_delete_post_metadata', PHP_INT_MAX, 5 ),
-			array( 'update_post_metadata_by_mid', 'da_update_post_metadata_by_mid', PHP_INT_MAX, 4 ),
-			array( 'delete_post_metadata_by_mid', 'da_delete_post_metadata_by_mid', PHP_INT_MAX, 2 ),
-			array( 'add_term_relationship', 'da_voce_dell_atto', PHP_INT_MIN, 1 ),
-			array( 'delete_term_relationships', 'da_voce_dell_atto', PHP_INT_MIN, 1 ),
-			array( 'transition_post_status', 'da_transition_post_status', PHP_INT_MIN, 3 ),
-			array( 'added_term_relationship', 'da_voce_aggiunta', PHP_INT_MIN, 2 ),
-			array( 'deleted_term_relationships', 'da_voci_tolte', PHP_INT_MIN, 2 ),
-			array( 'deleted_post_meta', 'da_metadati_tolti', PHP_INT_MIN, 1 ),
+		$atto      = \AlboPretorioPa\ChiusuraPubblicazione::class;
+		$documenti = \AlboPretorioPa\DocumentiFermi::class;
+		$agganci   = array(
+			array( $atto, 'query', 'da_query', PHP_INT_MAX, 1 ),
+			array( $atto, 'add_post_metadata', 'da_add_post_metadata', PHP_INT_MAX, 4 ),
+			array( $atto, 'update_post_metadata', 'da_update_post_metadata', PHP_INT_MAX, 4 ),
+			array( $atto, 'delete_post_metadata', 'da_delete_post_metadata', PHP_INT_MAX, 5 ),
+			array( $atto, 'update_post_metadata_by_mid', 'da_update_post_metadata_by_mid', PHP_INT_MAX, 4 ),
+			array( $atto, 'delete_post_metadata_by_mid', 'da_delete_post_metadata_by_mid', PHP_INT_MAX, 2 ),
+			array( $atto, 'add_term_relationship', 'da_voce_dell_atto', PHP_INT_MIN, 1 ),
+			array( $atto, 'delete_term_relationships', 'da_voce_dell_atto', PHP_INT_MIN, 1 ),
+			array( $atto, 'transition_post_status', 'da_transition_post_status', PHP_INT_MIN, 3 ),
+			array( $atto, 'added_term_relationship', 'da_voce_aggiunta', PHP_INT_MIN, 2 ),
+			array( $atto, 'deleted_term_relationships', 'da_voci_tolte', PHP_INT_MIN, 2 ),
+			array( $atto, 'deleted_post_meta', 'da_metadati_tolti', PHP_INT_MIN, 1 ),
+			array( $documenti, 'pre_delete_attachment', 'da_pre_delete_attachment', PHP_INT_MAX, 2 ),
+			array( $documenti, 'pre_trash_post', 'da_pre_trash_post', PHP_INT_MAX, 2 ),
+			array( $documenti, 'wp_insert_post_empty_content', 'da_wp_insert_post_empty_content', PHP_INT_MAX, 2 ),
+			array( $documenti, 'wp_insert_attachment_data', 'da_dati_scritti', PHP_INT_MAX, 2 ),
+			array( $documenti, 'wp_insert_post_data', 'da_dati_scritti', PHP_INT_MAX, 2 ),
+			array( $documenti, 'query', 'da_query', PHP_INT_MAX, 1 ),
+			array( $documenti, 'add_post_metadata', 'da_add_post_metadata', PHP_INT_MAX, 3 ),
+			array( $documenti, 'update_post_metadata', 'da_update_post_metadata', PHP_INT_MAX, 3 ),
+			array( $documenti, 'delete_post_metadata', 'da_delete_post_metadata', PHP_INT_MAX, 5 ),
+			array( $documenti, 'update_post_metadata_by_mid', 'da_update_post_metadata_by_mid', PHP_INT_MAX, 4 ),
+			array( $documenti, 'delete_post_metadata_by_mid', 'da_delete_post_metadata_by_mid', PHP_INT_MAX, 2 ),
 		);
-		$staccati = array();
+		$staccati  = array();
 
 		foreach ( $agganci as $aggancio ) {
-			if ( remove_filter( $aggancio[0], array( $classe, $aggancio[1] ), $aggancio[2] ) ) {
+			if ( remove_filter( $aggancio[1], array( $aggancio[0], $aggancio[2] ), $aggancio[3] ) ) {
 				$staccati[] = $aggancio;
 			}
 		}
@@ -210,7 +223,7 @@ trait AmbienteAlbo {
 			return $scrittura();
 		} finally {
 			foreach ( $staccati as $aggancio ) {
-				add_filter( $aggancio[0], array( $classe, $aggancio[1] ), $aggancio[2], $aggancio[3] );
+				add_filter( $aggancio[1], array( $aggancio[0], $aggancio[2] ), $aggancio[3], $aggancio[4] );
 			}
 		}
 	}
