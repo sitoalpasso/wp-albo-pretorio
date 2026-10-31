@@ -61,6 +61,16 @@ final class IndiziAccessibilita {
 	const TETTO = 20971520;
 
 	/**
+	 * Quanti blocchi del file si esaminano al piu', per decidere se aprirli.
+	 *
+	 * Come il tetto, e' un limite del lavoro di una richiesta, non una scelta
+	 * dell'amministrazione.
+	 *
+	 * @var int
+	 */
+	const MASSIMO_BLOCCHI = 10000;
+
+	/**
 	 * L'esito del controllo su un documento.
 	 *
 	 * @param int $documento Documento, cioe' l'allegato.
@@ -117,22 +127,23 @@ final class IndiziAccessibilita {
 			return self::non_controllato( 'cifrato' );
 		}
 
-		$testo  = $contenuto . "\n" . self::blocchi( $contenuto );
+		// Il file e i blocchi aperti si guardano separati: unirli raddoppierebbe la memoria.
+		$aperti = self::blocchi( $contenuto );
 		$indizi = array();
 
-		if ( 1 !== preg_match( '/\/StructTreeRoot\b/', $testo ) ) {
+		if ( ! self::trova( '/\/StructTreeRoot\b/', $contenuto, $aperti ) ) {
 			$indizi[] = self::NON_TAGGATO;
 		}
 
-		if ( 1 !== preg_match( '/\/Font\b/', $testo ) && 1 === preg_match( '/\/Subtype\s*\/Image\b/', $testo ) ) {
+		if ( ! self::trova( '/\/Font\b/', $contenuto, $aperti ) && self::trova( '/\/Subtype\s*\/Image\b/', $contenuto, $aperti ) ) {
 			$indizi[] = self::SCANSIONE;
 		}
 
-		if ( ! self::ha_titolo( $testo ) ) {
+		if ( ! self::ha_titolo( $contenuto ) && ! self::ha_titolo( $aperti ) ) {
 			$indizi[] = self::SENZA_TITOLO;
 		}
 
-		if ( 1 !== preg_match( '/\/Lang\b/', $testo ) ) {
+		if ( ! self::trova( '/\/Lang\b/', $contenuto, $aperti ) ) {
 			$indizi[] = self::SENZA_LINGUA;
 		}
 
@@ -144,31 +155,47 @@ final class IndiziAccessibilita {
 	}
 
 	/**
+	 * Se un segno c'e' nel file o nei blocchi aperti.
+	 *
+	 * @param string $segno     Espressione del segno.
+	 * @param string $contenuto Contenuto del file.
+	 * @param string $aperti    Blocchi aperti.
+	 * @return bool
+	 */
+	private static function trova( string $segno, string $contenuto, string $aperti ): bool {
+		return 1 === preg_match( $segno, $contenuto ) || 1 === preg_match( $segno, $aperti );
+	}
+
+	/**
 	 * Il contenuto aperto dei blocchi compressi che portano oggetti o metadati.
 	 *
 	 * Nei PDF recenti catalogo, caratteri e informazioni stanno spesso in un
 	 * blocco di oggetti compresso, e i metadati in un blocco a se'. Si aprono
-	 * solo quelli, compressi nel modo comune, e tutti insieme non oltre il
-	 * tetto: un blocco che si aprirebbe oltre il tetto, o che non si apre,
-	 * resta chiuso, e conta il resto del file.
+	 * solo quelli, compressi nel modo comune. Il lavoro ha due limiti, che
+	 * valgono per il file intero: i blocchi si cercano uno alla volta, al piu'
+	 * MASSIMO_BLOCCHI; e i byte aperti, anche quelli di un blocco poi scartato,
+	 * si contano tutti contro il tetto. Esaurito un limite, ci si ferma e
+	 * conta quello che si e' trovato.
 	 *
 	 * @param string $contenuto Contenuto del file.
 	 * @return string
 	 */
 	private static function blocchi( string $contenuto ): string {
-		if ( false === preg_match_all( '/>>\s*stream(?:\r\n|\n|\r)/', $contenuto, $trovati, PREG_OFFSET_CAPTURE ) ) {
-			return '';
-		}
+		$aperti    = '';
+		$residuo   = self::TETTO;
+		$posizione = 0;
+		$esaminati = 0;
 
-		$aperti  = '';
-		$residuo = self::TETTO;
-
-		foreach ( $trovati[0] as $trovato ) {
-			if ( $residuo <= 0 ) {
+		while ( $residuo > 0 && $esaminati < self::MASSIMO_BLOCCHI ) {
+			if ( 1 !== preg_match( '/>>\s*stream(?:\r\n|\n|\r)/', $contenuto, $trovato, PREG_OFFSET_CAPTURE, $posizione ) ) {
 				break;
 			}
 
-			$fine_dizionario = (int) $trovato[1];
+			++$esaminati;
+
+			$fine_dizionario = (int) $trovato[0][1];
+			$inizio          = $fine_dizionario + strlen( (string) $trovato[0][0] );
+			$posizione       = $inizio;
 			$prima           = substr( $contenuto, max( 0, $fine_dizionario - 1024 ), min( 1024, $fine_dizionario ) );
 			$oggetto         = strrpos( $prima, ' obj' );
 			$dizionario      = false === $oggetto ? $prima : substr( $prima, $oggetto );
@@ -177,42 +204,40 @@ final class IndiziAccessibilita {
 				continue;
 			}
 
-			$inizio = $fine_dizionario + strlen( (string) $trovato[0] );
-			$fine   = strpos( $contenuto, 'endstream', $inizio );
+			$fine = strpos( $contenuto, 'endstream', $inizio );
 
 			if ( false === $fine ) {
-				continue;
+				break;
 			}
 
-			// L'a capo prima di endstream resta: la decompressione si ferma alla fine dei dati compressi.
-			$dati = substr( $contenuto, $inizio, $fine - $inizio );
+			$aperto = self::apri( $contenuto, $inizio, $fine, $residuo );
 
-			$aperto = self::apri( $dati, $residuo );
-
-			if ( null === $aperto ) {
-				continue;
+			if ( null !== $aperto ) {
+				$aperti .= $aperto . "\n";
 			}
-
-			$aperti  .= $aperto . "\n";
-			$residuo -= strlen( $aperto );
 		}
 
 		return $aperti;
 	}
 
 	/**
-	 * Un blocco compresso aperto, o nullo se non si apre o se si aprirebbe oltre il tetto.
+	 * Un blocco compresso aperto, o nullo se non si apre o se supera il tetto.
 	 *
-	 * Si apre a pezzi piccoli, controllando la lunghezza a ogni pezzo: il
-	 * limite di lunghezza delle funzioni di decompressione in un colpo solo
-	 * non e' affidabile, e un blocco costruito per gonfiarsi riempirebbe la
-	 * memoria.
+	 * Si apre a pezzi piccoli, presi dal file senza copiarlo, controllando la
+	 * lunghezza a ogni pezzo: il limite di lunghezza delle funzioni di
+	 * decompressione in un colpo solo non e' affidabile, e un blocco costruito
+	 * per gonfiarsi riempirebbe la memoria. Ogni byte aperto si toglie dal
+	 * residuo, anche quando il blocco poi si scarta. Ci si ferma alla fine dei
+	 * dati compressi: quello che segue, per esempio l'a capo prima di
+	 * endstream, non fa parte del blocco.
 	 *
-	 * @param string $dati    Dati compressi.
-	 * @param int    $residuo Byte che si possono ancora aprire.
+	 * @param string $contenuto Contenuto del file.
+	 * @param int    $inizio    Dove cominciano i dati compressi.
+	 * @param int    $fine      Dove finiscono, escluso.
+	 * @param int    $residuo   Byte che si possono ancora aprire; diminuisce.
 	 * @return string|null
 	 */
-	private static function apri( string $dati, int $residuo ): ?string {
+	private static function apri( string $contenuto, int $inizio, int $fine, int &$residuo ): ?string {
 		$flusso = inflate_init( ZLIB_ENCODING_DEFLATE );
 
 		if ( false === $flusso ) {
@@ -220,20 +245,25 @@ final class IndiziAccessibilita {
 		}
 
 		$aperto = '';
-		$pezzi  = str_split( $dati, 1024 );
 
-		foreach ( $pezzi as $indice => $pezzo ) {
-			$ultimo = count( $pezzi ) - 1 === $indice;
-			$uscita = @inflate_add( $flusso, $pezzo, $ultimo ? ZLIB_FINISH : ZLIB_SYNC_FLUSH ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- un blocco che non si apre e' un caso previsto, non un errore.
+		for ( $pezzo = $inizio; $pezzo < $fine; $pezzo += 1024 ) {
+			$ultimo = $pezzo + 1024 >= $fine;
+			$uscita = @inflate_add( $flusso, substr( $contenuto, $pezzo, min( 1024, $fine - $pezzo ) ), $ultimo ? ZLIB_FINISH : ZLIB_SYNC_FLUSH ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- un blocco che non si apre e' un caso previsto, non un errore.
 
 			if ( false === $uscita ) {
 				return null;
 			}
 
+			$residuo -= strlen( $uscita );
+
+			if ( $residuo < 0 ) {
+				return null;
+			}
+
 			$aperto .= $uscita;
 
-			if ( strlen( $aperto ) > $residuo ) {
-				return null;
+			if ( ZLIB_STREAM_END === inflate_get_status( $flusso ) ) {
+				break;
 			}
 		}
 
@@ -244,7 +274,7 @@ final class IndiziAccessibilita {
 	/**
 	 * Se il documento ha un titolo: nelle proprieta', con un valore, o nei metadati.
 	 *
-	 * @param string $testo Contenuto, con i blocchi aperti.
+	 * @param string $testo Contenuto del file, o blocchi aperti.
 	 * @return bool
 	 */
 	private static function ha_titolo( string $testo ): bool {
