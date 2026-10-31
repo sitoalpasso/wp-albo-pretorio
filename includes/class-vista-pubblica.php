@@ -689,11 +689,11 @@ final class VistaPubblica {
 			esc_html(
 				$annullato
 					? __( 'nessuno: atto annullato', 'albo-pretorio-pa' )
-					: sprintf(
+					: ( null === $quanti ? __( 'non disponibili in questo momento', 'albo-pretorio-pa' ) : sprintf(
 						/* translators: %s: numero dei documenti dell'atto. */
 						_n( '%s documento', '%s documenti', $quanti, 'albo-pretorio-pa' ),
 						number_format_i18n( $quanti )
-					)
+					) )
 			)
 		);
 
@@ -717,11 +717,16 @@ final class VistaPubblica {
 	/**
 	 * Quanti documenti ha l'atto: il principale, se c'e', e gli allegati.
 	 *
+	 * Dalla banca dati, come la scheda (`DocumentiAtto::posti()`); nullo se la
+	 * lettura non risponde.
+	 *
 	 * @param int $atto Atto.
-	 * @return int
+	 * @return int|null
 	 */
-	private static function quanti_documenti( int $atto ): int {
-		return ( null === DocumentiAtto::principale( $atto ) ? 0 : 1 ) + count( DocumentiAtto::ulteriori( $atto ) );
+	private static function quanti_documenti( int $atto ): ?int {
+		$posti = DocumentiAtto::posti( $atto );
+
+		return null === $posti ? null : ( null === $posti['principale'] ? 0 : 1 ) + count( $posti['ulteriori'] );
 	}
 
 	/**
@@ -804,22 +809,30 @@ final class VistaPubblica {
 	 * L'elenco dei documenti di un atto, dal punto pubblico di consegna.
 	 *
 	 * Senza il nome del file caricato, che puo' contenere nomi di persona:
-	 * "Documento principale", "Allegato 1", con formato e dimensione.
+	 * "Documento principale", "Allegato 1", con formato e dimensione. I
+	 * documenti si leggono dalla banca dati e non dalla memoria
+	 * (`DocumentiAtto::posti()`): se la lettura non risponde la scheda lo dice,
+	 * invece di mostrare quelli che la memoria ricorda.
 	 *
 	 * @param int $atto Atto.
 	 * @return string
 	 */
 	private static function documenti( int $atto ): string {
-		$documenti  = array();
-		$principale = DocumentiAtto::principale( $atto );
+		$posti = DocumentiAtto::posti( $atto );
 
-		if ( null !== $principale ) {
-			$documenti[ $principale ] = __( 'Documento principale', 'albo-pretorio-pa' );
+		if ( null === $posti ) {
+			return '<p class="albo-pretorio__conteggio">' . esc_html__( 'I documenti non sono disponibili in questo momento. Riprovare piu\' tardi.', 'albo-pretorio-pa' ) . '</p>';
+		}
+
+		$documenti = array();
+
+		if ( null !== $posti['principale'] ) {
+			$documenti[ $posti['principale'] ] = __( 'Documento principale', 'albo-pretorio-pa' );
 		}
 
 		$numero = 0;
 
-		foreach ( DocumentiAtto::ulteriori( $atto ) as $allegato ) {
+		foreach ( $posti['ulteriori'] as $allegato ) {
 			++$numero;
 			/* translators: %d: numero d'ordine dell'allegato. */
 			$documenti[ $allegato ] = sprintf( __( 'Allegato %d', 'albo-pretorio-pa' ), $numero );

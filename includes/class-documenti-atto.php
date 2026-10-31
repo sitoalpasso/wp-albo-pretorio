@@ -383,6 +383,30 @@ final class DocumentiAtto {
 	 * @return array<int, int>|null
 	 */
 	public static function indicati( int $atto_id ): ?array {
+		$posti = self::posti( $atto_id );
+
+		if ( null === $posti ) {
+			return null;
+		}
+
+		return null === $posti['principale'] ? $posti['ulteriori'] : array_merge( array( $posti['principale'] ), $posti['ulteriori'] );
+	}
+
+	/**
+	 * Il principale e gli allegati ulteriori, letti dalla banca dati, o nullo se la lettura non risponde.
+	 *
+	 * La stessa lettura di `indicati()`, con il posto di ciascun documento:
+	 * serve a cio' che il pubblico vede, la scheda, il conteggio dell'elenco e
+	 * il nome del file scaricato. Con una memoria persistente dei dati, una
+	 * richiesta che ha letto l'atto prima che una sostituzione si chiudesse
+	 * puo' rimettere in memoria i dati di prima dopo lo svuotamento: la scheda
+	 * porterebbe allora alla versione uscente, che il punto pubblico non
+	 * consegna, e non a quella oscurata.
+	 *
+	 * @param int $atto_id Atto.
+	 * @return array{principale: int|null, ulteriori: array<int, int>}|null
+	 */
+	public static function posti( int $atto_id ): ?array {
 		global $wpdb;
 
 		$righe = Lettura::righe(
@@ -409,27 +433,31 @@ final class DocumentiAtto {
 			$valori[ (string) $riga['meta_key'] ][] = (string) $riga['meta_value'];
 		}
 
-		$indicati = array();
+		$principale = null;
 
 		if ( 1 === count( $valori[ META_DOCUMENTO_PRINCIPALE ] ) ) {
 			$id = self::identificativo( $valori[ META_DOCUMENTO_PRINCIPALE ][0] );
 
 			if ( null !== $id && self::valido( $atto_id, $id ) ) {
-				$indicati[] = $id;
+				$principale = $id;
 			}
 		}
 
-		$elenco = 1 === count( $valori[ META_ALLEGATI_ULTERIORI ] ) ? maybe_unserialize( $valori[ META_ALLEGATI_ULTERIORI ][0] ) : null;
+		$ulteriori = array();
+		$elenco    = 1 === count( $valori[ META_ALLEGATI_ULTERIORI ] ) ? maybe_unserialize( $valori[ META_ALLEGATI_ULTERIORI ][0] ) : null;
 
 		foreach ( is_array( $elenco ) ? $elenco : array() as $voce ) {
 			$id = self::identificativo( $voce );
 
-			if ( null !== $id && ! in_array( $id, $indicati, true ) && self::valido( $atto_id, $id ) ) {
-				$indicati[] = $id;
+			if ( null !== $id && $id !== $principale && ! in_array( $id, $ulteriori, true ) && self::valido( $atto_id, $id ) ) {
+				$ulteriori[] = $id;
 			}
 		}
 
-		return $indicati;
+		return array(
+			'principale' => $principale,
+			'ulteriori'  => $ulteriori,
+		);
 	}
 
 	/**

@@ -26,6 +26,7 @@ namespace AlboPretorioPa\Tests;
 use AlboPretorioPa\ChiusuraPubblicazione;
 use AlboPretorioPa\DatiProcedimento;
 use AlboPretorioPa\DocumentiAtto;
+use AlboPretorioPa\NomeScaricato;
 use AlboPretorioPa\PaginaPubblica;
 use AlboPretorioPa\Passaggi;
 use AlboPretorioPa\Repertorio;
@@ -2908,6 +2909,161 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 		$consegne = $this->consegna( $esito['documento'] );
 		$this->assertTrue( $this->consegnato( $consegne ), 'La versione oscurata si scarica.' );
 		$this->assertSame( hash( 'sha256', $contenuto ), hash_file( 'sha256', (string) $consegne[0]['percorso'] ), 'Ed e\' proprio quella caricata.' );
+	}
+
+	/**
+	 * Oscura il documento indicato da codice come chi pubblica.
+	 *
+	 * @param int    $atto      Atto.
+	 * @param int    $documento Documento da sostituire.
+	 * @param string $contenuto Contenuto della versione oscurata.
+	 * @return array<string, mixed>
+	 */
+	private function oscurato( int $atto, int $documento, string $contenuto ): array {
+		$file  = $this->file_temporaneo( 'oscurato.pdf', $contenuto );
+		$esito = $this->come(
+			$this->pubblicatore,
+			static function () use ( $atto, $documento, $file ) {
+				return albo_pretorio_oscura(
+					$atto,
+					$documento,
+					$file,
+					'percorso_locale',
+					array(
+						'conferma' => true,
+						'causa'    => Passaggi::CAUSA_DATI_ECCEDENTI,
+						'motivo'   => 'Il documento riporta l\'indirizzo di casa del destinatario.',
+					)
+				);
+			}
+		);
+
+		$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : 'Precondizione: la sostituzione.' );
+
+		return $esito;
+	}
+
+	/**
+	 * A-326: una memoria dei dati rimasta indietro non ripresenta il documento sostituito (ALBO-12, ALBO-30).
+	 *
+	 * Con una memoria persistente dei dati, una richiesta che ha letto l'atto
+	 * prima che la sostituzione si chiudesse puo' rimettere in memoria i dati
+	 * di prima dopo lo svuotamento. Qui la memoria si riempie a mano con i
+	 * dati di prima della sostituzione: la scheda, l'elenco e il nome del file
+	 * scaricato devono venire dalla banca dati.
+	 */
+	public function test_a326_memoria_dei_dati_rimasta_indietro(): void {
+		$this->pagina_con( '[albo_pretorio]' );
+
+		$atto     = $this->pubblicato_il( '2041-10-01 09:30:00', 'Atto oscurato con la memoria indietro', 'normativo', array( 'allegato.pdf' ) );
+		$uscente  = (int) DocumentiAtto::principale( $atto );
+		$allegato = DocumentiAtto::ulteriori( $atto )[0];
+
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+		get_post_meta( $atto );
+		$di_prima = wp_cache_get( $atto, 'post_meta' );
+		$this->assertIsArray( $di_prima, 'Precondizione: i dati di prima sono in memoria.' );
+
+		$esito             = $this->oscurato( $atto, $uscente, "%PDF-1.4\n% versione oscurata\n%%EOF\n" );
+		$atteso_principale = (string) NomeScaricato::nome( $esito['documento'], $atto );
+		$atteso_allegato   = (string) NomeScaricato::nome( $allegato, $atto );
+
+		/*
+		 * La memoria torna ai dati di prima, come la riempirebbe una richiesta
+		 * concorrente: a ogni richiesta, dopo che la prova ha svuotato la
+		 * memoria, prima che la pagina o la consegna li leggano.
+		 */
+		$indietro = static function () use ( $atto, $di_prima ): void {
+			wp_cache_set( $atto, $di_prima, 'post_meta' );
+		};
+		add_action( 'parse_request', $indietro, PHP_INT_MIN );
+		$indietro();
+		$this->assertSame( $uscente, DocumentiAtto::principale( $atto ), 'Precondizione: la memoria indica ancora l\'uscente.' );
+		wp_set_current_user( 0 );
+
+		$scheda = $this->risposta( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $atto ) ) )['corpo'];
+		$this->assertStringContainsString( esc_url( (string) conformita_core_indirizzo_consegna( $esito['documento'] ) ), $scheda, 'La scheda porta alla versione oscurata.' );
+		$this->assertStringNotContainsString( esc_url( (string) conformita_core_indirizzo_consegna( $uscente ) ), $scheda, 'E non all\'uscente.' );
+		$this->assertStringContainsString( esc_url( (string) conformita_core_indirizzo_consegna( $allegato ) ), $scheda, 'L\'allegato resta.' );
+
+		$this->assertStringContainsString( '2 documenti', $this->risposta( $this->indirizzo() )['corpo'], 'L\'elenco conta i documenti della banca dati.' );
+
+		foreach ( array(
+			'versione oscurata' => array( $esito['documento'], $atteso_principale ),
+			'allegato'          => array( $allegato, $atteso_allegato ),
+		) as $quale => $caso ) {
+			$consegne = $this->consegna( $caso[0] );
+
+			$this->assertTrue( $this->consegnato( $consegne ), $quale . ': si scarica.' );
+			$this->assertStringStartsWith( 'albo-2041-', $caso[1], 'Precondizione: il nome atteso e\' quello dell\'albo.' );
+			$this->assertSame( 1, preg_match( '/; filename="([^"]*)"/', (string) ( $consegne[0]['intestazioni']['Content-Disposition'] ?? '' ), $nome ), $quale . ': precondizione, la risposta propone un nome.' );
+			$this->assertSame( $caso[1], $nome[1], $quale . ': con il nome dell\'albo, calcolato dalla banca dati.' );
+		}
+
+		remove_action( 'parse_request', $indietro, PHP_INT_MIN );
+
+		// La lettura dalla banca dati valida come quella dalla memoria: il principale non conta anche come allegato.
+		$bozza      = $this->atto_completo();
+		$principale = (int) DocumentiAtto::principale( $bozza );
+		$this->deposita_documento( $bozza, DocumentiAtto::ULTERIORE, 'secondo.pdf' );
+		$secondo = DocumentiAtto::ulteriori( $bozza )[0];
+		update_post_meta( $bozza, \AlboPretorioPa\META_ALLEGATI_ULTERIORI, array( $principale, $secondo, $secondo ) );
+		$this->assertSame(
+			array(
+				'principale' => $principale,
+				'ulteriori'  => array( $secondo ),
+			),
+			DocumentiAtto::posti( $bozza )
+		);
+	}
+
+	/**
+	 * A-327: se la lettura dei documenti non risponde, la scheda e l'elenco lo dicono e non ripiegano sulla memoria (ALBO-12).
+	 */
+	public function test_a327_lettura_dei_documenti_che_non_risponde(): void {
+		global $wpdb;
+
+		$this->pagina_con( '[albo_pretorio]' );
+
+		$atto    = $this->pubblicato_il( '2041-10-01 09:30:00', 'Atto con la lettura guasta' );
+		$uscente = (int) DocumentiAtto::principale( $atto );
+
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+		get_post_meta( $atto );
+		$di_prima = wp_cache_get( $atto, 'post_meta' );
+		$esito    = $this->oscurato( $atto, $uscente, "%PDF-1.4\n% versione oscurata\n%%EOF\n" );
+
+		$guasto = static function ( $istruzione ) use ( $atto ) {
+			return is_string( $istruzione ) && false !== strpos( $istruzione, 'SELECT meta_key, meta_value FROM' ) && false !== strpos( $istruzione, 'post_id = ' . $atto . ' ' )
+				? 'SELECT guasto_forzato FROM tabella_che_non_esiste'
+				: $istruzione;
+		};
+
+		$indietro = static function () use ( $atto, $di_prima ): void {
+			wp_cache_set( $atto, $di_prima, 'post_meta' );
+		};
+
+		$wpdb->suppress_errors( true );
+		add_filter( 'query', $guasto );
+		add_action( 'parse_request', $indietro, PHP_INT_MIN );
+		wp_set_current_user( 0 );
+
+		$scheda = $this->risposta( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $atto ) ) )['corpo'];
+		$elenco = $this->risposta( $this->indirizzo() )['corpo'];
+
+		remove_action( 'parse_request', $indietro, PHP_INT_MIN );
+		remove_filter( 'query', $guasto );
+		$wpdb->suppress_errors( false );
+
+		$this->assertStringContainsString( 'I documenti non sono disponibili in questo momento', $scheda, 'La scheda dice che i documenti non si leggono.' );
+		$this->assertStringNotContainsString( esc_url( (string) conformita_core_indirizzo_consegna( $uscente ) ), $scheda, 'E non ripiega sulla memoria.' );
+		$this->assertStringNotContainsString( esc_url( (string) conformita_core_indirizzo_consegna( $esito['documento'] ) ), $scheda );
+		$this->assertStringContainsString( 'non disponibili', $elenco, 'L\'elenco non scrive un conteggio sbagliato.' );
+		$this->assertStringNotContainsString( '1 documento', $elenco );
+
+		// Controllo positivo: riparata la lettura, la scheda porta alla versione oscurata.
+		$scheda = $this->risposta( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $atto ) ) )['corpo'];
+		$this->assertStringContainsString( esc_url( (string) conformita_core_indirizzo_consegna( $esito['documento'] ) ), $scheda );
 	}
 
 	/**
