@@ -76,16 +76,26 @@ final class NomeScaricato {
 	/**
 	 * Zero per il documento principale, il numero d'ordine per un allegato, nullo per il resto.
 	 *
+	 * Dalla banca dati e non dalla memoria, come la scheda: con i dati di prima
+	 * di una sostituzione la versione oscurata non avrebbe posto e uscirebbe
+	 * con il nome neutro. Se la lettura non risponde, nullo.
+	 *
 	 * @param int $allegato_id Documento.
 	 * @param int $atto_id     Atto.
 	 * @return int|null
 	 */
 	private static function ordine( int $allegato_id, int $atto_id ): ?int {
-		if ( DocumentiAtto::principale( $atto_id ) === $allegato_id ) {
+		$posti = DocumentiAtto::posti( $atto_id );
+
+		if ( null === $posti ) {
+			return null;
+		}
+
+		if ( $posti['principale'] === $allegato_id ) {
 			return 0;
 		}
 
-		$posizione = array_search( $allegato_id, DocumentiAtto::ulteriori( $atto_id ), true );
+		$posizione = array_search( $allegato_id, $posti['ulteriori'], true );
 
 		return false === $posizione ? null : (int) $posizione + 1;
 	}
