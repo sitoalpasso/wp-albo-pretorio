@@ -642,8 +642,13 @@ class OscuramentoTest extends \WP_UnitTestCase {
 		$secondo = $this->pubblicato();
 		$guasto  = (int) DocumentiAtto::principale( $secondo );
 		$this->assertIsArray( $this->oscura( $secondo, $this->pubblicatore, $guasto, $this->pdf( 'oscurato' ), $this->richiesta() ) );
-		add_post_meta( $uscente, META_SOSTITUITO_DA, $esito['documento'] );
-		update_post_meta( $guasto, META_SOSTITUITO_DA, 'non un numero' );
+		// Due condizioni che i passaggi non producono, e che la protezione dei documenti rifiuta: si scrivono di lato.
+		$this->scavalca_barriera(
+			static function () use ( $uscente, $guasto, $esito ) {
+				add_post_meta( $uscente, META_SOSTITUITO_DA, $esito['documento'] );
+				update_post_meta( $guasto, META_SOSTITUITO_DA, 'non un numero' );
+			}
+		);
 
 		$terzo = $this->pubblicato();
 		$this->assertIsInt( $this->come( $this->pubblicatore, fn () => conformita_core_deposita_allegato( $terzo, $this->file_temporaneo( 'estraneo.pdf', $this->pdf( 'estraneo' ) ), array( 'origine' => 'percorso_locale' ) ) ) );
@@ -691,9 +696,10 @@ class OscuramentoTest extends \WP_UnitTestCase {
 			$this->assertSame( $prima, $this->fotografia( $id ), $quale . ': niente e\' cambiato, disco compreso.' );
 		}
 
+		// I guasti colpiscono le scritture e non le letture: una lettura guasta ferma anche la pulizia del file entrante (A-322).
 		$guasti = array(
-			'il dato del documento'  => array( $wpdb->postmeta, META_DOCUMENTO_PRINCIPALE ),
-			'il segno dell\'uscente' => array( $wpdb->postmeta, META_SOSTITUITO_DA ),
+			'il dato del documento'  => array( 'UPDATE `' . $wpdb->postmeta . '`', META_DOCUMENTO_PRINCIPALE ),
+			'il segno dell\'uscente' => array( 'INSERT INTO `' . $wpdb->postmeta . '`', META_SOSTITUITO_DA ),
 			'la voce del registro'   => array( 'INSERT', Passaggi::AZIONE_OSCURAMENTO ),
 		);
 

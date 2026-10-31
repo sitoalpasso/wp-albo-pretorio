@@ -235,6 +235,7 @@ require_once __DIR__ . '/includes/class-installazione.php';
 require_once __DIR__ . '/includes/class-rifiuti.php';
 require_once __DIR__ . '/includes/class-lettura.php';
 require_once __DIR__ . '/includes/class-chiusura-pubblicazione.php';
+require_once __DIR__ . '/includes/class-documenti-fermi.php';
 require_once __DIR__ . '/includes/class-passaggi.php';
 require_once __DIR__ . '/includes/class-riquadro-passaggi.php';
 require_once __DIR__ . '/includes/class-proroga.php';
@@ -380,6 +381,12 @@ add_action( 'post_submitbox_misc_actions', array( RiquadroPassaggi::class, 'avvi
  * cui la pubblicazione e' concessa non deve esistere in nessuna condizione.
  */
 ChiusuraPubblicazione::aggancia();
+
+/*
+ * I documenti di un atto fermo restano quelli pubblicati, per la stessa
+ * ragione: anche a componente inerte.
+ */
+DocumentiFermi::aggancia();
 
 /*
  * La pagina pubblica: il codice breve e le regole della pagina che lo contiene.
