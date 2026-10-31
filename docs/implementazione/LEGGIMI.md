@@ -100,4 +100,4 @@ Schede presenti:
 - [`documenti-fermi.md`](documenti-fermi.md): i documenti di un atto in verifica, pubblicato,
   tolto o annullato non si cancellano, non si staccano dall'atto e non cambiano file, nemmeno
   dalla libreria dei media; titolo e descrizione restano modificabili. Righe di collaudo
-  A-317..A-323.
+  A-317..A-325.

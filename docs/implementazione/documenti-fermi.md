@@ -3,7 +3,7 @@
 Scheda di lavorazione. Scritta prima del codice come piano; si aggiorna a lavoro finito con
 com'è andata davvero.
 
-**Stato: fatto.** Requisito ALBO-09, con ALBO-10 e ALBO-12. Righe di collaudo A-317..A-323.
+**Stato: fatto.** Requisito ALBO-09, con ALBO-10 e ALBO-12. Righe di collaudo A-317..A-325.
 
 ## In tre paragrafi
 
@@ -77,7 +77,7 @@ per il codice che gira senza utente, come lo sbarramento dell'atto.
 
 ### 7. Test aggiunti
 
-A-317..A-323, in `tests/DocumentiFermiTest.php`.
+A-317..A-325, in `tests/DocumentiFermiTest.php`.
 
 ### 8. Cosa non implementa
 
@@ -104,12 +104,24 @@ Come da piano, con quattro cose da dire.
   atto, stato, tipo e tipo di file con la riga letta dalla banca dati; dietro il vaglio, su
   `wp_insert_attachment_data` e `wp_insert_post_data`, quei quattro campi si rimettono com'erano,
   perché un altro aggancio (per esempio quello sull'atto di un allegato) li può cambiare dopo.
-  Sotto WordPress si riconoscono due istruzioni: quella della libreria dei media che stacca e
-  aggancia, da cui escono i documenti protetti, e quella di `set_post_type()`. I metadati si
+  Sotto WordPress si riconoscono due forme di istruzione: quella della libreria dei media che
+  stacca e aggancia, da cui escono i documenti protetti, e quella di `$wpdb->update()` sulla
+  riga di un contenuto, che usano `wp_publish_post()`, `set_post_type()` e la scrittura finale
+  del salvataggio. Di quest'ultima si leggono i valori: passa se atto, stato, tipo e tipo di
+  file restano quelli, e si rifiuta se l'elenco non si legge. I metadati si
   fermano con i filtri di WordPress, anche per numero di riga e tolti a tutti i contenuti.
 - **Protetto è il documento in vita.** Un documento che un'istruzione diretta ha già messo nel
   cestino o fatto privato non è più protetto, e si ripara: tornato in vita, l'atto lo indica di
   nuovo e da lì è protetto. Proteggere anche lui avrebbe impedito di riparare.
+- **Le chiavi in un'altra forma.** La banca dati confronta le chiavi dei metadati senza
+  distinguere maiuscole e minuscole e senza contare gli spazi in fondo, e secondo l'ordinamento
+  può non distinguere le lettere accentate. Le chiavi si confrontano in minuscolo; una chiave
+  con spazi o con caratteri fuori dall'alfabeto semplice, su un documento protetto, si rifiuta.
+- **Secondo giro della revisione.** I due casi qui sopra, `wp_publish_post()` e le chiavi in
+  altra forma, li ha trovati la revisione automatica: righe A-324 e A-325. Lo sbarramento
+  dell'atto non ha gli stessi due buchi: tratta già `wp_publish_post()`, e sui metadati di un
+  atto fermo ammette soltanto le chiavi di servizio scritte alla lettera, quindi una variante
+  in maiuscolo viene rifiutata.
 - **Ogni rifiuto si segnala a chi programma**, con `_doing_it_wrong` e il nome
   `AlboPretorioPa\DocumentiFermi`: gli agganci di WordPress per queste scritture non portano un
   messaggio a chi chiama. Dall'interfaccia per programmi il salvataggio rifiutato torna con
@@ -153,6 +165,16 @@ Guasti introdotti nel codice per vedere quale prova li vede (tutti visti):
 | Deposito non protetto | A-320 |
 | File del documento non protetto | A-320, A-321, A-322 |
 | `set_post_type()` non coperto | A-319 |
+| Niente vaglio delle scritture dirette nella forma di `$wpdb->update()` | A-319, A-324 |
+| Rifiutata ogni scrittura diretta dei quattro campi, anche con i valori di prima | A-318, A-324 |
+| L'elenco dei valori non si legge mai | A-318, A-324 |
+| Chiavi confrontate alla lettera | A-325 |
+| Lettere accentate ammesse nella chiave | A-325 |
+| Cancellazione a tutti i contenuti con la chiave confrontata alla lettera | A-325 |
+
+Un guasto non visto, che ha portato a togliere codice: togliere gli spazi in fondo alla chiave
+non cambiava niente, perché una chiave con uno spazio è già fuori dall'alfabeto semplice e si
+rifiuta. Il passaggio è stato tolto.
 
 Le prove girano in locale: le azioni automatiche di GitHub sono ferme. Suite intera verde
 salvo A-193, che in questo ambiente fallisce per la conversione dei caratteri anche su `main`;
