@@ -110,7 +110,8 @@ Dopo la rilettura, un secondo giro sui limiti di lavoro (riga A-335), con le pro
 rosse sul codice precedente. Il tetto ora vale per tutti i blocchi insieme: ogni byte aperto si
 conta, anche quello di un blocco poi scartato, e a tetto esaurito ci si ferma. I blocchi si
 cercano a passi, uno alla volta, al più `MASSIMO_BLOCCHI`, invece di raccogliere prima tutte le
-posizioni. L'apertura si ferma alla fine dei dati compressi, così l'a capo prima di `endstream` non
+posizioni; dopo un blocco esaminato la ricerca riprende dalla sua fine, perché i blocchi non si
+annidano, e così ogni byte del file si scorre una volta sola. L'apertura si ferma alla fine dei dati compressi, così l'a capo prima di `endstream` non
 fa scartare un blocco buono. E la memoria scende: i pezzi si leggono dal file senza copiarlo, e i
 segni si cercano nel file e nei blocchi aperti separatamente, senza unirli.
 
@@ -138,6 +139,7 @@ ItaliaWP3 (GPL-3.0-or-later). Il codice è scritto da capo, senza copiarne righe
 | Nessun massimo ai blocchi esaminati | A-335 |
 | I blocchi esaminati non si contano | A-335 |
 | L'apertura non si ferma alla fine dei dati | A-335 |
+| La ricerca non riprende dopo la fine del blocco esaminato | A-335 |
 | I segni non si cercano nei blocchi aperti | A-332, A-335 |
 | Il titolo non si cerca nei blocchi aperti | A-332, A-335 |
 
