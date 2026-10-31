@@ -97,3 +97,7 @@ Schede presenti:
 - [`esportazione.md`](esportazione.md): l'archivio di un anno del registro per la
   conservazione, con dati, documenti, versioni sostituite, storia e impronte, e la sua
   rilettura. Righe di collaudo A-308..A-311.
+- [`documenti-fermi.md`](documenti-fermi.md): i documenti di un atto in verifica, pubblicato,
+  tolto o annullato non si cancellano, non si staccano dall'atto e non cambiano file, nemmeno
+  dalla libreria dei media; titolo e descrizione restano modificabili. Righe di collaudo
+  A-317..A-323.
