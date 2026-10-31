@@ -286,10 +286,12 @@ final class IndiziAccessibilita {
 			return true;
 		}
 
-		$inizio = strpos( $testo, '<dc:title>' );
+		// L'apertura puo' portare attributi, per esempio lo spazio dei nomi.
+		$posizione = 0;
 
-		while ( false !== $inizio ) {
-			$fine = strpos( $testo, '</dc:title>', $inizio );
+		while ( 1 === preg_match( '/<dc:title\b[^>]*>/', $testo, $apertura, PREG_OFFSET_CAPTURE, $posizione ) ) {
+			$inizio = (int) $apertura[0][1] + strlen( (string) $apertura[0][0] );
+			$fine   = strpos( $testo, '</dc:title>', $inizio );
 
 			if ( false === $fine ) {
 				return false;
@@ -299,7 +301,7 @@ final class IndiziAccessibilita {
 				return true;
 			}
 
-			$inizio = strpos( $testo, '<dc:title>', $fine );
+			$posizione = $fine;
 		}
 
 		return false;
