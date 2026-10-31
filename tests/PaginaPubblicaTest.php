@@ -26,7 +26,6 @@ namespace AlboPretorioPa\Tests;
 use AlboPretorioPa\ChiusuraPubblicazione;
 use AlboPretorioPa\DatiProcedimento;
 use AlboPretorioPa\DocumentiAtto;
-use AlboPretorioPa\NomeScaricato;
 use AlboPretorioPa\PaginaPubblica;
 use AlboPretorioPa\Passaggi;
 use AlboPretorioPa\Repertorio;
@@ -2965,8 +2964,9 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 		$this->assertIsArray( $di_prima, 'Precondizione: i dati di prima sono in memoria.' );
 
 		$esito             = $this->oscurato( $atto, $uscente, "%PDF-1.4\n% versione oscurata\n%%EOF\n" );
-		$atteso_principale = (string) NomeScaricato::nome( $esito['documento'], $atto );
-		$atteso_allegato   = (string) NomeScaricato::nome( $allegato, $atto );
+		// Scritti per esteso: numero 1 del 2041, dal 1 ottobre, 15 giorni, fino al 16 ottobre (ALBO-30).
+		$atteso_principale = 'albo-2041-0001-dal-01-10-al-16-10.pdf';
+		$atteso_allegato   = 'albo-2041-0001-dal-01-10-al-16-10-allegato-1.pdf';
 
 		/*
 		 * La memoria torna ai dati di prima, come la riempirebbe una richiesta
@@ -2995,7 +2995,6 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 			$consegne = $this->consegna( $caso[0] );
 
 			$this->assertTrue( $this->consegnato( $consegne ), $quale . ': si scarica.' );
-			$this->assertStringStartsWith( 'albo-2041-', $caso[1], 'Precondizione: il nome atteso e\' quello dell\'albo.' );
 			$this->assertSame( 1, preg_match( '/; filename="([^"]*)"/', (string) ( $consegne[0]['intestazioni']['Content-Disposition'] ?? '' ), $nome ), $quale . ': precondizione, la risposta propone un nome.' );
 			$this->assertSame( $caso[1], $nome[1], $quale . ': con il nome dell\'albo, calcolato dalla banca dati.' );
 		}

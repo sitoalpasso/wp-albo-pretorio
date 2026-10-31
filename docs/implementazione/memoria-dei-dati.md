@@ -77,6 +77,12 @@ A-326 e A-327, in `tests/PaginaPubblicaTest.php`.
   svuotamento della memoria a fine passaggio le aggiorna alla richiesta seguente.
 - **La validità di ciascun documento** si legge come prima: la sostituzione non cambia la riga
   dei documenti, solo i dati dell'atto che li indicano.
+- **La sostituzione stessa** (`Passaggi::documento_sostituito()` e `posto_del_documento()`)
+  calcola il nuovo elenco con `principale()` e `ulteriori()`, che leggono dalla memoria. Lo fa
+  dopo `blocca()`, che blocca la riga dell'atto con `FOR UPDATE` e ne svuota la memoria: i
+  dati dell'atto arrivano quindi dalla banca dati, e la riga di ciascun documento, letta con
+  `get_post()`, non cambia più su un atto fermo (A-317..A-325). È una lettura dichiarata, non
+  uniformata a `posti()`.
 
 ### 9. Come si prova su un'installazione reale
 
@@ -94,6 +100,7 @@ la lettura è sui dati di un atto solo.
 | Scheda dalla memoria | A-326, A-327 |
 | Conteggio dalla memoria | A-327 (in A-326 la sostituzione non cambia il numero dei documenti) |
 | Nome del file dalla memoria | A-326 |
+| Il posto di ogni documento vale 0, cioè tutti principali | A-326 (i nomi attesi sono scritti per esteso, non calcolati con la funzione provata) |
 | La lettura che non risponde ripiega sulla memoria | A-327 |
 | Il principale conta anche fra gli allegati | A-326 |
 | Un allegato ripetuto conta due volte | A-326 |
