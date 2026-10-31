@@ -3376,6 +3376,11 @@ final class Passaggi {
 	 * @return string|null
 	 */
 	private static function data_locale( string $valore ): ?string {
+		// Prima delle funzioni delle date, che davanti a un carattere nullo sollevano un'eccezione.
+		if ( 1 !== preg_match( '/\A[0-9]{4}-[0-9]{2}-[0-9]{2}( [0-9]{2}:[0-9]{2}:[0-9]{2})?\z/', $valore ) ) {
+			return null;
+		}
+
 		foreach ( array(
 			'!Y-m-d'       => 'Y-m-d',
 			'!Y-m-d H:i:s' => 'Y-m-d H:i:s',

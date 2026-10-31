@@ -447,6 +447,13 @@ final class SchermataProroga {
 	 * @return array<int, string>|\WP_Error
 	 */
 	private static function giorni( string $dal, string $al ) {
+		$giorno = '/\A[0-9]{4}-[0-9]{2}-[0-9]{2}\z/';
+
+		// Prima delle funzioni delle date, che davanti a un carattere nullo sollevano un'eccezione.
+		if ( 1 !== preg_match( $giorno, $dal ) || ( '' !== $al && 1 !== preg_match( $giorno, $al ) ) ) {
+			return new \WP_Error( 'albo_proroga_giorno_non_valido', __( 'Nessuna proroga disposta: indicare il primo giorno, ed eventualmente l\'ultimo, come date valide.', 'albo-pretorio-pa' ) );
+		}
+
 		$formato = '!Y-m-d';
 		$inizio  = \DateTimeImmutable::createFromFormat( $formato, $dal, wp_timezone() );
 		$fine    = '' === $al ? $inizio : \DateTimeImmutable::createFromFormat( $formato, $al, wp_timezone() );

@@ -1,6 +1,6 @@
 <?php
 /**
- * Pubblicazione e rimando in bozza: righe A-93..A-104.
+ * Pubblicazione e rimando in bozza: righe A-93..A-104, A-329.
  *
  * La seconda parte del flusso di ALBO-22, con le righe di ALBO-11, ALBO-27,
  * ALBO-02, ALBO-01 e ALBO-08 che si chiudono alla pubblicazione. I due ingressi
@@ -1028,5 +1028,53 @@ class PubblicazioneTest extends \WP_UnitTestCase {
 		// Controllo positivo: il passaggio riuscito scrive una volta sola, e lo stato giusto.
 		$this->assertIsArray( $this->pubblica_da_codice( $id, $this->pubblicatore ) );
 		$this->assertSame( array( 'publish' ), $this->stati_scritti( $id ) );
+	}
+
+	/**
+	 * A-329: una data di inizio con un carattere nullo si rifiuta come ogni data non valida.
+	 *
+	 * Le funzioni delle date di PHP 8 non accettano un carattere nullo e
+	 * sollevano un'eccezione: la pubblicazione deve rispondere con il suo
+	 * rifiuto, non interrompersi, e l'atto deve restare identico.
+	 */
+	public function test_a329_data_di_inizio_con_carattere_nullo(): void {
+		$id    = $this->atto_in_verifica();
+		$prima = $this->fotografia( $id );
+
+		foreach ( array( "2041-10-01\0", "\x002041-10-01", "2041-10\0-01", "2041-10-01 09:00:00\0", "2041-10-01\0 09:00:00", "\0" ) as $data ) {
+			$quale = 'data ' . addcslashes( $data, "\0" );
+
+			try {
+				$esito = $this->pubblica_da_codice(
+					$id,
+					$this->pubblicatore,
+					array(
+						'conferma'    => true,
+						'data_inizio' => $data,
+					)
+				);
+			} catch ( \Throwable $errore ) {
+				$this->fail( $quale . ': la pubblicazione si interrompe con ' . get_class( $errore ) . ': ' . $errore->getMessage() );
+			}
+
+			$this->assertWPError( $esito, $quale . ': rifiutata.' );
+			$this->assertSame( array( 'albo_data_inizio_non_valida' ), $esito->get_error_codes(), $quale . ': con il rifiuto della data non valida.' );
+			$this->assertSame( 'pending', get_post_status( $id ), $quale . ': l\'atto resta in verifica.' );
+		}
+
+		$this->assertSame( $prima, $this->fotografia( $id ), 'L\'atto e\' identico.' );
+
+		// Controllo positivo: la stessa data senza il carattere nullo si accetta, e il sistema scrive le sue date.
+		$this->assertIsArray(
+			$this->pubblica_da_codice(
+				$id,
+				$this->pubblicatore,
+				array(
+					'conferma'    => true,
+					'data_inizio' => '2041-10-01',
+				)
+			)
+		);
+		$this->pubblicato_con_date_del_sistema( $id, 15, 'Data valida' );
 	}
 }

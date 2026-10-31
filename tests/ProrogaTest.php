@@ -1,6 +1,6 @@
 <?php
 /**
- * Proroga per disservizio: righe A-127..A-138 e A-147..A-155 (ALBO-31).
+ * Proroga per disservizio: righe A-127..A-138, A-147..A-155 e A-330 (ALBO-31).
  *
  * Gli atti si pubblicano con il passaggio vero, a orologio fissato; poi
  * l'orologio va avanti e la proroga si dispone da codice o dalla schermata.
@@ -1865,5 +1865,69 @@ class ProrogaTest extends \WP_UnitTestCase {
 		$this->assertStringNotContainsString( 'defissione', $schermata, 'Nessun rinvio alla defissione.' );
 		$this->assertStringContainsString( 'non si annulla e non si corregge', $schermata );
 		$this->assertStringContainsString( 'prima di confermare', $schermata, 'Il controllo si fa nell\'anteprima, prima.' );
+	}
+
+	/**
+	 * A-330: un giorno con un carattere nullo si rifiuta come ogni giorno non valido (ALBO-31).
+	 *
+	 * Da codice il giorno arriva com'e': la proroga deve rifiutarlo con il suo
+	 * motivo, non interrompersi. Dalla schermata il campo e' ripulito prima, e
+	 * quello che resta si rifiuta allo stesso modo.
+	 */
+	public function test_a330_giorno_con_carattere_nullo(): void {
+		$id = $this->pubblicato_il( '2041-10-01 09:30:00' );
+
+		$this->fissa_orologi( '2041-10-08 09:30:00' );
+
+		$prima = $this->fotografia( $id );
+
+		foreach ( array( array( "2041-10-07\0" ), array( "\x002041-10-07" ), array( "2041-10\0-07" ), array( '2041-10-06', "2041-10-07\0" ) ) as $giorni ) {
+			$quale = 'giorni ' . addcslashes( implode( ',', $giorni ), "\0" );
+
+			try {
+				$esito = $this->proroga(
+					$this->pubblicatore,
+					array(
+						'giorni'       => $giorni,
+						'attestazione' => 'Attestazione',
+					)
+				);
+			} catch ( \Throwable $errore ) {
+				$this->fail( $quale . ': la proroga si interrompe con ' . get_class( $errore ) . ': ' . $errore->getMessage() );
+			}
+
+			$this->assertWPError( $esito, $quale . ': rifiutata.' );
+			$this->assertSame( array( 'albo_proroga_giorno_non_valido' ), $esito->get_error_codes(), $quale . ': con il rifiuto del giorno non valido.' );
+			$this->assertStringNotContainsString( "\0", $esito->get_error_message(), $quale . ': il messaggio non riporta il carattere nullo.' );
+		}
+
+		// Dalla schermata la ripulitura del campo toglie i caratteri nulli alle estremita', non quelli in mezzo: nel primo giorno e nell'ultimo.
+		foreach ( array( array( "2041-10-07\0x", '' ), array( "2041-10\0-07", '' ), array( '2041-10-06', "2041-10\0-07" ) ) as $periodo ) {
+			$quale = 'schermata ' . addcslashes( implode( '..', $periodo ), "\0" );
+
+			try {
+				$esito = $this->anteprima_schermata( $this->pubblicatore, $periodo[0], $periodo[1], 'Attestazione' );
+			} catch ( \Throwable $errore ) {
+				$this->fail( $quale . ': la schermata si interrompe con ' . get_class( $errore ) . ': ' . $errore->getMessage() );
+			}
+
+			$this->assertArrayHasKey( 'errore', $esito, $quale . ': rifiutata.' );
+			$this->assertStringContainsString( 'come date valide', (string) $esito['errore'], $quale . ': con il motivo delle date non valide.' );
+		}
+
+		$this->assertSame( $prima, $this->fotografia( $id ), 'L\'atto e\' identico.' );
+		$this->nessuna_proroga( 'Carattere nullo' );
+
+		// Controllo positivo: lo stesso giorno senza il carattere nullo proroga.
+		$esito = $this->proroga(
+			$this->pubblicatore,
+			array(
+				'giorni'       => array( '2041-10-07' ),
+				'attestazione' => 'Attestazione',
+			)
+		);
+
+		$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+		$this->assertSame( '2041-10-17', conformita_core_fine_pubblicazione( $id ) );
 	}
 }
