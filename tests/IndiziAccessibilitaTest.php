@@ -516,5 +516,22 @@ class IndiziAccessibilitaTest extends \WP_UnitTestCase {
 			)['indizi'],
 			'Il titolo nel blocco lungo un pezzo esatto si trova.'
 		);
+
+		// I blocchi non si annidano: dopo un blocco esaminato la ricerca riprende dopo la sua fine.
+		$interno = "17 0 obj << /Type /ObjStm /N 1 /First 4 /Filter /FlateDecode >> stream\n" . gzcompress( '/StructTreeRoot 5 0 R' );
+		$esterno = "18 0 obj << /Type /ObjStm /N 1 /First 4 /Filter /FlateDecode >> stream\nnon compresso " . $interno . "\nendstream endobj\n";
+
+		$this->assertSame(
+			array( 'non_taggato' ),
+			$this->esito_di(
+				$this->pdf(
+					array(
+						'struttura' => false,
+						'extra'     => $esterno,
+					)
+				)
+			)['indizi'],
+			'Un blocco dentro i dati di un altro non si esamina.'
+		);
 	}
 }
