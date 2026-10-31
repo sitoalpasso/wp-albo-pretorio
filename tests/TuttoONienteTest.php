@@ -1,6 +1,6 @@
 <?php
 /**
- * Tutto o niente, guardiano, riquadro e permesso del registro: righe A-105..A-110, A-116..A-123.
+ * Tutto o niente, guardiano, riquadro e permesso del registro: righe A-105..A-110, A-116..A-123, A-328.
  *
  * I guasti si forzano da fuori, come li produrrebbe la banca dati o un altro
  * componente: un'istruzione che fallisce, un metadato che non si scrive. Il
@@ -1997,5 +1997,89 @@ class TuttoONienteTest extends \WP_UnitTestCase {
 				}
 			}
 		);
+	}
+
+	/**
+	 * A-328: finite le scritture della pubblicazione, durante il controllo finale e la conferma, nessuna concessione resta sull'atto.
+	 *
+	 * Come A-229 per l'annullamento e A-240 per la defissione. Un altro
+	 * componente che, in quei due momenti, riscrive o toglie la data di fine,
+	 * con le funzioni di WordPress o con un'istruzione diretta, non deve
+	 * riuscirci: la scrittura arriverebbe dopo il controllo che l'atto e'
+	 * invariato, e la conferma la renderebbe definitiva mentre il registro
+	 * conserva la fine calcolata.
+	 */
+	public function test_a328_nessuna_concessione_durante_i_controlli(): void {
+		global $wpdb;
+
+		$chiave  = conformita_core_chiave_fine_pubblicazione();
+		$tabella = $this->tabella_registro();
+
+		foreach ( array( 'controlli', 'conferma' ) as $caso ) {
+			$id     = $this->atto_in_verifica();
+			$titolo = get_post( $id )->post_title;
+
+			$e_il_momento = 'controlli' === $caso
+				? static function ( string $istruzione ) use ( $wpdb, $id ): bool {
+					return 1 === preg_match( '/^\s*SELECT \* FROM `?' . preg_quote( $wpdb->posts, '/' ) . '`? WHERE ID = ' . $id . '\s*$/', $istruzione );
+				}
+				: static function ( string $istruzione ): bool {
+					return 1 === preg_match( '/^\s*(COMMIT|RELEASE SAVEPOINT)/i', $istruzione );
+				};
+
+			$scritte    = false;
+			$tentativi  = array();
+			$intromette = static function ( $istruzione ) use ( $wpdb, $tabella, $id, $chiave, $e_il_momento, &$scritte, &$tentativi ) {
+				if ( ! is_string( $istruzione ) || array() !== $tentativi ) {
+					return $istruzione;
+				}
+
+				// L'ultima scrittura della pubblicazione e' la voce della conferma nel registro.
+				if ( 0 === strpos( $istruzione, 'INSERT INTO `' . $tabella . '`' ) && false !== strpos( $istruzione, "'" . Passaggi::AZIONE_CONFERMA . "'" ) ) {
+					$scritte = true;
+
+					return $istruzione;
+				}
+
+				if ( $scritte && $e_il_momento( $istruzione ) ) {
+					$tentativi = array( 'in corso' );
+					$tentativi = array(
+						'riscrive' => update_post_meta( $id, $chiave, '2041-12-31' ),
+						'diretta'  => $wpdb->update(
+							$wpdb->postmeta,
+							array( 'meta_value' => '2041-12-31' ), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- la scrittura dell'aggancio.
+							array(
+								'post_id'  => $id,
+								'meta_key' => $chiave, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- la scrittura dell'aggancio.
+							)
+						),
+						'toglie'   => delete_post_meta( $id, $chiave ),
+						'riga'     => $wpdb->update( $wpdb->posts, array( 'post_title' => 'Oggetto cambiato dopo i controlli' ), array( 'ID' => $id ) ),
+					);
+				}
+
+				return $istruzione;
+			};
+
+			add_filter( 'query', $intromette );
+
+			try {
+				$esito = $this->pubblica_da_codice( $id, $this->pubblicatore );
+			} finally {
+				remove_filter( 'query', $intromette );
+			}
+
+			clean_post_cache( $id );
+
+			$this->assertArrayHasKey( 'riscrive', $tentativi, $caso . ': precondizione, l\'aggancio ha provato.' );
+			$this->assertFalse( $tentativi['riscrive'], $caso . ': la riscrittura con le funzioni di WordPress e\' rifiutata.' );
+			$this->assertSame( 0, $tentativi['diretta'], $caso . ': la riscrittura diretta non tocca niente.' );
+			$this->assertFalse( $tentativi['toglie'], $caso . ': la data di fine non si toglie.' );
+			$this->assertNotSame( 1, $tentativi['riga'], $caso . ': l\'oggetto non cambia con un\'istruzione diretta.' );
+			$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+			$this->assertSame( 'publish', get_post_status( $id ), $caso . ': l\'atto e\' pubblicato.' );
+			$this->assertSame( $esito['fine'], (string) $wpdb->get_var( $wpdb->prepare( "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s", $id, $chiave ) ), $caso . ': la fine e\' quella calcolata, nella banca dati.' );
+			$this->assertSame( $titolo, (string) $wpdb->get_var( $wpdb->prepare( "SELECT post_title FROM {$wpdb->posts} WHERE ID = %d", $id ) ), $caso . ': e l\'oggetto e\' quello di prima.' );
+		}
 	}
 }
