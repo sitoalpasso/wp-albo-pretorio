@@ -534,4 +534,62 @@ class IndiziAccessibilitaTest extends \WP_UnitTestCase {
 			'Un blocco dentro i dati di un altro non si esamina.'
 		);
 	}
+
+	/**
+	 * A-336: il titolo nei metadati con l'apertura che porta attributi.
+	 */
+	public function test_a336_titolo_con_attributi(): void {
+		$metadati = static function ( string $valore ): string {
+			return "15 0 obj << /Type /Metadata /Subtype /XML >> stream\n<x:xmpmeta><rdf:RDF><rdf:Description><dc:title xmlns:dc=\"http://purl.org/dc/elements/1.1/\"><rdf:Alt><rdf:li xml:lang=\"x-default\">" . $valore . "</rdf:li></rdf:Alt></dc:title></rdf:Description></rdf:RDF></x:xmpmeta>\nendstream endobj\n";
+		};
+
+		$this->assertSame(
+			array(),
+			$this->esito_di(
+				$this->pdf(
+					array(
+						'titolo' => null,
+						'extra'  => $metadati( 'Delibera di prova' ),
+					)
+				)
+			)['indizi'],
+			'Il titolo con l\'apertura che porta attributi si trova.'
+		);
+		$this->assertSame(
+			array( 'senza_titolo' ),
+			$this->esito_di(
+				$this->pdf(
+					array(
+						'titolo' => null,
+						'extra'  => $metadati( ' ' ),
+					)
+				)
+			)['indizi'],
+			'Il titolo vuoto con l\'apertura che porta attributi resta vuoto.'
+		);
+		$this->assertSame(
+			array( 'senza_titolo' ),
+			$this->esito_di(
+				$this->pdf(
+					array(
+						'titolo' => null,
+						'extra'  => "15 0 obj << /Type /Metadata /Subtype /XML >> stream\n<dc:titles>Delibera di prova</dc:titles><dc:title> </dc:title>\nendstream endobj\n",
+					)
+				)
+			)['indizi'],
+			'Un elemento con un nome che comincia allo stesso modo non e\' il titolo.'
+		);
+		$this->assertSame(
+			array(),
+			$this->esito_di(
+				$this->pdf(
+					array(
+						'titolo' => null,
+						'extra'  => $metadati( ' ' ) . $metadati( 'Delibera di prova' ),
+					)
+				)
+			)['indizi'],
+			'Dopo un titolo vuoto, il titolo successivo si trova.'
+		);
+	}
 }
