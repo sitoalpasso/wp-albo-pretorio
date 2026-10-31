@@ -227,6 +227,7 @@ require_once __DIR__ . '/includes/class-schermata-amministrazioni-ospitate.php';
 require_once __DIR__ . '/includes/class-scheda-atto.php';
 require_once __DIR__ . '/includes/class-documenti-atto.php';
 require_once __DIR__ . '/includes/class-scaduti-riservati.php';
+require_once __DIR__ . '/includes/class-indizi-accessibilita.php';
 require_once __DIR__ . '/includes/class-scheda-documenti.php';
 require_once __DIR__ . '/includes/class-nome-scaricato.php';
 require_once __DIR__ . '/includes/class-repertorio.php';
