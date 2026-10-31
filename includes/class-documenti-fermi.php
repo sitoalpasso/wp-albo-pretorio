@@ -419,11 +419,94 @@ final class DocumentiFermi {
 			return 'UPDATE ' . $wpdb->posts . ' SET post_parent = ' . $pezzi[1] . " WHERE post_type = 'attachment' AND ID IN ( " . implode( ',', $restano ) . ' )';
 		}
 
-		if ( 1 === preg_match( '/\AUPDATE `' . $tabella . '` SET `post_type` = \'(?:[^\'\\\\]|\\\\.)*\' WHERE `ID` = ([0-9]+)\z/', $istruzione, $pezzi ) && self::rifiuta( (int) $pezzi[1] ) ) {
+		if ( 1 === preg_match( '/\AUPDATE `' . $tabella . '` SET (.+) WHERE `ID` = ([0-9]+)\z/s', $istruzione, $pezzi ) && ! self::scrittura_ammessa( $pezzi[1], (int) $pezzi[2] ) ) {
 			return '';
 		}
 
 		return $istruzione;
+	}
+
+	/**
+	 * Se una scrittura nella forma di `$wpdb->update()` sulla riga di un contenuto e' ammessa.
+	 *
+	 * E' la forma di `wp_publish_post()`, di `set_post_type()` e della
+	 * scrittura finale del salvataggio, che porta tutti i campi. Passa se non
+	 * tocca atto, stato, tipo o tipo di file, o li scrive con i valori che
+	 * hanno; se l'elenco dei valori non si legge, sul documento si rifiuta.
+	 *
+	 * @param string $insieme Parte dell'istruzione fra `SET` e `WHERE`.
+	 * @param int    $id      Contenuto.
+	 * @return bool
+	 */
+	private static function scrittura_ammessa( string $insieme, int $id ): bool {
+		$valori = self::valori_scritti( $insieme );
+
+		if ( null !== $valori && array() === array_intersect( array_keys( $valori ), self::CAMPI ) ) {
+			return true;
+		}
+
+		$stato = self::stato( $id );
+
+		if ( self::LIBERO === $stato ) {
+			return true;
+		}
+
+		$riga = self::SENZA_RISPOSTA === $stato || null === $valori ? null : self::riga( $id );
+
+		if ( null !== $riga ) {
+			$cambia = false;
+
+			foreach ( self::CAMPI as $campo ) {
+				$cambia = $cambia || ( array_key_exists( $campo, $valori ) && $valori[ $campo ] !== $riga[ $campo ] );
+			}
+
+			if ( ! $cambia ) {
+				return true;
+			}
+		}
+
+		self::segnala( $id, null === $riga && self::PROTETTO !== $stato ? self::SENZA_RISPOSTA : self::PROTETTO );
+
+		return false;
+	}
+
+	/**
+	 * I valori di un elenco `\`colonna\` = valore` come lo scrive `$wpdb->update()`, o nullo se non si legge.
+	 *
+	 * @param string $insieme Elenco.
+	 * @return array<string, string>|null
+	 */
+	private static function valori_scritti( string $insieme ): ?array {
+		$valori = array();
+		$resto  = $insieme;
+
+		while ( '' !== $resto ) {
+			if ( 1 !== preg_match( "/\\A`([A-Za-z0-9_]+)` = ('((?:[^'\\\\]|\\\\.)*)'|-?[0-9]+(?:\\.[0-9]+)?|NULL)(, |\\z)/s", $resto, $pezzi ) ) {
+				return null;
+			}
+
+			$valore = isset( $pezzi[3] ) && '' !== $pezzi[2] && "'" === $pezzi[2][0]
+				? preg_replace_callback(
+					'/\\\\(.)/s',
+					static function ( array $carattere ): string {
+						$speciali = array(
+							'0' => "\0",
+							'n' => "\n",
+							'r' => "\r",
+							'Z' => "\x1a",
+						);
+
+						return $speciali[ $carattere[1] ] ?? $carattere[1];
+					},
+					$pezzi[3]
+				)
+				: $pezzi[2];
+
+			$valori[ strtolower( $pezzi[1] ) ] = (string) $valore;
+			$resto                             = (string) substr( $resto, strlen( $pezzi[0] ) );
+		}
+
+		return $valori;
 	}
 
 	/**
@@ -552,15 +635,42 @@ final class DocumentiFermi {
 	 * @return bool
 	 */
 	private static function metadato_ammesso( int $id, string $chiave ): bool {
-		if ( META_SOSTITUITO_DA === $chiave ) {
+		$forma = self::forma_della_chiave( $chiave );
+
+		if ( self::forma_della_chiave( META_SOSTITUITO_DA ) === $forma ) {
 			return self::segno_assente( $id );
 		}
 
-		if ( ! in_array( $chiave, self::chiavi_del_file(), true ) ) {
+		if ( null !== $forma && ! in_array( $forma, self::forme_del_file(), true ) ) {
 			return true;
 		}
 
 		return ! self::rifiuta( $id );
+	}
+
+	/**
+	 * La chiave come la confronta la banca dati, o nulla se non e' una chiave semplice.
+	 *
+	 * Le colonne delle chiavi confrontano senza distinguere maiuscole e
+	 * minuscole e senza contare gli spazi in fondo, e possono non distinguere
+	 * le lettere accentate: una chiave con spazi o con caratteri fuori
+	 * dall'alfabeto semplice non si confronta qui, e su un documento protetto
+	 * si rifiuta.
+	 *
+	 * @param string $chiave Chiave.
+	 * @return string|null
+	 */
+	private static function forma_della_chiave( string $chiave ): ?string {
+		return 1 === preg_match( '/\A[\x21-\x7e]*\z/', $chiave ) ? strtolower( $chiave ) : null;
+	}
+
+	/**
+	 * Le forme delle chiavi del file.
+	 *
+	 * @return array<int, string>
+	 */
+	private static function forme_del_file(): array {
+		return array_map( 'strtolower', self::chiavi_del_file() );
 	}
 
 	/**
@@ -610,7 +720,9 @@ final class DocumentiFermi {
 	private static function chiave_libera( string $chiave ): bool {
 		global $wpdb;
 
-		if ( ! TipoAtto::tipo_nostro() || ( META_SOSTITUITO_DA !== $chiave && ! in_array( $chiave, self::chiavi_del_file(), true ) ) ) {
+		$forma = self::forma_della_chiave( $chiave );
+
+		if ( ! TipoAtto::tipo_nostro() || ( null !== $forma && self::forma_della_chiave( META_SOSTITUITO_DA ) !== $forma && ! in_array( $forma, self::forme_del_file(), true ) ) ) {
 			return true;
 		}
 

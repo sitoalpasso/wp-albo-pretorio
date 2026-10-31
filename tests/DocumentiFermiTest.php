@@ -754,4 +754,105 @@ class DocumentiFermiTest extends \WP_UnitTestCase {
 		$this->assertInstanceOf( \WP_Post::class, wp_delete_attachment( $suo, true ), 'L\'allegato di un articolo si cancella.' );
 		$this->assertSame( TIPO, get_post_type( $documenti['atto'] ) );
 	}
+
+	/**
+	 * A-324: le scritture dirette di WordPress sulla riga del documento non cambiano atto, stato, tipo o tipo di file (ALBO-09).
+	 *
+	 * `wp_publish_post()` e ogni altra scrittura nella forma di `$wpdb->update()`
+	 * sulla riga del documento, con un campo solo o con tutti i campi come la
+	 * scrive il salvataggio.
+	 */
+	public function test_a324_scritture_dirette_di_wordpress(): void {
+		global $wpdb;
+
+		$this->setExpectedIncorrectUsage( DocumentiFermi::SEGNALAZIONE );
+
+		$documenti  = $this->pubblicato_e_oscurato();
+		$fotografie = $this->fotografie( $documenti );
+
+		foreach ( array( 'principale', 'allegato', 'sostituito' ) as $ruolo ) {
+			$id = $documenti[ $ruolo ];
+
+			wp_publish_post( $id );
+			$this->invariati( $documenti, $fotografie, 'wp_publish_post, ' . $ruolo );
+
+			foreach ( array(
+				array( 'post_status' => 'private' ),
+				array( 'post_parent' => 0 ),
+				array( 'post_mime_type' => 'text/plain' ),
+				array(
+					'post_title'  => 'Titolo cambiato insieme allo stato',
+					'post_status' => 'draft',
+				),
+			) as $campi ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prova: la forma di $wpdb->update usata dalle funzioni di WordPress.
+				$this->assertFalse( $wpdb->update( $wpdb->posts, $campi, array( 'ID' => $id ) ), wp_json_encode( $campi ) . ' non si scrive sul documento ' . $ruolo . '.' );
+				$this->invariati( $documenti, $fotografie, '$wpdb->update ' . wp_json_encode( $campi ) . ', ' . $ruolo );
+			}
+		}
+
+		// Controllo positivo: la stessa forma con i campi com'erano passa, e cambia il titolo.
+		$riga = $fotografie['allegato']['riga'];
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- come sopra.
+		$esito = $wpdb->update(
+			$wpdb->posts,
+			array(
+				'post_title'     => 'Titolo con apice \' e barra \\ e 50%',
+				'post_parent'    => (int) $riga['post_parent'],
+				'post_status'    => $riga['post_status'],
+				'post_type'      => $riga['post_type'],
+				'post_mime_type' => $riga['post_mime_type'],
+			),
+			array( 'ID' => $documenti['allegato'] )
+		);
+		$this->assertSame( 1, $esito, 'Con i campi di prima la scrittura passa.' );
+		clean_post_cache( $documenti['allegato'] );
+		$this->assertSame( 'Titolo con apice \' e barra \\ e 50%', get_post( $documenti['allegato'] )->post_title );
+
+		$qualunque = $this->allegato_qualunque();
+		wp_publish_post( $qualunque );
+		clean_post_cache( $qualunque );
+		$this->assertSame( 'publish', get_post_status( $qualunque ), 'Controllo positivo: un allegato qualunque si scrive.' );
+	}
+
+	/**
+	 * A-325: le chiavi dei metadati scritte con un'altra forma non aggirano la protezione (ALBO-10, ALBO-12).
+	 *
+	 * La banca dati confronta le chiavi senza distinguere maiuscole e
+	 * minuscole e senza contare gli spazi in fondo: una variante della chiave
+	 * tocca la stessa riga, o ne aggiunge una che le letture dirette contano.
+	 */
+	public function test_a325_chiavi_in_altra_forma(): void {
+		$this->setExpectedIncorrectUsage( DocumentiFermi::SEGNALAZIONE );
+
+		$documenti  = $this->pubblicato_e_oscurato();
+		$fotografie = $this->fotografie( $documenti );
+		$varianti   = array( '_WP_ATTACHED_FILE', '_wp_attached_file ', '_Conformita_Core_Impronta', strtoupper( META_SOSTITUITO_DA ), '_wp_àttached_file' );
+
+		foreach ( $varianti as $variante ) {
+			// Il segno manca sul principale, e li' si puo' scrivere: la variante del segno si prova sulla versione sostituita.
+			foreach ( strtoupper( META_SOSTITUITO_DA ) === $variante ? array( 'sostituito' ) : array( 'principale', 'sostituito' ) as $ruolo ) {
+				$id = $documenti[ $ruolo ];
+
+				$this->assertFalse( update_post_meta( $id, $variante, 'altro' ), '"' . $variante . '" non cambia sul documento ' . $ruolo . '.' );
+				$this->assertFalse( delete_post_meta( $id, $variante ), '"' . $variante . '" non si toglie.' );
+				$this->assertFalse( add_post_meta( $id, $variante, 'doppione' ), '"' . $variante . '" non si aggiunge.' );
+				$this->invariati( $documenti, $fotografie, $variante . ', ' . $ruolo );
+			}
+
+			$this->assertFalse( delete_post_meta_by_key( $variante ), '"' . $variante . '" non si toglie a tutti i contenuti.' );
+			$this->invariati( $documenti, $fotografie, $variante . ' a tutti i contenuti' );
+		}
+
+		$this->assertIsInt( add_post_meta( $documenti['allegato'], '_chiave_qualunque', 'valore' ) );
+		$righe = $this->fotografia_documento( $documenti['allegato'] )['dati'];
+		$riga  = (int) end( $righe )['meta_id'];
+		$this->assertFalse( update_metadata_by_mid( 'post', $riga, '/tmp/altro.pdf', '_WP_Attached_File' ), 'Una riga qualunque non diventa il file del documento con un altro nome.' );
+		$this->assertTrue( delete_post_meta( $documenti['allegato'], '_chiave_qualunque' ) );
+
+		// Controllo positivo: una chiave qualunque in maiuscolo si scrive.
+		$this->assertIsInt( add_post_meta( $documenti['allegato'], '_CHIAVE_QUALUNQUE', 'valore' ) );
+		$this->assertTrue( delete_post_meta( $documenti['allegato'], '_CHIAVE_QUALUNQUE' ) );
+		$this->invariati( $documenti, $fotografie, 'dopo i controlli positivi' );
+	}
 }
