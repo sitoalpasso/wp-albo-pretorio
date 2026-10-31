@@ -2963,7 +2963,7 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 		$di_prima = wp_cache_get( $atto, 'post_meta' );
 		$this->assertIsArray( $di_prima, 'Precondizione: i dati di prima sono in memoria.' );
 
-		$esito             = $this->oscurato( $atto, $uscente, "%PDF-1.4\n% versione oscurata\n%%EOF\n" );
+		$esito = $this->oscurato( $atto, $uscente, "%PDF-1.4\n% versione oscurata\n%%EOF\n" );
 		// Scritti per esteso: numero 1 del 2041, dal 1 ottobre, 15 giorni, fino al 16 ottobre (ALBO-30).
 		$atteso_principale = 'albo-2041-0001-dal-01-10-al-16-10.pdf';
 		$atteso_allegato   = 'albo-2041-0001-dal-01-10-al-16-10-allegato-1.pdf';
