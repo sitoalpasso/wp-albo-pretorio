@@ -1115,6 +1115,92 @@ class PaginaPubblicaTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-337: nessuna misura anti copia sulle pagine e sul documento (ALBO-14).
+	 *
+	 * Elenco e scheda si aprono come un visitatore: niente comandi contro la
+	 * copia, la selezione, il tasto destro o il trascinamento; oggetto e dati
+	 * come testo, non come immagini; il documento con un collegamento semplice.
+	 * Poi il documento si scarica: arriva identico a quello caricato, come PDF
+	 * che il browser mostra, senza una pagina chiusa intorno.
+	 */
+	public function test_a337_niente_misure_anti_copia(): void {
+		$this->pagina_albo();
+		$this->fissa_orologi( '2041-10-01 09:30:00' );
+
+		$oggetto   = 'Atto da leggere e da copiare';
+		$contenuto = "%PDF-1.7\n1 0 obj << /Type /Catalog /StructTreeRoot 2 0 R /Lang (it-IT) >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n";
+		$atto      = $this->atto_completo( 'normativo', array( 'post_title' => $oggetto ) );
+		$documento = DocumentiAtto::deposita( $atto, $this->file_temporaneo( 'delibera.pdf', $contenuto ), DocumentiAtto::ULTERIORE, 'percorso_locale' );
+
+		$this->assertIsInt( $documento, 'Precondizione: il documento si deposita.' );
+
+		$this->come(
+			$this->redattore,
+			static function () use ( $atto ) {
+				return wp_update_post(
+					array(
+						'ID'          => $atto,
+						'post_status' => 'pending',
+					)
+				);
+			}
+		);
+		clean_post_cache( $atto );
+
+		$esito = $this->pubblica_da_codice( $atto, $this->pubblicatore );
+
+		$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+		$this->assertSame( 'publish', get_post_status( $atto ), 'Precondizione: l\'atto e\' pubblicato.' );
+
+		$this->fissa_orologi( '2041-10-05 10:00:00' );
+		wp_set_current_user( 0 );
+
+		$misure = '/\bon(?:copy|cut|beforecopy|paste|contextmenu|selectstart|dragstart|mousedown)\s*=|user-select\s*:\s*none|-webkit-touch-callout/i';
+
+		foreach ( array(
+			'elenco' => $this->indirizzo(),
+			'scheda' => $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $atto ) ),
+		) as $quale => $dove ) {
+			$html = (string) $this->pagina_disegnata( $dove );
+
+			$this->assertStringContainsString( 'class="albo-pretorio"', $html, $quale . ': precondizione, la pagina e\' disegnata.' );
+			$this->assertSame( 0, preg_match( $misure, $html ), $quale . ': nessun comando o stile contro la copia.' );
+
+			$xpath  = $this->leggi( $html );
+			$radice = $xpath->query( '//*[contains(concat(" ", normalize-space(@class), " "), " albo-pretorio ")]' )->item( 0 );
+
+			$this->assertInstanceOf( \DOMElement::class, $radice, $quale . ': precondizione, il contenitore dell\'albo.' );
+			$this->assertStringContainsString( $oggetto, $this->testo( $radice ), $quale . ': l\'oggetto e\' testo.' );
+			$this->assertSame( 0, $xpath->query( './/img | .//canvas | .//svg | .//object | .//embed | .//iframe | .//script', $radice )->length, $quale . ': niente immagini o contenitori al posto del testo, niente script.' );
+		}
+
+		$xpath        = $this->leggi( (string) $this->pagina_disegnata( $this->indirizzo( array( PaginaPubblica::PARAMETRO_ATTO => $atto ) ) ) );
+		$indirizzo    = (string) conformita_core_indirizzo_consegna( $documento );
+		$collegati    = array();
+		$collegamenti = $xpath->query( '//a[@href]' );
+
+		foreach ( $collegamenti as $collegamento ) {
+			if ( html_entity_decode( $collegamento->getAttribute( 'href' ), ENT_QUOTES ) === $indirizzo ) {
+				$collegati[] = $collegamento;
+			}
+		}
+
+		$this->assertCount( 1, $collegati, 'Il documento ha un collegamento semplice al punto di consegna.' );
+		$this->assertNotSame( '', $this->testo( $collegati[0] ), 'Il collegamento al documento ha un testo.' );
+
+		$consegne = $this->consegna( $documento );
+
+		$this->assertTrue( $this->consegnato( $consegne ), 'Il documento si scarica.' );
+
+		$intestazioni = $consegne[0]['intestazioni'];
+
+		$this->assertSame( $contenuto, (string) file_get_contents( (string) $consegne[0]['percorso'] ), 'Il documento arriva identico a quello caricato.' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- lettura del file consegnato.
+		$this->assertSame( 'application/pdf', $intestazioni['Content-Type'] ?? '', 'Il documento arriva come PDF.' );
+		$this->assertStringStartsWith( 'inline;', (string) ( $intestazioni['Content-Disposition'] ?? '' ), 'Il browser lo mostra, e lo si puo\' anche salvare.' );
+		$this->assertStringNotContainsString( 'sandbox', (string) ( $intestazioni['Content-Security-Policy'] ?? '' ), 'Nessuna pagina chiusa intorno al documento.' );
+	}
+
+	/**
 	 * A-204: il documento di un atto che la pagina non mostra non si scarica.
 	 *
 	 * Il punto di consegna del meccanismo comune guarda pubblicazione,
