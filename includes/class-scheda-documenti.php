@@ -211,7 +211,42 @@ final class SchedaDocumenti {
 			);
 		}
 
+		self::indizi( $documento );
+
 		echo '</li>';
+	}
+
+	/**
+	 * Gli indizi di accessibilita' del documento, detti come indizi (ALBO-13).
+	 *
+	 * @param int $documento Documento.
+	 */
+	private static function indizi( int $documento ): void {
+		$esito = IndiziAccessibilita::esamina( $documento );
+
+		if ( ! $esito['controllato'] ) {
+			printf(
+				'<p class="description">%1$s %2$s</p>',
+				esc_html__( 'Accessibilita\' non controllata:', 'albo-pretorio-pa' ),
+				esc_html( IndiziAccessibilita::testo_motivo( (string) $esito['motivo'] ) )
+			);
+
+			return;
+		}
+
+		if ( array() === $esito['indizi'] ) {
+			printf( '<p class="description">%s</p>', esc_html__( 'Nessun indizio di problemi di accessibilita\' trovato dal controllo automatico, che non sostituisce una verifica.', 'albo-pretorio-pa' ) );
+
+			return;
+		}
+
+		printf( '<p>%s</p><ul class="albo-pretorio-indizi">', esc_html__( 'Indizi di accessibilita\' trovati dal controllo automatico (sono indizi, non una verifica):', 'albo-pretorio-pa' ) );
+
+		foreach ( $esito['indizi'] as $indizio ) {
+			printf( '<li>%s</li>', esc_html( IndiziAccessibilita::testo_indizio( $indizio ) ) );
+		}
+
+		printf( '</ul><p class="description">%s</p>', esc_html__( 'La pubblicazione resta possibile. Per una verifica vera serve uno strumento apposito per i PDF.', 'albo-pretorio-pa' ) );
 	}
 
 	/**
