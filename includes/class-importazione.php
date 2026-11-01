@@ -1609,9 +1609,7 @@ final class Importazione {
 	 * @return true|\WP_Error
 	 */
 	private static function prendi_turno() {
-		global $wpdb;
-
-		if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK( %s, 0 )', self::nome_turno() ) ) ) {
+		if ( ! Lucchetti::prendi( self::nome_turno(), 0 ) ) {
 			return new \WP_Error( 'albo_importazione_occupata', __( 'Un\'altra richiesta sta lavorando all\'importazione in questo momento. Si riprova fra poco.', 'albo-pretorio-pa' ) );
 		}
 
@@ -1622,9 +1620,7 @@ final class Importazione {
 	 * Lascia il turno dell'importazione.
 	 */
 	private static function lascia_turno(): void {
-		global $wpdb;
-
-		$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', self::nome_turno() ) );
+		Lucchetti::lascia( self::nome_turno() );
 	}
 
 	/**

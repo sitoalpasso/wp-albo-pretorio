@@ -382,16 +382,14 @@ final class AmministrazioniOspitate {
 	 * @return true|\WP_Error
 	 */
 	private static function salva_bloccando( string $blocco, $nomi, $tolte, $nuove, int $utente, \DateTimeImmutable $adesso ) {
-		global $wpdb;
-
-		if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK( %s, %d )', $blocco, self::ATTESA_BLOCCO ) ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- blocco della fila, non dati.
+		if ( ! Lucchetti::prendi( $blocco, self::ATTESA_BLOCCO ) ) {
 			return self::errore( 'albo_ospitate_occupato', __( 'qualcun altro sta salvando l\'elenco in questo momento. Riprovare fra poco.', 'albo-pretorio-pa' ) );
 		}
 
 		try {
 			return self::salva_in_transazione( $nomi, $tolte, $nuove, $utente, $adesso );
 		} finally {
-			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', $blocco ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- blocco della fila, non dati.
+			Lucchetti::lascia( $blocco );
 		}
 	}
 

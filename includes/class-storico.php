@@ -440,8 +440,6 @@ final class Storico {
 	 * @return true|\WP_Error
 	 */
 	public static function salva( $scelta, $anni, $mostrato, int $utente, \DateTimeImmutable $adesso ) {
-		global $wpdb;
-
 		if ( ! is_string( $scelta ) || ! in_array( $scelta, array( self::ACCESO, self::SPENTO ), true ) ) {
 			return new \WP_Error(
 				'albo_copia_scelta_mancante',
@@ -480,7 +478,7 @@ final class Storico {
 
 		$blocco = self::nome_blocco();
 
-		if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK( %s, %d )', $blocco, self::ATTESA_BLOCCO ) ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- blocco della fila, non dati.
+		if ( ! Lucchetti::prendi( $blocco, self::ATTESA_BLOCCO ) ) {
 			return self::occupato();
 		}
 
@@ -490,7 +488,7 @@ final class Storico {
 			return self::salva_in_fila( $scelta, $numero, $mostrato, $utente, $adesso );
 		} finally {
 			self::$in_salvataggio = false;
-			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', $blocco ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- blocco della fila, non dati.
+			Lucchetti::lascia( $blocco );
 		}
 	}
 

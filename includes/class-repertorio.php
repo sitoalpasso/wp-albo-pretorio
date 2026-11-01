@@ -95,9 +95,7 @@ final class Repertorio {
 	 * @return true|\WP_Error
 	 */
 	public static function blocca_anno( int $anno ) {
-		global $wpdb;
-
-		if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK( %s, %d )', self::nome_blocco_anno( $anno ), self::ATTESA_ANNO ) ) ) {
+		if ( ! Lucchetti::prendi( self::nome_blocco_anno( $anno ), self::ATTESA_ANNO ) ) {
 			return new \WP_Error(
 				'albo_repertorio_anno_occupato',
 				sprintf(
@@ -121,13 +119,13 @@ final class Repertorio {
 	 * @param int $anno Anno.
 	 */
 	public static function sblocca_anno( int $anno ): void {
-		global $wpdb;
-
 		if ( self::transazione_esterna() ) {
+			Lucchetti::trattieni( self::nome_blocco_anno( $anno ) );
+
 			return;
 		}
 
-		$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', self::nome_blocco_anno( $anno ) ) );
+		Lucchetti::lascia( self::nome_blocco_anno( $anno ) );
 	}
 
 	/**
