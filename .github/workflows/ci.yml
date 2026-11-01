@@ -30,7 +30,7 @@ jobs:
         run: composer lint
 
   phpunit:
-    name: Test (WordPress ${{ matrix.wp }}, PHP ${{ matrix.php }})
+    name: Test (WordPress ${{ matrix.wp }}, PHP ${{ matrix.php }}, ${{ matrix.db }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -39,13 +39,20 @@ jobs:
           # Le versioni minime dichiarate nell'intestazione del plugin.
           - wp: "6.5"
             php: "8.1"
+            db: "mysql:8.0"
           # L'ultima stabile, per accorgersi delle rotture in anticipo.
           - wp: "latest"
             php: "8.3"
+            db: "mysql:8.0"
+          # Una banca dati che tiene un solo lucchetto per connessione e non
+          # conosce RELEASE_ALL_LOCKS: WordPress la ammette ancora.
+          - wp: "latest"
+            php: "8.3"
+            db: "mariadb:5.5"
 
     services:
       mysql:
-        image: mysql:8.0
+        image: ${{ matrix.db }}
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: wordpress_test

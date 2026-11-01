@@ -117,6 +117,10 @@ tecniche sono decisioni di prodotto, marcate come tali, e restano discutibili.
 
 - WordPress 6.5 o successivo
 - PHP 8.1 o successivo
+- MySQL o MariaDB, nelle versioni che WordPress ammette. Dove la banca dati tiene un solo
+  lucchetto per connessione (MySQL prima della 5.7.5, MariaDB prima della 10.0.2), le
+  operazioni dell'albo che si mettono in fila vanno una alla volta anche quando non si
+  toccherebbero: è più lento, non meno sicuro. La CI prova anche MariaDB 5.5.
 - Sito singolo. **Multisite non supportato.**
 - Plugin `conformita-core` attivo
 
