@@ -210,4 +210,57 @@ class StaticoTest extends WP_UnitTestCase {
 			'E nessuno dei tre deve confondersi con i nomi vicini che restano leciti.'
 		);
 	}
+
+	/**
+	 * Le forme delle misure anti copia, per nome.
+	 *
+	 * @return array<string, string>
+	 */
+	private function misure_anti_copia(): array {
+		return array(
+			'selezione bloccata'            => '/user-select\s*:\s*none/i',
+			'menu del tocco prolungato'     => '/-webkit-touch-callout\s*:\s*none/i',
+			'comando su un evento di copia' => '/\bon(?:copy|cut|beforecopy|contextmenu|selectstart|dragstart)\s*=/i',
+			'ascolto di un evento di copia' => '/addEventListener\s*\(\s*[\'"](?:copy|cut|contextmenu|selectstart|dragstart)[\'"]/i',
+		);
+	}
+
+	/**
+	 * A-338: nei sorgenti e nei fogli di stile del componente non ci sono misure anti copia (ALBO-14).
+	 *
+	 * Vale anche per le pagine che nessuna prova apre. Prima si controlla che
+	 * ogni forma cercata trovi davvero la misura che deve trovare.
+	 */
+	public function test_a338_niente_misure_anti_copia_nei_sorgenti(): void {
+		$misure = $this->misure_anti_copia();
+		$esempi = array(
+			'selezione bloccata'            => '.albo-pretorio { -webkit-user-select: none; user-select:none; }',
+			'menu del tocco prolungato'     => '.albo-pretorio { -webkit-touch-callout: none; }',
+			'comando su un evento di copia' => '<div class="albo-pretorio" oncontextmenu="return false">',
+			'ascolto di un evento di copia' => 'document.addEventListener( "copy", blocca );',
+		);
+
+		foreach ( $misure as $nome => $forma ) {
+			$this->assertSame( 1, preg_match( $forma, $esempi[ $nome ] ), 'La forma trova la misura: ' . $nome . '.' );
+		}
+
+		$radice = dirname( __DIR__ );
+		$testi  = $this->sorgenti();
+		$stili  = glob( $radice . '/assets/*/*.{css,js}', GLOB_BRACE );
+
+		$this->assertNotSame( array(), $testi, 'Precondizione: i sorgenti devono essere stati letti.' );
+		$this->assertNotEmpty( $stili, 'Precondizione: il foglio di stile pubblico deve essere stato trovato.' );
+
+		foreach ( is_array( $stili ) ? $stili : array() as $percorso ) {
+			$testo = (string) file_get_contents( $percorso ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- lettura dei fogli di stile del componente.
+
+			$testi[ 'assets/' . basename( $percorso ) ] = (string) preg_replace( '#/\*.*?\*/#s', '', $testo );
+		}
+
+		foreach ( $testi as $file => $testo ) {
+			foreach ( $misure as $nome => $forma ) {
+				$this->assertSame( 0, preg_match( $forma, $testo ), 'Nessuna misura anti copia (' . $nome . ') in ' . $file . '.' );
+			}
+		}
+	}
 }
