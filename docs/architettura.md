@@ -263,7 +263,7 @@ disponibile la meta' che manca.
 | **Consegna allegati** | I file stanno in cartella protetta, il deposito si rifiuta finché il server non risulta negare l'accesso diretto, e si scaricano solo da un punto di consegna che rifà i controlli a ogni richiesta. L'albo la usa dall'interfaccia `1.3.0` | ALBO-05, ALBO-18, ALBO-20 | **sì** |
 | **Registro delle modifiche** | Log solo in aggiunta: chi, cosa, quando, perché. Le voci dei passaggi di stato le scrive da sé; l'albo aggiunge quelle che solo lui conosce. L'albo lo usa dall'interfaccia `1.4.0` | ALBO-10 | **sì** |
 | Controllo indicizzazione | Applica la politica dichiarata: noindex e fuori sitemap | ALBO-06 | no, pianificato |
-| Separazione delle esposizioni | Lo stesso documento può stare anche in trasparenza con regole sue, senza duplicare il file | ALBO-15 | no, pianificato |
+| Separazione delle esposizioni | Lo stesso documento può stare anche in trasparenza con regole sue: una copia per sezione, ciascuna con il suo ciclo di vita | ALBO-15 | no, pianificato |
 
 ## Il confine tra albo e core, in una frase
 

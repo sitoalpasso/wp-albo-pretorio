@@ -234,8 +234,13 @@ e non corregge.
   defissione anticipata la fotografia dice anche se l'amministrazione ha dichiarato che
   cosa la rimozione comporti per l'adempimento; se lo dichiara dopo, la dichiarazione si
   aggiunge come appendice congelata a sé, con chi e quando, e non riscrive la fotografia.
-- **Separazione dalla trasparenza** (ALBO-15): stesso documento, due esposizioni con
-  cicli di vita indipendenti, file mai duplicato.
+- **Separazione dalla trasparenza** (ALBO-15): quando lo stesso documento serve anche alla
+  trasparenza, si carica una copia per sezione, ciascuna con il suo ciclo di vita. Defisso o
+  scaduto l'atto, la copia dell'albo non è più raggiungibile, e quella della trasparenza resta
+  finché la trasparenza la espone (decisione del 31 ottobre 2026, che sostituisce il file
+  condiviso: un file solo avrebbe chiesto eccezioni ai blocchi dell'albo sui documenti degli
+  atti fermi e scaduti). Il costo: per oscurare il documento in tutte e due le sezioni si
+  oscurano tutte e due le copie.
 - **Ricerca e filtri** (ALBO-16) per tipo, organo, date e testo, usabili da tastiera. Stanno
   sulla **pagina pubblica dell'albo**, che è una pagina del sito in cui l'amministrazione
   scrive il codice breve `[albo_pretorio]`, senza nessuna impostazione: elenco degli atti in
@@ -439,10 +444,10 @@ test verde è la sola scorrettezza che rende inutile tutta la tabella.
 | ALBO-12 | da fare | I dati eccedenti non finiscono nella versione pubblica, e se ci sono finiti si sostituisce l'allegato con la versione oscurata senza far ripartire il termine | **norma** minimizzazione, l'originale non va esposto (GDPR art. 5.1.c); divieto assoluto di diffondere dati genetici, biometrici e sulla salute (d.lgs. 196/2003 art. 2-septies c. 8). **Prodotto** la coppia originale riservato più versione oscurata, la sostituzione come unica eccezione a ALBO-09, e la scelta che il termine non riparta: i testi impongono che la diffusione vietata cessi e tacciono sull'effetto dell'oscuramento sul periodo |
 | ALBO-13 | fatto | I documenti pubblicati sono accessibili | **norma** il risultato (l. 69/2009 art. 32 che rinvia a l. 4/2004 art. 11). **Prodotto** l'avviso euristico al caricamento, che segnala un indizio e non blocca |
 | ALBO-14 | fatto | Niente anti copia che rompa l'accessibilità | **norma** l'accessibilità non si comprime per ostacolare il prelievo (Garante, l. 4/2004) |
-| ALBO-15 | da fare | Separazione dall'amministrazione trasparente | **norma** finalità e durate diverse (d.lgs. 33/2013, Garante). **Prodotto** due esposizioni indipendenti con un file solo |
+| ALBO-15 | da fare | Separazione dall'amministrazione trasparente | **norma** finalità e durate diverse (d.lgs. 33/2013, Garante). **Prodotto** una copia per sezione, ciascuna con il suo ciclo di vita (decisione del 31 ottobre 2026) |
 | ALBO-16 | fatto | Ricerca e filtri accessibili | **prodotto**, con l'accessibilità come vincolo di norma |
 | ALBO-17 | fatto | Gli atti sono versabili in conservazione | **norma** il risultato (linee guida AgID doc. informatici). **Prodotto** l'export in formato aperto |
-| ALBO-18 | in corso | L'atto scaduto non è pubblico su nessun percorso | **norma** il risultato (Garante, provv. marzo 2026). **Prodotto** il filtro in interrogazione sui percorsi di WordPress, il cui elenco dipende da WordPress e non dalla norma |
+| ALBO-18 | fatto | L'atto scaduto non è pubblico su nessun percorso | **norma** il risultato (Garante, provv. marzo 2026). **Prodotto** il filtro in interrogazione sui percorsi di WordPress, il cui elenco dipende da WordPress e non dalla norma |
 | ALBO-19 | da fare | Battito di controllo con avviso | **prodotto**, motivato dal guasto silenzioso sanzionato nel provv. Garante marzo 2026 |
 | ALBO-20 | fatto | L'atto defisso non viene più servito a nessuno | **norma** il risultato (Garante). **Prodotto** esclusione dalla memoria di pagina oppure invalidazione immediata: due strade, la scelta è nostra. Scelta l'esclusione: nessuna risposta dell'albo si lascia conservare, nemmeno dal visitatore anonimo, e vale anche per la versione uscente di una sostituzione per oscuramento a pubblicazione attiva |
 | ALBO-21 | da fare | Scadenza sull'ora civile italiana | **prodotto**: correttezza tecnica, nessuna fonte esterna |
