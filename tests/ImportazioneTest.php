@@ -62,6 +62,7 @@ class ImportazioneTest extends \WP_UnitTestCase {
 		$this->prepara_flusso();
 
 		$this->assertTrue( Repertorio::dichiara( self::PARTENZA, $this->amministratore, Passaggi::ora() ), 'Precondizione: la partenza del 2041 si corregge.' );
+		$this->considera_confermato();
 
 		$this->fissa_orologi( self::ADESSO );
 		set_current_screen( 'dashboard' );

@@ -43,6 +43,7 @@ use AlboPretorioPa\DatiProcedimento;
 use AlboPretorioPa\DocumentiAtto;
 use AlboPretorioPa\Importazione;
 use AlboPretorioPa\LettoreBackup;
+use AlboPretorioPa\Lucchetti;
 use AlboPretorioPa\PaginaPubblica;
 use AlboPretorioPa\Passaggi;
 use AlboPretorioPa\Repertorio;
@@ -118,6 +119,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$this->prepara_flusso();
 
 		$this->assertTrue( Repertorio::dichiara( self::PARTENZA, $this->amministratore, Passaggi::ora() ), 'Precondizione: la partenza del 2041 si corregge.' );
+		$this->considera_confermato();
 
 		$this->fissa_orologi( self::ADESSO );
 		set_current_screen( 'dashboard' );
@@ -143,7 +145,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 	 */
 	public function tear_down(): void {
 		if ( null !== $this->altra ) {
-			$this->altra->query( 'SELECT RELEASE_ALL_LOCKS()' );
+			LucchettoUnico::rilascia_tutti( $this->altra );
 			$this->altra->close();
 			$this->altra = null;
 		}
@@ -1101,15 +1103,16 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$this->assertSame( 'albo_importazione_in_corso', $seconda->get_error_code() );
 
 		// Un'altra richiesta che lavora all'importazione: il blocco si ritira senza toccare niente.
+		$this->considera_confermato();
 		$this->altra = new \wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
-		$this->assertSame( '1', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Importazione::nome_turno() ) ) );
+		$this->assertSame( '1', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Lucchetti::nome( Importazione::nome_turno() ) ) ) );
 
 		$occupata = Importazione::prosegui( 5, microtime( true ) + 60 );
 
 		$this->assertSame( 'albo_importazione_occupata', $occupata->get_error_code() );
 		$this->assertSame( 3, Importazione::stato()['posizione'] );
 
-		$this->altra->query( $this->altra->prepare( 'SELECT RELEASE_LOCK( %s )', Importazione::nome_turno() ) );
+		$this->altra->query( $this->altra->prepare( 'SELECT RELEASE_LOCK( %s )', Lucchetti::nome( Importazione::nome_turno() ) ) );
 
 		// Il backup cambiato fra un blocco e l'altro ferma l'importazione.
 		$originale = (string) file_get_contents( $percorso );
@@ -2141,23 +2144,33 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$this->altra = new \wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
 
 		// Le dichiarazioni della preparazione tengono il blocco dentro la transazione della suite: le si considera confermate.
-		$GLOBALS['wpdb']->query( 'SELECT RELEASE_ALL_LOCKS()' );
+		$this->considera_confermato();
 
-		// Un'altra richiesta tiene il 2041, come un'importazione nel mezzo della sua transazione.
-		$this->assertSame( '1', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Repertorio::nome_blocco_anno( 2041 ) ) ) );
+		$anno = static fn( int $valore ): string => Lucchetti::nome( Repertorio::nome_blocco_anno( $valore ) );
 
 		$this->avvia_diretto( $percorso );
+
+		// Un'altra richiesta tiene il 2041, come un'importazione nel mezzo della sua transazione.
+		$this->assertSame( '1', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', $anno( 2041 ) ) ) );
+
 		$stato = Importazione::prosegui( 1, microtime( true ) + 60 );
 
-		$this->assertSame( array( 'albo_repertorio_anno_occupato' ), array_column( $stato['non_riusciti'], 'codice' ), 'L\'atto del 2041 aspetta e poi rinuncia.' );
-		$this->assertStringNotContainsString( 'Stato incerto', $stato['non_riusciti'][0]['testo'] );
+		if ( Lucchetti::unico() ) {
+			// Dove la connessione tiene un lucchetto solo, l'albo ne usa uno: l'importazione non comincia neanche.
+			$this->assertWPError( $stato );
+			$this->assertSame( 'albo_importazione_occupata', $stato->get_error_code() );
+		} else {
+			$this->assertSame( array( 'albo_repertorio_anno_occupato' ), array_column( $stato['non_riusciti'], 'codice' ), 'L\'atto del 2041 aspetta e poi rinuncia.' );
+			$this->assertStringNotContainsString( 'Stato incerto', $stato['non_riusciti'][0]['testo'] );
+		}
+
 		$this->assertSame( array(), $this->inventario(), 'Nessuna bozza resta.' );
 		$this->assertSame( array(), Repertorio::atti_numerati( 2041, 10 ) );
 
-		$this->altra->query( $this->altra->prepare( 'SELECT RELEASE_LOCK( %s )', Repertorio::nome_blocco_anno( 2041 ) ) );
+		$this->altra->query( $this->altra->prepare( 'SELECT RELEASE_LOCK( %s )', $anno( 2041 ) ) );
 
 		// Un'altra richiesta tiene il 2039, che non ha riga: la dichiarazione della partenza aspetta e poi rinuncia, senza scrivere.
-		$this->assertSame( '1', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Repertorio::nome_blocco_anno( 2039 ) ) ) );
+		$this->assertSame( '1', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', $anno( 2039 ) ) ) );
 
 		$dichiarata = Repertorio::dichiara( 3, $this->amministratore, new \DateTimeImmutable( '2039-03-01 10:00:00', wp_timezone() ) );
 
@@ -2165,7 +2178,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$this->assertSame( 'albo_repertorio_anno_occupato', $dichiarata->get_error_code() );
 		$this->assertSame( array( '2041' ), array_column( $this->anni(), 'anno' ) );
 
-		$this->altra->query( $this->altra->prepare( 'SELECT RELEASE_LOCK( %s )', Repertorio::nome_blocco_anno( 2039 ) ) );
+		$this->altra->query( $this->altra->prepare( 'SELECT RELEASE_LOCK( %s )', $anno( 2039 ) ) );
 
 		/*
 		 * Liberato il blocco, la dichiarazione passa. La prova gira dentro la
@@ -2175,18 +2188,18 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		 * qui la prova ammette.
 		 */
 		$this->assertTrue( Repertorio::dichiara( 3, $this->amministratore, new \DateTimeImmutable( '2039-03-01 10:00:00', wp_timezone() ) ) );
-		$this->assertSame( '0', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Repertorio::nome_blocco_anno( 2039 ) ) ), 'Dentro una transazione non confermata la dichiarazione tiene il blocco.' );
+		$this->assertSame( '0', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', $anno( 2039 ) ) ), 'Dentro una transazione non confermata la dichiarazione tiene il blocco.' );
 
 		$finale = Importazione::prosegui( 50, microtime( true ) + 60 );
 
 		$this->assertSame( 'finita', $finale['stato'] );
-		$this->assertSame( '0', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Repertorio::nome_blocco_anno( 2041 ) ) ), 'Dentro una transazione non confermata l\'importazione tiene il blocco.' );
+		$this->assertSame( '0', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', $anno( 2041 ) ) ), 'Dentro una transazione non confermata l\'importazione tiene il blocco.' );
 
 		// Alla fine della connessione la banca dati lascia i blocchi.
-		$GLOBALS['wpdb']->query( 'SELECT RELEASE_ALL_LOCKS()' );
+		$this->considera_confermato();
 
-		$this->assertSame( '1', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Repertorio::nome_blocco_anno( 2039 ) ) ) );
-		$this->assertSame( '1', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Repertorio::nome_blocco_anno( 2041 ) ) ) );
+		$this->assertSame( '1', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', $anno( 2039 ) ) ) );
+		$this->assertSame( '1', (string) $this->altra->get_var( $this->altra->prepare( 'SELECT GET_LOCK( %s, 0 )', $anno( 2041 ) ) ) );
 	}
 
 	/**
@@ -2299,7 +2312,7 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 			$this->assertTrue( Repertorio::blocca_anno( 2039 ) );
 			Repertorio::sblocca_anno( 2039 );
 
-			$this->assertSame( '0', (string) $principale->get_var( $principale->prepare( 'SELECT GET_LOCK( %s, 0 )', Repertorio::nome_blocco_anno( 2039 ) ) ), 'Il blocco e\' ancora tenuto.' );
+			$this->assertSame( '0', (string) $principale->get_var( $principale->prepare( 'SELECT GET_LOCK( %s, 0 )', Lucchetti::nome( Repertorio::nome_blocco_anno( 2039 ) ) ) ), 'Il blocco e\' ancora tenuto.' );
 
 			// Solo una banca dati che non ha la variabile nel suo elenco dice "nessuna transazione": una versione che non ne tiene il conto.
 			$risposta = 'SELECT @@variabile_che_non_esiste';

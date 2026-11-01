@@ -867,7 +867,7 @@ class ProrogaTest extends \WP_UnitTestCase {
 		$chiave      = conformita_core_chiave_fine_pubblicazione();
 		$fatto       = false;
 		$connessione = new \wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
-		$turno       = \AlboPretorioPa\Passaggi::nome_turno();
+		$turno       = \AlboPretorioPa\Lucchetti::nome( \AlboPretorioPa\Passaggi::nome_turno() );
 		$tabella     = $wpdb->prefix . 'conformita_core_registro';
 		$durante     = null;
 
@@ -1191,7 +1191,7 @@ class ProrogaTest extends \WP_UnitTestCase {
 		$this->fissa_orologi( '2041-10-08 11:00:00' );
 
 		$chiave = conformita_core_chiave_fine_pubblicazione();
-		$turno  = \AlboPretorioPa\Passaggi::nome_turno();
+		$turno  = \AlboPretorioPa\Lucchetti::nome( \AlboPretorioPa\Passaggi::nome_turno() );
 
 		// Una proroga confermata il cui turno resta preso.
 		$fallisce = static function ( $istruzione ) {
@@ -1275,7 +1275,7 @@ class ProrogaTest extends \WP_UnitTestCase {
 		$this->fissa_orologi( '2041-10-08 11:00:00' );
 
 		$chiave      = conformita_core_chiave_fine_pubblicazione();
-		$turno       = \AlboPretorioPa\Passaggi::nome_turno();
+		$turno       = \AlboPretorioPa\Lucchetti::nome( \AlboPretorioPa\Passaggi::nome_turno() );
 		$connessione = new \wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
 
 		// La memoria ricorda la fine di prima: dopo la conferma deve essere svuotata comunque.
@@ -1384,10 +1384,17 @@ class ProrogaTest extends \WP_UnitTestCase {
 		}
 
 		$this->assertTrue( $doppia, 'Precondizione: la seconda presa c\'e\' stata.' );
-		$this->assertWPError( $esito, 'Non dice che il turno e\' libero.' );
-		$this->assertSame( array( 'albo_proroga_turno_non_lasciato' ), $esito->get_error_codes() );
 		$this->assertSame( '2041-10-20', conformita_core_fine_pubblicazione( $id ), 'La proroga e\' confermata.' );
-		$this->assertSame( '0', (string) $connessione->get_var( $connessione->prepare( 'SELECT IS_FREE_LOCK( %s )', $turno ) ) );
+
+		if ( \AlboPretorioPa\Lucchetti::unico() ) {
+			// Dove la banca dati non conta le prese, la seconda non si somma alla prima: un rilascio libera il turno, e il componente lo dice.
+			$this->assertIsArray( $esito, is_wp_error( $esito ) ? $esito->get_error_message() : '' );
+			$this->assertSame( '1', (string) $connessione->get_var( $connessione->prepare( 'SELECT IS_FREE_LOCK( %s )', $turno ) ) );
+		} else {
+			$this->assertWPError( $esito, 'Non dice che il turno e\' libero.' );
+			$this->assertSame( array( 'albo_proroga_turno_non_lasciato' ), $esito->get_error_codes() );
+			$this->assertSame( '0', (string) $connessione->get_var( $connessione->prepare( 'SELECT IS_FREE_LOCK( %s )', $turno ) ) );
+		}
 
 		// Il fermo dell'operazione e' tolto: la proroga successiva si fa, recupera il turno e lo lascia.
 		$this->assertIsArray(
@@ -1512,7 +1519,7 @@ class ProrogaTest extends \WP_UnitTestCase {
 
 		$chiave      = conformita_core_chiave_fine_pubblicazione();
 		$tabella     = $wpdb->prefix . 'conformita_core_registro';
-		$turno       = \AlboPretorioPa\Passaggi::nome_turno();
+		$turno       = \AlboPretorioPa\Lucchetti::nome( \AlboPretorioPa\Passaggi::nome_turno() );
 		$connessione = new \wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
 		$richiesta   = array(
 			'giorni'       => array( '2041-10-05' ),

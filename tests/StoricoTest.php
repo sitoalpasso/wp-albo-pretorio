@@ -15,6 +15,7 @@ namespace AlboPretorioPa\Tests;
 
 use AlboPretorioPa\Avvio;
 use AlboPretorioPa\Installazione;
+use AlboPretorioPa\Lucchetti;
 use AlboPretorioPa\Permessi;
 use AlboPretorioPa\SchermataStorico;
 use AlboPretorioPa\Storico;
@@ -646,7 +647,7 @@ class StoricoTest extends \WP_UnitTestCase {
 		$altra = new \wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
 
 		try {
-			$this->assertSame( '1', (string) $altra->get_var( $altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Storico::nome_blocco() ) ) );
+			$this->assertSame( '1', (string) $altra->get_var( $altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Lucchetti::nome( Storico::nome_blocco() ) ) ) );
 
 			$esito = $this->invia(
 				$this->amministratore,
@@ -655,7 +656,7 @@ class StoricoTest extends \WP_UnitTestCase {
 				)
 			);
 		} finally {
-			$altra->query( 'SELECT RELEASE_ALL_LOCKS()' );
+			LucchettoUnico::rilascia_tutti( $altra );
 			$altra->close();
 		}
 

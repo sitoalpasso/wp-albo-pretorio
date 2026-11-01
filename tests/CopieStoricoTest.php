@@ -16,6 +16,7 @@ namespace AlboPretorioPa\Tests;
 
 use AlboPretorioPa\CopieStorico;
 use AlboPretorioPa\DocumentiAtto;
+use AlboPretorioPa\Lucchetti;
 use AlboPretorioPa\Passaggi;
 use AlboPretorioPa\Permessi;
 use AlboPretorioPa\SchermataCopie;
@@ -534,8 +535,8 @@ class CopieStoricoTest extends \WP_UnitTestCase {
 		$altra = new \wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
 
 		try {
-			$this->assertSame( '1', (string) $altra->get_var( $altra->prepare( 'SELECT GET_LOCK( %s, 0 )', CopieStorico::nome_blocco_atto( $atto ) ) ) );
-			$this->assertSame( '1', (string) $altra->get_var( $altra->prepare( 'SELECT GET_LOCK( %s, 0 )', CopieStorico::nome_blocco_copia( $questa ) ) ) );
+			$this->assertSame( '1', (string) $altra->get_var( $altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Lucchetti::nome( CopieStorico::nome_blocco_atto( $atto ) ) ) ) );
+			$this->assertSame( '1', (string) $altra->get_var( $altra->prepare( 'SELECT GET_LOCK( %s, 0 )', Lucchetti::nome( CopieStorico::nome_blocco_copia( $questa ) ) ) ) );
 
 			$occupato = $this->togli( $questa, 'scelta_amministrazione', 'Prova.', $this->custode );
 			$this->assertWPError( $occupato );
@@ -547,7 +548,7 @@ class CopieStoricoTest extends \WP_UnitTestCase {
 			$this->assertSame( 'albo_copia_occupato', $occupato->get_error_code() );
 			$this->assertSame( array( $questa ), $this->copie_scritte(), 'L\'ingresso in fila non ha scritto.' );
 		} finally {
-			$altra->query( 'SELECT RELEASE_ALL_LOCKS()' );
+			LucchettoUnico::rilascia_tutti( $altra );
 			$altra->close();
 		}
 
@@ -996,10 +997,12 @@ class CopieStoricoTest extends \WP_UnitTestCase {
 
 		$this->fissa_orologi( self::DOPO_LA_FINE );
 
-		$blocco = CopieStorico::nome_blocco_atto( $atto );
+		$blocco = Lucchetti::nome( CopieStorico::nome_blocco_atto( $atto ) );
 		$spento = null;
 		$spegni = function ( $istruzione ) use ( $blocco, &$spento ) {
 			if ( null === $spento && false !== strpos( (string) $istruzione, 'GET_LOCK' ) && false !== strpos( (string) $istruzione, $blocco ) ) {
+				// Segnato prima: dove i lucchetti dell'albo sono uno solo, il salvataggio prende lo stesso lucchetto e ripasserebbe di qui.
+				$spento = false;
 				$spento = Storico::salva( Storico::SPENTO, '3', Storico::stato_mostrato(), $this->amministratore, Passaggi::ora() );
 			}
 
@@ -1063,7 +1066,7 @@ class CopieStoricoTest extends \WP_UnitTestCase {
 	 */
 	private function metti_mentre( int $atto, string $momento, callable $cambio ) {
 		$fatto  = false;
-		$blocco = CopieStorico::nome_blocco_atto( $atto );
+		$blocco = Lucchetti::nome( CopieStorico::nome_blocco_atto( $atto ) );
 		$query  = static function ( $istruzione ) use ( $blocco, $cambio, &$fatto ) {
 			if ( ! $fatto && false !== strpos( (string) $istruzione, 'GET_LOCK' ) && false !== strpos( (string) $istruzione, $blocco ) ) {
 				$fatto = true;
