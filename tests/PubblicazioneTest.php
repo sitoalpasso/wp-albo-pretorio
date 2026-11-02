@@ -18,6 +18,7 @@ namespace AlboPretorioPa\Tests;
 
 use AlboPretorioPa\DatiAtto;
 use AlboPretorioPa\DocumentiAtto;
+use AlboPretorioPa\Durate;
 use AlboPretorioPa\Passaggi;
 use AlboPretorioPa\Permessi;
 use AlboPretorioPa\Repertorio;
@@ -1076,5 +1077,102 @@ class PubblicazioneTest extends \WP_UnitTestCase {
 			)
 		);
 		$this->pubblicato_con_date_del_sistema( $id, 15, 'Data valida' );
+	}
+
+	/**
+	 * A-339: ALBO-04, una data di fine fornita non salva un atto il cui tipo non ha una durata valida.
+	 *
+	 * La configurazione del tipo si guasta solo con l'atto gia' in verifica,
+	 * cosi' che il rifiuto non arrivi dal passaggio in verifica. Poi la durata
+	 * cambia mentre l'atto e' in verifica, e la fine si calcola su quella
+	 * vigente alla pubblicazione.
+	 */
+	public function test_a339_fine_fornita_senza_durata_valida(): void {
+		$tipo    = $this->voci['normativo'];
+		$durata  = get_term_meta( $tipo, META_DURATA, true );
+		$fornita = Passaggi::ora()->modify( '+10 days' )->format( 'Y-m-d' );
+		$chiave  = conformita_core_chiave_fine_pubblicazione();
+
+		$this->assertIsArray( $durata, 'Precondizione: il tipo ha una durata.' );
+
+		$guasti = array(
+			'durata tolta'         => null,
+			'giorni senza origine' => array( 'giorni' => 15 ),
+			'norma senza estremi'  => array(
+				'giorni'  => 15,
+				'origine' => 'norma',
+				'estremi' => '',
+			),
+		);
+
+		foreach ( $guasti as $caso => $guasta ) {
+			$id = $this->atto_in_verifica();
+
+			// Solo adesso, con l'atto in verifica, la configurazione del tipo si guasta.
+			delete_term_meta( $tipo, META_DURATA );
+
+			if ( null !== $guasta ) {
+				update_term_meta( $tipo, META_DURATA, $guasta );
+			}
+
+			$this->assertWPError( Durate::del_tipo( $tipo ), $caso . ': precondizione, il tipo non ha una durata valida.' );
+
+			$prima = $this->fotografia( $id );
+
+			// Da codice, con la fine fornita.
+			$esito = $this->pubblica_da_codice(
+				$id,
+				$this->pubblicatore,
+				array(
+					'conferma'  => true,
+					'data_fine' => $fornita,
+				)
+			);
+
+			$this->assertWPError( $esito, $caso . ': da codice, rifiutato.' );
+			$this->assertSame( array( 'albo_fine_non_calcolabile' ), $esito->get_error_codes(), $caso . ': da codice, il motivo e\' la fine che non si calcola.' );
+
+			// Dalla schermata, con la fine in un campo costruito a mano.
+			$this->invia_riquadro(
+				$id,
+				$this->pubblicatore,
+				array(
+					RiquadroPassaggi::CAMPO_PASSAGGIO => 'pubblica',
+					RiquadroPassaggi::CAMPO_CONFERMA  => (string) $id,
+					$chiave                           => $fornita,
+					'data_fine'                       => $fornita,
+				)
+			);
+
+			$motivi = $this->come(
+				$this->pubblicatore,
+				static function () use ( $id ) {
+					return Rifiuti::preleva_per_utente( $id );
+				}
+			);
+
+			$this->assertArrayHasKey( 'albo_fine_non_calcolabile', $motivi, $caso . ': dalla schermata, rifiutato con il suo motivo.' );
+			$this->assertSame( $prima, $this->fotografia( $id ), $caso . ': resta in verifica, identico, senza numero e senza la fine fornita.' );
+
+			// La configurazione torna valida per il caso successivo.
+			delete_term_meta( $tipo, META_DURATA );
+			add_term_meta( $tipo, META_DURATA, $durata );
+		}
+
+		// La durata cambia mentre l'atto e' in verifica: conta quella vigente alla pubblicazione.
+		$id = $this->atto_in_verifica();
+
+		$this->assertTrue( Durate::configura( $tipo, 20, $durata['origine'], $durata['estremi'] ), 'Precondizione: la durata cambia senza toccare codice.' );
+		$this->assertIsArray(
+			$this->pubblica_da_codice(
+				$id,
+				$this->pubblicatore,
+				array(
+					'conferma'  => true,
+					'data_fine' => $fornita,
+				)
+			)
+		);
+		$this->pubblicato_con_date_del_sistema( $id, 20, 'Durata cambiata in verifica' );
 	}
 }
