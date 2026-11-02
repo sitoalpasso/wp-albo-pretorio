@@ -702,13 +702,11 @@ final class CopieStorico {
 	 * @return mixed
 	 */
 	private static function in_fila( string $blocco, callable $funzione ) {
-		global $wpdb;
-
 		if ( self::$in_corso ) {
 			return self::occupato();
 		}
 
-		if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK( %s, %d )', $blocco, self::ATTESA_BLOCCO ) ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- blocco della fila, non dati.
+		if ( ! Lucchetti::prendi( $blocco, self::ATTESA_BLOCCO ) ) {
 			return self::occupato();
 		}
 
@@ -718,7 +716,7 @@ final class CopieStorico {
 			return $funzione();
 		} finally {
 			self::$in_corso = false;
-			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', $blocco ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- blocco della fila, non dati.
+			Lucchetti::lascia( $blocco );
 		}
 	}
 

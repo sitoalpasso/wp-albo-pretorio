@@ -99,6 +99,12 @@ function albo_pretorio_prepara_suite( bool $con_core, bool $avvio_automatico = t
 			require_once __DIR__ . '/deposito-di-prova.php';
 			require_once __DIR__ . '/flusso-di-prova.php';
 			require_once __DIR__ . '/backup-di-prova.php';
+			require_once __DIR__ . '/lucchetto-unico.php';
+
+			// Tutta la suite come su una banca dati che tiene un solo lucchetto per connessione.
+			if ( '1' === getenv( 'ALBO_LUCCHETTO_UNICO' ) ) {
+				\AlboPretorioPa\Tests\LucchettoUnico::attiva();
+			}
 
 			if ( ! $avvio_automatico ) {
 				remove_action( 'plugins_loaded', array( 'AlboPretorioPa\\Avvio', 'da_plugins_loaded' ) );

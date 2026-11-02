@@ -1609,10 +1609,13 @@ final class Importazione {
 	 * @return true|\WP_Error
 	 */
 	private static function prendi_turno() {
-		global $wpdb;
+		if ( ! Lucchetti::prendi( self::nome_turno(), 0 ) ) {
+			// Dove la banca dati tiene un lucchetto solo, lo tiene anche ogni altra operazione dell'albo.
+			$testo = Lucchetti::unico()
+				? __( 'Un\'altra operazione dell\'albo e\' in corso in questo momento, per esempio un\'altra richiesta che lavora all\'importazione. Si riprova fra poco.', 'albo-pretorio-pa' )
+				: __( 'Un\'altra richiesta sta lavorando all\'importazione in questo momento. Si riprova fra poco.', 'albo-pretorio-pa' );
 
-		if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK( %s, 0 )', self::nome_turno() ) ) ) {
-			return new \WP_Error( 'albo_importazione_occupata', __( 'Un\'altra richiesta sta lavorando all\'importazione in questo momento. Si riprova fra poco.', 'albo-pretorio-pa' ) );
+			return new \WP_Error( 'albo_importazione_occupata', $testo );
 		}
 
 		return true;
@@ -1622,9 +1625,7 @@ final class Importazione {
 	 * Lascia il turno dell'importazione.
 	 */
 	private static function lascia_turno(): void {
-		global $wpdb;
-
-		$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', self::nome_turno() ) );
+		Lucchetti::lascia( self::nome_turno() );
 	}
 
 	/**

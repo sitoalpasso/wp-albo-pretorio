@@ -124,6 +124,7 @@ trait FlussoDiProva {
 		$this->fissa_orologi( self::$istante_di_prova );
 
 		$this->assertTrue( Repertorio::dichiara( 0, $this->amministratore, Passaggi::ora() ), 'Precondizione: l\'anno delle prove numera.' );
+		$this->considera_confermato();
 
 		// La scelta sui festivi la fanno le prove che la riguardano: qui la fine resta dove cade.
 		$this->assertTrue( Festivi::salva( Festivi::SPENTO, '', $this->amministratore, Passaggi::ora() ), 'Precondizione: la scelta sui festivi e\' fatta.' );
@@ -155,7 +156,23 @@ trait FlussoDiProva {
 		 * lei si rilascia, altrimenti una prova in un processo separato
 		 * troverebbe l'anno occupato dal processo che l'ha lanciata.
 		 */
-		$GLOBALS['wpdb']->query( 'SELECT RELEASE_ALL_LOCKS()' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Rilascio dei blocchi della prova, non dati.
+		LucchettoUnico::rilascia_tutti( $GLOBALS['wpdb'] );
+		LucchettoUnico::dimentica_stato();
+	}
+
+	/**
+	 * Considera confermato quello che la prova ha scritto finora.
+	 *
+	 * La prova gira dentro la transazione della suite, che non si conferma
+	 * mai: la numerazione dell'anno vi resta presa fino alla fine della
+	 * connessione, come deve dentro una transazione aperta da altri. Dove la
+	 * banca dati tiene un lucchetto solo, quel lucchetto e' anche quello di
+	 * ogni altra operazione dell'albo, e un'altra connessione della prova non
+	 * ne prenderebbe nessuno. Qui si lasciano i lucchetti, come alla conferma.
+	 */
+	protected function considera_confermato(): void {
+		LucchettoUnico::rilascia_tutti( $GLOBALS['wpdb'] );
+		LucchettoUnico::dimentica_stato();
 	}
 
 	/**

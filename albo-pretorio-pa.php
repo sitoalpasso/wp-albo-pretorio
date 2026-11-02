@@ -235,6 +235,7 @@ require_once __DIR__ . '/includes/class-schermata-repertorio.php';
 require_once __DIR__ . '/includes/class-installazione.php';
 require_once __DIR__ . '/includes/class-rifiuti.php';
 require_once __DIR__ . '/includes/class-lettura.php';
+require_once __DIR__ . '/includes/class-lucchetti.php';
 require_once __DIR__ . '/includes/class-chiusura-pubblicazione.php';
 require_once __DIR__ . '/includes/class-documenti-fermi.php';
 require_once __DIR__ . '/includes/class-passaggi.php';

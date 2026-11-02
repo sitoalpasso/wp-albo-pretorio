@@ -1060,6 +1060,22 @@ rispetta già: si provano vere con i guasti introdotti a mano, elencati nella sc
 | A-337 | fatto | **Pagine e documento**: si pubblica un atto con un PDF, poi come visitatore si aprono l'elenco e la scheda e si scarica il documento | nessun comando contro copia, selezione, tasto destro o trascinamento, e nessuno stile che blocchi la selezione; l'oggetto è testo; niente immagini, contenitori o script nel contenitore dell'albo; il documento ha un collegamento semplice, con un testo; arriva identico a quello caricato, come PDF mostrato dal browser e senza una pagina chiusa intorno |
 | A-338 | fatto | **Sorgenti e fogli di stile**: si cercano le misure anti copia nel codice e negli stili del componente, dopo aver controllato che ogni forma cercata trovi la misura su un esempio | nessuna misura, in nessun file, anche per le pagine che nessuna prova apre |
 
+## Banche dati che tengono un solo lucchetto
+
+Stesso prefisso `A-`. Correttezza dei meccanismi di ALBO-08, ALBO-29, ALBO-31, ALBO-35 e
+ALBO-36 su MySQL prima della 5.7.5 e MariaDB prima della 10.0.2, dove una connessione tiene un
+solo lucchetto con nome. Scheda [`lucchetto-unico.md`](implementazione/lucchetto-unico.md).
+Provate in `tests/LucchettiTest.php` (A-340..A-343), con l'imitazione di `tests/lucchetto-unico.php`. Oltre a
+queste righe: la suite intera gira con l'imitazione accesa (`composer test:lucchetto-unico`), e
+la CI la fa girare su una MariaDB 5.5 vera.
+
+| Riga | Stato | Prova | Atteso |
+|---|---|---|---|
+| A-340 | fatto | **Turno dell'importazione e numerazione dell'anno**: con la banca dati che tiene un lucchetto solo e fuori da transazioni aperte da altri, si prende il turno dell'importazione, poi dentro si prende e si lascia la numerazione dell'anno, come per ogni atto importato; da un'altra connessione si prova a prendere il turno e la numerazione di un altro anno; poi si lascia il turno e l'altra connessione lo riprova | finché il turno è preso, l'altra connessione non entra nell'importazione né nella numerazione, e il rifiuto dice che un'altra operazione dell'albo è in corso; lasciato il turno, lo prende |
+| A-341 | fatto | **Prese annidate e trattenute**: il turno delle proroghe preso e lasciato dentro il turno dell'importazione; il turno delle proroghe da solo; poi, dentro la transazione della suite, la numerazione presa e lasciata dentro il turno dell'importazione, e un'altra operazione della stessa richiesta dopo | il turno delle proroghe annidato si dice lasciato e il turno dell'importazione resta chiuso; da solo chiude, con il rifiuto che parla di un'altra operazione dell'albo, e poi riapre; la numerazione dentro una transazione aperta da altri resta chiusa alle altre connessioni, anche dopo un'altra operazione della stessa richiesta |
+| A-342 | fatto | **Il tipo dalla versione**: risposte di MariaDB e MySQL prima e dopo le versioni che tengono più lucchetti, con il prefisso che alcune connessioni aggiungono, una risposta vuota e una sconosciuta | lucchetto unico prima di MariaDB 10.0.2 e di MySQL 5.7.5; più lucchetti da quelle versioni in poi; lucchetto unico per ogni risposta letta che non si riconosce |
+| A-343 | fatto | **La versione che non si legge**: la domanda sulla versione fallisce; si chiede un lucchetto direttamente e poi il turno dell'importazione; si chiude e si trattiene una presa; poi la domanda torna a funzionare e si riprende il turno | senza risposta nessuna presa riesce e nessun lucchetto si chiede alla banca dati; l'importazione rinuncia; la risposta mancata non si ricorda e ogni chiamata chiede di nuovo; con la risposta il turno si prende, e la versione letta non si chiede più. Altrimenti questa connessione andrebbe sul lucchetto unico e le altre, che la versione la leggono, su quelli distinti, senza escludersi |
+
 ## Collaudo congiunto con la trasparenza
 
 Con entrambi i plugin attivi sullo stesso sito: le pagine dell'albo hanno noindex e sono

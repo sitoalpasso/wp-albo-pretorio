@@ -2699,24 +2699,32 @@ final class Passaggi {
 		 */
 		$volte = 0;
 
-		while ( true === self::turno_mio() && $volte < 10 ) {
-			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', self::nome_turno() ) );
-			++$volte;
+		/*
+		 * Dove la connessione tiene un lucchetto solo, il turno e' quel
+		 * lucchetto, e un'altra operazione dell'albo di questa richiesta puo'
+		 * tenerlo gia': allora non e' una presa rimasta, e non si lascia.
+		 */
+		if ( ! Lucchetti::tenuto_da_altri_qui() ) {
+			while ( true === self::turno_mio() && $volte < 10 ) {
+				$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', Lucchetti::nome( self::nome_turno() ) ) );
+				++$volte;
+			}
+
+			if ( false !== self::turno_mio() ) {
+				return new \WP_Error(
+					'albo_proroga_turno_bloccato',
+					__( 'Nessuna proroga disposta: questa connessione alla banca dati tiene ancora il turno delle proroghe da una proroga precedente, e non lo lascia. Riprovare da una nuova richiesta.', 'albo-pretorio-pa' )
+				);
+			}
 		}
 
-		if ( false !== self::turno_mio() ) {
-			return new \WP_Error(
-				'albo_proroga_turno_bloccato',
-				__( 'Nessuna proroga disposta: questa connessione alla banca dati tiene ancora il turno delle proroghe da una proroga precedente, e non lo lascia. Riprovare da una nuova richiesta.', 'albo-pretorio-pa' )
-			);
-		}
-
-		$preso = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK( %s, %d )', self::nome_turno(), self::ATTESA_TURNO ) );
-
-		if ( '1' !== (string) $preso ) {
+		if ( ! Lucchetti::prendi( self::nome_turno(), self::ATTESA_TURNO ) ) {
+			// Dove la banca dati tiene un lucchetto solo, lo tiene anche ogni altra operazione dell'albo.
 			return new \WP_Error(
 				'albo_proroga_occupata',
-				__( 'Nessuna proroga disposta: un\'altra proroga e\' in corso in questo momento. Riprovare fra poco, ripartendo dall\'anteprima.', 'albo-pretorio-pa' )
+				Lucchetti::unico()
+					? __( 'Nessuna proroga disposta: un\'altra operazione dell\'albo e\' in corso in questo momento, per esempio un\'altra proroga o un\'importazione. Riprovare fra poco, ripartendo dall\'anteprima.', 'albo-pretorio-pa' )
+					: __( 'Nessuna proroga disposta: un\'altra proroga e\' in corso in questo momento. Riprovare fra poco, ripartendo dall\'anteprima.', 'albo-pretorio-pa' )
 			);
 		}
 
@@ -2735,8 +2743,17 @@ final class Passaggi {
 	private static function lascia_turno() {
 		global $wpdb;
 
+		// Dentro un'altra operazione dell'albo che tiene il lucchetto unico, il turno finisce qui e il lucchetto resta a lei.
+		if ( Lucchetti::tenuto_da_altri_qui( 1 ) ) {
+			Lucchetti::presa_chiusa();
+
+			return true;
+		}
+
+		Lucchetti::presa_chiusa();
+
 		try {
-			$righe = Lettura::righe( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s ) AS lasciato', self::nome_turno() ), array( 'lasciato' ) );
+			$righe = Lettura::righe( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s ) AS lasciato', Lucchetti::nome( self::nome_turno() ) ), array( 'lasciato' ) );
 		} catch ( \Throwable $errore ) {
 			return $errore;
 		}
@@ -2761,7 +2778,7 @@ final class Passaggi {
 	private static function turno_mio(): ?bool {
 		global $wpdb;
 
-		$righe = Lettura::righe( $wpdb->prepare( 'SELECT COALESCE( IS_USED_LOCK( %s ) = CONNECTION_ID(), 0 ) AS mio', self::nome_turno() ), array( 'mio' ) );
+		$righe = Lettura::righe( $wpdb->prepare( 'SELECT COALESCE( IS_USED_LOCK( %s ) = CONNECTION_ID(), 0 ) AS mio', Lucchetti::nome( self::nome_turno() ) ), array( 'mio' ) );
 
 		if ( null === $righe || 1 !== count( $righe ) || ! in_array( (string) $righe[0]['mio'], array( '0', '1' ), true ) ) {
 			return null;
