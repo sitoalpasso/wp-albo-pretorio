@@ -1284,4 +1284,72 @@ class PubblicazioneTest extends \WP_UnitTestCase {
 		clean_post_cache( $articolo );
 		$this->assertSame( $date['prima'], get_post_field( 'post_date', $articolo ), 'Sull\'articolo la data cambia: la richiesta e\' quella vera.' );
 	}
+
+	/**
+	 * A-345: ALBO-21, la fine che cade proprio nel giorno di un cambio dell'ora.
+	 */
+	public function test_a345_fine_nel_giorno_del_cambio_dell_ora(): void {
+		$utc = new \DateTimeZone( 'UTC' );
+
+		/*
+		 * Il 27 ottobre 2041 alle 3 si torna alle 2: il giorno dura 25 ore, e
+		 * la mezzanotte che lo chiude e' alle 23 in tempo universale. Il 30
+		 * marzo 2042 alle 2 si passa alle 3: il giorno dura 23 ore, e la sua
+		 * mezzanotte e' alle 22 in tempo universale. Un conto che usasse lo
+		 * scarto dall'ora universale del giorno di inizio sbaglierebbe di
+		 * un'ora proprio qui.
+		 */
+		$cambi = array(
+			'ritorno all\'ora solare'   => array(
+				'istante'    => '2041-10-12 23:10:00',
+				'fine'       => '2041-10-27',
+				'dentro'     => array( '2041-10-27 00:30:00', '2041-10-27 01:30:00', '2041-10-27 02:30:00', '2041-10-27 21:30:00', '2041-10-27 22:59:59' ),
+				'mezzanotte' => '2041-10-27 23:00:00',
+			),
+			'passaggio all\'ora legale' => array(
+				'istante'    => '2042-03-15 23:10:00',
+				'fine'       => '2042-03-30',
+				'dentro'     => array( '2042-03-29 23:30:00', '2042-03-30 00:30:00', '2042-03-30 01:30:00', '2042-03-30 21:59:59' ),
+				'mezzanotte' => '2042-03-30 22:00:00',
+			),
+		);
+
+		foreach ( $cambi as $caso => $dati ) {
+			$this->fissa_orologi( $dati['istante'] );
+
+			$atto = $this->atto_in_verifica( 'normativo' );
+
+			$this->assertIsArray( $this->pubblica_da_codice( $atto, $this->pubblicatore ), $caso . ': pubblicato.' );
+			$this->assertSame( $dati['fine'], conformita_core_fine_pubblicazione( $atto ), $caso . ': la fine cade nel giorno del cambio.' );
+			$this->assertSame( 15, $this->giorni_di_calendario( substr( $dati['istante'], 0, 10 ), $dati['fine'] ), $caso . ': quindici giorni di calendario.' );
+
+			// Gli istanti del giorno della fine, in tempo universale, compresa l'ora che si ripete o che manca.
+			foreach ( $dati['dentro'] as $universale ) {
+				$this->fissa_istante( new \DateTimeImmutable( $universale, $utc ) );
+				$this->assertFalse( conformita_core_scaduto( $atto ), $caso . ': alle ' . $universale . ' in tempo universale e\' ancora il giorno della fine.' );
+			}
+
+			$mezzanotte = new \DateTimeImmutable( $dati['mezzanotte'], $utc );
+
+			$this->assertSame( '00:00:00', $mezzanotte->setTimezone( wp_timezone() )->format( 'H:i:s' ), $caso . ': precondizione, e\' la mezzanotte del sito.' );
+
+			$this->fissa_istante( $mezzanotte );
+			$this->assertTrue( conformita_core_scaduto( $atto ), $caso . ': dalla mezzanotte che chiude il giorno della fine non e\' piu\' pubblicato.' );
+
+			$this->fissa_istante( $mezzanotte->modify( '-1 second' ) );
+			$this->assertFalse( conformita_core_scaduto( $atto ), $caso . ': un secondo prima lo e\' ancora.' );
+		}
+
+		$this->fissa_orologi( self::$istante_di_prova );
+	}
+
+	/**
+	 * Fissa lo stesso istante, dato in qualunque fuso, sui due orologi.
+	 *
+	 * @param \DateTimeImmutable $istante Istante.
+	 */
+	private function fissa_istante( \DateTimeImmutable $istante ): void {
+		Passaggi::fissa_orologio( $istante );
+		\Conformita_Core_Scadenza::fissa_orologio( $istante );
+	}
 }
