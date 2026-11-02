@@ -2969,6 +2969,21 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$this->assertSame( array(), $this->elencati( (string) $this->pubblico( (string) get_permalink( $pagina ) ) ) );
 		$this->assertNull( $this->pubblico( add_query_arg( PaginaPubblica::PARAMETRO_ATTO, $id, (string) get_permalink( $pagina ) ) ), 'La scheda risponde "non trovata".' );
 		$this->assertSame( ChiusuraPubblicazione::ANNULLATO, get_post_status( $id ), 'Lo stato resta annullato: a toglierlo e\' la data.' );
+
+		/*
+		 * E il documento, dopo la fine. Il paragone e' l'atto 2, in corso con la
+		 * stessa fine: un secondo prima della mezzanotte si scarica, dalla
+		 * mezzanotte e' uno scaduto, e il documento dell'annullato risponde allo
+		 * stesso modo, per intero.
+		 */
+		$this->fissa_orologi( '2041-10-16 23:59:59' );
+		$this->assertSame( 200, $this->consegna_pubblica( (int) DocumentiAtto::principale( $atti['2']['id'] ) )[0]['stato'] ?? null, 'Il 16 alle 23:59:59 il documento dell\'atto in corso si scarica ancora.' );
+
+		$this->fissa_orologi( '2041-10-17 00:00:00' );
+		$rifiuto = $this->consegna_pubblica( (int) DocumentiAtto::principale( $atti['2']['id'] ) );
+
+		$this->assertNotSame( 200, $rifiuto[0]['stato'] ?? null, 'Dalla mezzanotte del 17 il documento dell\'atto 2 non si scarica piu\'.' );
+		$this->assertSame( $rifiuto, $this->consegna_pubblica( (int) DocumentiAtto::principale( $id ) ), 'Dalla mezzanotte del 17 il documento dell\'annullato risponde come quello di uno scaduto.' );
 	}
 
 	/**
