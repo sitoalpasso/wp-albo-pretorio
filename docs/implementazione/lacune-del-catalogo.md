@@ -49,10 +49,12 @@ Nessuno nuovo.
 
 - Una data di fine fornita che sostituisce la durata mancante: A-339.
 - Una fine calcolata su una durata letta prima della pubblicazione: A-339.
+- La data di inizio di un atto pubblicato cambiata dalla schermata di WordPress o dal riquadro
+  dell'albo, da un ruolo qualsiasi: A-344.
 
 ### 7. Test aggiunti
 
-A-339 (ALBO-04).
+A-339 (ALBO-04), A-344 (ALBO-27).
 
 ### 8. Cosa non implementa
 
@@ -63,7 +65,9 @@ tipo: è una scelta da fare, non una lacuna delle prove.
 ### 9. Come si prova su un'installazione reale
 
 Sulla copia di prova: togliere la durata a un tipo con un atto in verifica, provare a
-pubblicarlo, poi rimettere la durata e pubblicare.
+pubblicarlo, poi rimettere la durata e pubblicare. Su un atto pubblicato, da ogni ruolo: aprire
+la schermata, cambiare la data di pubblicazione con il pulsante Modifica accanto alla data,
+premere Aggiorna. L'atto deve restare con la sua data e la schermata deve spiegare il rifiuto.
 
 ## Com'è andata
 
@@ -79,3 +83,17 @@ prova lo veda, e lo si dichiara.
 | Una durata fissa invece di quella vigente alla pubblicazione | A-339 |
 | La durata letta senza validazione nel calcolo della fine | nessuna, perché la ferma il controllo dei dati mancanti |
 | La durata letta senza validazione in tutti e due i controlli | A-339 |
+
+### A-344 (ALBO-27)
+
+La prova passa sul codice di oggi. Una scrittura su un atto pubblicato incontra due fermi: il
+primo la ferma prima che arrivi alla banca dati, il secondo, se la scrittura ci arriva lo
+stesso, riscrive la riga com'era. Togliere solo il secondo per le date non basta perché la
+prova lo veda, perché il primo ferma tutto: lo si dichiara, come per A-339. Il riquadro
+dell'albo non legge nessun campo di data, e la richiesta manipolata lo conferma.
+
+| Guasto introdotto | Visto da |
+|---|---|
+| Il primo fermo tolto per gli atti pubblicati | A-344, A-103 |
+| Il secondo fermo che lascia passare le date | nessuna, perché il primo fermo ferma la scrittura prima |
+| Tutti e due i fermi, il secondo per le sole date | A-344, A-103 |
