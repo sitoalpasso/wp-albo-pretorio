@@ -4,7 +4,7 @@ Scheda di lavorazione. La rilettura del catalogo del 1 novembre 2026 ha trovato 
 coperte in parte, a cui mancano casi piccoli che il componente già rispetta. Ogni caso è una
 PR di sole prove, corta. La scheda si aggiorna a ogni PR con com'è andata.
 
-**Stato: fatto.** Requisiti ALBO-04, ALBO-27, ALBO-21. Righe di collaudo A-339, A-344, A-345.
+**Stato: fatto.** Requisiti ALBO-04, ALBO-27, ALBO-21, ALBO-18. Righe di collaudo A-339, A-344, A-345, più un caso aggiunto ad A-231.
 
 ## In tre paragrafi
 
@@ -57,7 +57,7 @@ Nessuno nuovo.
 
 ### 7. Test aggiunti
 
-A-339 (ALBO-04), A-344 (ALBO-27), A-345 (ALBO-21).
+A-339 (ALBO-04), A-344 (ALBO-27), A-345 (ALBO-21). A-231 allungata per ALBO-18.
 
 ### 8. Cosa non implementa
 
@@ -120,3 +120,24 @@ perché il cambio cade dopo la mezzanotte del giorno di fine: lo vedono già le 
 | La data di fine letta con uno scarto fisso di un'ora dall'ora universale | A-345 |
 | Il confronto fatto sull'ora del muro invece che sull'istante | A-345 |
 | Il confronto stretto, che lascia pubblicato l'atto nell'istante della mezzanotte | A-345 |
+
+### A-231 allungata (ALBO-18)
+
+Una quarta lacuna, trovata dopo: la riga ALBO-18 non può dire che A-231 rifiuta il documento
+dell'annullato importato dopo la sua fine, perché A-231 dalla mezzanotte guardava l'elenco e
+la scheda ma non il documento. Per l'annullato che passa dai passaggi lo prova già A-228. Si
+aggiungono tre controlli in fondo ad A-231, senza una riga nuova: l'atto 2 del backup, in
+corso con la stessa fine, il 16 alle 23:59:59 si scarica; dalla mezzanotte non si scarica più,
+e il documento dell'annullato risponde allo stesso modo, per intero.
+
+Dopo la fine il documento dell'annullato è tenuto da più recinti che non guardano la data: lo
+stato annullato non è pubblicato per il punto di consegna, non è uno stato pubblico per
+WordPress, e la pagina dell'albo nega la consegna dell'annullato. Guastarne uno o anche tre
+insieme non basta perché una prova lo veda, e lo si dichiara come per A-339 e A-344.
+
+| Guasto introdotto | Visto da |
+|---|---|
+| La pagina dell'albo che non nega più la consegna dell'annullato | nessuna, per gli altri recinti |
+| Lo stato dell'albo contato come non esposto nel controllo della scadenza | nessuna, per gli altri recinti |
+| Questo, più la consegna che ammette uno stato non pubblicato se scaduto e la pagina che nega l'annullato solo prima della fine | nessuna, per il controllo sulla consultabilità dello stato |
+| Il punto di consegna che dà il file dell'annullato dopo la sua fine | A-231, A-228 |
