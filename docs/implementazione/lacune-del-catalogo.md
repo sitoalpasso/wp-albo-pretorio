@@ -4,7 +4,7 @@ Scheda di lavorazione. La rilettura del catalogo del 1 novembre 2026 ha trovato 
 coperte in parte, a cui mancano casi piccoli che il componente già rispetta. Ogni caso è una
 PR di sole prove, corta. La scheda si aggiorna a ogni PR con com'è andata.
 
-**Stato: in corso.** Requisiti ALBO-04, ALBO-27, ALBO-21. Righe di collaudo da A-339.
+**Stato: fatto.** Requisiti ALBO-04, ALBO-27, ALBO-21. Righe di collaudo A-339, A-344, A-345.
 
 ## In tre paragrafi
 
@@ -51,10 +51,13 @@ Nessuno nuovo.
 - Una fine calcolata su una durata letta prima della pubblicazione: A-339.
 - La data di inizio di un atto pubblicato cambiata dalla schermata di WordPress o dal riquadro
   dell'albo, da un ruolo qualsiasi: A-344.
+- Una fine che nel giorno del cambio dell'ora scade un'ora prima o un'ora dopo la mezzanotte
+  del sito, perché il giorno si conta come 24 ore o con lo scarto dall'ora universale di un
+  altro giorno: A-345.
 
 ### 7. Test aggiunti
 
-A-339 (ALBO-04), A-344 (ALBO-27).
+A-339 (ALBO-04), A-344 (ALBO-27), A-345 (ALBO-21).
 
 ### 8. Cosa non implementa
 
@@ -68,6 +71,8 @@ Sulla copia di prova: togliere la durata a un tipo con un atto in verifica, prov
 pubblicarlo, poi rimettere la durata e pubblicare. Su un atto pubblicato, da ogni ruolo: aprire
 la schermata, cambiare la data di pubblicazione con il pulsante Modifica accanto alla data,
 premere Aggiorna. L'atto deve restare con la sua data e la schermata deve spiegare il rifiuto.
+Per il cambio dell'ora non serve aspettare ottobre: si guarda, nell'elenco pubblico, un atto
+la cui fine è il giorno del cambio, la mattina dopo, e deve essere sparito dalla mezzanotte.
 
 ## Com'è andata
 
@@ -97,3 +102,21 @@ dell'albo non legge nessun campo di data, e la richiesta manipolata lo conferma.
 | Il primo fermo tolto per gli atti pubblicati | A-344, A-103 |
 | Il secondo fermo che lascia passare le date | nessuna, perché il primo fermo ferma la scrittura prima |
 | Tutti e due i fermi, il secondo per le sole date | A-344, A-103 |
+
+### A-345 (ALBO-21)
+
+La prova passa sul codice di oggi. La fine la scrive l'albo come giorno di calendario, e
+l'istante in cui l'atto scade lo calcola il meccanismo comune: la mezzanotte del sito che
+chiude quel giorno. I guasti che contano stanno quindi nel meccanismo comune, e la prova li
+vede. Un'osservazione utile per chi tocca quel codice: in PHP `modify( '+86400 seconds' )`
+conta sull'ora del muro e dà lo stesso risultato di `+1 day`, quindi non è un guasto; lo è
+sommare 24 ore vere. Contare la durata in ore invece che in giorni non cambia niente qui,
+perché il cambio cade dopo la mezzanotte del giorno di fine: lo vedono già le prove di A-98.
+
+| Guasto introdotto | Visto da |
+|---|---|
+| La fine del giorno come inizio del giorno più 24 ore vere | A-345 |
+| Il giorno in più aggiunto in tempo universale | A-345 |
+| La data di fine letta con uno scarto fisso di un'ora dall'ora universale | A-345 |
+| Il confronto fatto sull'ora del muro invece che sull'istante | A-345 |
+| Il confronto stretto, che lascia pubblicato l'atto nell'istante della mezzanotte | A-345 |
