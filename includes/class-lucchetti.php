@@ -25,9 +25,13 @@
  * ne tiene piu' d'uno, i lucchetti restano distinti come sempre.
  *
  * Il tipo si legge dalla versione della banca dati, una volta per
- * connessione. Una versione che non si riconosce vale come lucchetto unico:
- * e' la lettura prudente, perche' il lucchetto unico e' corretto anche dove
- * se ne potrebbero tenere di piu'.
+ * connessione. Una versione letta ma che non si riconosce vale come lucchetto
+ * unico: e' la lettura prudente, perche' il lucchetto unico e' corretto anche
+ * dove se ne potrebbero tenere di piu', e la stessa banca dati da' la stessa
+ * risposta a ogni connessione. Una versione che non si legge non decide
+ * niente: le prese si rifiutano e la richiesta dopo chiede di nuovo, perche'
+ * una connessione che scegliesse da sola il lucchetto unico non escluderebbe
+ * quelle che, lette le versioni, usano i lucchetti distinti.
  *
  * @package AlboPretorioPa
  */
@@ -50,7 +54,7 @@ final class Lucchetti {
 	 * annidate sono aperte, e se il lucchetto resta fino alla fine della
 	 * connessione.
 	 *
-	 * @var \WeakMap<\wpdb, array{unico: bool, prese: int, trattenuto: bool}>|null
+	 * @var \WeakMap<\wpdb, array{unico: bool, prese: int, trattenuto: bool, letto: bool}>|null
 	 */
 	private static ?\WeakMap $stato = null;
 
@@ -90,6 +94,11 @@ final class Lucchetti {
 		global $wpdb;
 
 		$stato = self::stato();
+
+		// Senza sapere che tipo di banca dati e', nessuna presa: chi chiama rinuncia come per un lucchetto occupato.
+		if ( ! $stato['letto'] ) {
+			return false;
+		}
 
 		if ( $stato['unico'] && $stato['prese'] > 0 ) {
 			self::scrivi( array( 'prese' => $stato['prese'] + 1 ) + $stato );
@@ -206,7 +215,7 @@ final class Lucchetti {
 	/**
 	 * Lo stato della connessione dell'albo, letto la prima volta.
 	 *
-	 * @return array{unico: bool, prese: int, trattenuto: bool}
+	 * @return array{unico: bool, prese: int, trattenuto: bool, letto: bool}
 	 */
 	private static function stato(): array {
 		global $wpdb;
@@ -218,10 +227,26 @@ final class Lucchetti {
 		if ( ! isset( self::$stato[ $wpdb ] ) ) {
 			$versione = $wpdb->get_var( 'SELECT VERSION()' );
 
+			/*
+			 * Senza risposta non si sceglie: questa connessione andrebbe sul
+			 * lucchetto unico e un'altra, che la versione l'ha letta, su quelli
+			 * distinti, e le due non si escluderebbero. Le prese si rifiutano, e
+			 * la volta dopo si chiede di nuovo.
+			 */
+			if ( ! is_string( $versione ) ) {
+				return array(
+					'unico'      => true,
+					'prese'      => 0,
+					'trattenuto' => false,
+					'letto'      => false,
+				);
+			}
+
 			self::$stato[ $wpdb ] = array(
-				'unico'      => ! is_string( $versione ) || self::versione_a_lucchetto_unico( $versione ),
+				'unico'      => self::versione_a_lucchetto_unico( $versione ),
 				'prese'      => 0,
 				'trattenuto' => false,
+				'letto'      => true,
 			);
 		}
 
@@ -231,10 +256,14 @@ final class Lucchetti {
 	/**
 	 * Scrive lo stato della connessione dell'albo.
 	 *
-	 * @param array{unico: bool, prese: int, trattenuto: bool} $stato Stato.
+	 * @param array{unico: bool, prese: int, trattenuto: bool, letto: bool} $stato Stato.
 	 */
 	private static function scrivi( array $stato ): void {
 		global $wpdb;
+
+		if ( ! $stato['letto'] ) {
+			return;
+		}
 
 		self::$stato[ $wpdb ] = $stato;
 	}

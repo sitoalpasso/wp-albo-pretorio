@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano; aggiornata a lavoro 
 com'è andata davvero.
 
 **Stato: fatto.** Correttezza dei meccanismi che servono ALBO-08, ALBO-31, ALBO-35, ALBO-36 e
-ALBO-29. Righe di collaudo A-340..A-342.
+ALBO-29. Righe di collaudo A-340..A-343.
 
 ## In tre paragrafi
 
@@ -25,8 +25,9 @@ non cambia niente. Dove se ne tiene uno solo, tutti i lucchetti dell'albo divent
 lucchetto: lo si chiede alla banca dati alla prima presa, le prese annidate si contano nel
 componente senza chiedere niente, e il lucchetto torna libero quando si lascia l'ultima. Le
 operazioni dell'albo vanno allora una alla volta anche quando non si toccherebbero: è più
-lento, non meno sicuro. Una versione che non si riconosce vale come banca dati vecchia, perché
-il lucchetto unico è corretto anche dove se ne potrebbero tenere di più. Il turno delle
+lento, non meno sicuro. Una versione letta che non si riconosce vale come banca dati vecchia,
+perché il lucchetto unico è corretto anche dove se ne potrebbero tenere di più. Una versione
+che non si legge non decide niente: nessuna presa riesce, e la volta dopo si chiede di nuovo. Il turno delle
 proroghe, che sa recuperare una presa rimasta da una proroga precedente, impara a non
 scambiare per presa rimasta il lucchetto di un'altra operazione in corso.
 
@@ -99,10 +100,13 @@ Nessuno.
 - La numerazione presa dentro una transazione aperta da altri, che deve restare fino alla fine
   della connessione, lasciata da un'operazione successiva della stessa richiesta: A-341.
 - Una versione letta male, o una versione sconosciuta presa per recente: A-342.
+- Una versione che non si legge: se la connessione scegliesse da sola il lucchetto unico, non
+  escluderebbe le altre, che la versione la leggono e usano i lucchetti distinti. Le prese si
+  rifiutano, e la volta dopo si chiede di nuovo: A-343.
 
 ### 7. Test aggiunti
 
-A-340, A-341, A-342. Adattate le cinque rosse su MariaDB 5.5: A-202 e A-205 attraverso la
+A-340, A-341, A-342, A-343. Adattate le cinque rosse su MariaDB 5.5: A-202 e A-205 attraverso la
 chiusura comune delle prove, A-152, A-213 e A-268. Poi quelle che usavano
 `RELEASE_ALL_LOCKS` o i nomi dei lucchetti e su 5.5 passavano per caso, o che la suite con
 l'imitazione ha fatto cadere: A-263, A-214, A-270, la chiusura delle prove dell'importazione
@@ -178,3 +182,5 @@ senza svuotarla. In CI la cartella parte vuota.
 | La numerazione non trattenuta dentro una transazione aperta da altri | A-341 |
 | Il messaggio dell'importazione occupata che parla solo di un'altra importazione | A-340 |
 | Il messaggio della proroga occupata che parla solo di un'altra proroga | A-341 |
+| La presa concessa senza aver letto la versione | A-343 |
+| Lo stato di una connessione senza versione letta ricordato | A-343 |

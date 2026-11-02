@@ -22,7 +22,7 @@ use AlboPretorioPa\Repertorio;
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lucchetti della banca dati nelle prove.
 
 /**
- * Righe A-340..A-342 del catalogo di collaudo.
+ * Righe A-340..A-343 del catalogo di collaudo.
  */
 class LucchettiTest extends \WP_UnitTestCase {
 
@@ -189,22 +189,65 @@ class LucchettiTest extends \WP_UnitTestCase {
 		foreach ( $casi as $versione => $unico ) {
 			$this->assertSame( $unico, Lucchetti::versione_a_lucchetto_unico( (string) $versione ), (string) $versione );
 		}
+	}
 
-		// Senza risposta alla domanda sulla versione: lucchetto unico.
+	/**
+	 * A-343: senza risposta sulla versione nessuna presa, e la volta dopo si chiede di nuovo.
+	 */
+	public function test_a343_versione_che_non_si_legge(): void {
+		global $wpdb;
+
 		LucchettoUnico::dimentica_stato();
+
+		$guasta    = true;
+		$domande   = 0;
+		$lucchetti = 0;
+
 		$this->filtra(
-			static function ( $istruzione ) {
-				return ( is_string( $istruzione ) && 1 === preg_match( '/^\s*SELECT\s+VERSION\(\)\s*$/i', $istruzione ) ) ? 'SELECT NON_ESISTE()' : $istruzione;
+			static function ( $istruzione ) use ( &$guasta, &$domande, &$lucchetti ) {
+				if ( ! is_string( $istruzione ) ) {
+					return $istruzione;
+				}
+
+				if ( false !== strpos( $istruzione, 'GET_LOCK' ) ) {
+					++$lucchetti;
+				}
+
+				if ( 1 === preg_match( '/^\s*SELECT\s+VERSION\(\)\s*$/i', $istruzione ) ) {
+					++$domande;
+
+					return $guasta ? 'SELECT NON_ESISTE()' : $istruzione;
+				}
+
+				return $istruzione;
 			}
 		);
 
-		$zitto = $GLOBALS['wpdb']->suppress_errors( true );
+		$zitto = $wpdb->suppress_errors( true );
 
 		try {
-			$this->assertTrue( Lucchetti::unico() );
+			$this->assertFalse( Lucchetti::prendi( Importazione::nome_turno(), 0 ), 'Senza risposta, la presa si rifiuta.' );
+			$this->assertSame( 0, $lucchetti, 'E non si chiede nessun lucchetto alla banca dati.' );
+			$this->assertWPError( $this->turno_importazione( 'prendi' ), 'L\'importazione rinuncia.' );
+			// Una domanda per la presa diretta, due per l'importazione: la presa e il testo del rifiuto.
+			$this->assertSame( 3, $domande, 'La risposta mancata non si ricorda: si chiede di nuovo.' );
+
+			// Neanche quando una presa si chiude o si trattiene senza risposta.
+			Lucchetti::presa_chiusa();
+			Lucchetti::trattieni( Importazione::nome_turno() );
+			$this->assertSame( 5, $domande );
 		} finally {
-			$GLOBALS['wpdb']->suppress_errors( $zitto );
+			$wpdb->suppress_errors( $zitto );
 		}
+
+		// La banca dati risponde di nuovo: la presa riesce, e la risposta si ricorda.
+		$guasta = false;
+
+		$this->assertTrue( $this->turno_importazione( 'prendi' ) );
+		$this->turno_importazione( 'lascia' );
+		$this->assertSame( 6, $domande );
+		$this->assertTrue( Lucchetti::unico(), 'La banca dati imitata e\' a lucchetto unico.' );
+		$this->assertSame( 6, $domande, 'Letta una volta, la versione non si chiede piu\'.' );
 	}
 
 	/**
