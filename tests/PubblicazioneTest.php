@@ -1175,4 +1175,113 @@ class PubblicazioneTest extends \WP_UnitTestCase {
 		);
 		$this->pubblicato_con_date_del_sistema( $id, 20, 'Durata cambiata in verifica' );
 	}
+
+	/**
+	 * A-344: ALBO-27, la data di inizio di un atto pubblicato non cambia dalla schermata di WordPress ne' dal riquadro.
+	 */
+	public function test_a344_data_di_inizio_di_un_pubblicato_dalla_schermata(): void {
+		$id = $this->atto_in_verifica();
+
+		$this->assertIsArray( $this->pubblica_da_codice( $id, $this->pubblicatore ) );
+
+		$prima   = $this->fotografia( $id );
+		$memoria = get_post_field( 'post_date', $id );
+		$fine    = conformita_core_fine_pubblicazione( $id );
+		$date    = array(
+			'prima'  => Passaggi::ora()->modify( '-10 days' )->format( 'Y-m-d H:i:s' ),
+			'dopo'   => Passaggi::ora()->modify( '+3 days' )->format( 'Y-m-d H:i:s' ),
+			'giorno' => Passaggi::ora()->modify( '-1 day' )->format( 'Y-m-d H:i:s' ),
+		);
+
+		$this->scritti = array();
+
+		foreach ( array( $this->redattore, $this->pubblicatore, $this->amministratore ) as $utente ) {
+			foreach ( $date as $quale => $data ) {
+				// La schermata di WordPress: la casella della data cambiata, con il pulsante Aggiorna.
+				$this->come(
+					$utente,
+					function () use ( $id, $memoria, $data, $quale, $utente ) {
+						set_current_screen( 'post' );
+
+						$_POST = array(
+							'action'               => 'editpost',
+							'post_ID'              => (string) $id,
+							'post_type'            => TIPO,
+							'post_title'           => get_the_title( $id ),
+							'original_post_status' => 'publish',
+							'post_status'          => 'publish',
+							'save'                 => 'Aggiorna',
+							'_wpnonce'             => wp_create_nonce( 'update-post_' . $id ),
+						) + $this->campi_data( $memoria, $data );
+
+						try {
+							edit_post();
+						} catch ( \WPDieException $fermato ) {
+							unset( $fermato );
+						} finally {
+							$_POST = array();
+						}
+
+						$this->assertArrayHasKey( 'albo_atto_pubblicato', Rifiuti::preleva_per_utente( $id ), 'Il rifiuto della schermata e\' spiegato, data ' . $quale . ', utente ' . $utente . '.' );
+					}
+				);
+
+				// Il riquadro dell'albo, con una richiesta manipolata che porta la data in ogni forma.
+				$this->invia_riquadro(
+					$id,
+					$utente,
+					array(
+						RiquadroPassaggi::CAMPO_PASSAGGIO => 'pubblica',
+						RiquadroPassaggi::CAMPO_CONFERMA  => (string) $id,
+						'post_date'                       => $data,
+						'post_date_gmt'                   => $data,
+						'edit_date'                       => '1',
+						'data_inizio'                     => $data,
+						'albo_pretorio_data_inizio'       => $data,
+					) + $this->campi_data( $memoria, $data )
+				);
+
+				$this->assertSame( $prima, $this->fotografia( $id ), 'Niente cambia, data ' . $quale . ', utente ' . $utente . '.' );
+			}
+		}
+
+		$this->assertSame( $memoria, get_post_field( 'post_date', $id ), 'La data di inizio e\' quella della pubblicazione.' );
+		$this->assertSame( $fine, conformita_core_fine_pubblicazione( $id ), 'E la fine non si sposta.' );
+		$this->assertSame( array(), $this->stati_scritti( $id ), 'Nessuna scrittura della riga.' );
+
+		// Controllo positivo: la stessa richiesta della schermata cambia davvero la data di un articolo qualsiasi.
+		$articolo = self::factory()->post->create(
+			array(
+				'post_status' => 'publish',
+				'post_date'   => $memoria,
+			)
+		);
+
+		$this->come(
+			$this->amministratore,
+			function () use ( $articolo, $memoria, $date ) {
+				set_current_screen( 'post' );
+
+				$_POST = array(
+					'action'               => 'editpost',
+					'post_ID'              => (string) $articolo,
+					'post_type'            => 'post',
+					'post_title'           => get_the_title( $articolo ),
+					'original_post_status' => 'publish',
+					'post_status'          => 'publish',
+					'save'                 => 'Aggiorna',
+					'_wpnonce'             => wp_create_nonce( 'update-post_' . $articolo ),
+				) + $this->campi_data( $memoria, $date['prima'] );
+
+				try {
+					edit_post();
+				} finally {
+					$_POST = array();
+				}
+			}
+		);
+
+		clean_post_cache( $articolo );
+		$this->assertSame( $date['prima'], get_post_field( 'post_date', $articolo ), 'Sull\'articolo la data cambia: la richiesta e\' quella vera.' );
+	}
 }
