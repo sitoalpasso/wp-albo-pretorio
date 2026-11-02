@@ -63,9 +63,23 @@ ospitate (ALBO-29).
 
 ### 3. Il percorso di chi usa il sito
 
-Nessun cambiamento per chi lavora sull'albo. Su una banca dati vecchia, chi avvia una
-proroga mentre un'importazione lavora aspetta qualche secondo e poi trova il messaggio che
-un'altra operazione è in corso: lo stesso di oggi per due proroghe insieme.
+Sulle banche dati recenti, nessun cambiamento. Su una banca dati vecchia fanno la fila tutte
+insieme le operazioni dell'albo che usano un lucchetto: l'importazione, la proroga, la
+dichiarazione della partenza della numerazione, le impostazioni e le copie dello storico,
+l'elenco delle amministrazioni ospitate. Chi ne avvia una mentre un'altra lavora aspetta
+qualche secondo e poi rinuncia con un messaggio. La proroga e l'importazione dicono che
+un'altra operazione dell'albo è in corso, con un testo scelto apposta per quel tipo di banca
+dati, che resta vero qualunque sia l'operazione. Le altre hanno già un testo generico.
+
+La pubblicazione e il lavoro quotidiano sugli atti non usano lucchetti: il numero di
+repertorio lo assegna la banca dati con un'istruzione sola. Durante un'importazione si
+pubblica come sempre.
+
+**Durante un'importazione grande le altre operazioni della lista aspettano.** Un lotto tiene
+il lucchetto per tutta la sua durata, e con i 2327 atti previsti i lotti sono molti: su una
+banca dati vecchia, una proroga o un cambio dello storico avviati in quel momento rinunciano
+finché il lotto non finisce. Conviene importare quando non servono, e il manuale di chi
+importa lo deve dire.
 
 ### 4. Dati letti e scritti
 
@@ -97,16 +111,27 @@ vera e la preparazione comune delle prove.
 ### 8. Cosa non implementa
 
 - **I lucchetti degli altri componenti.** Su una banca dati vecchia, un altro plugin che tiene
-  un lucchetto con nome lo perde quando l'albo ne prende uno, e viceversa. Il componente
-  comune oggi non ne usa.
+  un lucchetto con nome lo perde quando l'albo ne prende uno nella stessa richiesta, e
+  viceversa. Il componente comune non ne usa, ma la trasparenza sì: nell'importazione delle
+  pagine e al salvataggio delle sue voci. Sullo stesso sito, un lucchetto della trasparenza e
+  uno dell'albo presi uno dentro l'altro nella stessa richiesta si toglierebbero a vicenda in
+  silenzio. Il caso è raro, perché le due operazioni non si chiamano fra loro, ma esiste.
+  **Lavoro futuro**: spostare questo meccanismo nel componente comune, così vale per tutti e
+  due i componenti.
+- **Una presa trattenuta in un processo lungo.** Dentro una transazione aperta da altri la
+  numerazione resta presa fino alla fine della connessione. Su una banca dati vecchia quel
+  lucchetto è l'unico dell'albo: in un comando da riga di comando (WP-CLI) o in un compito
+  pianificato lungo con la scrittura automatica spenta, l'albo resta chiuso alle altre
+  richieste per tutto il processo. È la scelta prudente, perché le scritture non sono ancora
+  definitive, ma va saputo.
 - **Una connessione che cade.** Se la banca dati chiude la connessione a metà, i lucchetti si
   perdono su ogni versione: è il comportamento di prima.
 
 ### 9. Come si prova su un'installazione reale
 
 Sulla copia di prova, con la sua banca dati: avviare l'importazione e, mentre lavora, avviarla
-di nuovo da un'altra scheda del browser. La seconda deve dire che un'altra richiesta sta
-lavorando all'importazione. Lo script del sito che prova i componenti su MariaDB 5.5 rifà
+di nuovo da un'altra scheda del browser. La seconda deve dire che un'altra operazione
+dell'albo è in corso. Lo script del sito che prova i componenti su MariaDB 5.5 rifà
 tutta la suite.
 
 ## Com'è andata
@@ -151,3 +176,5 @@ senza svuotarla. In CI la cartella parte vuota.
 | Il turno delle proroghe che lascia, come presa rimasta, il lucchetto di un'altra operazione | A-341 |
 | Il turno delle proroghe annidato che lascia il lucchetto alla banca dati | A-341 |
 | La numerazione non trattenuta dentro una transazione aperta da altri | A-341 |
+| Il messaggio dell'importazione occupata che parla solo di un'altra importazione | A-340 |
+| Il messaggio della proroga occupata che parla solo di un'altra proroga | A-341 |

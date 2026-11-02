@@ -2719,9 +2719,12 @@ final class Passaggi {
 		}
 
 		if ( ! Lucchetti::prendi( self::nome_turno(), self::ATTESA_TURNO ) ) {
+			// Dove la banca dati tiene un lucchetto solo, lo tiene anche ogni altra operazione dell'albo.
 			return new \WP_Error(
 				'albo_proroga_occupata',
-				__( 'Nessuna proroga disposta: un\'altra proroga e\' in corso in questo momento. Riprovare fra poco, ripartendo dall\'anteprima.', 'albo-pretorio-pa' )
+				Lucchetti::unico()
+					? __( 'Nessuna proroga disposta: un\'altra operazione dell\'albo e\' in corso in questo momento, per esempio un\'altra proroga o un\'importazione. Riprovare fra poco, ripartendo dall\'anteprima.', 'albo-pretorio-pa' )
+					: __( 'Nessuna proroga disposta: un\'altra proroga e\' in corso in questo momento. Riprovare fra poco, ripartendo dall\'anteprima.', 'albo-pretorio-pa' )
 			);
 		}
 

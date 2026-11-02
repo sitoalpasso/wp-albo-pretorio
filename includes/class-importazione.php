@@ -1610,7 +1610,12 @@ final class Importazione {
 	 */
 	private static function prendi_turno() {
 		if ( ! Lucchetti::prendi( self::nome_turno(), 0 ) ) {
-			return new \WP_Error( 'albo_importazione_occupata', __( 'Un\'altra richiesta sta lavorando all\'importazione in questo momento. Si riprova fra poco.', 'albo-pretorio-pa' ) );
+			// Dove la banca dati tiene un lucchetto solo, lo tiene anche ogni altra operazione dell'albo.
+			$testo = Lucchetti::unico()
+				? __( 'Un\'altra operazione dell\'albo e\' in corso in questo momento, per esempio un\'altra richiesta che lavora all\'importazione. Si riprova fra poco.', 'albo-pretorio-pa' )
+				: __( 'Un\'altra richiesta sta lavorando all\'importazione in questo momento. Si riprova fra poco.', 'albo-pretorio-pa' );
+
+			return new \WP_Error( 'albo_importazione_occupata', $testo );
 		}
 
 		return true;

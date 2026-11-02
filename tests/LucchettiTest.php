@@ -94,7 +94,10 @@ class LucchettiTest extends \WP_UnitTestCase {
 		$this->assertTrue( Repertorio::blocca_anno( 2041 ) );
 		Repertorio::sblocca_anno( 2041 );
 
-		$this->assertSame( array( 'albo_importazione_occupata' ), $this->da_un_altra_richiesta( fn() => $this->turno_importazione( 'prendi' ) )->get_error_codes(), 'Un\'altra richiesta non entra nell\'importazione.' );
+		$occupata = $this->da_un_altra_richiesta( fn() => $this->turno_importazione( 'prendi' ) );
+
+		$this->assertSame( array( 'albo_importazione_occupata' ), $occupata->get_error_codes(), 'Un\'altra richiesta non entra nell\'importazione.' );
+		$this->assertStringContainsString( 'un\'altra operazione dell\'albo', strtolower( $occupata->get_error_message() ), 'Il messaggio vale per qualunque operazione che tiene il lucchetto.' );
 		$this->assertWPError( $this->da_un_altra_richiesta( static fn() => Repertorio::blocca_anno( 2039 ) ), 'Ne\' nella numerazione di un altro anno.' );
 
 		// Finito il turno, il lucchetto e' libero.
@@ -129,7 +132,10 @@ class LucchettiTest extends \WP_UnitTestCase {
 
 		// Il turno delle proroghe da solo: preso, chiude; lasciato, si riapre.
 		$this->assertTrue( $this->turno_proroghe( 'prendi' ) );
-		$this->assertSame( array( 'albo_proroga_occupata' ), $this->da_un_altra_richiesta( fn() => $this->turno_proroghe( 'prendi' ) )->get_error_codes() );
+		$occupata = $this->da_un_altra_richiesta( fn() => $this->turno_proroghe( 'prendi' ) );
+
+		$this->assertSame( array( 'albo_proroga_occupata' ), $occupata->get_error_codes() );
+		$this->assertStringContainsString( 'un\'altra operazione dell\'albo', $occupata->get_error_message() );
 		$this->assertTrue( $this->turno_proroghe( 'lascia' ) );
 		$this->assertTrue(
 			$this->da_un_altra_richiesta(
