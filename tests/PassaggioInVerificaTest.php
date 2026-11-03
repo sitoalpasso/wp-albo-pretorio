@@ -470,6 +470,59 @@ class PassaggioInVerificaTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-346: ALBO-04, gia' all'invio in verifica il rifiuto per un tipo senza durata dice che cosa correggere e dove.
+	 *
+	 * E' il primo rifiuto che legge chi redige: deve essere lo stesso testo
+	 * che legge chi pubblica, non uno che parla di un dato da inserire.
+	 */
+	public function test_a346_rifiuto_all_invio_in_verifica(): void {
+		$this->setExpectedIncorrectUsage( 'wp_insert_post' );
+
+		$id = $this->atto_completo();
+
+		wp_set_object_terms( $id, array( $this->voci['senza'] ), TASSONOMIA_TIPO_ATTO );
+
+		$atteso = DatiAtto::motivo_senza_durata( get_term( $this->voci['senza'] ) );
+
+		$this->assertStringContainsString( 'Il tipo di atto Avviso pubblico non ha una durata di pubblicazione valida', $atteso );
+		$this->assertStringContainsString( 'non si inserisce a mano', $atteso );
+		$this->assertStringContainsString( 'Albo pretorio > Tipi di atto', $atteso );
+
+		// Da codice: la segnalazione a chi programma porta lo stesso testo.
+		$prima = count( $this->segnalazioni );
+
+		wp_set_current_user( $this->redattore );
+		wp_update_post(
+			array(
+				'ID'          => $id,
+				'post_status' => 'pending',
+			)
+		);
+		clean_post_cache( $id );
+
+		$this->assertSame( 'draft', get_post_status( $id ), 'Da codice, resta in bozza.' );
+		$this->assertCount( $prima + 1, $this->segnalazioni );
+		$this->assertStringContainsString( esc_html( $atteso ), end( $this->segnalazioni ), 'Da codice, il testo che dice cosa correggere.' );
+
+		// Dalla schermata: il motivo mostrato a chi redige.
+		wp_set_current_user( $this->amministratore );
+
+		$altro = $this->atto_completo();
+
+		wp_set_object_terms( $altro, array( $this->voci['senza'] ), TASSONOMIA_TIPO_ATTO );
+		wp_set_current_user( $this->redattore );
+
+		$this->invia( $altro, array( 'post_status' => 'pending' ) );
+
+		$motivi = Rifiuti::preleva_per_utente( $altro );
+
+		$this->assertSame( 'draft', get_post_status( $altro ), 'Dalla schermata, resta in bozza.' );
+		$this->assertSame( array( 'albo_manca_durata' => 'L\'atto resta in bozza e non passa in verifica. ' . $atteso ), $motivi, 'Dalla schermata, il solo motivo, con il testo che dice cosa correggere.' );
+
+		wp_set_current_user( $this->amministratore );
+	}
+
+	/**
 	 * A-86: la bozza passa in verifica solo con tutti i dati, e il motivo nomina quello che manca.
 	 */
 	public function test_a86_passaggio_con_un_dato_mancante_per_volta(): void {

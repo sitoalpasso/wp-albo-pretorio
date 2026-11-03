@@ -148,12 +148,14 @@ La riga di ALBO-04 vuole il rifiuto attribuito alla configurazione del tipo, non
 mancante. Il testo di prima diceva che la data di fine non si calcola, e chi lo leggeva poteva
 pensare di doverla scrivere lui. Il testo nuovo dice, nell'ordine: che l'atto resta in
 verifica; quale tipo non ha una durata valida; che la data di fine la calcola il sistema e non
-si inserisce a mano; chi corregge e dove (Albo pretorio > Tipi di atto); che poi l'atto si
-pubblica senza rifarlo. Lo stesso testo esce da codice e dal riquadro, e l'annuncio del
-riquadro lo dice prima che si provi a pubblicare. Il codice del rifiuto non cambia.
+si inserisce a mano; chi corregge e dove (Albo pretorio > Tipi di atto); che poi si riprova con lo stesso atto. Lo
+stesso testo lo legge già chi manda una bozza in verifica, poi chi pubblica da codice e dal
+riquadro, e l'annuncio del riquadro lo dice prima che si provi a pubblicare. I codici dei
+rifiuti non cambiano.
 
-È l'unica PR della scheda che tocca un sorgente: il testo sta in una funzione sola, usata dal
-rifiuto, dal rifiuto di riserva e dall'annuncio. Il rifiuto di riserva, che scatta se la
+È l'unica PR della scheda che tocca un sorgente: il testo sta in una funzione sola, `DatiAtto::motivo_senza_durata()`,
+usata dal controllo dei dati all'invio in verifica, dal rifiuto, dal rifiuto di riserva e
+dall'annuncio. Il rifiuto di riserva, che scatta se la
 durata si guasta fra il controllo dei dati e il calcolo della fine nella stessa richiesta,
 non si raggiunge da una prova senza un guasto apposta: usa la stessa funzione, e lo si
 dichiara.
@@ -163,3 +165,4 @@ dichiara.
 | Il rifiuto con il testo di prima | A-346 |
 | L'annuncio del riquadro con il testo di prima | A-346 |
 | Il testo che non nomina il tipo | A-346 |
+| L'invio in verifica con il testo di prima | A-346 |

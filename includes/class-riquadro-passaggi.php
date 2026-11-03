@@ -335,7 +335,7 @@ final class RiquadroPassaggi {
 			return sprintf(
 				/* translators: %s: il motivo, con il tipo e dove si completa la durata. */
 				__( 'L\'atto non si pubblica. %s', 'albo-pretorio-pa' ),
-				Passaggi::motivo_senza_durata( $tipo )
+				DatiAtto::motivo_senza_durata( $tipo )
 			);
 		}
 
