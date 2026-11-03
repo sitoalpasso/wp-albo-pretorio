@@ -3449,11 +3449,7 @@ final class Passaggi {
 			unset( $mancanti['albo_manca_durata'] );
 
 			$mancanti = array(
-				'albo_fine_non_calcolabile' => sprintf(
-					/* translators: %s: nome del tipo di atto. */
-					__( 'La data di fine della pubblicazione non si puo\' calcolare: il tipo di atto %s non ha una durata valida configurata.', 'albo-pretorio-pa' ),
-					$tipo->name
-				),
+				'albo_fine_non_calcolabile' => self::motivo_senza_durata( $tipo ),
 			) + $mancanti;
 		}
 
@@ -3479,11 +3475,47 @@ final class Passaggi {
 		if ( ! is_array( $durata ) ) {
 			return new \WP_Error(
 				'albo_fine_non_calcolabile',
-				__( 'L\'atto resta in verifica e non si pubblica. La data di fine della pubblicazione non si puo\' calcolare.', 'albo-pretorio-pa' )
+				sprintf(
+					/* translators: %s: il motivo, con il tipo e dove si completa la durata. */
+					__( 'L\'atto resta in verifica e non si pubblica. %s', 'albo-pretorio-pa' ),
+					self::motivo_senza_durata( $tipo )
+				)
 			);
 		}
 
 		return (int) $durata['giorni'];
+	}
+
+	/**
+	 * Il motivo per cui un atto il cui tipo non ha una durata valida non si
+	 * pubblica, detto in modo che chi lo legge sappia che cosa correggere.
+	 *
+	 * Il problema e' la configurazione del tipo, non una data mancante: la
+	 * data di fine la scrive il sistema dalla durata, e non si inserisce a
+	 * mano (ALBO-04, ALBO-27). Il testo nomina il tipo e la schermata in cui
+	 * la durata si completa.
+	 *
+	 * @param \WP_Term|null $tipo Tipo di atto.
+	 * @return string
+	 */
+	public static function motivo_senza_durata( ?\WP_Term $tipo ): string {
+		if ( null === $tipo ) {
+			return __( 'Manca il tipo di atto: senza il tipo e la sua durata il sistema non calcola la data di fine, che non si inserisce a mano. Il tipo si sceglie nella scheda dell\'atto.', 'albo-pretorio-pa' );
+		}
+
+		$dove = sprintf(
+			/* translators: 1: voce del menu dell'albo, 2: voce dei tipi di atto. */
+			__( '%1$s > %2$s', 'albo-pretorio-pa' ),
+			__( 'Albo pretorio', 'albo-pretorio-pa' ),
+			__( 'Tipi di atto', 'albo-pretorio-pa' )
+		);
+
+		return sprintf(
+			/* translators: 1: nome del tipo di atto, 2: dove si configura la durata. */
+			__( 'Il tipo di atto %1$s non ha una durata di pubblicazione valida, e senza la durata il sistema non calcola la data di fine, che non si inserisce a mano. Chi configura l\'albo completi la durata del tipo in %2$s; poi l\'atto si pubblica senza rifarlo.', 'albo-pretorio-pa' ),
+			$tipo->name,
+			$dove
+		);
 	}
 
 	/**

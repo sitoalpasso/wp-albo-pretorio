@@ -1344,6 +1344,92 @@ class PubblicazioneTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A-346: ALBO-04, il rifiuto per un tipo senza durata valida dice che cosa correggere e dove.
+	 *
+	 * Il motivo e' la configurazione del tipo, non una data mancante: chi
+	 * pubblica legge il nome del tipo, che la data di fine non si scrive a mano
+	 * e la schermata in cui si completa la durata. Lo stesso testo da codice,
+	 * dal riquadro e nell'annuncio del riquadro prima di pubblicare.
+	 */
+	public function test_a346_rifiuto_che_dice_cosa_correggere(): void {
+		$tipo   = $this->voci['normativo'];
+		$nome   = get_term( $tipo )->name;
+		$durata = get_term_meta( $tipo, META_DURATA, true );
+
+		$guasti = array(
+			'durata tolta'         => null,
+			'giorni senza origine' => array( 'giorni' => 15 ),
+			'norma senza estremi'  => array(
+				'giorni'  => 15,
+				'origine' => 'norma',
+				'estremi' => '',
+			),
+		);
+
+		foreach ( $guasti as $caso => $guasta ) {
+			$id = $this->atto_in_verifica();
+
+			// Solo adesso, con l'atto in verifica, la configurazione del tipo si guasta.
+			delete_term_meta( $tipo, META_DURATA );
+
+			if ( null !== $guasta ) {
+				update_term_meta( $tipo, META_DURATA, $guasta );
+			}
+
+			$annuncio = $this->come(
+				$this->pubblicatore,
+				static function () use ( $id ) {
+					clean_post_cache( $id );
+					ob_start();
+					RiquadroPassaggi::mostra( get_post( $id ) );
+					return (string) ob_get_clean();
+				}
+			);
+
+			$esito = $this->pubblica_da_codice( $id, $this->pubblicatore );
+
+			$this->assertSame( array( 'albo_fine_non_calcolabile' ), $esito->get_error_codes(), $caso . ': il codice del rifiuto resta quello.' );
+
+			$da_codice = $esito->get_error_message();
+
+			$this->invia_riquadro(
+				$id,
+				$this->pubblicatore,
+				array(
+					RiquadroPassaggi::CAMPO_PASSAGGIO => 'pubblica',
+					RiquadroPassaggi::CAMPO_CONFERMA  => (string) $id,
+				)
+			);
+
+			$motivi = $this->come(
+				$this->pubblicatore,
+				static function () use ( $id ) {
+					return Rifiuti::preleva_per_utente( $id );
+				}
+			);
+
+			$this->assertSame( $da_codice, $motivi['albo_fine_non_calcolabile'] ?? null, $caso . ': dal riquadro lo stesso testo che da codice.' );
+
+			foreach ( array(
+				'da codice' => $da_codice,
+				'annuncio'  => wp_specialchars_decode( wp_strip_all_tags( $annuncio ), ENT_QUOTES ),
+			) as $dove => $testo ) {
+				$this->assertStringContainsString( 'Il tipo di atto ' . $nome . ' non ha una durata di pubblicazione valida', $testo, $caso . ', ' . $dove . ': nomina il tipo e la sua durata.' );
+				$this->assertStringContainsString( 'non si inserisce a mano', $testo, $caso . ', ' . $dove . ': dice che la data di fine non si scrive a mano.' );
+				$this->assertStringContainsString( 'Albo pretorio > Tipi di atto', $testo, $caso . ', ' . $dove . ': dice dove si completa la durata.' );
+			}
+
+			$this->assertStringStartsWith( 'L\'atto resta in verifica e non si pubblica.', $da_codice, $caso . ': dice che cosa succede all\'atto.' );
+
+			// Controllo positivo: completata la durata, lo stesso atto si pubblica.
+			delete_term_meta( $tipo, META_DURATA );
+			add_term_meta( $tipo, META_DURATA, $durata );
+
+			$this->assertIsArray( $this->pubblica_da_codice( $id, $this->pubblicatore ), $caso . ': con la durata completata si pubblica.' );
+		}
+	}
+
+	/**
 	 * Fissa lo stesso istante, dato in qualunque fuso, sui due orologi.
 	 *
 	 * @param \DateTimeImmutable $istante Istante.
