@@ -166,3 +166,9 @@ dichiara.
 | L'annuncio del riquadro con il testo di prima | A-346 |
 | Il testo che non nomina il tipo | A-346 |
 | L'invio in verifica con il testo di prima | A-346 |
+| La chiusa del testo tolta ("poi si riprova con lo stesso atto") | A-346, che confronta il testo intero scritto nella prova |
+| Dopo il ripristino, la fine calcolata con un giorno in più | A-346, che rilegge l'atto pubblicato |
+
+Le ultime due righe vengono dai rilievi di Codex: prima la prova prendeva il testo atteso dalla
+stessa funzione che provava, e del controllo positivo guardava solo la risposta. Tutti e due i
+guasti restavano verdi.

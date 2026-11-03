@@ -482,11 +482,7 @@ class PassaggioInVerificaTest extends \WP_UnitTestCase {
 
 		wp_set_object_terms( $id, array( $this->voci['senza'] ), TASSONOMIA_TIPO_ATTO );
 
-		$atteso = DatiAtto::motivo_senza_durata( get_term( $this->voci['senza'] ) );
-
-		$this->assertStringContainsString( 'Il tipo di atto Avviso pubblico non ha una durata di pubblicazione valida', $atteso );
-		$this->assertStringContainsString( 'non si inserisce a mano', $atteso );
-		$this->assertStringContainsString( 'Albo pretorio > Tipi di atto', $atteso );
+		$atteso = 'Il tipo di atto Avviso pubblico non ha una durata di pubblicazione valida, e senza la durata il sistema non calcola la data di fine, che non si inserisce a mano. Chi configura l\'albo completi la durata del tipo in Albo pretorio > Tipi di atto; poi si riprova con lo stesso atto, senza rifarlo.';
 
 		// Da codice: la segnalazione a chi programma porta lo stesso testo.
 		$prima = count( $this->segnalazioni );

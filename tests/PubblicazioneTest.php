@@ -1353,7 +1353,7 @@ class PubblicazioneTest extends \WP_UnitTestCase {
 	 */
 	public function test_a346_rifiuto_che_dice_cosa_correggere(): void {
 		$tipo   = $this->voci['normativo'];
-		$nome   = get_term( $tipo )->name;
+		$motivo = 'Il tipo di atto Deliberazione non ha una durata di pubblicazione valida, e senza la durata il sistema non calcola la data di fine, che non si inserisce a mano. Chi configura l\'albo completi la durata del tipo in Albo pretorio > Tipi di atto; poi si riprova con lo stesso atto, senza rifarlo.';
 		$durata = get_term_meta( $tipo, META_DURATA, true );
 
 		$guasti = array(
@@ -1410,22 +1410,15 @@ class PubblicazioneTest extends \WP_UnitTestCase {
 
 			$this->assertSame( $da_codice, $motivi['albo_fine_non_calcolabile'] ?? null, $caso . ': dal riquadro lo stesso testo che da codice.' );
 
-			foreach ( array(
-				'da codice' => $da_codice,
-				'annuncio'  => wp_specialchars_decode( wp_strip_all_tags( $annuncio ), ENT_QUOTES ),
-			) as $dove => $testo ) {
-				$this->assertStringContainsString( 'Il tipo di atto ' . $nome . ' non ha una durata di pubblicazione valida', $testo, $caso . ', ' . $dove . ': nomina il tipo e la sua durata.' );
-				$this->assertStringContainsString( 'non si inserisce a mano', $testo, $caso . ', ' . $dove . ': dice che la data di fine non si scrive a mano.' );
-				$this->assertStringContainsString( 'Albo pretorio > Tipi di atto', $testo, $caso . ', ' . $dove . ': dice dove si completa la durata.' );
-			}
-
-			$this->assertStringStartsWith( 'L\'atto resta in verifica e non si pubblica.', $da_codice, $caso . ': dice che cosa succede all\'atto.' );
+			$this->assertSame( 'L\'atto resta in verifica e non si pubblica. ' . $motivo, $da_codice, $caso . ': da codice, il testo intero.' );
+			$this->assertStringContainsString( 'L\'atto non si pubblica. ' . $motivo, wp_specialchars_decode( wp_strip_all_tags( $annuncio ), ENT_QUOTES ), $caso . ': l\'annuncio del riquadro, con il testo intero.' );
 
 			// Controllo positivo: completata la durata, lo stesso atto si pubblica.
 			delete_term_meta( $tipo, META_DURATA );
 			add_term_meta( $tipo, META_DURATA, $durata );
 
 			$this->assertIsArray( $this->pubblica_da_codice( $id, $this->pubblicatore ), $caso . ': con la durata completata si pubblica.' );
+			$this->pubblicato_con_date_del_sistema( $id, 15, $caso . ': lo stesso atto, riletto' );
 		}
 	}
 
