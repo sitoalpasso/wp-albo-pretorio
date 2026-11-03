@@ -349,13 +349,15 @@ final class Importazione {
 	/**
 	 * L'impronta del file del backup, che lo riconosce fra un blocco e l'altro.
 	 *
-	 * @param string $percorso Backup.
-	 * @return string|null
+	 * Letto a pezzi: con una scadenza, se il tempo finisce prima la risposta
+	 * e' l'errore del tempo, non un'impronta mancata.
+	 *
+	 * @param string     $percorso Backup.
+	 * @param float|null $scadenza Istante oltre il quale ci si ferma; nullo senza limite.
+	 * @return string|\WP_Error|null
 	 */
-	public static function impronta_backup( string $percorso ): ?string {
-		$impronta = is_file( $percorso ) ? hash_file( 'sha256', $percorso ) : false;
-
-		return false === $impronta ? null : $impronta;
+	public static function impronta_backup( string $percorso, ?float $scadenza = null ) {
+		return LettoreBackup::impronta_file( $percorso, $scadenza );
 	}
 
 	/**
@@ -416,13 +418,18 @@ final class Importazione {
 			return new \WP_Error( 'albo_importazione_protezione', __( 'Importazione non avviata: la protezione della cartella dei documenti non risulta verificata, e nessun documento si depositerebbe. Si verifica dalla schermata del meccanismo comune, poi si riprova.', 'albo-pretorio-pa' ) );
 		}
 
-		$impronta = self::impronta_backup( $percorso );
+		$scadenza = SchermataImportazione::scadenza_lettura();
+		$impronta = self::impronta_backup( $percorso, $scadenza );
+
+		if ( is_wp_error( $impronta ) ) {
+			return $impronta;
+		}
 
 		if ( null === $impronta || ! isset( $attese['impronta'] ) || ! is_string( $attese['impronta'] ) || ! hash_equals( $impronta, $attese['impronta'] ) ) {
 			return self::errore_cambiato();
 		}
 
-		$rapporto = self::rapporto( $percorso );
+		$rapporto = self::rapporto( $percorso, $scadenza );
 
 		if ( is_wp_error( $rapporto ) ) {
 			return $rapporto;
@@ -570,13 +577,18 @@ final class Importazione {
 			return $esterna;
 		}
 
-		$impronta = self::impronta_backup( (string) $stato['percorso'] );
+		$lettura  = SchermataImportazione::scadenza_lettura();
+		$impronta = self::impronta_backup( (string) $stato['percorso'], $lettura );
+
+		if ( is_wp_error( $impronta ) ) {
+			return $impronta;
+		}
 
 		if ( null === $impronta || ! hash_equals( (string) $stato['impronta'], $impronta ) ) {
 			return new \WP_Error( 'albo_importazione_backup_cambiato', __( 'L\'importazione si e\' fermata: il file del backup non c\'e\' piu\' o e\' cambiato dall\'avvio. Gli atti gia\' importati restano; si interrompe e si riparte dal rapporto.', 'albo-pretorio-pa' ) );
 		}
 
-		$letto = LettoreBackup::leggi( (string) $stato['percorso'] );
+		$letto = LettoreBackup::leggi( (string) $stato['percorso'], $lettura );
 
 		if ( is_wp_error( $letto ) ) {
 			return $letto;
@@ -799,11 +811,12 @@ final class Importazione {
 	/**
 	 * Il rapporto di un backup, con lo stato attuale di questo albo.
 	 *
-	 * @param string $percorso Backup.
+	 * @param string     $percorso Backup.
+	 * @param float|null $scadenza Istante oltre il quale la lettura si ferma; nullo senza limite.
 	 * @return array<string, mixed>|\WP_Error
 	 */
-	public static function rapporto( string $percorso ) {
-		$letto = LettoreBackup::leggi( $percorso );
+	public static function rapporto( string $percorso, ?float $scadenza = null ) {
+		$letto = LettoreBackup::leggi( $percorso, $scadenza );
 
 		if ( is_wp_error( $letto ) ) {
 			return $letto;

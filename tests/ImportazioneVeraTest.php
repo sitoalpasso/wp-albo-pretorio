@@ -78,6 +78,13 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 	private const ADESSO = '2041-10-16 00:30:00';
 
 	/**
+	 * L'istante di arrivo della richiesta prima della prova, da rimettere.
+	 *
+	 * @var float|null
+	 */
+	private ?float $inizio_richiesta = null;
+
+	/**
 	 * La partenza dichiarata per il 2041 in questo albo.
 	 */
 	private const PARTENZA = 40;
@@ -116,6 +123,8 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 
+		$this->inizio_richiesta = isset( $_SERVER['REQUEST_TIME_FLOAT'] ) ? (float) $_SERVER['REQUEST_TIME_FLOAT'] : null;
+
 		$this->prepara_flusso();
 
 		$this->assertTrue( Repertorio::dichiara( self::PARTENZA, $this->amministratore, Passaggi::ora() ), 'Precondizione: la partenza del 2041 si corregge.' );
@@ -148,6 +157,14 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 			LucchettoUnico::rilascia_tutti( $this->altra );
 			$this->altra->close();
 			$this->altra = null;
+		}
+
+		SchermataImportazione::fissa_limite_tempo( null );
+
+		if ( null === $this->inizio_richiesta ) {
+			unset( $_SERVER['REQUEST_TIME_FLOAT'] );
+		} else {
+			$_SERVER['REQUEST_TIME_FLOAT'] = $this->inizio_richiesta;
 		}
 
 		$this->togli_temporanei();
@@ -3437,5 +3454,124 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 
 		$this->assertTrue( $letta['giorno'], 'Tolto il guasto, la data del vecchio albo.' );
 		$this->assertSame( '2041-10-05', $letta['istante']->setTimezone( wp_timezone() )->format( 'Y-m-d' ) );
+	}
+
+	/**
+	 * A-347. La lettura di un backup che non sta nel tempo della richiesta si ferma con un messaggio, e non scrive niente.
+	 *
+	 * Il tempo finito si ottiene con una richiesta arrivata cento secondi fa e
+	 * un limite di trenta: la scadenza della lettura e' gia' passata. Il limite
+	 * si fissa senza toccare `max_execution_time`, che armerebbe davvero il
+	 * limite del processo delle prove.
+	 */
+	public function test_a347_lettura_fuori_tempo(): void {
+		$percorso = $this->backup_nella_cartella();
+		$archivio = new \ZipArchive();
+
+		$this->assertTrue( $archivio->open( $percorso ) );
+		$voci = $archivio->count();
+		$archivio->close();
+
+		$attese      = $this->invio_avvia( $percorso );
+		$gettone     = array( SchermataImportazione::CAMPO_GETTONE => wp_create_nonce( SchermataImportazione::AZIONE ) );
+		$rapporto    = function () use ( $gettone ) {
+			return SchermataImportazione::da_invio( $gettone + array( SchermataImportazione::CAMPO_PRESENTE => 'backup.zip' ), array() );
+		};
+		$fuori_tempo = function (): void {
+			SchermataImportazione::fissa_limite_tempo( 30 );
+			$_SERVER['REQUEST_TIME_FLOAT'] = microtime( true ) - 100;
+		};
+		$in_tempo    = function (): void {
+			SchermataImportazione::fissa_limite_tempo( 30 );
+			$_SERVER['REQUEST_TIME_FLOAT'] = microtime( true );
+		};
+		$tempo       = function ( $esito, string $caso ): void {
+			$this->assertWPError( $esito, $caso );
+			$this->assertSame( 'albo_importazione_tempo', $esito->get_error_code(), $caso );
+			$this->assertStringContainsString( 'max_execution_time', $esito->get_error_message(), $caso . ': dice che cosa alzare.' );
+			$this->assertStringContainsString( 'Non si e\' scritto niente', $esito->get_error_message(), $caso . ': dice che non ha scritto.' );
+		};
+
+		// L'impronta dell'archivio intero, che riconosce il backup fra un blocco e l'altro.
+		$tempo( Importazione::impronta_backup( $percorso, microtime( true ) - 1 ), 'Impronta dell\'archivio' );
+		$this->assertSame( hash_file( 'sha256', $percorso ), Importazione::impronta_backup( $percorso, microtime( true ) + 3600 ), 'In tempo, l\'impronta e\' quella del file.' );
+		$this->assertSame( hash_file( 'sha256', $percorso ), Importazione::impronta_backup( $percorso ), 'Senza scadenza, l\'impronta e\' quella del file.' );
+
+		// Un file SQL da solo, senza archivio: il messaggio non parla di documenti letti.
+		$archivio = new \ZipArchive();
+		$this->assertTrue( $archivio->open( $percorso ) );
+		$base     = wp_tempnam( 'albo-a347' );
+		$solo_sql = $base . '.sql';
+		$nome_sql = '';
+		$quante   = $archivio->count();
+
+		for ( $indice = 0; $indice < $quante; $indice++ ) {
+			$nome = (string) $archivio->getNameIndex( $indice );
+
+			if ( false === strpos( $nome, '/' ) && str_ends_with( strtolower( $nome ), '.sql' ) ) {
+				$nome_sql = $nome;
+			}
+		}
+
+		file_put_contents( $solo_sql, (string) $archivio->getFromName( $nome_sql ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- file temporaneo della prova.
+		$archivio->close();
+
+		try {
+			$esito = LettoreBackup::leggi( $solo_sql, microtime( true ) - 1 );
+			$tempo( $esito, 'File SQL da solo' );
+			$this->assertStringContainsString( '(si era letta solo una parte del file SQL)', $esito->get_error_message(), 'File SQL da solo: dice quanto ha letto, senza un archivio che non c\'e\'.' );
+			$this->assertIsArray( LettoreBackup::leggi( $solo_sql, microtime( true ) + 3600 ), 'File SQL da solo: in tempo si legge.' );
+		} finally {
+			unlink( $solo_sql ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- file temporaneo della prova.
+			unlink( $base ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- file temporaneo della prova.
+		}
+
+		// Il rapporto a secco dalla schermata.
+		$fuori_tempo();
+		$esito = $rapporto();
+		$tempo( $esito, 'Rapporto' );
+		$this->assertStringContainsString( 'si erano lette 0 voci dell\'archivio su ' . $voci, $esito->get_error_message(), 'Dice quanto ha letto.' );
+
+		// Controllo positivo: in tempo, e senza limite del server.
+		$in_tempo();
+		$this->assertIsArray( $rapporto(), 'In tempo il rapporto c\'e\'.' );
+		SchermataImportazione::fissa_limite_tempo( 0 );
+		$_SERVER['REQUEST_TIME_FLOAT'] = microtime( true ) - 100;
+		$this->assertIsArray( $rapporto(), 'Senza limite del server il rapporto c\'e\'.' );
+
+		// L'avvio: niente stato, nessun atto.
+		$fuori_tempo();
+		$tempo( SchermataImportazione::importazione_da_invio( $attese ), 'Avvio' );
+		$this->assertFalse( Importazione::in_corso(), 'Avvio: nessuna importazione in corso.' );
+		$this->assertFalse( get_option( Importazione::OPZIONE ), 'Avvio: nessuno stato salvato.' );
+		$this->assertSame( array(), $this->importati(), 'Avvio: nessun atto.' );
+
+		// Un blocco dopo l'avvio: l'importazione resta dov'era.
+		$in_tempo();
+		$stato = Importazione::avvia(
+			$percorso,
+			'backup.zip',
+			array(
+				'impronta' => $attese[ SchermataImportazione::CAMPO_IMPRONTA ],
+				'atti'     => (int) $attese[ SchermataImportazione::CAMPO_ATTI ],
+				'in_vista' => (int) $attese[ SchermataImportazione::CAMPO_VISIBILI ],
+			),
+			true,
+			false
+		);
+		$this->assertIsArray( $stato, is_wp_error( $stato ) ? $stato->get_error_message() : '' );
+		$this->assertSame( 0, $stato['posizione'], 'Precondizione: avviata, nessun atto ancora.' );
+
+		$fuori_tempo();
+		$tempo( SchermataImportazione::importazione_da_invio( $this->invio( 'continua' ) ), 'Blocco' );
+		$this->assertTrue( Importazione::in_corso(), 'Blocco: l\'importazione resta in corso.' );
+		$this->assertSame( 0, Importazione::stato()['posizione'], 'Blocco: nessun atto in piu\'.' );
+		$this->assertSame( array(), $this->importati(), 'Blocco: nessun atto.' );
+
+		// Controllo positivo: in tempo, lo stesso blocco porta gli atti.
+		$in_tempo();
+		$finale = SchermataImportazione::importazione_da_invio( $this->invio( 'continua' ) );
+		$this->assertIsArray( $finale, is_wp_error( $finale ) ? $finale->get_error_message() : '' );
+		$this->assertNotSame( array(), $this->importati(), 'In tempo gli atti arrivano.' );
 	}
 }
