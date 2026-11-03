@@ -80,6 +80,13 @@ A-347.
 
 - **Il passo 2**, descritto sotto. Con il solo passo 1 un backup da 2,6 GB si importa ancora
   solo alzando il limite, e ogni blocco rilegge tutto l'archivio.
+- **L'atto del blocco dopo una lettura lunga.** In un blocco dell'importazione vera la lettura
+  può arrivare ai tre quarti del tempo concesso, e a quel punto la scadenza del blocco (al più
+  metà del tempo) è già passata. Il blocco porta comunque un atto, con i suoi documenti, per
+  non restare fermo: se quell'atto non sta nel quarto che resta, la pagina si interrompe ancora
+  senza messaggio. Saltare l'atto non servirebbe, perché ogni blocco rifarebbe la stessa
+  lettura e non andrebbe mai avanti. Lo risolve il passo 2, che toglie la lettura lunga dai
+  blocchi.
 - **I limiti del server diversi da quello di PHP.** Davanti a PHP può esserci un altro limite,
   per esempio quello del server web o del suo intermediario (FastCGI, proxy). L'albo non lo
   conosce: se è più basso di quello di PHP, la pagina si interrompe ancora senza messaggio.
@@ -144,3 +151,5 @@ quindi da una prova quella strada non si raggiunge. Tutte e due le cose si dichi
 | Il blocco che legge senza scadenza | nessuna, perché lo ferma l'impronta |
 | Il blocco che calcola l'impronta senza scadenza | nessuna, perché lo ferma la lettura |
 | Il blocco senza scadenza né per l'impronta né per la lettura | A-347 |
+| Il file SQL da solo con il testo dell'archivio | A-347 |
+| L'archivio non riconosciuto come tale nel testo del file SQL | nessuna, perché con l'archivio della prova la lettura si ferma prima, sulla prima voce |

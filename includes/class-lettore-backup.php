@@ -133,6 +133,13 @@ final class LettoreBackup {
 	private static bool $fuori_tempo = false;
 
 	/**
+	 * Se la lettura in corso e' quella di un archivio, e non di un file SQL da solo.
+	 *
+	 * @var bool
+	 */
+	private static bool $da_archivio = false;
+
+	/**
 	 * Legge un archivio zip del backup, o un file SQL da solo.
 	 *
 	 * Senza archivio non ci sono file: gli allegati risultano non verificabili,
@@ -151,12 +158,14 @@ final class LettoreBackup {
 	public static function leggi( string $percorso, ?float $scadenza = null ) {
 		self::$scadenza    = $scadenza;
 		self::$fuori_tempo = false;
+		self::$da_archivio = false;
 
 		try {
 			return self::leggi_entro( $percorso );
 		} finally {
 			self::$scadenza    = null;
 			self::$fuori_tempo = false;
+			self::$da_archivio = false;
 		}
 	}
 
@@ -174,6 +183,8 @@ final class LettoreBackup {
 		$testa = (string) file_get_contents( $percorso, false, null, 0, 4 ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- quattro byte di un file locale.
 
 		if ( "PK\x03\x04" === $testa ) {
+			self::$da_archivio = true;
+
 			return self::leggi_archivio( $percorso );
 		}
 
@@ -1453,14 +1464,18 @@ final class LettoreBackup {
 	 * @return \WP_Error
 	 */
 	private static function errore_tempo( ?int $letti, ?int $totale ): \WP_Error {
-		$dove = null === $letti
-			? __( 'tutti i documenti dell\'archivio si erano letti, mancava una parte del file SQL', 'albo-pretorio-pa' )
-			: sprintf(
+		if ( null === $letti ) {
+			$dove = self::$da_archivio
+				? __( 'tutti i documenti dell\'archivio si erano letti, mancava una parte del file SQL', 'albo-pretorio-pa' )
+				: __( 'si era letta solo una parte del file SQL', 'albo-pretorio-pa' );
+		} else {
+			$dove = sprintf(
 				/* translators: 1: voci lette, 2: voci dell'archivio. */
 				__( 'si erano lette %1$d voci dell\'archivio su %2$d', 'albo-pretorio-pa' ),
 				$letti,
 				$totale
 			);
+		}
 
 		return new \WP_Error(
 			'albo_importazione_tempo',

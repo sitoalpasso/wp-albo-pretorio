@@ -3497,6 +3497,35 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 		$this->assertSame( hash_file( 'sha256', $percorso ), Importazione::impronta_backup( $percorso, microtime( true ) + 3600 ), 'In tempo, l\'impronta e\' quella del file.' );
 		$this->assertSame( hash_file( 'sha256', $percorso ), Importazione::impronta_backup( $percorso ), 'Senza scadenza, l\'impronta e\' quella del file.' );
 
+		// Un file SQL da solo, senza archivio: il messaggio non parla di documenti letti.
+		$archivio = new \ZipArchive();
+		$this->assertTrue( $archivio->open( $percorso ) );
+		$base     = wp_tempnam( 'albo-a347' );
+		$solo_sql = $base . '.sql';
+		$nome_sql = '';
+		$quante   = $archivio->count();
+
+		for ( $indice = 0; $indice < $quante; $indice++ ) {
+			$nome = (string) $archivio->getNameIndex( $indice );
+
+			if ( false === strpos( $nome, '/' ) && str_ends_with( strtolower( $nome ), '.sql' ) ) {
+				$nome_sql = $nome;
+			}
+		}
+
+		file_put_contents( $solo_sql, (string) $archivio->getFromName( $nome_sql ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- file temporaneo della prova.
+		$archivio->close();
+
+		try {
+			$esito = LettoreBackup::leggi( $solo_sql, microtime( true ) - 1 );
+			$tempo( $esito, 'File SQL da solo' );
+			$this->assertStringContainsString( '(si era letta solo una parte del file SQL)', $esito->get_error_message(), 'File SQL da solo: dice quanto ha letto, senza un archivio che non c\'e\'.' );
+			$this->assertIsArray( LettoreBackup::leggi( $solo_sql, microtime( true ) + 3600 ), 'File SQL da solo: in tempo si legge.' );
+		} finally {
+			unlink( $solo_sql ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- file temporaneo della prova.
+			unlink( $base ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- file temporaneo della prova.
+		}
+
 		// Il rapporto a secco dalla schermata.
 		$fuori_tempo();
 		$esito = $rapporto();
