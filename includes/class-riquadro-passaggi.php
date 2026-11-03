@@ -332,7 +332,11 @@ final class RiquadroPassaggi {
 		$durata = null === $tipo ? null : Durate::del_tipo( (int) $tipo->term_id );
 
 		if ( ! is_array( $durata ) ) {
-			return __( 'Il tipo di atto non ha una durata valida: la data di fine non si puo\' calcolare e l\'atto non si pubblica.', 'albo-pretorio-pa' );
+			return sprintf(
+				/* translators: %s: il motivo, con il tipo e dove si completa la durata. */
+				__( 'L\'atto non si pubblica. %s', 'albo-pretorio-pa' ),
+				DatiAtto::motivo_senza_durata( $tipo )
+			);
 		}
 
 		$festivi = Festivi::scelta();

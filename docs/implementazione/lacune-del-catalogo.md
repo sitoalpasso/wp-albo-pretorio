@@ -4,7 +4,7 @@ Scheda di lavorazione. La rilettura del catalogo del 1 novembre 2026 ha trovato 
 coperte in parte, a cui mancano casi piccoli che il componente già rispetta. Ogni caso è una
 PR di sole prove, corta. La scheda si aggiorna a ogni PR con com'è andata.
 
-**Stato: fatto.** Requisiti ALBO-04, ALBO-27, ALBO-21, ALBO-18. Righe di collaudo A-339, A-344, A-345, più un caso aggiunto ad A-231.
+**Stato: fatto.** Requisiti ALBO-04, ALBO-27, ALBO-21, ALBO-18. Righe di collaudo A-339, A-344, A-345, A-346, più un caso aggiunto ad A-231.
 
 ## In tre paragrafi
 
@@ -57,13 +57,13 @@ Nessuno nuovo.
 
 ### 7. Test aggiunti
 
-A-339 (ALBO-04), A-344 (ALBO-27), A-345 (ALBO-21). A-231 allungata per ALBO-18.
+A-339 (ALBO-04), A-344 (ALBO-27), A-345 (ALBO-21). A-231 allungata per ALBO-18. A-346
+(ALBO-04) per il testo del rifiuto.
 
 ### 8. Cosa non implementa
 
-Il testo del rifiuto quando il tipo non ha durata resta quello di oggi, che nomina la data di
-fine che non si calcola. La riga di ALBO-04 lo vorrebbe attribuito alla configurazione del
-tipo: è una scelta da fare, non una lacuna delle prove.
+Niente. Il testo del rifiuto quando il tipo non ha durata, rimasto aperto dopo A-339, è stato
+deciso il 3 novembre 2026: lo descrive la sezione su A-346.
 
 ### 9. Come si prova su un'installazione reale
 
@@ -141,3 +141,34 @@ insieme non basta perché una prova lo veda, e lo si dichiara come per A-339 e A
 | Lo stato dell'albo contato come non esposto nel controllo della scadenza | nessuna, per gli altri recinti |
 | Questo, più la consegna che ammette uno stato non pubblicato se scaduto e la pagina che nega l'annullato solo prima della fine | nessuna, per il controllo sulla consultabilità dello stato |
 | Il punto di consegna che dà il file dell'annullato dopo la sua fine | A-231, A-228 |
+
+### A-346 (ALBO-04, testo del rifiuto)
+
+La riga di ALBO-04 vuole il rifiuto attribuito alla configurazione del tipo, non a una data
+mancante. Il testo di prima diceva che la data di fine non si calcola, e chi lo leggeva poteva
+pensare di doverla scrivere lui. Il testo nuovo dice, nell'ordine: che l'atto resta in
+verifica; quale tipo non ha una durata valida; che la data di fine la calcola il sistema e non
+si inserisce a mano; chi corregge e dove (Albo pretorio > Tipi di atto); che poi si riprova con lo stesso atto. Lo
+stesso testo lo legge già chi manda una bozza in verifica, poi chi pubblica da codice e dal
+riquadro, e l'annuncio del riquadro lo dice prima che si provi a pubblicare. I codici dei
+rifiuti non cambiano.
+
+È l'unica PR della scheda che tocca un sorgente: il testo sta in una funzione sola, `DatiAtto::motivo_senza_durata()`,
+usata dal controllo dei dati all'invio in verifica, dal rifiuto, dal rifiuto di riserva e
+dall'annuncio. Il rifiuto di riserva, che scatta se la
+durata si guasta fra il controllo dei dati e il calcolo della fine nella stessa richiesta,
+non si raggiunge da una prova senza un guasto apposta: usa la stessa funzione, e lo si
+dichiara.
+
+| Guasto introdotto | Visto da |
+|---|---|
+| Il rifiuto con il testo di prima | A-346 |
+| L'annuncio del riquadro con il testo di prima | A-346 |
+| Il testo che non nomina il tipo | A-346 |
+| L'invio in verifica con il testo di prima | A-346 |
+| La chiusa del testo tolta ("poi si riprova con lo stesso atto") | A-346, che confronta il testo intero scritto nella prova |
+| Dopo il ripristino, la fine calcolata con un giorno in più | A-346, che rilegge l'atto pubblicato |
+
+Le ultime due righe vengono dai rilievi di Codex: prima la prova prendeva il testo atteso dalla
+stessa funzione che provava, e del controllo positivo guardava solo la risposta. Tutti e due i
+guasti restavano verdi.

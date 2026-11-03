@@ -3449,11 +3449,7 @@ final class Passaggi {
 			unset( $mancanti['albo_manca_durata'] );
 
 			$mancanti = array(
-				'albo_fine_non_calcolabile' => sprintf(
-					/* translators: %s: nome del tipo di atto. */
-					__( 'La data di fine della pubblicazione non si puo\' calcolare: il tipo di atto %s non ha una durata valida configurata.', 'albo-pretorio-pa' ),
-					$tipo->name
-				),
+				'albo_fine_non_calcolabile' => DatiAtto::motivo_senza_durata( $tipo ),
 			) + $mancanti;
 		}
 
@@ -3479,7 +3475,11 @@ final class Passaggi {
 		if ( ! is_array( $durata ) ) {
 			return new \WP_Error(
 				'albo_fine_non_calcolabile',
-				__( 'L\'atto resta in verifica e non si pubblica. La data di fine della pubblicazione non si puo\' calcolare.', 'albo-pretorio-pa' )
+				sprintf(
+					/* translators: %s: il motivo, con il tipo e dove si completa la durata. */
+					__( 'L\'atto resta in verifica e non si pubblica. %s', 'albo-pretorio-pa' ),
+					DatiAtto::motivo_senza_durata( $tipo )
+				)
 			);
 		}
 
