@@ -30,6 +30,20 @@ defined( 'ABSPATH' ) || exit;
 final class SchermataImportazione {
 
 	/**
+	 * La parte del tempo concesso alla richiesta che puo' andare nella lettura del backup.
+	 *
+	 * @var float
+	 */
+	const QUOTA_LETTURA = 0.75;
+
+	/**
+	 * Il tempo concesso alla richiesta fissato dalle prove; nullo per quello vero.
+	 *
+	 * @var int|null
+	 */
+	private static ?int $limite_di_prova = null;
+
+	/**
 	 * Identificativo della pagina.
 	 *
 	 * @var string
@@ -286,7 +300,7 @@ final class SchermataImportazione {
 			$percorso = self::cartella() . '/' . $nome;
 		}
 
-		$letto = LettoreBackup::leggi( $percorso );
+		$letto = LettoreBackup::leggi( $percorso, self::scadenza_lettura() );
 
 		if ( is_wp_error( $letto ) ) {
 			return $letto;
@@ -390,15 +404,67 @@ final class SchermataImportazione {
 	 * @return float
 	 */
 	public static function scadenza(): float {
-		$inizio  = isset( $_SERVER['REQUEST_TIME_FLOAT'] ) ? (float) $_SERVER['REQUEST_TIME_FLOAT'] : microtime( true );
+		$inizio  = self::inizio_richiesta();
 		$secondi = (float) Importazione::SECONDI_PER_BLOCCO;
-		$limite  = (int) ini_get( 'max_execution_time' );
+		$limite  = self::limite_tempo();
 
 		if ( $limite > 0 ) {
 			$secondi = min( $secondi, $limite / 2 );
 		}
 
 		return $inizio + $secondi;
+	}
+
+	/**
+	 * L'istante oltre il quale una lettura del backup si ferma con un messaggio,
+	 * invece di essere troncata dal server senza dire niente.
+	 *
+	 * Tre quarti del tempo che il server concede alla richiesta, contato da
+	 * quando la richiesta e' arrivata: il resto serve al rapporto e alla
+	 * pagina. Nullo se il server non pone limiti.
+	 *
+	 * Il tempo si conta sull'orologio, che corre almeno quanto il tempo che
+	 * PHP misura: ci si ferma, al piu', un po' prima del necessario.
+	 *
+	 * @return float|null
+	 */
+	public static function scadenza_lettura(): ?float {
+		$limite = self::limite_tempo();
+
+		if ( $limite <= 0 ) {
+			return null;
+		}
+
+		return self::inizio_richiesta() + $limite * self::QUOTA_LETTURA;
+	}
+
+	/**
+	 * Fissa, per le prove, il tempo che il server concede a una richiesta; nullo torna a quello vero.
+	 *
+	 * Cambiare `max_execution_time` dentro le prove armerebbe davvero il limite.
+	 *
+	 * @param int|null $secondi Secondi, zero senza limite.
+	 */
+	public static function fissa_limite_tempo( ?int $secondi ): void {
+		self::$limite_di_prova = $secondi;
+	}
+
+	/**
+	 * I secondi che il server concede a una richiesta; zero senza limite.
+	 *
+	 * @return int
+	 */
+	private static function limite_tempo(): int {
+		return null !== self::$limite_di_prova ? self::$limite_di_prova : (int) ini_get( 'max_execution_time' );
+	}
+
+	/**
+	 * L'istante in cui la richiesta e' arrivata.
+	 *
+	 * @return float
+	 */
+	private static function inizio_richiesta(): float {
+		return isset( $_SERVER['REQUEST_TIME_FLOAT'] ) ? (float) $_SERVER['REQUEST_TIME_FLOAT'] : microtime( true );
 	}
 
 	/**
@@ -508,7 +574,12 @@ final class SchermataImportazione {
 		$senza    = Importazione::selezione( $rapporto, false );
 		$con      = Importazione::selezione( $rapporto, true );
 		$visibili = $con['in_vista'];
-		$impronta = Importazione::impronta_backup( self::cartella() . '/' . $nome );
+		$impronta = Importazione::impronta_backup( self::cartella() . '/' . $nome, self::scadenza_lettura() );
+
+		if ( is_wp_error( $impronta ) ) {
+			printf( '<p class="albo-pretorio-tempo">%s</p>', esc_html( $impronta->get_error_message() ) );
+			return;
+		}
 
 		if ( array() === $con['atti'] || null === $impronta ) {
 			printf( '<p>%s</p>', esc_html__( 'Nel rapporto non c\'e\' nessun atto che si porti.', 'albo-pretorio-pa' ) );

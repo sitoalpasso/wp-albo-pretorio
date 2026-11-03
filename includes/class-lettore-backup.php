@@ -119,15 +119,54 @@ final class LettoreBackup {
 	const PEZZO = 1048576;
 
 	/**
+	 * L'istante, in secondi, oltre il quale la lettura in corso si ferma; nullo se non c'e' limite.
+	 *
+	 * @var float|null
+	 */
+	private static ?float $scadenza = null;
+
+	/**
+	 * Se la lettura in corso si e' fermata perche' il tempo e' finito.
+	 *
+	 * @var bool
+	 */
+	private static bool $fuori_tempo = false;
+
+	/**
 	 * Legge un archivio zip del backup, o un file SQL da solo.
 	 *
 	 * Senza archivio non ci sono file: gli allegati risultano non verificabili,
 	 * e il resto si legge lo stesso.
 	 *
-	 * @param string $percorso Percorso del file sul server.
+	 * **Il tempo.** Un backup grande puo' richiedere piu' tempo di quello che
+	 * il server concede a una richiesta: la pagina allora si tronca, senza un
+	 * messaggio. Con una scadenza la lettura si ferma da sola prima, e dice
+	 * quanto ha letto e che cosa fare. Niente si scrive in nessun caso: la
+	 * lettura non scrive.
+	 *
+	 * @param string     $percorso Percorso del file sul server.
+	 * @param float|null $scadenza Istante, in secondi, oltre il quale la lettura si ferma; nullo senza limite.
 	 * @return array{tabelle: array<string, array<int, array<string, string|null>>>, colonne: array<string, array<int, string>>, opzioni: array<string, string|null>, prefisso: string, ignorate: array<int, string>, file: array<string, array{impronta: string, byte: int}>, sql: string, archivio: bool}|\WP_Error
 	 */
-	public static function leggi( string $percorso ) {
+	public static function leggi( string $percorso, ?float $scadenza = null ) {
+		self::$scadenza    = $scadenza;
+		self::$fuori_tempo = false;
+
+		try {
+			return self::leggi_entro( $percorso );
+		} finally {
+			self::$scadenza    = null;
+			self::$fuori_tempo = false;
+		}
+	}
+
+	/**
+	 * La lettura, con la scadenza gia' fissata.
+	 *
+	 * @param string $percorso Percorso del file sul server.
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private static function leggi_entro( string $percorso ) {
 		if ( ! is_file( $percorso ) || ! is_readable( $percorso ) ) {
 			return self::errore( __( 'il file non si trova o non si puo\' leggere.', 'albo-pretorio-pa' ) );
 		}
@@ -195,6 +234,12 @@ final class LettoreBackup {
 		}
 
 		for ( $indice = 0; $indice < $quanti; $indice++ ) {
+			if ( self::tempo_finito() ) {
+				$archivio->close();
+
+				return self::errore_tempo( $indice, $quanti );
+			}
+
 			$voce = $archivio->statIndex( $indice );
 
 			if ( false === $voce || str_ends_with( (string) $voce['name'], '/' ) ) {
@@ -208,6 +253,12 @@ final class LettoreBackup {
 			if ( isset( $visti[ $nome ] ) ) {
 				$prima   = self::impronta_indice( $archivio, $visti[ $nome ] );
 				$seconda = self::impronta_indice( $archivio, $indice );
+
+				if ( self::$fuori_tempo ) {
+					$archivio->close();
+
+					return self::errore_tempo( $indice, $quanti );
+				}
 
 				if ( null !== $prima && $prima === $seconda ) {
 					continue;
@@ -235,6 +286,12 @@ final class LettoreBackup {
 			}
 
 			$impronta = self::impronta( $archivio, $nome );
+
+			if ( self::$fuori_tempo ) {
+				$archivio->close();
+
+				return self::errore_tempo( $indice, $quanti );
+			}
 
 			if ( null === $impronta ) {
 				$archivio->close();
@@ -318,6 +375,11 @@ final class LettoreBackup {
 			}
 
 			hash_update( $contesto, $pezzo );
+
+			if ( self::tempo_finito() ) {
+				fclose( $flusso ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- chiusura del flusso aperto qui.
+				return null;
+			}
 		}
 
 		fclose( $flusso ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- chiusura del flusso aperto qui.
@@ -352,6 +414,11 @@ final class LettoreBackup {
 				}
 
 				hash_update( $contesto, $pezzo );
+
+				if ( self::tempo_finito() ) {
+					fclose( $flusso ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- chiusura del flusso aperto qui.
+					return null;
+				}
 			}
 
 			fclose( $flusso ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- chiusura del flusso aperto qui.
@@ -440,6 +507,10 @@ final class LettoreBackup {
 
 			if ( $letti > $stato['limiti']['sql'] ) {
 				return self::errore( __( 'il file SQL e\' troppo grande per essere letto qui.', 'albo-pretorio-pa' ) );
+			}
+
+			if ( self::tempo_finito() ) {
+				return self::errore_tempo( null, null );
 			}
 
 			// Quel che resta di un pezzo (un "-" o una "/" in fondo) si decide con il pezzo dopo.
@@ -1312,6 +1383,91 @@ final class LettoreBackup {
 				/* translators: %s: nome della tabella. */
 				__( 'nel file SQL i dati della tabella %s non si leggono.', 'albo-pretorio-pa' ),
 				$nome
+			)
+		);
+	}
+
+	/**
+	 * L'impronta SHA-256 di un file intero, letto a pezzi, entro una scadenza.
+	 *
+	 * @param string     $percorso File.
+	 * @param float|null $scadenza Istante oltre il quale ci si ferma; nullo senza limite.
+	 * @return string|\WP_Error|null L'impronta; l'errore del tempo; nullo se il file non si legge.
+	 */
+	public static function impronta_file( string $percorso, ?float $scadenza = null ) {
+		if ( ! is_file( $percorso ) ) {
+			return null;
+		}
+
+		$flusso = fopen( $percorso, 'rb' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- lettura in sola lettura, a pezzi.
+
+		if ( false === $flusso ) {
+			return null;
+		}
+
+		$contesto = hash_init( 'sha256' );
+
+		try {
+			while ( ! feof( $flusso ) ) {
+				if ( null !== $scadenza && microtime( true ) > $scadenza ) {
+					return new \WP_Error(
+						'albo_importazione_tempo',
+						__( 'Il backup non si e\' letto per intero: il tempo che il server concede a una richiesta e\' finito mentre si calcolava l\'impronta dell\'archivio. Non si e\' scritto niente. Per un backup cosi\' grande va alzato il tempo massimo di esecuzione di PHP (max_execution_time) di questo sito; poi si riprova.', 'albo-pretorio-pa' )
+					);
+				}
+
+				$pezzo = fread( $flusso, self::PEZZO ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread -- lettura a pezzi di un file locale.
+
+				if ( false === $pezzo ) {
+					return null;
+				}
+
+				hash_update( $contesto, $pezzo );
+			}
+		} finally {
+			fclose( $flusso ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- chiusura del flusso aperto qui.
+		}
+
+		return hash_final( $contesto );
+	}
+
+	/**
+	 * Se la scadenza della lettura in corso e' passata. Lo segna, cosi' chi
+	 * riceve un'impronta mancata sa che e' per il tempo e non per il file.
+	 *
+	 * @return bool
+	 */
+	private static function tempo_finito(): bool {
+		if ( null !== self::$scadenza && microtime( true ) > self::$scadenza ) {
+			self::$fuori_tempo = true;
+		}
+
+		return self::$fuori_tempo;
+	}
+
+	/**
+	 * L'errore del tempo finito, con quanto si e' letto.
+	 *
+	 * @param int|null $letti  File dell'archivio letti; nullo se si era gia' al file SQL.
+	 * @param int|null $totale File dell'archivio.
+	 * @return \WP_Error
+	 */
+	private static function errore_tempo( ?int $letti, ?int $totale ): \WP_Error {
+		$dove = null === $letti
+			? __( 'tutti i documenti dell\'archivio si erano letti, mancava una parte del file SQL', 'albo-pretorio-pa' )
+			: sprintf(
+				/* translators: 1: voci lette, 2: voci dell'archivio. */
+				__( 'si erano lette %1$d voci dell\'archivio su %2$d', 'albo-pretorio-pa' ),
+				$letti,
+				$totale
+			);
+
+		return new \WP_Error(
+			'albo_importazione_tempo',
+			sprintf(
+				/* translators: %s: quanto si era letto. */
+				__( 'Il backup non si e\' letto per intero: il tempo che il server concede a una richiesta e\' finito prima (%s). Non si e\' scritto niente. Per un backup cosi\' grande va alzato il tempo massimo di esecuzione di PHP (max_execution_time) di questo sito; poi si riprova.', 'albo-pretorio-pa' ),
+				$dove
 			)
 		);
 	}

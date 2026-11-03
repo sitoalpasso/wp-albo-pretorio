@@ -1079,6 +1079,17 @@ la CI la fa girare su una MariaDB 5.5 vera.
 | A-342 | fatto | **Il tipo dalla versione**: risposte di MariaDB e MySQL prima e dopo le versioni che tengono più lucchetti, con il prefisso che alcune connessioni aggiungono, una risposta vuota e una sconosciuta | lucchetto unico prima di MariaDB 10.0.2 e di MySQL 5.7.5; più lucchetti da quelle versioni in poi; lucchetto unico per ogni risposta letta che non si riconosce |
 | A-343 | fatto | **La versione che non si legge**: la domanda sulla versione fallisce; si chiede un lucchetto direttamente e poi il turno dell'importazione; si chiude e si trattiene una presa; poi la domanda torna a funzionare e si riprende il turno | senza risposta nessuna presa riesce e nessun lucchetto si chiede alla banca dati; l'importazione rinuncia; la risposta mancata non si ricorda e ogni chiamata chiede di nuovo; con la risposta il turno si prende, e la versione letta non si chiede più. Altrimenti questa connessione andrebbe sul lucchetto unico e le altre, che la versione la leggono, su quelli distinti, senza escludersi |
 
+## Backup grandi e tempo della richiesta
+
+Stesso prefisso `A-`. Correttezza dei meccanismi di ALBO-35 con un backup che non si legge
+nel tempo che il server concede a una richiesta. Scheda
+[`backup-grandi.md`](implementazione/backup-grandi.md). Provata in
+`tests/ImportazioneVeraTest.php`.
+
+| Riga | Stato | Prova | Atteso |
+|---|---|---|---|
+| A-347 | fatto | **Lettura fuori tempo**: un limite del server di 30 secondi e una richiesta arrivata 100 secondi prima; l'impronta dell'archivio intero, il rapporto a secco dalla schermata, l'avvio dell'importazione e un blocco di un'importazione avviata | ogni volta la lettura si ferma con il motivo `albo_importazione_tempo`, che dice che il tempo della richiesta è finito, che non si è scritto niente e che va alzato `max_execution_time`; il rapporto dice quante voci dell'archivio aveva letto. Dopo l'avvio fermato non c'è nessuno stato e nessun atto; dopo il blocco fermato l'importazione resta in corso, nella stessa posizione, senza atti. **Controllo positivo**: in tempo, e senza limite del server, l'impronta è quella del file, il rapporto c'è e lo stesso blocco porta gli atti |
+
 ## Collaudo congiunto con la trasparenza
 
 Con entrambi i plugin attivi sullo stesso sito: le pagine dell'albo hanno noindex e sono
