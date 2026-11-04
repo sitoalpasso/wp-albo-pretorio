@@ -1,7 +1,7 @@
 {
 	"core": "WordPress/WordPress#6.5",
 	"phpVersion": "8.1",
-	"plugins": [ ".", "https://github.com/sitoalpasso/wp-conformita-core.git#5786cd01e5931665933a3bd252cb0db33ab48e96" ],
+	"plugins": [ ".", "https://github.com/sitoalpasso/wp-conformita-core.git#4f477b4612868478b3ac4ed8a8d9c093cc296bcf" ],
 	"config": {
 		"WP_DEBUG": true,
 		"WP_DEBUG_DISPLAY": true,

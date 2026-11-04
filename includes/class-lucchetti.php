@@ -7,31 +7,13 @@
  * il turno delle proroghe, la numerazione di un anno, le impostazioni dello
  * storico, le copie dello storico, le amministrazioni ospitate.
  *
- * **Non tutte le banche dati li trattano allo stesso modo.** Da MySQL 5.7.5 e
- * da MariaDB 10.0.2 una connessione tiene piu' lucchetti insieme, e lo stesso
- * lucchetto preso due volte va lasciato due volte. Prima, e WordPress ammette
- * ancora quelle versioni, una connessione ne tiene uno solo: prenderne un
- * secondo lascia il primo senza avviso, e un solo rilascio libera tutto. Un
- * lucchetto preso dentro un altro, come la numerazione dell'anno dentro il
- * turno dell'importazione, aprirebbe il turno a un'altra richiesta mentre
- * l'importazione lavora ancora.
- *
- * **Dove la connessione ne tiene uno solo, l'albo ne usa uno solo.** Ogni
- * lucchetto dell'albo diventa lo stesso lucchetto, preso una volta sola dalla
- * banca dati e contato qui: le prese annidate non chiedono niente, e il
- * rilascio arriva alla banca dati quando si lascia l'ultima. Le operazioni
- * dell'albo vanno allora una alla volta anche quando non si toccherebbero:
- * e' piu' lento, ma non lascia passare nessuno in mezzo. Dove la connessione
- * ne tiene piu' d'uno, i lucchetti restano distinti come sempre.
- *
- * Il tipo si legge dalla versione della banca dati, una volta per
- * connessione. Una versione letta ma che non si riconosce vale come lucchetto
- * unico: e' la lettura prudente, perche' il lucchetto unico e' corretto anche
- * dove se ne potrebbero tenere di piu', e la stessa banca dati da' la stessa
- * risposta a ogni connessione. Una versione che non si legge non decide
- * niente: le prese si rifiutano e la richiesta dopo chiede di nuovo, perche'
- * una connessione che scegliesse da sola il lucchetto unico non escluderebbe
- * quelle che, lette le versioni, usano i lucchetti distinti.
+ * Il meccanismo sta nel componente comune, dall'interfaccia 1.14.0: dove la
+ * banca dati tiene un solo lucchetto per connessione, tutti i lucchetti di
+ * tutti i componenti diventano lo stesso, contato una volta per connessione.
+ * Deve stare li', e non qui, perche' la connessione la condividono tutti i
+ * componenti: un conto tenuto dall'albo per se' non vedrebbe le prese degli
+ * altri. Questa classe resta come punto unico dell'albo e passa ogni chiamata
+ * al componente comune.
  *
  * @package AlboPretorioPa
  */
@@ -42,29 +24,18 @@ namespace AlboPretorioPa;
 
 defined( 'ABSPATH' ) || exit;
 
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lucchetti della banca dati, non dati.
-
 /**
- * Prende e lascia i lucchetti dell'albo.
+ * Prende e lascia i lucchetti dell'albo, con il meccanismo del componente comune.
  */
 final class Lucchetti {
 
 	/**
-	 * Lo stato di ogni connessione: se tiene un lucchetto solo, quante prese
-	 * annidate sono aperte, e se il lucchetto resta fino alla fine della
-	 * connessione.
-	 *
-	 * @var \WeakMap<\wpdb, array{unico: bool, prese: int, trattenuto: bool, letto: bool}>|null
-	 */
-	private static ?\WeakMap $stato = null;
-
-	/**
-	 * Se la connessione dell'albo tiene un solo lucchetto alla volta.
+	 * Se la connessione tiene un solo lucchetto alla volta.
 	 *
 	 * @return bool
 	 */
 	public static function unico(): bool {
-		return self::stato()['unico'];
+		return (bool) \conformita_core_lucchetto_unico();
 	}
 
 	/**
@@ -74,13 +45,7 @@ final class Lucchetti {
 	 * @return string
 	 */
 	public static function nome( string $nome ): string {
-		if ( ! self::unico() ) {
-			return $nome;
-		}
-
-		global $wpdb;
-
-		return substr( $wpdb->prefix, 0, 40 ) . 'albo_lucchetto';
+		return (string) \conformita_core_nome_lucchetto( $nome );
 	}
 
 	/**
@@ -91,28 +56,7 @@ final class Lucchetti {
 	 * @return bool Vero se preso.
 	 */
 	public static function prendi( string $nome, int $attesa ): bool {
-		global $wpdb;
-
-		$stato = self::stato();
-
-		// Senza sapere che tipo di banca dati e', nessuna presa: chi chiama rinuncia come per un lucchetto occupato.
-		if ( ! $stato['letto'] ) {
-			return false;
-		}
-
-		if ( $stato['unico'] && $stato['prese'] > 0 ) {
-			self::scrivi( array( 'prese' => $stato['prese'] + 1 ) + $stato );
-
-			return true;
-		}
-
-		$preso = '1' === (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK( %s, %d )', self::nome( $nome ), $attesa ) );
-
-		if ( $preso && $stato['unico'] ) {
-			self::scrivi( array( 'prese' => 1 ) + $stato );
-		}
-
-		return $preso;
+		return (bool) \conformita_core_prendi_lucchetto( $nome, $attesa );
 	}
 
 	/**
@@ -121,61 +65,28 @@ final class Lucchetti {
 	 * @param string $nome Nome del lucchetto.
 	 */
 	public static function lascia( string $nome ): void {
-		global $wpdb;
-
-		$stato = self::stato();
-
-		if ( $stato['unico'] ) {
-			$prese = max( 0, $stato['prese'] - 1 );
-
-			self::scrivi( array( 'prese' => $prese ) + $stato );
-
-			if ( $prese > 0 || $stato['trattenuto'] ) {
-				return;
-			}
-		}
-
-		$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', self::nome( $nome ) ) );
+		\conformita_core_lascia_lucchetto( $nome );
 	}
 
 	/**
 	 * Chiude una presa senza lasciare il lucchetto alla banca dati: lo lascia
 	 * la banca dati stessa, alla fine della connessione.
 	 *
-	 * Serve dentro una transazione aperta da altri, dove le scritture diventano
-	 * definitive solo quando quella si chiude.
-	 *
 	 * @param string $nome Nome del lucchetto.
 	 */
 	public static function trattieni( string $nome ): void {
-		unset( $nome );
-
-		$stato = self::stato();
-
-		if ( $stato['unico'] ) {
-			self::scrivi(
-				array(
-					'prese'      => max( 0, $stato['prese'] - 1 ),
-					'trattenuto' => true,
-				) + $stato
-			);
-		}
+		\conformita_core_trattieni_lucchetto( $nome );
 	}
 
 	/**
 	 * Se il lucchetto unico e' gia' tenuto da un'altra presa di questa
-	 * connessione: un'operazione annidata, o una presa trattenuta.
+	 * connessione, anche di un altro componente.
 	 *
-	 * Dove i lucchetti sono distinti la risposta e' sempre no.
-	 *
-	 * @param int $mie Le prese aperte che sono di chi chiede: zero prima di
-	 *                 prendere, una prima di lasciare.
+	 * @param int $mie Le prese aperte che sono di chi chiede.
 	 * @return bool
 	 */
 	public static function tenuto_da_altri_qui( int $mie = 0 ): bool {
-		$stato = self::stato();
-
-		return $stato['unico'] && ( $stato['prese'] > $mie || $stato['trattenuto'] );
+		return (bool) \conformita_core_lucchetto_tenuto_qui( $mie );
 	}
 
 	/**
@@ -183,11 +94,7 @@ final class Lucchetti {
 	 * lasciato il lucchetto con un'istruzione propria.
 	 */
 	public static function presa_chiusa(): void {
-		$stato = self::stato();
-
-		if ( $stato['unico'] ) {
-			self::scrivi( array( 'prese' => max( 0, $stato['prese'] - 1 ) ) + $stato );
-		}
+		\conformita_core_lucchetto_chiuso_senza_rilascio();
 	}
 
 	/**
@@ -197,74 +104,6 @@ final class Lucchetti {
 	 * @return bool
 	 */
 	public static function versione_a_lucchetto_unico( string $versione ): bool {
-		if ( 1 !== preg_match( '/^(\d+)\.(\d+)\.(\d+)/', $versione, $parti ) ) {
-			return true;
-		}
-
-		// Una risposta che comincia con 5.5.5- e poi dice MariaDB porta la versione vera dopo il trattino.
-		if ( false !== stripos( $versione, 'mariadb' ) && 1 === preg_match( '/^5\.5\.5-(\d+)\.(\d+)\.(\d+)/', $versione, $vere ) ) {
-			$parti = $vere;
-		}
-
-		$numero = sprintf( '%d.%d.%d', $parti[1], $parti[2], $parti[3] );
-		$minima = false !== stripos( $versione, 'mariadb' ) ? '10.0.2' : '5.7.5';
-
-		return version_compare( $numero, $minima, '<' );
-	}
-
-	/**
-	 * Lo stato della connessione dell'albo, letto la prima volta.
-	 *
-	 * @return array{unico: bool, prese: int, trattenuto: bool, letto: bool}
-	 */
-	private static function stato(): array {
-		global $wpdb;
-
-		if ( null === self::$stato ) {
-			self::$stato = new \WeakMap();
-		}
-
-		if ( ! isset( self::$stato[ $wpdb ] ) ) {
-			$versione = $wpdb->get_var( 'SELECT VERSION()' );
-
-			/*
-			 * Senza risposta non si sceglie: questa connessione andrebbe sul
-			 * lucchetto unico e un'altra, che la versione l'ha letta, su quelli
-			 * distinti, e le due non si escluderebbero. Le prese si rifiutano, e
-			 * la volta dopo si chiede di nuovo.
-			 */
-			if ( ! is_string( $versione ) ) {
-				return array(
-					'unico'      => true,
-					'prese'      => 0,
-					'trattenuto' => false,
-					'letto'      => false,
-				);
-			}
-
-			self::$stato[ $wpdb ] = array(
-				'unico'      => self::versione_a_lucchetto_unico( $versione ),
-				'prese'      => 0,
-				'trattenuto' => false,
-				'letto'      => true,
-			);
-		}
-
-		return self::$stato[ $wpdb ];
-	}
-
-	/**
-	 * Scrive lo stato della connessione dell'albo.
-	 *
-	 * @param array{unico: bool, prese: int, trattenuto: bool, letto: bool} $stato Stato.
-	 */
-	private static function scrivi( array $stato ): void {
-		global $wpdb;
-
-		if ( ! $stato['letto'] ) {
-			return;
-		}
-
-		self::$stato[ $wpdb ] = $stato;
+		return (bool) \conformita_core_versione_a_lucchetto_unico( $versione );
 	}
 }

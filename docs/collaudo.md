@@ -1068,7 +1068,7 @@ rispetta già: si provano vere con i guasti introdotti a mano, elencati nella sc
 Stesso prefisso `A-`. Correttezza dei meccanismi di ALBO-08, ALBO-29, ALBO-31, ALBO-35 e
 ALBO-36 su MySQL prima della 5.7.5 e MariaDB prima della 10.0.2, dove una connessione tiene un
 solo lucchetto con nome. Scheda [`lucchetto-unico.md`](implementazione/lucchetto-unico.md).
-Provate in `tests/LucchettiTest.php` (A-340..A-343), con l'imitazione di `tests/lucchetto-unico.php`. Oltre a
+Provate in `tests/LucchettiTest.php` (A-340..A-343, A-348), con l'imitazione di `tests/lucchetto-unico.php`. Oltre a
 queste righe: la suite intera gira con l'imitazione accesa (`composer test:lucchetto-unico`), e
 la CI la fa girare su una MariaDB 5.5 vera.
 
@@ -1078,6 +1078,7 @@ la CI la fa girare su una MariaDB 5.5 vera.
 | A-341 | fatto | **Prese annidate e trattenute**: il turno delle proroghe preso e lasciato dentro il turno dell'importazione; il turno delle proroghe da solo; poi, dentro la transazione della suite, la numerazione presa e lasciata dentro il turno dell'importazione, e un'altra operazione della stessa richiesta dopo | il turno delle proroghe annidato si dice lasciato e il turno dell'importazione resta chiuso; da solo chiude, con il rifiuto che parla di un'altra operazione dell'albo, e poi riapre; la numerazione dentro una transazione aperta da altri resta chiusa alle altre connessioni, anche dopo un'altra operazione della stessa richiesta |
 | A-342 | fatto | **Il tipo dalla versione**: risposte di MariaDB e MySQL prima e dopo le versioni che tengono più lucchetti, con il prefisso che alcune connessioni aggiungono, una risposta vuota e una sconosciuta | lucchetto unico prima di MariaDB 10.0.2 e di MySQL 5.7.5; più lucchetti da quelle versioni in poi; lucchetto unico per ogni risposta letta che non si riconosce |
 | A-343 | fatto | **La versione che non si legge**: la domanda sulla versione fallisce; si chiede un lucchetto direttamente e poi il turno dell'importazione; si chiude e si trattiene una presa; poi la domanda torna a funzionare e si riprende il turno | senza risposta nessuna presa riesce e nessun lucchetto si chiede alla banca dati; l'importazione rinuncia; la risposta mancata non si ricorda e ogni chiamata chiede di nuovo; con la risposta il turno si prende, e la versione letta non si chiede più. Altrimenti questa connessione andrebbe sul lucchetto unico e le altre, che la versione la leggono, su quelli distinti, senza escludersi |
+| A-348 | fatto | **Prese condivise con gli altri componenti**: con la banca dati che tiene un lucchetto solo, si prende il turno dell'importazione; dentro, un altro componente prende e lascia un suo lucchetto con le funzioni del componente comune; da un'altra connessione si prova il turno e il lucchetto dell'altro componente; poi si lascia il turno | il nome del turno è lo stesso lucchetto comune a tutti i componenti; finché il turno è preso, né il turno né il lucchetto dell'altro componente si prendono da un'altra connessione; lasciato il turno, il lucchetto è libero. Il conto delle prese è quello del componente comune (interfaccia 1.14.0), non uno dell'albo |
 
 ## Backup grandi e tempo della richiesta
 
