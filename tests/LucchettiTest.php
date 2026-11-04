@@ -22,7 +22,7 @@ use AlboPretorioPa\Repertorio;
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- lucchetti della banca dati nelle prove.
 
 /**
- * Righe A-340..A-343 del catalogo di collaudo.
+ * Righe A-340..A-343 e A-348 del catalogo di collaudo.
  */
 class LucchettiTest extends \WP_UnitTestCase {
 
@@ -248,6 +248,40 @@ class LucchettiTest extends \WP_UnitTestCase {
 		$this->assertSame( 6, $domande );
 		$this->assertTrue( Lucchetti::unico(), 'La banca dati imitata e\' a lucchetto unico.' );
 		$this->assertSame( 6, $domande, 'Letta una volta, la versione non si chiede piu\'.' );
+	}
+
+	/**
+	 * A-348: il conto delle prese e' quello del componente comune, condiviso
+	 * con gli altri componenti: un lucchetto di un altro componente preso e
+	 * lasciato dentro il turno dell'importazione non lo apre.
+	 */
+	public function test_a348_prese_condivise_con_gli_altri_componenti(): void {
+		$this->senza_transazione_esterna();
+
+		$this->assertSame( conformita_core_nome_lucchetto( 'altro_componente_salvataggio' ), Lucchetti::nome( Importazione::nome_turno() ), 'Lo stesso lucchetto di tutti i componenti.' );
+
+		$this->assertTrue( $this->turno_importazione( 'prendi' ) );
+
+		// Come farebbe un altro componente nella stessa richiesta.
+		$this->assertTrue( conformita_core_prendi_lucchetto( 'altro_componente_salvataggio', 0 ) );
+		conformita_core_lascia_lucchetto( 'altro_componente_salvataggio' );
+
+		$this->assertWPError( $this->da_un_altra_richiesta( fn() => $this->turno_importazione( 'prendi' ) ), 'Il turno dell\'importazione resta chiuso.' );
+		$this->assertFalse( $this->da_un_altra_richiesta( static fn() => conformita_core_prendi_lucchetto( 'altro_componente_salvataggio', 0 ) ), 'E l\'altro componente aspetta.' );
+
+		$this->turno_importazione( 'lascia' );
+
+		$this->assertTrue(
+			$this->da_un_altra_richiesta(
+				static function () {
+					$preso = conformita_core_prendi_lucchetto( 'altro_componente_salvataggio', 0 );
+					conformita_core_lascia_lucchetto( 'altro_componente_salvataggio' );
+
+					return $preso;
+				}
+			),
+			'Finito il turno, il lucchetto e\' libero.'
+		);
 	}
 
 	/**

@@ -118,7 +118,7 @@ final class LucchettoUnico {
 	 * Dimentica quello che il componente sa dei lucchetti delle connessioni.
 	 */
 	public static function dimentica_stato(): void {
-		$stato = new \ReflectionProperty( Lucchetti::class, 'stato' );
+		$stato = new \ReflectionProperty( \Conformita_Core_Lucchetti::class, 'stato' );
 		$stato->setAccessible( true );
 		$stato->setValue( null, null );
 	}

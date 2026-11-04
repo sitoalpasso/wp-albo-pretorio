@@ -4,7 +4,7 @@ Scheda di lavorazione. Scritta prima del codice come piano; aggiornata a lavoro 
 com'è andata davvero.
 
 **Stato: fatto.** Correttezza dei meccanismi che servono ALBO-08, ALBO-31, ALBO-35, ALBO-36 e
-ALBO-29. Righe di collaudo A-340..A-343.
+ALBO-29. Righe di collaudo A-340..A-343 e A-348.
 
 ## In tre paragrafi
 
@@ -184,3 +184,25 @@ senza svuotarla. In CI la cartella parte vuota.
 | Il messaggio della proroga occupata che parla solo di un'altra proroga | A-341 |
 | La presa concessa senza aver letto la versione | A-343 |
 | Lo stato di una connessione senza versione letta ricordato | A-343 |
+
+## Passaggio al componente comune (A-348)
+
+Il meccanismo è passato nel componente comune, che lo espone dall'interfaccia `1.14.0`. Il
+motivo: la connessione con la banca dati è una sola per richiesta e la condividono tutti i
+componenti. Se la trasparenza prendesse un suo lucchetto dentro un'operazione dell'albo, su una
+banca dati vecchia lascerebbe quello dell'albo, e il conto che l'albo teneva per sé non se ne
+accorgerebbe. Ora il conto è uno solo per tutti.
+
+`includes/class-lucchetti.php` resta il punto unico dell'albo e passa ogni chiamata alle
+funzioni del componente comune. Il nome del lucchetto unico è adesso quello comune
+(prefisso delle tabelle seguito da `conformita_lucchetto`), quindi su una banca dati vecchia le
+operazioni dell'albo e quelle della trasparenza vanno in fila fra loro. Il componente comune
+aggiunge un controllo che qui non c'era: una presa annidata verifica che il lucchetto sia
+ancora di questa connessione, e se la connessione è caduta e riaperta si rifiuta.
+
+L'albo chiede ora l'interfaccia `1.14.0`, e la revisione del componente comune nelle prove è
+quella che la porta.
+
+| Guasto introdotto | Visto da |
+|---|---|
+| L'albo con il conto suo, come prima del passaggio | A-343, A-348 |
