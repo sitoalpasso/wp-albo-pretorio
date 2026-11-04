@@ -1989,7 +1989,8 @@ class ImportazioneVeraTest extends \WP_UnitTestCase {
 
 			$this->assertWPError( $esito, $caso );
 			$this->assertSame( 'albo_importazione_estrazione', $esito->get_error_code(), $caso );
-			$this->assertSame( $prima, $temporanei(), $caso . ': nessun temporaneo resta.' );
+			// Solo i file comparsi: quelli che spariscono sono di altri processi della macchina.
+			$this->assertSame( array(), array_values( array_diff( $temporanei(), $prima ) ), $caso . ': nessun temporaneo resta.' );
 		}
 
 		// Il file intero passa a chi chiama, che lo cancella dopo il deposito.
