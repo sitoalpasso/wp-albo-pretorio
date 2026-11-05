@@ -1,13 +1,18 @@
 name: CI
 
+# Per risparmiare i minuti gratuiti di GitHub Actions nei repository privati,
+# il giro di prova parte solo sulle pull request e a mano, non a ogni push sui
+# rami. Un nuovo push su una pull request ferma il giro precedente.
 on:
-  push:
-    branches:
-      - "**"
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   phpcs:
@@ -40,12 +45,11 @@ jobs:
           - wp: "6.5"
             php: "8.1"
             db: "mysql:8.0"
-          # L'ultima stabile, per accorgersi delle rotture in anticipo.
-          - wp: "latest"
-            php: "8.3"
-            db: "mysql:8.0"
-          # Una banca dati che tiene un solo lucchetto per connessione e non
-          # conosce RELEASE_ALL_LOCKS: WordPress la ammette ancora.
+          # L'ultima stabile di WordPress con l'ultimo PHP, su una banca dati che
+          # tiene un solo lucchetto per connessione e non conosce
+          # RELEASE_ALL_LOCKS: WordPress la ammette ancora e ci sono ancora
+          # versioni di banca dati di questo tipo in uso. Questo giro copre anche
+          # l'ultima versione di WordPress.
           - wp: "latest"
             php: "8.3"
             db: "mariadb:5.5"
